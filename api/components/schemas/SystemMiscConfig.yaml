@@ -1,0 +1,125 @@
+type: object
+description: Miscellaneous system configuration in ISPConfig
+properties:
+  company_name:
+    type: string
+    description: Company name
+    example: "Example Inc."
+  custom_login_text:
+    type: string
+    description: Custom login text
+    example: "Welcome to our hosting control panel"
+  custom_login_link:
+    type: string
+    format: uri
+    description: Custom login link
+    example: "https://example.com/login"
+  dashboard_atom_url_admin:
+    type: string
+    format: uri
+    description: ATOM feed URL for admin dashboard
+    example: "https://www.ispconfig.org/atom"
+  dashboard_atom_url_reseller:
+    type: string
+    format: uri
+    description: ATOM feed URL for reseller dashboard
+    example: "https://www.ispconfig.org/atom"
+  dashboard_atom_url_client:
+    type: string
+    format: uri
+    description: ATOM feed URL for client dashboard
+    example: "https://www.ispconfig.org/atom"
+  tab_change_discard:
+    type: string
+    enum: [y, n]
+    description: Whether to discard changes when changing tabs
+    example: "n"
+  tab_change_warning:
+    type: string
+    enum: [y, n]
+    description: Whether to show warning when changing tabs with unsaved changes
+    example: "n"
+  use_loadindicator:
+    type: string
+    enum: [y, n]
+    description: Whether to use loading indicators
+    example: "y"
+  use_combobox:
+    type: string
+    enum: [y, n]
+    description: Whether to use combo boxes
+    example: "y"
+  show_support_messages:
+    type: string
+    enum: [y, n]
+    description: Whether to show support messages
+    example: "y"
+  show_delete_on_forms:
+    type: string
+    enum: [y, n]
+    description: Whether to show delete buttons on forms
+    example: "n"
+  maintenance_mode:
+    type: string
+    enum: [y, n]
+    description: Whether maintenance mode is enabled
+    example: "n"
+  maintenance_mode_exclude_ips:
+    type: string
+    description: IP addresses excluded from maintenance mode (comma-separated)
+    example: "192.168.1.1,10.0.0.1"
+  admin_dashlets_left:
+    type: string
+    description: Left dashboard widgets for admin
+    example: "welcome,server_status"
+  admin_dashlets_right:
+    type: string
+    description: Right dashboard widgets for admin
+    example: "news,statistics"
+  reseller_dashlets_left:
+    type: string
+    description: Left dashboard widgets for reseller
+    example: "welcome,server_status"
+  reseller_dashlets_right:
+    type: string
+    description: Right dashboard widgets for reseller
+    example: "news,statistics"
+  client_dashlets_left:
+    type: string
+    description: Left dashboard widgets for client
+    example: "welcome,server_status"
+  client_dashlets_right:
+    type: string
+    description: Right dashboard widgets for client
+    example: "news,statistics"
+  customer_no_template:
+    type: string
+    maxLength: 50
+    description: Template for customer numbers
+    example: "CUST{NO}"
+  customer_no_start:
+    type: integer
+    description: Starting number for customer numbers
+    example: 1000
+  customer_no_counter:
+    type: integer
+    description: Current customer number counter
+    example: 1050
+  session_timeout:
+    type: integer
+    description: Session timeout in seconds
+    example: 1800
+  session_allow_endless:
+    type: string
+    enum: [y, n]
+    description: Whether to allow endless sessions
+    example: "n"
+  min_password_length:
+    type: integer
+    description: Minimum password length
+    example: 8
+  min_password_strength:
+    type: string
+    enum: ["", "1", "2", "3", "4", "5"]
+    description: Minimum password strength (1-5)
+    example: "3"

@@ -1,0 +1,218 @@
+# Web Folder User endpoints
+/sites/web-folder-users:
+  get:
+    tags:
+      - Web Folder Users
+    summary: List all web folder users
+    description: |
+      Returns a paginated list of web folder users.
+      The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      You can filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Example: `username[ilike]=%user%&active[eq]=y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=id` or `sort=-created_at`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: web_folder_id
+        in: query
+        description: Filter by web folder ID
+        schema:
+          type: integer
+          format: int64
+      - name: active
+        in: query
+        description: Filter by active status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+    responses:
+      '200':
+        description: A list of web folder users
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/WebFolderUser.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Web Folder Users
+    summary: Create a new web folder user
+    description: |
+      Creates a new user for accessing a protected web folder.
+      
+      ### Validation Rules
+      - Username must be unique within the web folder
+      - Web folder must exist and be accessible
+      - Password must meet strength requirements
+      - User must have permission to create web folder users
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/WebFolderUser.yaml'
+    responses:
+      '201':
+        description: Web folder user created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/WebFolderUser.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+        description: |
+          Bad Request. Possible reasons:
+          - Invalid username format
+          - Username already exists in this web folder
+          - Web folder not found or inaccessible
+          - Weak password
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/sites/web-folder-users/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: Web folder user ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Web Folder Users
+    summary: Get web folder user by ID
+    description: Returns a single web folder user by its ID
+    responses:
+      '200':
+        description: Web folder user details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/WebFolderUser.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Web Folder Users
+    summary: Update web folder user
+    description: |
+      Updates an existing web folder user configuration.
+      
+      ### Notes
+      - Username cannot be changed after creation
+      - Only password and active status can be updated
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              password:
+                type: string
+                description: New password for the web folder user
+                minLength: 6
+                maxLength: 255
+              active:
+                type: string
+                enum: [y, n]
+                description: Whether the web folder user is active
+    responses:
+      '200':
+        description: Web folder user updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/WebFolderUser.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Web Folder Users
+    summary: Delete web folder user
+    description: |
+      Deletes a web folder user by ID.
+      
+      ### Notes
+      - This will revoke the user's access immediately
+      - This action cannot be undone
+    responses:
+      '204':
+        description: Web folder user deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - User is currently logged in
+          - Insufficient permissions
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

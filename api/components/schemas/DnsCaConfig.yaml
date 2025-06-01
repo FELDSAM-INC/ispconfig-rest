@@ -1,0 +1,28 @@
+type: object
+description: DNS Certification Authority configuration
+properties:
+  id:
+    type: integer
+    format: int64
+    description: Unique identifier for the CA
+    readOnly: true
+  name:
+    type: string
+    description: Name of the CA
+    example: "Let's Encrypt"
+  private_key:
+    type: string
+    format: binary
+    description: CA private key (PEM format)
+  certificate:
+    type: string
+    format: binary
+    description: CA certificate (PEM format)
+  intermediates:
+    type: string
+    format: binary
+    description: Intermediate certificates (PEM format)
+  active:
+    type: boolean
+    description: Whether this CA is active
+    default: true

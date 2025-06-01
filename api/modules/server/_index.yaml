@@ -1,0 +1,25 @@
+# Server module API paths
+
+# Server management
+servers:
+  $ref: './servers.yaml'
+
+# Server configuration
+configs:
+  $ref: './server-config.yaml'
+
+# Firewall management
+firewall:
+  $ref: './firewall.yaml'
+
+# PHP Versions management
+php-versions:
+  $ref: './php-versions.yaml'
+
+# IP Addresses management
+ip-addresses:
+  $ref: './ip-addresses.yaml'
+
+# IP Mappings management
+ip-mappings:
+  $ref: './ip-mappings.yaml'

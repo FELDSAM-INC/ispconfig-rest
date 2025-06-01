@@ -1,0 +1,31 @@
+type: object
+x-db-table: sys_ini
+description: System configuration for ISPConfig
+properties:
+  sysini_id:
+    type: integer
+    format: int64
+    description: Unique identifier for the system configuration
+    readOnly: true
+    example: 1
+  
+  # Reference to configuration sections
+  sites:
+    $ref: './SystemSitesConfig.yaml'
+    description: Sites-related configuration
+  
+  mail:
+    $ref: './SystemMailConfig.yaml'
+    description: Mail-related configuration
+  
+  dns:
+    $ref: './SystemDnsConfig.yaml'
+    description: DNS-related configuration
+  
+  domains:
+    $ref: './SystemDomainsConfig.yaml'
+    description: Domains-related configuration
+  
+  misc:
+    $ref: './SystemMiscConfig.yaml'
+    description: Miscellaneous configuration

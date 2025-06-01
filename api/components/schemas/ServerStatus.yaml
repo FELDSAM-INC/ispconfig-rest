@@ -1,0 +1,71 @@
+# ServerStatus Schema
+# Represents the status of a server in the system
+
+type: object
+properties:
+  server_id:
+    type: integer
+    format: int64
+    description: Unique identifier of the server
+    example: 1
+  server_name:
+    type: string
+    description: Hostname of the server
+    example: "server1.example.com"
+  status:
+    type: string
+    enum: ["ok", "warning", "error", "unknown"]
+    description: Overall status of the server
+    example: "ok"
+  cpu_usage:
+    type: number
+    format: float
+    description: CPU usage percentage
+    example: 45.7
+  memory_usage:
+    type: number
+    format: float
+    description: Memory usage percentage
+    example: 67.3
+  disk_usage:
+    type: number
+    format: float
+    description: Disk usage percentage
+    example: 23.5
+  load_average:
+    type: array
+    items:
+      type: number
+      format: float
+    description: System load averages (1min, 5min, 15min)
+    example: [1.2, 0.8, 0.5]
+  uptime:
+    type: integer
+    format: int64
+    description: System uptime in seconds
+    example: 1234567
+  last_updated:
+    type: string
+    format: date-time
+    description: When the status was last updated
+    example: "2025-06-01T21:05:46+02:00"
+  services:
+    type: array
+    items:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the service
+          example: "apache2"
+        status:
+          type: string
+          enum: ["running", "stopped", "error", "unknown"]
+          description: Status of the service
+          example: "running"
+        uptime:
+          type: integer
+          format: int64
+          description: Uptime of the service in seconds
+          example: 3600
+    description: Status of system services

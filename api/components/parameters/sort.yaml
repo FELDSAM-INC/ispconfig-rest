@@ -1,0 +1,5 @@
+name: sort
+in: query
+description: Field to sort by
+schema:
+  type: string

@@ -1,0 +1,186 @@
+# Resync Request Schema
+# This schema defines the structure of a resync request in ISPConfig
+
+type: object
+properties:
+  resync_all:
+    type: integer
+    enum: [0, 1]
+    description: Resync all services (1) or not (0)
+    example: 0
+    x-db-field: resync_all
+  all_server_id:
+    type: integer
+    description: Server ID for resyncing all services (0 = all active servers)
+    example: 1
+    x-db-field: all_server_id
+  
+  # Web related
+  resync_sites:
+    type: integer
+    enum: [0, 1]
+    description: Resync websites
+    example: 0
+    x-db-field: resync_sites
+  web_server_id:
+    type: integer
+    description: Server ID for resyncing websites (0 = all active web servers)
+    example: 1
+    x-db-field: web_server_id
+  
+  # FTP related
+  resync_ftp:
+    type: integer
+    enum: [0, 1]
+    description: Resync FTP users
+    example: 0
+    x-db-field: resync_ftp
+  ftp_server_id:
+    type: integer
+    description: Server ID for resyncing FTP users (0 = all active web servers)
+    example: 1
+    x-db-field: ftp_server_id
+  
+  # WebDAV related
+  resync_webdav:
+    type: integer
+    enum: [0, 1]
+    description: Resync WebDAV users
+    example: 0
+    x-db-field: resync_webdav
+  webdav_server_id:
+    type: integer
+    description: Server ID for resyncing WebDAV users (0 = all active file servers)
+    example: 1
+    x-db-field: webdav_server_id
+  
+  # Shell related
+  resync_shell:
+    type: integer
+    enum: [0, 1]
+    description: Resync shell users
+    example: 0
+    x-db-field: resync_shell
+  shell_server_id:
+    type: integer
+    description: Server ID for resyncing shell users (0 = all active web servers)
+    example: 1
+    x-db-field: shell_server_id
+  
+  # Cron related
+  resync_cron:
+    type: integer
+    enum: [0, 1]
+    description: Resync cron jobs
+    example: 0
+    x-db-field: resync_cron
+  cron_server_id:
+    type: integer
+    description: Server ID for resyncing cron jobs (0 = all active web servers)
+    example: 1
+    x-db-field: cron_server_id
+  
+  # Database related
+  resync_db:
+    type: integer
+    enum: [0, 1]
+    description: Resync databases and database users
+    example: 0
+    x-db-field: resync_db
+  db_server_id:
+    type: integer
+    description: Server ID for resyncing databases (0 = all active database servers)
+    example: 1
+    x-db-field: db_server_id
+  
+  # Mail related
+  resync_mail:
+    type: integer
+    enum: [0, 1]
+    description: Resync mail domains and spam filter policies
+    example: 0
+    x-db-field: resync_mail
+  mail_server_id:
+    type: integer
+    description: Server ID for resyncing mail domains (0 = all active mail servers)
+    example: 1
+    x-db-field: mail_server_id
+  
+  # Mailbox related
+  resync_mailbox:
+    type: integer
+    enum: [0, 1]
+    description: Resync mailboxes and mail aliases
+    example: 0
+    x-db-field: resync_mailbox
+  mailbox_server_id:
+    type: integer
+    description: Server ID for resyncing mailboxes (0 = all active mail servers)
+    example: 1
+    x-db-field: mailbox_server_id
+  
+  # Mail filter related
+  resync_mailfilter:
+    type: integer
+    enum: [0, 1]
+    description: Resync mail filters, access rules, and spam filters
+    example: 0
+    x-db-field: resync_mailfilter
+  
+  # Mailing list related
+  resync_mailinglist:
+    type: integer
+    enum: [0, 1]
+    description: Resync mailing lists
+    example: 0
+    x-db-field: resync_mailinglist
+  
+  # Mail transport related
+  resync_mailtransport:
+    type: integer
+    enum: [0, 1]
+    description: Resync mail transports
+    example: 0
+    x-db-field: resync_mailtransport
+  
+  # Mail relay related
+  resync_mailrelay:
+    type: integer
+    enum: [0, 1]
+    description: Resync mail relay recipients
+    example: 0
+    x-db-field: resync_mailrelay
+  
+  # DNS related
+  resync_dns:
+    type: integer
+    enum: [0, 1]
+    description: Resync DNS zones and records
+    example: 0
+    x-db-field: resync_dns
+  dns_server_id:
+    type: integer
+    description: Server ID for resyncing DNS (0 = all active DNS servers)
+    example: 1
+    x-db-field: dns_server_id
+  
+  # Client related
+  resync_client:
+    type: integer
+    enum: [0, 1]
+    description: Resync client data
+    example: 0
+    x-db-field: resync_client
+  
+  # VServer related
+  resync_vserver:
+    type: integer
+    enum: [0, 1]
+    description: Resync virtual servers
+    example: 0
+    x-db-field: resync_vserver
+  vserver_server_id:
+    type: integer
+    description: Server ID for resyncing virtual servers (0 = all active vserver servers)
+    example: 1
+    x-db-field: vserver_server_id

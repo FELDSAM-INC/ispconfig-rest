@@ -1,0 +1,62 @@
+type: object
+description: System configuration for sites in ISPConfig
+properties:
+  dbname_prefix:
+    type: string
+    maxLength: 50
+    description: Prefix for database names
+    example: "db_"
+  dbuser_prefix:
+    type: string
+    maxLength: 50
+    description: Prefix for database users
+    example: "dbu_"
+  ftpuser_prefix:
+    type: string
+    maxLength: 50
+    description: Prefix for FTP users
+    example: "ftp_"
+  shelluser_prefix:
+    type: string
+    maxLength: 50
+    description: Prefix for shell users
+    example: "sh_"
+  default_webserver:
+    type: integer
+    description: Default web server ID
+    example: 1
+  default_dbserver:
+    type: integer
+    description: Default database server ID
+    example: 1
+  disable_client_remote_dbserver:
+    type: string
+    enum: [y, n]
+    description: Whether to disable remote database servers for clients
+    example: "n"
+  default_remote_dbserver:
+    type: string
+    description: Default remote database server IPs (comma-separated)
+    example: "192.168.1.100,192.168.1.101"
+  web_php_options:
+    type: array
+    items:
+      type: string
+      enum: [no, fast-cgi, cgi, mod, suphp, php-fpm, hhvm]
+    description: Available PHP processing methods
+    example: ["fast-cgi", "php-fpm"]
+  ssh_authentication:
+    type: string
+    enum: ["", "password", "key"]
+    description: Default SSH authentication method
+    example: "password"
+  le_caa_autocreate_options:
+    type: string
+    enum: [y, n]
+    description: Whether to automatically create CAA records for Let's Encrypt
+    example: "y"
+  postgresql_database:
+    type: string
+    enum: [y, n]
+    description: Whether PostgreSQL database support is enabled
+    example: "n"

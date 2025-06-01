@@ -1,0 +1,143 @@
+type: object
+x-db-table: web_folder_user
+description: Auto-generated schema for web_folder_user
+required:
+  - server_id
+  - web_folder_id
+  - username
+  - password
+  - active
+properties:
+  id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the web folder user
+    example: 123
+    x-db-field: id
+
+  server_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Server ID where the web folder is located
+    example: 1
+
+  web_folder_id:
+    type: integer
+    format: int64
+    description: ID of the web folder this user can access
+    example: 42
+
+  username:
+    type: string
+    description: |
+      Username for HTTP authentication
+      
+      ### Validation Rules:
+      - Must be unique within the web folder
+      - Can only contain alphanumeric characters, dots, and hyphens
+      - Maximum length: 64 characters
+    maxLength: 64
+    pattern: '^[\w\.\-]{1,64}$'
+    example: "user123"
+
+  password:
+    type: string
+    writeOnly: true
+    description: |
+      Password for HTTP authentication
+      
+      ### Validation Rules:
+      - Must meet password strength requirements
+      - Will be hashed before storage
+    minLength: 6
+    maxLength: 255
+    example: "securePassword123"
+
+  active:
+    type: string
+    description: Whether the web folder user is active
+    enum: [y, n]
+    default: "y"
+
+  # System fields (readonly)
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID who created the record
+    example: 1
+
+  sys_groupid:
+    type: integer
+    readOnly: true
+    description: System group ID for the record
+    example: 1
+
+  sys_perm:
+    type: string
+    readOnly: true
+    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_group:
+    type: string
+    readOnly: true
+    description: Group permissions for the record
+    example: "riud"
+
+  sys_perm_other:
+    type: string
+    readOnly: true
+    description: Other permissions for the record
+    example: ""
+
+  created_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Creation timestamp
+    example: "2023-01-01T12:00:00Z"
+
+  updated_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Last update timestamp
+    example: "2023-01-01T12:00:00Z"
+
+  # Response only fields (not for input)
+  server_name:
+    type: string
+    readOnly: true
+    description: Name of the server where the web folder is located
+    example: "server1.example.com"
+
+  web_folder_path:
+    type: string
+    readOnly: true
+    description: Path of the web folder this user can access
+    example: "/protected-files"
+
+  parent_domain:
+    type: string
+    readOnly: true
+    description: Name of the parent domain
+    example: "example.com"
+
+description: |
+  A web folder user represents a username and password that can be used to access a protected web folder via HTTP authentication.
+  
+  ### Key Features
+  - Provides HTTP Basic Authentication for web folders
+  - Passwords are securely hashed before storage
+  - Can be enabled or disabled
+  
+  ### Usage
+  - Used in conjunction with web folders to create password-protected directories
+  - Browsers will prompt for username/password when accessing protected directories
+  
+  ### Security Notes
+  - Always use HTTPS when protecting directories with HTTP authentication
+  - Consider using .htaccess rules for additional security
+  - Passwords must meet minimum strength requirements

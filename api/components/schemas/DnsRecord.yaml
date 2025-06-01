@@ -1,0 +1,280 @@
+type: object
+x-db-table: dns_rr
+description: Auto-generated schema for dns_rr
+required:
+  - zone
+  - type
+  - data
+  - name
+
+discriminator:
+  propertyName: type
+  mapping:
+    A: '#/components/schemas/DnsRecordA'
+    AAAA: '#/components/schemas/DnsRecordAAAA'
+    CNAME: '#/components/schemas/DnsRecordCNAME'
+    MX: '#/components/schemas/DnsRecordMX'
+    TXT: '#/components/schemas/DnsRecordTXT'
+    NS: '#/components/schemas/DnsRecordNS'
+    PTR: '#/components/schemas/DnsRecordPTR'
+    SRV: '#/components/schemas/DnsRecordSRV'
+    CAA: '#/components/schemas/DnsRecordCAA'
+    SSHFP: '#/components/schemas/DnsRecordSSHFP'
+    TLSA: '#/components/schemas/DnsRecordTLSA'
+    DS: '#/components/schemas/DnsRecordDS'
+    SOA: '#/components/schemas/DnsRecordSOA'
+    SPF: '#/components/schemas/DnsRecordSPF'
+    DKIM: '#/components/schemas/DnsRecordDKIM'
+    DMARC: '#/components/schemas/DnsRecordDMARC'
+    ALIAS: '#/components/schemas/DnsRecordALIAS'
+    HINFO: '#/components/schemas/DnsRecordHINFO'
+    RP: '#/components/schemas/DnsRecordRP'
+    LOC: '#/components/schemas/DnsRecordLOC'
+    NAPTR: '#/components/schemas/DnsRecordNAPTR'
+
+properties:
+  # System Fields
+  id:
+    type: integer
+    format: int32
+    x-db-field: id
+    minimum: 1
+    readOnly: true
+    description: Unique identifier for the DNS record
+    example: 1
+
+  sys_userid:
+    type: integer
+    format: int32
+    minimum: 1
+    readOnly: true
+    description: ID of the system user who created this record
+    example: 1
+
+  sys_groupid:
+    type: integer
+    format: int32
+    minimum: 1
+    description: System group ID that owns this record
+    example: 10
+
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    default: 'riud'
+    description: User permissions (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    default: 'riud'
+    description: Group permissions (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    default: ''
+    description: Other permissions (r=read, i=insert, u=update, d=delete)
+    example: ""
+
+  # Common DNS Record Fields
+  server_id:
+    type: integer
+    format: int32
+    minimum: 1
+    description: ID of the DNS server where this record is hosted
+    x-db-field: server_id
+    example: 1
+
+  zone:
+    type: integer
+    format: int32
+    minimum: 1
+    description: ID of the zone this record belongs to
+    x-db-field: zone
+    example: 1
+
+  name:
+    type: string
+    maxLength: 255
+    description: |
+      The name of the record (e.g., www, @, mail).
+      Use @ for the zone apex.
+    x-db-field: name
+    example: "www"
+
+  type:
+    type: string
+    enum: [A, AAAA, MX, CNAME, TXT, NS, PTR, SOA, SRV, NAPTR, CAA, SSHFP, TLSA, DS, DNSKEY, SPF, DKIM, DMARC, ALIAS, HINFO, RP, LOC]
+    description: |
+      The DNS record type.
+      Determines the format and validation of the data field.
+    x-db-field: type
+    example: "A"
+
+  data:
+    type: string
+    description: |
+      The record data. Format depends on the record type.
+      - A: IPv4 address (e.g., 192.0.2.1)
+      - AAAA: IPv6 address (e.g., 2001:db8::1)
+      - CNAME: Target hostname (e.g., example.com.)
+      - MX: Mail server hostname (e.g., mail.example.com.)
+      - TXT: Text content (e.g., "v=spf1 -all")
+      - NS: Nameserver hostname (e.g., ns1.example.com.)
+      - PTR: Target hostname (e.g., example.com.)
+      - SRV: Target hostname (e.g., example.com.)
+      - CAA: Property value (e.g., "0 issue \"letsencrypt.org"")
+      - SSHFP: Fingerprint (e.g., "2 1 1234567890abcdef...")
+      - TLSA: Certificate association data (hex encoded)
+      - DS: Digest (hex encoded)
+      - SOA: Primary nameserver (e.g., ns1.example.com. hostmaster.example.com. 2023010101 7200 3600 1209600 86400)
+      - SPF: SPF record data (e.g., "v=spf1 -all")
+      - DKIM: DKIM public key
+      - DMARC: DMARC policy (e.g., "v=DMARC1; p=none; rua=mailto:dmarc@example.com")
+      - ALIAS: Target hostname (e.g., example.com.)
+      - HINFO: Hardware and OS info (e.g., "PC-Intel-386\" "OS/2")
+      - RP: Responsible person (e.g., "hostmaster.example.com. example.com.")
+      - LOC: Location data (e.g., "51 30 12.748 N 0 7 39.612 W 0.00m 0.00m 0.00m 0.00m")
+      - NAPTR: NAPTR data (e.g., "100 10 "u" "sip+E2U" "!^.*$!sip:info@example.com!" .")
+    x-db-field: data
+    example: "192.0.2.1"
+
+  aux:
+    type: integer
+    format: int32
+    description: |
+      Auxiliary data whose meaning depends on the record type:
+      - MX: Priority (0-65535)
+      - SRV: Priority (0-65535)
+      - CAA: Flags (0-255)
+      - SSHFP: Algorithm number
+      - TLSA: Certificate usage (0-255)
+      - DS: Key tag (0-65535)
+      - SOA: Refresh interval (seconds)
+      - NAPTR: Order (0-65535)
+    x-db-field: aux
+    example: 10
+
+  ttl:
+    type: integer
+    format: int32
+    minimum: 0
+    default: 3600
+    description: Time to live in seconds
+    x-db-field: ttl
+    example: 3600
+
+  active:
+    type: string
+    enum: [y, n]
+    default: 'y'
+    description: |
+      Whether the record is active.
+      - y: Record is active
+      - n: Record is inactive
+    x-db-field: active
+    example: 'y'
+
+  # Additional fields for specific record types
+  weight:
+    type: integer
+    format: int32
+    minimum: 0
+    maximum: 65535
+    description: |
+      Relative weight for records with same priority (SRV only)
+    example: 10
+
+  port:
+    type: integer
+    format: int32
+    minimum: 0
+    maximum: 65535
+    description: |
+      Port number (SRV only)
+    example: 5060
+
+  caa_type:
+    type: string
+    enum: [issue, issuewild, iodef]
+    description: |
+      CAA tag (CAA only)
+    example: "issue"
+
+  algorithm:
+    type: integer
+    format: int32
+    description: |
+      Algorithm number (SSHFP, DS, etc.)
+    example: 2
+
+  hash_type:
+    type: integer
+    format: int32
+    description: |
+      Hash type number (SSHFP, etc.)
+    example: 1
+
+  cert_usage:
+    type: integer
+    format: int32
+    minimum: 0
+    maximum: 255
+    description: |
+      Certificate usage (TLSA only)
+    example: 3
+
+  selector:
+    type: integer
+    format: int32
+    minimum: 0
+    maximum: 255
+    description: |
+      Selector type (TLSA only)
+    example: 1
+
+  matching_type:
+    type: integer
+    format: int32
+    minimum: 0
+    maximum: 255
+    description: |
+      Matching type (TLSA only)
+    example: 1
+
+  key_tag:
+    type: integer
+    format: int32
+    minimum: 0
+    maximum: 65535
+    description: |
+      Key tag (DS only)
+    example: 12345
+
+  digest_type:
+    type: integer
+    format: int32
+    description: |
+      Digest type number (DS only)
+    example: 1
+
+  # Timestamps
+  created_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Timestamp when the record was created
+    example: "2023-01-01T12:00:00Z"
+
+  updated_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Timestamp when the record was last updated
+    example: "2023-01-01T12:00:00Z"

@@ -1,0 +1,186 @@
+# This file serves as an index for all schema definitions
+CronJob:
+  $ref: './CronJob.yaml'
+
+Database:
+  $ref: './Database.yaml'
+
+DatabaseUser:
+  $ref: './DatabaseUser.yaml'
+
+Error:
+  $ref: './Error.yaml'
+
+FtpUser:
+  $ref: './FtpUser.yaml'
+
+MailAccess:
+  $ref: './MailAccess.yaml'
+
+MailAliasDomain:
+  $ref: './MailAliasDomain.yaml'
+
+MailContentFilter:
+  $ref: './MailContentFilter.yaml'
+
+MailDomain:
+  $ref: './MailDomain.yaml'
+
+MailForwarding:
+  $ref: './MailForwarding.yaml'
+
+MailGet:
+  $ref: './MailGet.yaml'
+
+MailRelayDomain:
+  $ref: './MailRelayDomain.yaml'
+
+MailRelayRecipient:
+  $ref: './MailRelayRecipient.yaml'
+
+MailTransport:
+  $ref: './MailTransport.yaml'
+
+MailUser:
+  $ref: './MailUser.yaml'
+
+MailUserFilter:
+  $ref: './MailUserFilter.yaml'
+
+MailUserAutoresponder:
+  $ref: './MailUserAutoresponder.yaml'
+
+MailUserCC:
+  $ref: './MailUserCC.yaml'
+
+MailUserPassword:
+  $ref: './MailUserPassword.yaml'
+
+MailUserSpamFilter:
+  $ref: './MailUserSpamFilter.yaml'
+
+ShellUser:
+  $ref: './ShellUser.yaml'
+
+SpamfilterConfig:
+  $ref: './SpamfilterConfig.yaml'
+
+SpamfilterPolicy:
+  $ref: './SpamfilterPolicy.yaml'
+
+SpamfilterUser:
+  $ref: './SpamfilterUser.yaml'
+
+SpamfilterWBList:
+  $ref: './SpamfilterWBList.yaml'
+
+WebChildDomain:
+  $ref: './WebChildDomain.yaml'
+
+WebDomain:
+  $ref: './WebDomain.yaml'
+
+WebFolder:
+  $ref: './WebFolder.yaml'
+
+WebFolderUser:
+  $ref: './WebFolderUser.yaml'
+
+WebdavUser:
+  $ref: './WebdavUser.yaml'
+
+DnsSoa:
+  $ref: './DnsSoa.yaml'
+
+DnsTemplate:
+  $ref: './DnsTemplate.yaml'
+
+DnsSlave:
+  $ref: './DnsSlave.yaml'
+
+DnsRecord:
+  $ref: './DnsRecord.yaml'
+
+Client:
+  $ref: './Client.yaml'
+
+ClientTemplate:
+  $ref: './ClientTemplate.yaml'
+
+ClientTemplateAssigned:
+  $ref: './ClientTemplateAssigned.yaml'
+
+ClientCircle:
+  $ref: './ClientCircle.yaml'
+
+ClientDomain:
+  $ref: './ClientDomain.yaml'
+
+ClientReseller:
+  $ref: './ClientReseller.yaml'
+
+Server:
+  $ref: './Server.yaml'
+
+ServerPhp:
+  $ref: './ServerPhp.yaml'
+
+ServerIp:
+  $ref: './ServerIp.yaml'
+
+ServerIpMap:
+  $ref: './ServerIpMap.yaml'
+
+ServerFirewall:
+  $ref: './ServerFirewall.yaml'
+
+ServerConfig:
+  $ref: './ServerConfig.yaml'
+
+ServerMailConfig:
+  $ref: './ServerMailConfig.yaml'
+
+ServerWebConfig:
+  $ref: './ServerWebConfig.yaml'
+
+ServerDnsConfig:
+  $ref: './ServerDnsConfig.yaml'
+
+ServerFastCgiConfig:
+  $ref: './ServerFastCgiConfig.yaml'
+
+ServerXmppConfig:
+  $ref: './ServerXmppConfig.yaml'
+
+ServerJailkitConfig:
+  $ref: './ServerJailkitConfig.yaml'
+
+ServerUfwConfig:
+  $ref: './ServerUfwConfig.yaml'
+
+ServerVloggerConfig:
+  $ref: './ServerVloggerConfig.yaml'
+
+ServerCronConfig:
+  $ref: './ServerCronConfig.yaml'
+
+ServerRescueConfig:
+  $ref: './ServerRescueConfig.yaml'
+
+Pagination:
+  $ref: './Pagination.yaml'
+
+DirectiveSnippet:
+  $ref: './DirectiveSnippet.yaml'
+
+ResyncRequest:
+  $ref: './ResyncRequest.yaml'
+
+DataLog:
+  $ref: './DataLog.yaml'
+
+SystemLog:
+  $ref: './SystemLog.yaml'
+
+ServerStatus:
+  $ref: './ServerStatus.yaml'

@@ -1,0 +1,140 @@
+openapi: 3.0.0
+info:
+  title: ISPConfig DNS Certification Authorities API
+  description: API for managing DNS Certification Authorities in ISPConfig
+  version: 1.0.0
+servers:
+  - url: /api/v1
+    description: ISPConfig API v1
+
+paths:
+  /system/config/dns-cas:
+    get:
+      tags: [System]
+      summary: List DNS CAs
+      description: Retrieve a list of DNS Certification Authorities
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/offset.yaml'
+        - $ref: '../../components/parameters/limit.yaml'
+        - $ref: '../../components/parameters/order.yaml'
+        - $ref: '../../components/parameters/sort.yaml'
+      responses:
+        '200':
+          description: List of DNS CAs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '../../components/schemas/DnsCaConfig.yaml'
+                  pagination:
+                    $ref: '../../components/schemas/Pagination.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+    
+    post:
+      tags: [System]
+      summary: Create a new DNS CA
+      description: Add a new DNS Certification Authority
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '../../components/schemas/DnsCaConfig.yaml'
+      responses:
+        '201':
+          description: DNS CA created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/DnsCaConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '403':
+          $ref: '../../components/responses/Forbidden.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  /system/config/dns-cas/{id}:
+    parameters:
+      - $ref: '../../components/parameters/IdParam.yaml'
+    
+    get:
+      tags: [System]
+      summary: Get a DNS CA
+      description: Retrieve details of a specific DNS Certification Authority
+      security:
+        - basicAuth: []
+      responses:
+        '200':
+          description: DNS CA retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/DnsCaConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+    
+    put:
+      tags: [System]
+      summary: Update a DNS CA
+      description: Update an existing DNS Certification Authority
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '../../components/schemas/DnsCaConfig.yaml'
+      responses:
+        '200':
+          description: DNS CA updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/DnsCaConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '403':
+          $ref: '../../components/responses/Forbidden.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+    
+    delete:
+      tags: [System]
+      summary: Delete a DNS CA
+      description: Remove a DNS Certification Authority
+      security:
+        - basicAuth: []
+      responses:
+        '204':
+          description: DNS CA deleted successfully
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '403':
+          $ref: '../../components/responses/Forbidden.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'

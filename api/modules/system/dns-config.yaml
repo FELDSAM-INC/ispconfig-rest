@@ -1,0 +1,56 @@
+openapi: 3.0.0
+info:
+  title: ISPConfig DNS Configuration API
+  description: API for managing ISPConfig DNS-related system configuration
+  version: 1.0.0
+servers:
+  - url: /api/v1
+    description: ISPConfig API v1
+
+paths:
+  /system/config/dns:
+    get:
+      tags: [System]
+      summary: Get DNS configuration
+      description: Retrieve the DNS-related system configuration
+      security:
+        - basicAuth: []
+      responses:
+        '200':
+          description: DNS configuration retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/SystemDnsConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+    
+    put:
+      tags: [System]
+      summary: Update DNS configuration
+      description: Update the DNS-related system configuration
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/SystemDnsConfig.yaml'
+      responses:
+        '200':
+          description: DNS configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/SystemDnsConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '403':
+          $ref: '../../components/responses/Forbidden.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'

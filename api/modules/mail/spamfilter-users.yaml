@@ -1,0 +1,202 @@
+# Spamfilter User endpoints
+/mail/spamfilter/users:
+  get:
+    tags:
+      - Spamfilter
+    summary: List all spamfilter users
+    description: |
+      Returns a paginated list of spamfilter users.
+      Non-admin users can only see their own entries.
+      
+      ### Filtering
+      Filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Example: `email[ilike]=%example.com&local[eq]=Y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=email` or `sort=-priority`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: email
+        in: query
+        description: Filter by email address (supports wildcards with %)
+        schema:
+          type: string
+      - name: server_id
+        in: query
+        description: Filter by server ID
+        schema:
+          type: integer
+          format: int64
+      - name: policy_id
+        in: query
+        description: Filter by policy ID
+        schema:
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: A list of spamfilter users
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/SpamfilterUser.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Spamfilter
+    summary: Create a new spamfilter user
+    description: |
+      Creates a new spamfilter user mapping.
+      
+      ### Validation Rules
+      - Email and policy_id are required
+      - Users can only create entries for their own email addresses
+      - Admin users can create entries for any email
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/SpamfilterUser.yaml'
+    responses:
+      '201':
+        description: Spamfilter user created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/SpamfilterUser.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        description: Referenced policy or server not found
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/mail/spamfilter/users/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: Spamfilter user ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Spamfilter
+    summary: Get spamfilter user by ID
+    description: |
+      Returns a single spamfilter user by its ID.
+      Non-admin users can only see their own entries.
+    responses:
+      '200':
+        description: Spamfilter user details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/SpamfilterUser.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Spamfilter
+    summary: Update spamfilter user
+    description: |
+      Updates an existing spamfilter user mapping.
+      
+      ### Notes
+      - Non-admin users can only update their own entries
+      - Email and server_id cannot be changed after creation
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/SpamfilterUser.yaml'
+    responses:
+      '200':
+        description: Spamfilter user updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/SpamfilterUser.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Spamfilter
+    summary: Delete spamfilter user
+    description: |
+      Deletes a spamfilter user mapping by ID.
+      
+      ### Notes
+      - Non-admin users can only delete their own entries
+    responses:
+      '204':
+        description: Spamfilter user deleted successfully
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

@@ -1,0 +1,58 @@
+type: object
+x-db-table: domain
+description: Represents a client domain in the system
+required:
+  - domain
+properties:
+  # System Fields
+  domain_id:
+    type: integer
+    format: int32
+    readOnly: true
+    description: Unique identifier for the domain
+    x-db-field: domain_id
+    example: 1
+  
+  # Domain Information
+  domain:
+    type: string
+    maxLength: 255
+    description: The domain name
+    example: example.com
+    x-db-field: domain
+  
+  # System Permissions
+  sys_userid:
+    type: integer
+    format: int32
+    description: System user ID that owns this domain
+    x-db-field: sys_userid
+    example: 1
+  
+  sys_groupid:
+    type: integer
+    format: int32
+    description: System group ID that owns this domain
+    x-db-field: sys_groupid
+    example: 1
+  
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    description: User permissions (r = read, i = insert, u = update, d = delete)
+    x-db-field: sys_perm_user
+    example: "riud"
+  
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    description: Group permissions (r = read, i = insert, u = update, d = delete)
+    x-db-field: sys_perm_group
+    example: "riud"
+  
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    description: Other permissions (r = read, i = insert, u = update, d = delete)
+    x-db-field: sys_perm_other
+    example: ""

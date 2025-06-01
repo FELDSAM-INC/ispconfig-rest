@@ -1,0 +1,142 @@
+type: object
+x-db-table: mail_content_filter
+description: Auto-generated schema for mail_content_filter
+required:
+  - server_id
+  - type
+  - pattern
+  - action
+  - active
+properties:
+  content_filter_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the content filter rule
+    example: 1
+    x-db-field: content_filter_id
+
+  server_id:
+    type: integer
+    format: int64
+    description: |
+      Server ID where the filter rule is configured
+      - Must be a valid server ID with mail server enabled
+      - Cannot be changed after creation
+    example: 1
+    x-db-field: server_id
+
+  type:
+    type: string
+    description: |
+      Type of content filter
+      - 'header': Header Filter
+      - 'body': Body Filter
+      - 'mime_header': MIME-Header Filter
+      - 'nested_header': Nested-Header Filter
+    enum: [header, body, mime_header, nested_header]
+    example: "header"
+    x-db-field: type
+
+  pattern:
+    type: string
+    description: |
+      Pattern to match in the email content
+      - Required field
+      - Case-sensitive pattern matching
+    maxLength: 255
+    example: "X-Spam-Flag: YES"
+    x-db-field: pattern
+
+  data:
+    type: string
+    description: |
+      Additional data for the filter action
+      - Used with certain action types like REPLACE or REDIRECT
+    maxLength: 255
+    example: "X-Spam-Status: Yes, score=10.0"
+    x-db-field: data
+
+  action:
+    type: string
+    description: |
+      Action to take when the pattern matches
+      - 'DISCARD': Silently discard the message
+      - 'DUNNO': Continue processing as if no match
+      - 'FILTER': Apply additional filtering
+      - 'HOLD': Hold the message for manual review
+      - 'IGNORE': Skip further filter processing
+      - 'PREPEND': Add text to the beginning
+      - 'REDIRECT': Redirect the message
+      - 'REPLACE': Replace the matched content
+      - 'REJECT': Reject the message with an error
+      - 'WARN': Add a warning header
+    enum: [DISCARD, DUNNO, FILTER, HOLD, IGNORE, PREPEND, REDIRECT, REPLACE, REJECT, WARN]
+    example: "REJECT"
+    x-db-field: action
+
+  active:
+    type: string
+    description: |
+      Whether the filter rule is active
+      - 'y': Rule is active
+      - 'n': Rule is disabled
+    enum: [y, n]
+    default: "y"
+    x-db-field: active
+
+  # System fields (readonly)
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID who created the record
+    example: 1
+    x-db-field: sys_userid
+
+  sys_groupid:
+    type: integer
+    readOnly: true
+    description: System group ID for the record
+    example: 1
+    x-db-field: sys_groupid
+
+  sys_perm:
+    type: string
+    readOnly: true
+    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+    x-db-field: sys_perm
+
+  sys_perm_group:
+    type: string
+    readOnly: true
+    description: Group permissions for the record
+    example: "riud"
+    x-db-field: sys_perm_group
+
+  sys_perm_other:
+    type: string
+    readOnly: true
+    description: Other permissions for the record
+    example: ""
+    x-db-field: sys_perm_other
+
+description: |
+  Mail content filter rules allow administrators to define pattern-based filtering
+  for email messages. These rules can inspect and modify email headers and body
+  content based on configurable patterns and actions.
+  
+  ### Key Features
+  - Filter based on headers, body, MIME headers, or nested headers
+  - Various actions including reject, redirect, modify, or log
+  - Server-specific configuration
+  - Active/inactive toggle for each rule
+  
+  ### Access Control
+  - Only available to admin users
+  - Server assignment is fixed after creation
+  
+  ### Usage Notes
+  - Use with caution as incorrect rules may affect email delivery
+  - Test rules in a non-production environment first
+  - Order of rules may affect processing behavior

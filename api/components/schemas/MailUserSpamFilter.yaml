@@ -1,0 +1,78 @@
+type: object
+x-db-table: mail_user
+description: Mail user spam filter settings
+required:
+  - mailuser_id
+  - move_junk
+  - purge_trash_days
+  - purge_junk_days
+  - custom_mailfilter
+properties:
+  mailuser_id:
+    type: integer
+    format: int64
+    description: ID of the mail user
+    example: 1
+    x-db-field: mailuser_id
+
+  move_junk:
+    type: string
+    enum: [y, a, n]
+    default: y
+    description: |
+      Whether to move spam to Junk folder
+      - y: Move spam to Junk folder
+      - a: Move spam to Junk folder and mark as read
+      - n: Don't move spam to Junk folder
+    example: "y"
+    x-db-field: move_junk
+
+  purge_trash_days:
+    type: integer
+    format: int32
+    minimum: 0
+    default: 0
+    description: |
+      Number of days after which to automatically delete emails in Trash
+      - 0: Disable automatic purging
+      - >0: Number of days to keep emails in Trash
+    example: 30
+    x-db-field: purge_trash_days
+
+  purge_junk_days:
+    type: integer
+    format: int32
+    minimum: 0
+    default: 0
+    description: |
+      Number of days after which to automatically delete emails in Junk
+      - 0: Disable automatic purging
+      - >0: Number of days to keep emails in Junk
+    example: 14
+    x-db-field: purge_junk_days
+
+  custom_mailfilter:
+    type: string
+    nullable: true
+    description: Custom mail filter rules in Sieve format
+    example: |
+      if header :contains "X-Spam-Flag" "YES" {
+        fileinto "Junk";
+        stop;
+      }
+    x-db-field: custom_mailfilter
+
+description: |
+  Spam filter settings for a mail user.
+  
+  ### Features
+  - Control spam filtering behavior
+  - Automatic purging of old emails in Trash and Junk folders
+  - Custom mail filter rules in Sieve format
+  
+  ### Notes
+  - When move_junk is enabled, spam emails are moved to the Junk folder
+  - Automatic purging helps manage mailbox size
+  - Custom mail filters provide advanced filtering capabilities
+  - System administrators can manage all settings
+  - Regular users can only manage their own settings

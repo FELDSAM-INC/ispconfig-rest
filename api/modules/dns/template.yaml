@@ -1,0 +1,184 @@
+# DNS Template endpoints
+/dns/templates:
+  get:
+    tags:
+      - DNS Templates
+    summary: List all DNS templates
+    description: |
+      Returns a paginated list of DNS templates.
+      The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      You can filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      
+      Example: `name[ilike]=%example%&visible[eq]=y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=name` or `sort=-created_at`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: name
+        in: query
+        description: Filter by template name (supports wildcards with %)
+        schema:
+          type: string
+      - name: visible
+        in: query
+        description: Filter by visibility status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+    responses:
+      '200':
+        description: A list of DNS templates
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/DnsTemplate.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - DNS Templates
+    summary: Create a new DNS template
+    description: Creates a new DNS template with the specified configuration
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/DnsTemplate.yaml'
+    responses:
+      '201':
+        description: DNS template created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/DnsTemplate.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/dns/templates/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: DNS template ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - DNS Templates
+    summary: Get DNS template by ID
+    description: Returns a single DNS template by its ID
+    responses:
+      '200':
+        description: DNS template details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/DnsTemplate.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - DNS Templates
+    summary: Update DNS template
+    description: |
+      Updates an existing DNS template configuration.
+      
+      ### Partial Updates
+      Only include the fields you want to update. Omitted fields will remain unchanged.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/DnsTemplate.yaml'
+    responses:
+      '200':
+        description: DNS template updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/DnsTemplate.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - DNS Templates
+    summary: Delete DNS template
+    description: Deletes a DNS template by ID
+    responses:
+      '204':
+        description: DNS template deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Template cannot be deleted because it's in use
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

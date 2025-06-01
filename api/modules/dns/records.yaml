@@ -1,0 +1,269 @@
+# DNS Resource Record endpoints
+/dns/records:
+  get:
+    tags:
+      - DNS Records
+    summary: List all DNS resource records
+    description: |
+      Returns a paginated list of DNS resource records.
+      The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      You can filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Example: `type[eq]=A&zone[eq]=1`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=name` or `sort=-created_at`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: zone
+        in: query
+        description: Filter by zone ID
+        schema:
+          type: integer
+      - name: type
+        in: query
+        description: Filter by record type (A, AAAA, MX, CNAME, etc.)
+        schema:
+          type: string
+          enum: [A, AAAA, MX, CNAME, TXT, NS, PTR, SOA, SRV, NAPTR, CAA, SSHFP, TLSA, DS, DNSKEY, SPF, DKIM, DMARC, ALIAS, HINFO, RP, LOC]
+      - name: name
+        in: query
+        description: Filter by record name (supports wildcards with %)
+        schema:
+          type: string
+      - name: active
+        in: query
+        description: Filter by active status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+    responses:
+      '200':
+        description: A list of DNS resource records
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/DnsRecord.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - DNS Records
+    summary: Create a new DNS resource record
+    description: |
+      Creates a new DNS resource record with the specified configuration.
+      
+      ### Record Types
+      The `type` field determines which additional fields are required:
+      
+      #### Common Fields (all record types)
+      - `zone`: Zone ID (required)
+      - `name`: Record name (e.g., www, @, mail)
+      - `ttl`: Time to live in seconds (default: 3600)
+      - `active`: Whether the record is active (y/n, default: 'y')
+      
+      #### Type-Specific Fields
+      
+      ##### A (IPv4 Address)
+      - `data`: IPv4 address (required)
+      
+      ##### AAAA (IPv6 Address)
+      - `data`: IPv6 address (required)
+      
+      ##### CNAME (Canonical Name)
+      - `data`: Target hostname (required)
+      
+      ##### MX (Mail Exchange)
+      - `data`: Mail server hostname (required)
+      - `aux`: Priority (0-65535, required)
+      
+      ##### TXT (Text)
+      - `data`: Text content (required)
+      
+      ##### NS (Name Server)
+      - `data`: Nameserver hostname (required)
+      
+      ##### PTR (Pointer)
+      - `data`: Target hostname (required)
+      
+      ##### SRV (Service)
+      - `data`: Target hostname (required)
+      - `aux`: Priority (0-65535, required)
+      - `weight`: Relative weight for records with same priority (0-65535, required)
+      - `port`: Port number (0-65535, required)
+      
+      ##### CAA (Certification Authority Authorization)
+      - `data`: CAA property value (required)
+      - `aux`: CAA flags (0-255, required)
+      - `caa_type`: CAA tag (issue, issuewild, iodef, etc., required)
+      
+      ##### SSHFP (SSH Fingerprint)
+      - `data`: Fingerprint (required)
+      - `algorithm`: Algorithm number (required)
+      - `hash_type`: Hash type number (required)
+      
+      ##### TLSA (TLS Authentication)
+      - `data`: Certificate association data (required)
+      - `cert_usage`: Certificate usage (0-255, required)
+      - `selector`: Selector type (0-255, required)
+      - `matching_type`: Matching type (0-255, required)
+      
+      ##### DS (Delegation Signer)
+      - `data`: Digest (required)
+      - `key_tag`: Key tag (0-65535, required)
+      - `algorithm`: Algorithm number (required)
+      - `digest_type`: Digest type number (required)
+      
+      ##### Other Types
+      For other record types, use the `data` field with the appropriate value.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/DnsRecord.yaml'
+    responses:
+      '201':
+        description: DNS record created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/DnsRecord.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/dns/records/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: DNS record ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - DNS Records
+    summary: Get DNS record by ID
+    description: Returns a single DNS record by its ID
+    responses:
+      '200':
+        description: DNS record details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/DnsRecord.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - DNS Records
+    summary: Update DNS record
+    description: |
+      Updates an existing DNS record configuration.
+      
+      ### Partial Updates
+      Only include the fields you want to update. Omitted fields will remain unchanged.
+      
+      See the POST endpoint for field requirements based on record type.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/DnsRecord.yaml'
+    responses:
+      '200':
+        description: DNS record updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/DnsRecord.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - DNS Records
+    summary: Delete DNS record
+    description: Deletes a DNS record by ID
+    responses:
+      '204':
+        description: DNS record deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Record cannot be deleted because it's in use
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

@@ -1,0 +1,136 @@
+# Domain resource endpoints
+
+# Get all domains
+/domains:
+  get:
+    tags:
+      - Client Domains
+    summary: List all domains
+    description: Returns a list of all domains accessible to the current user
+    parameters:
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
+    responses:
+      '200':
+        description: A list of domains
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                total:
+                  type: integer
+                  description: Total number of domains
+                  example: 1
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/ClientDomain.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Client Domains
+    summary: Create a new domain
+    description: Creates a new domain with the specified details
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/ClientDomain.yaml'
+    responses:
+      '201':
+        description: Domain created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ClientDomain.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+# Get a specific domain
+/domains/{domainId}:
+  get:
+    tags:
+      - Client Domains
+    summary: Get a domain by ID
+    description: Returns a single domain by its ID
+    parameters:
+      - $ref: '../../components/parameters/domainIdParam.yaml'
+    responses:
+      '200':
+        description: Domain details
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ClientDomain.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Client Domains
+    summary: Update a domain
+    description: Updates an existing domain's details
+    parameters:
+      - $ref: '../../components/parameters/domainIdParam.yaml'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/ClientDomain.yaml'
+    responses:
+      '200':
+        description: Domain updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ClientDomain.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Client Domains
+    summary: Delete a domain
+    description: Deletes a domain by its ID
+    parameters:
+      - $ref: '../../components/parameters/domainIdParam.yaml'
+    responses:
+      '204':
+        description: Domain deleted successfully
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

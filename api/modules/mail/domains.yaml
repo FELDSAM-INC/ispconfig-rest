@@ -1,0 +1,227 @@
+# Mail Domain endpoints
+/mail/domains:
+  get:
+    tags:
+      - Mail Domains
+    summary: List all mail domains
+    description: |
+      Returns a paginated list of mail domains.
+      The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      You can filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Example: `domain[ilike]=%example%&active[eq]=y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=domain` or `sort=-created_at`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: domain
+        in: query
+        description: Filter by domain name (supports wildcards with %)
+        schema:
+          type: string
+      - name: active
+        in: query
+        description: Filter by active status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+      - name: local_delivery
+        in: query
+        description: Filter by local delivery status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+      - name: dkim
+        in: query
+        description: Filter by DKIM status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+    responses:
+      '200':
+        description: A list of mail domains
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/MailDomain.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Mail Domains
+    summary: Create a new mail domain
+    description: |
+      Creates a new mail domain configuration.
+      
+      ### Validation Rules
+      - Domain name must be valid and not already in use
+      - If DKIM is enabled, a valid private key must be provided
+      - If relay_host is set, both relay_user and relay_pass are required
+      - User must have permission to create mail domains
+      - User must be within their allowed limits for mail domains
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailDomain.yaml'
+    responses:
+      '201':
+        description: Mail domain created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailDomain.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+        description: |
+          Bad Request. Possible reasons:
+          - Invalid domain format
+          - Domain already exists
+          - Missing required fields for DKIM or relay configuration
+          - Invalid DKIM private key
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/mail/domains/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: Mail domain ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Mail Domains
+    summary: Get mail domain by ID
+    description: Returns a single mail domain by its ID
+    responses:
+      '200':
+        description: Mail domain details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailDomain.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Mail Domains
+    summary: Update mail domain
+    description: |
+      Updates an existing mail domain configuration.
+      
+      ### Notes
+      - Domain name cannot be changed after creation
+      - When updating DKIM settings, both private and public keys must be provided
+      - To disable DKIM, set `dkim: n`
+      - To update relay settings, provide all relay-related fields
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailDomain.yaml'
+    responses:
+      '200':
+        description: Mail domain updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailDomain.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Mail Domains
+    summary: Delete mail domain
+    description: |
+      Deletes a mail domain by ID.
+      
+      ### Notes
+      - This will remove the mail domain configuration but not the actual domain
+      - Any associated mailboxes, aliases, and forwarders will also be deleted
+      - This action cannot be undone
+    responses:
+      '204':
+        description: Mail domain deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Mail domain is currently in use
+          - Insufficient permissions
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

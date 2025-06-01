@@ -1,0 +1,197 @@
+# Shell User endpoints
+/sites/shell-users:
+  get:
+    tags:
+      - Shell Users
+    summary: List all shell users
+    description: |
+      Returns a paginated list of shell users. The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      You can filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Example: `username[ilike]=%user%&active[eq]=y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=username` or `sort=-created_at`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: search
+        in: query
+        description: Search term to filter shell users
+        schema:
+          type: string
+    responses:
+      '200':
+        description: A list of shell users
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/ShellUser.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Shell Users
+    summary: Create a new shell user
+    description: |
+      Creates a new shell user with the specified configuration.
+      
+      ### Authentication Methods
+      The system can be configured to use either password or SSH key authentication:
+      - For password authentication, provide the `password` field
+      - For SSH key authentication, provide the `ssh_rsa` field with the public key
+      
+      ### Username Handling
+      - The provided username will be automatically prefixed according to system configuration
+      - The final username (prefix + username) must not exceed 32 characters
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/ShellUser.yaml'
+    responses:
+      '201':
+        description: Shell user created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/ShellUser.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/sites/shell-users/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: Shell user ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Shell Users
+    summary: Get shell user by ID
+    description: Returns a single shell user by its ID
+    responses:
+      '200':
+        description: Shell user details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/ShellUser.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Shell Users
+    summary: Update shell user
+    description: |
+      Updates an existing shell user configuration.
+      
+      ### Partial Updates
+      Only include the fields you want to update. Omitted fields will remain unchanged.
+      
+      ### Authentication Methods
+      - To change the password, provide the new `password`
+      - To update the SSH key, provide the new `ssh_rsa` value
+      - Set either field to `null` to remove it (if allowed by system configuration)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/ShellUser.yaml'
+    responses:
+      '200':
+        description: Shell user updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/ShellUser.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Shell Users
+    summary: Delete shell user
+    description: Deletes a shell user by ID
+    responses:
+      '204':
+        description: Shell user deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Shell user cannot be deleted because it's in use
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

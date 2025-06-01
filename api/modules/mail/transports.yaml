@@ -1,0 +1,224 @@
+# Mail Transports endpoints
+/mail/transports:
+  get:
+    tags:
+      - Mail
+    summary: List all mail transports
+    description: |
+      Returns a paginated list of mail transports.
+      The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      Filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Examples:
+      - Find by domain: `domain[eq]=example.com`
+      - Find active transports: `active[eq]=y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=domain` or `sort=-sort_order`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: domain
+        in: query
+        description: Filter by domain name
+        schema:
+          type: string
+      - name: transport
+        in: query
+        description: Filter by transport definition
+        schema:
+          type: string
+      - name: active
+        in: query
+        description: Filter by active status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+    responses:
+      '200':
+        description: A list of mail transports
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/MailTransport.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Mail
+    summary: Create a new mail transport
+    description: |
+      Creates a new mail transport.
+      
+      ### Validation Rules
+      - Domain must be a valid domain name
+      - Transport must be a valid Postfix transport definition
+      - User must have permissions for the server
+      - Sort order must be a non-negative integer
+      
+      ### Notes
+      - System administrators can create transports on any server
+      - Regular users can only create transports on their servers
+      - The domain must not be used by another transport or mail domain
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailTransport.yaml'
+    responses:
+      '201':
+        description: Mail transport created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailTransport.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+        description: |
+          Bad Request. Possible reasons:
+          - Invalid domain format
+          - Invalid transport definition
+          - Domain already in use
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+        description: |
+          Forbidden. Possible reasons:
+          - No permission to use the server
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/mail/transports/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: Mail transport ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Mail
+    summary: Get mail transport by ID
+    description: Returns a single mail transport by its ID
+    responses:
+      '200':
+        description: Mail transport details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailTransport.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Mail
+    summary: Update mail transport
+    description: |
+      Updates an existing mail transport.
+      
+      ### Notes
+      - The domain and server_id cannot be changed after creation
+      - Only the transport, sort_order, and active status can be updated
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailTransport.yaml'
+    responses:
+      '200':
+        description: Mail transport updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailTransport.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Mail
+    summary: Delete mail transport
+    description: |
+      Deletes a mail transport by ID.
+      
+      ### Notes
+      - The operation is permanent and cannot be undone
+      - User must have permission to modify the server
+    responses:
+      '204':
+        description: Mail transport deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Transport is in use
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

@@ -1,0 +1,118 @@
+type: object
+x-db-table: dns_slave
+description: Auto-generated schema for dns_slave
+required:
+  - server_id
+  - origin
+  - ns
+properties:
+  # System Fields
+  id:
+    type: integer
+    format: int32
+    x-db-field: id
+    minimum: 1
+    readOnly: true
+    description: Unique identifier for the DNS slave zone
+    example: 1
+
+  sys_userid:
+    type: integer
+    format: int32
+    minimum: 1
+    readOnly: true
+    description: ID of the system user who created this slave zone
+    example: 1
+
+  sys_groupid:
+    type: integer
+    format: int32
+    minimum: 1
+    description: System group ID that owns this slave zone
+    example: 10
+
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    default: 'riud'
+    description: User permissions (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    default: 'riud'
+    description: Group permissions (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    default: ''
+    description: Other permissions (r=read, i=insert, u=update, d=delete)
+    example: ""
+
+  # DNS Slave Zone Configuration
+  server_id:
+    type: integer
+    format: int32
+    minimum: 1
+    description: ID of the DNS server where this slave zone is hosted
+    x-db-field: server_id
+    example: 1
+
+  origin:
+    type: string
+    maxLength: 255
+    description: |
+      The domain name for this slave zone.
+      Must be a valid domain name format.
+    x-db-field: origin
+    example: "example.com"
+
+  ns:
+    type: string
+    maxLength: 255
+    description: |
+      Comma-separated list of nameserver IP addresses.
+      Used as NS records for the zone.
+    x-db-field: ns
+    example: "203.0.113.1, 2001:db8::1"
+
+  active:
+    type: string
+    enum: [y, n]
+    default: 'y'
+    description: |
+      Whether the slave zone is active.
+      - y: Zone is active
+      - n: Zone is inactive
+    x-db-field: active
+    example: 'y'
+
+  xfer:
+    type: string
+    maxLength: 255
+    description: |
+      Comma-separated list of IP addresses allowed to perform zone transfers.
+      Leave empty to disable zone transfers.
+    x-db-field: xfer
+    example: "192.0.2.1, 192.0.2.2"
+
+  # Timestamps
+  created_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Timestamp when the slave zone was created
+    example: "2023-01-01T12:00:00Z"
+
+  updated_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Timestamp when the slave zone was last updated
+    example: "2023-01-01T12:00:00Z"

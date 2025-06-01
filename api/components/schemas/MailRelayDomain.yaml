@@ -1,0 +1,66 @@
+type: object
+x-db-table: mail_relay_domain
+description: Auto-generated schema for mail_relay_domain
+required:
+  - server_id
+  - domain
+  - active
+properties:
+  relay_domain_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the relay domain
+    example: 1
+    x-db-field: relay_domain_id
+
+  server_id:
+    type: integer
+    format: int64
+    description: Server ID where the relay domain is configured
+    example: 1
+    x-db-field: server_id
+
+  domain:
+    type: string
+    description: Domain name for email relay
+    example: example.com
+    x-db-field: domain
+    pattern: '^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$'
+
+  active:
+    type: string
+    enum: [y, n]
+    default: y
+    description: Whether the relay domain is active
+    x-db-field: active
+
+  created:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Creation timestamp
+    x-db-field: created
+
+  modified:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Last modification timestamp
+    x-db-field: modified
+
+description: |
+  Email relay domain configuration.
+  
+  ### Features
+  - Relays emails for the specified domain to another mail server
+  - Can be enabled/disabled
+  
+  ### Validation Rules
+  - Domain must be a valid domain name
+  - Domain must not be used by another relay or mail domain
+  - User must have permissions for the server
+  
+  ### Notes
+  - System administrators can manage all relay domains
+  - Regular users can only view/modify domains on their servers

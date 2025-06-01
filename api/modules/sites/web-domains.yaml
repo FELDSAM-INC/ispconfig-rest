@@ -1,0 +1,327 @@
+# Web Domain endpoints
+/sites/web-domains:
+  get:
+    tags:
+      - Web Domains
+    summary: List web domains
+    description: |
+      Returns a paginated list of web domains. The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      You can filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Example: `domain[ilike]=%example%&active[eq]=y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=domain` or `sort=-created_at`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: search
+        in: query
+        description: Search term to filter web domains
+        schema:
+          type: string
+    responses:
+      '200':
+        description: A list of web domains
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/WebDomain.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Web Domains
+    summary: Create a new web domain
+    description: Creates a new web domain with the specified configuration
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/WebDomain.yaml'
+    responses:
+      '201':
+        description: Web domain created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/WebDomain.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/sites/web-domains/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: Web domain ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Web Domains
+    summary: Get web domain by ID
+    description: Returns a single web domain by its ID
+    responses:
+      '200':
+        description: Web domain details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/WebDomain.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Web Domains
+    summary: Update web domain
+    description: |
+      Updates an existing web domain configuration.
+      
+      ### Partial Updates
+      Only include the fields you want to update. Omitted fields will remain unchanged.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/WebDomain.yaml'
+    responses:
+      '200':
+        description: Web domain updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/WebDomain.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Web Domains
+    summary: Delete web domain
+    description: Deletes a web domain by ID
+    responses:
+      '204':
+        description: Web domain deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Domain cannot be deleted because it has child domains
+          - Domain cannot be deleted because it has databases
+          - Domain cannot be deleted because it has FTP users
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+# SSL Certificate endpoints
+/sites/web-domains/{id}/ssl:
+  parameters:
+    - name: id
+      in: path
+      description: Web domain ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Web Domains
+    summary: Get SSL certificate
+    description: Returns the SSL certificate details for a web domain
+    responses:
+      '200':
+        description: SSL certificate details
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ssl_cert:
+                  type: string
+                  description: SSL certificate in PEM format
+                ssl_key:
+                  type: string
+                  description: SSL private key in PEM format
+                ssl_ca_cert:
+                  type: string
+                  description: SSL CA certificate in PEM format
+                ssl_cert_chain:
+                  type: string
+                  description: SSL certificate chain in PEM format
+                ssl_letsencrypt:
+                  type: string
+                  enum: [y, n]
+                  description: Whether Let's Encrypt is enabled
+      '204':
+        description: No SSL certificate configured for this domain
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Web Domains
+    summary: Upload SSL certificate
+    description: Uploads an SSL certificate for a web domain
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - ssl_cert
+              - ssl_key
+            properties:
+              ssl_cert:
+                type: string
+                description: SSL certificate in PEM format
+              ssl_key:
+                type: string
+                description: SSL private key in PEM format
+              ssl_ca_cert:
+                type: string
+                description: SSL CA certificate in PEM format
+              ssl_cert_chain:
+                type: string
+                description: SSL certificate chain in PEM format
+    responses:
+      '200':
+        description: SSL certificate uploaded successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Invalid certificate format
+          - Certificate and key don't match
+          - Certificate is not valid for this domain
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Web Domains
+    summary: Remove SSL certificate
+    description: Removes the SSL certificate from a web domain
+    responses:
+      '204':
+        description: SSL certificate removed successfully
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/sites/web-domains/{id}/ssl/renew:
+  post:
+    tags:
+      - Web Domains
+    summary: Renew SSL certificate
+    description: Renews the Let's Encrypt SSL certificate for a web domain
+    parameters:
+      - name: id
+        in: path
+        description: Web domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: SSL certificate renewed successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Let's Encrypt is not enabled for this domain
+          - Domain is not properly configured for Let's Encrypt
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

@@ -1,0 +1,13 @@
+# Monitor module API paths
+
+# Data logs
+data-logs:
+  $ref: './data-logs.yaml'
+
+# System logs
+system-logs:
+  $ref: './system-logs.yaml'
+
+# Server status
+server-status:
+  $ref: './server-status.yaml'

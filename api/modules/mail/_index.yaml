@@ -1,0 +1,73 @@
+# Mail module API paths
+
+# Include mail domains paths
+domains:
+  $ref: './domains.yaml'
+
+# Include mail forwarding paths
+forwards:
+  $ref: './forwards.yaml'
+
+# Include mail alias domains paths
+alias-domains:
+  $ref: './alias-domains.yaml'
+
+# Include mail users paths
+users:
+  $ref: './users.yaml'
+
+# Include mail access rules (blacklist/whitelist) paths
+access-rules:
+  $ref: './access-rules.yaml'
+
+# Include mail content filter paths
+content-filters:
+  $ref: './content-filters.yaml'
+
+# Include spamfilter paths
+spamfilter/config:
+  $ref: './spamfilter-config.yaml'
+
+spamfilter/policies:
+  $ref: './spamfilter-policies.yaml'
+
+spamfilter/users:
+  $ref: './spamfilter-users.yaml'
+
+spamfilter/wblist:
+  $ref: './spamfilter-wblist.yaml'
+
+# Include mail relay paths
+relay-domains:
+  $ref: './relay-domains.yaml'
+
+relay-recipients:
+  $ref: './relay-recipients.yaml'
+
+# Include mail transport paths
+transports:
+  $ref: './transports.yaml'
+
+# Include mail get configurations
+get:
+  $ref: './get.yaml'
+
+# Include mail user filter paths
+user-filters:
+  $ref: './user-filters.yaml'
+
+# Include mail user autoresponder paths
+user-autoresponders:
+  $ref: './user-autoresponders.yaml'
+
+# Include mail user CC paths
+user-cc:
+  $ref: './user-cc.yaml'
+
+# Include mail user password paths
+user-password:
+  $ref: './user-password.yaml'
+
+# Include mail user spam filter paths
+user-spamfilter:
+  $ref: './user-spamfilter.yaml'

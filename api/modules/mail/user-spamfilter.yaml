@@ -1,0 +1,69 @@
+---
+# Mail User Spam Filter API Endpoints
+# Path: /mail/users/{mailuser_id}/spamfilter
+
+get:
+  tags:
+    - mail
+    - user
+    - spamfilter
+  summary: Get spam filter settings for a mail user
+  description: Retrieve the spam filter settings for a specific mail user
+  operationId: getMailUserSpamFilter
+  parameters:
+    - $ref: '../../../components/parameters/mailuser_id.yaml'
+  responses:
+    '200':
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailUserSpamFilter.yaml'
+    '400':
+      $ref: '../../../components/responses/400BadRequest.yaml'
+    '401':
+      $ref: '../../../components/responses/401Unauthorized.yaml'
+    '403':
+      $ref: '../../../components/responses/403Forbidden.yaml'
+    '404':
+      $ref: '../../../components/responses/404NotFound.yaml'
+    '500':
+      $ref: '../../../components/responses/500InternalServerError.yaml'
+  security:
+    - basicAuth: []
+
+put:
+  tags:
+    - mail
+    - user
+    - spamfilter
+  summary: Update spam filter settings for a mail user
+  description: Update the spam filter settings for a specific mail user
+  operationId: updateMailUserSpamFilter
+  parameters:
+    - $ref: '../../../components/parameters/mailuser_id.yaml'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../../components/schemas/MailUserSpamFilter.yaml'
+  responses:
+    '200':
+      description: Spam filter settings updated successfully
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailUserSpamFilter.yaml'
+    '400':
+      $ref: '../../../components/responses/400BadRequest.yaml'
+    '401':
+      $ref: '../../../components/responses/401Unauthorized.yaml'
+    '403':
+      $ref: '../../../components/responses/403Forbidden.yaml'
+    '404':
+      $ref: '../../../components/responses/404NotFound.yaml'
+    '500':
+      $ref: '../../../components/responses/500InternalServerError.yaml'
+  security:
+    - basicAuth: []

@@ -1,0 +1,219 @@
+# WebDAV User endpoints
+/sites/webdav-users:
+  get:
+    tags:
+      - WebDAV Users
+    summary: List all WebDAV users
+    description: |
+      Returns a paginated list of WebDAV users.
+      The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      You can filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Example: `username[ilike]=%user%&active[eq]=y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=id` or `sort=-created_at`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: parent_domain_id
+        in: query
+        description: Filter by parent domain ID
+        schema:
+          type: integer
+          format: int64
+      - name: active
+        in: query
+        description: Filter by active status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+    responses:
+      '200':
+        description: A list of WebDAV users
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/WebdavUser.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - WebDAV Users
+    summary: Create a new WebDAV user
+    description: |
+      Creates a new WebDAV user for accessing a specific directory.
+      
+      ### Validation Rules
+      - Username must be unique across all WebDAV users
+      - Parent domain must exist and be accessible
+      - Directory path must be valid and accessible
+      - User must have permission to create WebDAV users
+      - User must be within their allowed limits for WebDAV users
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/WebdavUser.yaml'
+    responses:
+      '201':
+        description: WebDAV user created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/WebdavUser.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+        description: |
+          Bad Request. Possible reasons:
+          - Invalid username format
+          - Username already exists
+          - Parent domain not found or inaccessible
+          - Invalid directory path
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/sites/webdav-users/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: WebDAV user ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - WebDAV Users
+    summary: Get WebDAV user by ID
+    description: Returns a single WebDAV user by its ID
+    responses:
+      '200':
+        description: WebDAV user details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/WebdavUser.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - WebDAV Users
+    summary: Update WebDAV user
+    description: |
+      Updates an existing WebDAV user configuration.
+      
+      ### Notes
+      - Username and directory path cannot be changed after creation
+      - Only the password and active status can be updated
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              password:
+                type: string
+                description: New password for the WebDAV user
+                minLength: 6
+                maxLength: 255
+              active:
+                type: string
+                enum: [y, n]
+                description: Whether the WebDAV user is active
+    responses:
+      '200':
+        description: WebDAV user updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/WebdavUser.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - WebDAV Users
+    summary: Delete WebDAV user
+    description: |
+      Deletes a WebDAV user by ID.
+      
+      ### Notes
+      - This will revoke the user's access immediately
+      - This action cannot be undone
+    responses:
+      '204':
+        description: WebDAV user deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - WebDAV user is currently in use
+          - Insufficient permissions
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

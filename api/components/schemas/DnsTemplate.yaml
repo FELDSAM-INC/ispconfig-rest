@@ -1,0 +1,109 @@
+type: object
+x-db-table: dns_template
+description: Auto-generated schema for dns_template
+required:
+  - name
+  - fields
+  - template
+  - visible
+  - sys_groupid
+
+properties:
+  # System Fields
+  template_id:
+    type: integer
+    format: int32
+    x-db-field: template_id
+    minimum: 1
+    readOnly: true
+    description: Unique identifier for the DNS template
+    example: 1
+
+  sys_userid:
+    type: integer
+    format: int32
+    minimum: 1
+    readOnly: true
+    description: ID of the system user who created this template
+    example: 1
+
+  sys_groupid:
+    type: integer
+    format: int32
+    minimum: 1
+    description: System group ID that owns this template
+    example: 10
+
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    default: 'riud'
+    description: User permissions (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    default: 'riud'
+    description: Group permissions (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    default: ''
+    description: Other permissions (r=read, i=insert, u=update, d=delete)
+    example: ""
+
+  # Template Information
+  name:
+    type: string
+    maxLength: 64
+    description: |
+      The name of the DNS template.
+      Must be unique and descriptive.
+    example: "Standard Web Hosting"
+
+  fields:
+    type: string
+    description: |
+      Comma-separated list of fields used in the template.
+      Common values: DOMAIN, IP, IPV6, NS1, NS2, EMAIL, DKIM, DNSSEC
+    example: "DOMAIN,IP,NS1,NS2,EMAIL"
+
+  template:
+    type: string
+    format: text
+    description: |
+      The actual template content that will be used to generate DNS records.
+      Use placeholders like {DOMAIN}, {IP}, etc. as defined in the fields.
+    example: |
+      $ORIGIN {DOMAIN}.
+      $TTL 3600
+      @ IN SOA {NS1}. admin.{DOMAIN}. (
+        2023060101 ; serial
+        7200      ; refresh
+        3600      ; retry
+        1209600   ; expire
+        86400     ; minimum
+      )
+      @ IN NS {NS1}.
+      @ IN NS {NS2}.
+      @ IN A {IP}
+      www IN A {IP}
+      mail IN A {IP}
+      @ IN MX 10 mail.{DOMAIN}.
+      @ IN TXT "v=spf1 a mx -all"
+
+  visible:
+    type: string
+    enum: [y, n]
+    default: 'y'
+    description: |
+      Whether the template is visible in the UI.
+      - y: Template is visible
+      - n: Template is hidden
+    example: 'y'

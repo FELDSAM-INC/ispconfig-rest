@@ -1,0 +1,216 @@
+# Mail Relay Domains endpoints
+/mail/relay-domains:
+  get:
+    tags:
+      - Mail
+    summary: List all mail relay domains
+    description: |
+      Returns a paginated list of mail relay domains.
+      The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      Filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Examples:
+      - Find by domain: `domain[eq]=example.com`
+      - Find active domains: `active[eq]=y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=domain` or `sort=-created`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: domain
+        in: query
+        description: Filter by domain name
+        schema:
+          type: string
+      - name: active
+        in: query
+        description: Filter by active status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+    responses:
+      '200':
+        description: A list of mail relay domains
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/MailRelayDomain.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Mail
+    summary: Create a new mail relay domain
+    description: |
+      Creates a new mail relay domain.
+      
+      ### Validation Rules
+      - Domain must be a valid domain name
+      - Domain must not be used by another relay or mail domain
+      - User must have permissions for the server
+      
+      ### Notes
+      - System administrators can create relay domains on any server
+      - Regular users can only create relay domains on their servers
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailRelayDomain.yaml'
+    responses:
+      '201':
+        description: Mail relay domain created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailRelayDomain.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+        description: |
+          Bad Request. Possible reasons:
+          - Invalid domain format
+          - Domain already in use
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+        description: |
+          Forbidden. Possible reasons:
+          - No permission to use the server
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/mail/relay-domains/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: Mail relay domain ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Mail
+    summary: Get mail relay domain by ID
+    description: Returns a single mail relay domain by its ID
+    responses:
+      '200':
+        description: Mail relay domain details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailRelayDomain.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Mail
+    summary: Update mail relay domain
+    description: |
+      Updates an existing mail relay domain.
+      
+      ### Notes
+      - The domain name cannot be changed after creation
+      - Only the active status can be updated
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailRelayDomain.yaml'
+    responses:
+      '200':
+        description: Mail relay domain updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailRelayDomain.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Mail
+    summary: Delete mail relay domain
+    description: |
+      Deletes a mail relay domain by ID.
+      
+      ### Notes
+      - The operation is permanent and cannot be undone
+      - User must have permission to modify the server
+    responses:
+      '204':
+        description: Mail relay domain deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Relay domain is in use
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

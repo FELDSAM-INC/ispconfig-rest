@@ -1,0 +1,174 @@
+# Servers API
+# This API allows managing servers in ISPConfig
+
+openapi: 3.0.0
+info:
+  title: Servers API
+  description: API for managing servers in ISPConfig
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: ISPConfig API Server
+
+tags:
+  - name: Servers
+    description: Server management
+
+paths:
+  /servers:
+    get:
+      tags:
+        - Servers
+      summary: List all servers
+      description: Returns a paginated list of all servers
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/offset.yaml'
+        - $ref: '../../components/parameters/limit.yaml'
+        - $ref: '../../components/parameters/order.yaml'
+        - $ref: '../../components/parameters/sort.yaml'
+      responses:
+        '200':
+          description: A paginated list of servers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '../../components/schemas/Server.yaml'
+                  pagination:
+                    $ref: '../../components/schemas/Pagination.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    post:
+      tags:
+        - Servers
+      summary: Create a new server
+      description: Creates a new server
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/Server.yaml'
+      responses:
+        '201':
+          description: Server created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/Server.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '409':
+          $ref: '../../components/responses/Conflict.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  /servers/{server_id}:
+    get:
+      tags:
+        - Servers
+      summary: Get a server by ID
+      description: Returns a single server by its ID
+      security:
+        - basicAuth: []
+      parameters:
+        - name: server_id
+          in: path
+          description: ID of the server to retrieve
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: Server details
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/Server.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    put:
+      tags:
+        - Servers
+      summary: Update a server
+      description: Updates an existing server
+      security:
+        - basicAuth: []
+      parameters:
+        - name: server_id
+          in: path
+          description: ID of the server to update
+          required: true
+          schema:
+            type: integer
+            format: int32
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/Server.yaml'
+      responses:
+        '200':
+          description: Server updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/Server.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    delete:
+      tags:
+        - Servers
+      summary: Delete a server
+      description: Deletes a server by ID
+      security:
+        - basicAuth: []
+      parameters:
+        - name: server_id
+          in: path
+          description: ID of the server to delete
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '204':
+          description: Server deleted successfully
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '403':
+          $ref: '../../components/responses/Forbidden.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'

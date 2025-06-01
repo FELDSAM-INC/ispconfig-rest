@@ -1,0 +1,265 @@
+type: object
+x-db-table: client
+description: Represents a reseller in the system
+required:
+  - company_name
+  - contact_name
+  - username
+  - password
+  - email
+  - street
+  - zip
+  - city
+  - country
+  - template_master
+  - limit_client
+  - limit_web_domain
+  - limit_web_quota
+  - limit_web_user
+  - limit_mail_domain
+  - limit_mailbox
+  - limit_mail_quota
+  - limit_database
+  - limit_dns_domain
+  - limit_cron
+  - limit_shell_user
+  - limit_php_mode
+  - limit_php_upload_max_filesize
+  - limit_php_post_max_size
+  - limit_php_max_execution_time
+  - limit_php_memory_limit
+  - limit_php_disable_functions
+  - limit_php_mail_function
+  - limit_php_mail_smtp_server
+  - limit_php_mail_smtp_port
+  - limit_php_mail_smtp_ssl
+  - limit_php_mail_smtp_auth
+  - limit_php_mail_smtp_user
+  - limit_php_mail_smtp_pass
+
+properties:
+  # Basic Information
+  client_id:
+    type: integer
+    format: int32
+    readOnly: true
+    description: Unique identifier for the reseller
+    example: 1
+  
+  company_name:
+    type: string
+    maxLength: 64
+    description: Name of the company
+    example: "ACME Corp"
+  
+  contact_name:
+    type: string
+    maxLength: 255
+    description: Full name of the contact person
+    example: "John Doe"
+  
+  username:
+    type: string
+    maxLength: 64
+    description: Username for the reseller
+    example: "reseller1"
+  
+  password:
+    type: string
+    format: password
+    description: Password for the reseller
+    writeOnly: true
+  
+  email:
+    type: string
+    format: email
+    description: Contact email address
+    example: "contact@example.com"
+  
+  # Address Information
+  street:
+    type: string
+    description: Street address
+    example: "123 Main St"
+  
+  zip:
+    type: string
+    maxLength: 15
+    description: ZIP/Postal code
+    example: "12345"
+  
+  city:
+    type: string
+    maxLength: 255
+    description: City
+    example: "New York"
+  
+  country:
+    type: string
+    maxLength: 2
+    description: Two-letter country code (ISO 3166-1 alpha-2)
+    example: "US"
+  
+  # Contact Information
+  phone:
+    type: string
+    maxLength: 32
+    description: Phone number
+    example: "+1-555-123-4567"
+  
+  mobile:
+    type: string
+    maxLength: 32
+    description: Mobile phone number
+    example: "+1-555-987-6543"
+  
+  # System Settings
+  template_master:
+    type: integer
+    format: int32
+    description: Template ID for this reseller
+    example: 1
+  
+  # Resource Limits
+  limit_client:
+    type: integer
+    format: int32
+    description: Maximum number of clients allowed (-1 for unlimited)
+    example: 10
+  
+  limit_web_domain:
+    type: integer
+    format: int32
+    description: Maximum number of web domains allowed (-1 for unlimited)
+    example: 100
+  
+  limit_web_quota:
+    type: integer
+    format: int64
+    description: Web space quota in MB (-1 for unlimited)
+    example: 10240
+  
+  limit_web_user:
+    type: integer
+    format: int32
+    description: Maximum number of web users allowed (-1 for unlimited)
+    example: 100
+  
+  limit_mail_domain:
+    type: integer
+    format: int32
+    description: Maximum number of mail domains allowed (-1 for unlimited)
+    example: 50
+  
+  limit_mailbox:
+    type: integer
+    format: int32
+    description: Maximum number of mailboxes allowed (-1 for unlimited)
+    example: 500
+  
+  limit_mail_quota:
+    type: integer
+    format: int64
+    description: Mail quota in MB (-1 for unlimited)
+    example: 51200
+  
+  limit_database:
+    type: integer
+    format: int32
+    description: Maximum number of databases allowed (-1 for unlimited)
+    example: 50
+  
+  limit_dns_domain:
+    type: integer
+    format: int32
+    description: Maximum number of DNS domains allowed (-1 for unlimited)
+    example: 50
+  
+  limit_cron:
+    type: integer
+    format: int32
+    description: Maximum number of cron jobs allowed (-1 for unlimited)
+    example: 10
+  
+  limit_shell_user:
+    type: integer
+    format: int32
+    description: Maximum number of shell users allowed (-1 for unlimited)
+    example: 10
+  
+  # PHP Configuration
+  limit_php_mode:
+    type: string
+    enum: ["php-fcgi", "php-fpm", "mod_php"]
+    description: PHP execution mode
+    example: "php-fpm"
+  
+  limit_php_upload_max_filesize:
+    type: integer
+    format: int32
+    description: Maximum allowed size for uploaded files in MB
+    example: 64
+  
+  limit_php_post_max_size:
+    type: integer
+    format: int32
+    description: Maximum size of POST data in MB
+    example: 64
+  
+  limit_php_max_execution_time:
+    type: integer
+    format: int32
+    description: Maximum execution time in seconds
+    example: 30
+  
+  limit_php_memory_limit:
+    type: integer
+    format: int32
+    description: Memory limit in MB
+    example: 256
+  
+  limit_php_disable_functions:
+    type: string
+    description: Disabled PHP functions (comma-separated)
+    example: "exec,passthru,shell_exec,system"
+  
+  # Mail Configuration
+  limit_php_mail_function:
+    type: string
+    enum: ["mail", "smtp", "sendmail", "qmail"]
+    description: PHP mail function to use
+    example: "mail"
+  
+  limit_php_mail_smtp_server:
+    type: string
+    description: SMTP server hostname
+    example: "smtp.example.com"
+  
+  limit_php_mail_smtp_port:
+    type: integer
+    format: int32
+    description: SMTP server port
+    example: 587
+  
+  limit_php_mail_smtp_ssl:
+    type: string
+    enum: ["none", "ssl", "tls"]
+    description: SMTP encryption method
+    example: "tls"
+  
+  limit_php_mail_smtp_auth:
+    type: string
+    enum: ["none", "plain", "login", "cram-md5"]
+    description: SMTP authentication method
+    example: "login"
+  
+  limit_php_mail_smtp_user:
+    type: string
+    description: SMTP username
+    example: "user@example.com"
+  
+  limit_php_mail_smtp_pass:
+    type: string
+    format: password
+    description: SMTP password
+    writeOnly: true

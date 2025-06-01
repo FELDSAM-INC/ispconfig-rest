@@ -1,0 +1,93 @@
+# Server IP Address Schema
+type: object
+x-db-table: server_ip
+properties:
+  server_ip_id:
+    type: integer
+    format: int32
+    description: Unique identifier for the server IP address
+    readOnly: true
+    example: 1
+    x-db-field: server_ip_id
+  sys_userid:
+    type: integer
+    format: int32
+    description: System user ID who created the record
+    readOnly: true
+    example: 1
+    x-db-field: sys_userid
+  sys_groupid:
+    type: integer
+    format: int32
+    description: System group ID
+    readOnly: true
+    example: 1
+    x-db-field: sys_groupid
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    description: User permissions (r = read, i = insert, u = update, d = delete)
+    example: "riud"
+    x-db-field: sys_perm_user
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    description: Group permissions (r = read, i = insert, u = update, d = delete)
+    example: "riud"
+    x-db-field: sys_perm_group
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    description: Other permissions (r = read, i = insert, u = update, d = delete)
+    example: ""
+    x-db-field: sys_perm_other
+  server_id:
+    type: integer
+    format: int32
+    description: ID of the server this IP address is associated with
+    example: 1
+    x-db-field: server_id
+  client_id:
+    type: integer
+    format: int32
+    description: ID of the client who owns this IP address
+    example: 1
+    x-db-field: client_id
+  ip_type:
+    type: string
+    enum: ["IPv4", "IPv6"]
+    description: Type of the IP address (IPv4 or IPv6)
+    default: "IPv4"
+    example: "IPv4"
+    x-db-field: ip_type
+  ip_address:
+    type: string
+    format: ipv4
+    description: The IP address
+    example: "192.168.1.1"
+    x-db-field: ip_address
+  virtualhost:
+    type: string
+    enum: ["y", "n"]
+    description: Whether this IP is used for virtual hosting
+    default: "y"
+    example: "y"
+    x-db-field: virtualhost
+  virtualhost_port:
+    type: string
+    pattern: '^([0-9]{1,5}\,{0,1}){1,}$'
+    description: Comma-separated list of ports for virtual hosting
+    default: "80,443"
+    example: "80,443"
+    x-db-field: virtualhost_port
+  active:
+    type: string
+    enum: ["y", "n"]
+    description: Whether this IP address is active
+    default: "y"
+    example: "y"
+    x-db-field: active
+required:
+  - server_id
+  - ip_type
+  - ip_address

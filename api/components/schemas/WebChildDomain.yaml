@@ -1,0 +1,205 @@
+type: object
+x-db-table: web_domain
+description: Auto-generated schema for web_domain
+required:
+  - server_id
+  - parent_domain_id
+  - domain
+  - type
+  - active
+properties:
+  id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the web child domain
+    example: 123
+    x-db-field: domain_id
+
+  server_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Server ID where the web child domain is hosted
+    example: 1
+
+  parent_domain_id:
+    type: integer
+    format: int64
+    description: ID of the parent web domain
+    example: 42
+
+  domain:
+    type: string
+    description: |
+      Domain name of the child domain (without parent domain part for subdomains)
+      
+      ### Validation Rules:
+      - Must be a valid domain name
+      - For subdomains, must be unique within the parent domain
+      - For alias domains, must be unique across all domains
+    maxLength: 255
+    example: "subdomain"
+
+  type:
+    type: string
+    description: |
+      Type of web child domain:
+      - `subdomain`: A subdomain of the parent domain (e.g., sub.example.com)
+      - `alias`: An alias domain that points to the parent domain
+    enum: [subdomain, alias]
+    default: "subdomain"
+
+  subdomain:
+    type: string
+    description: |
+      Subdomain prefix (only for alias domains)
+      
+      ### Allowed Values:
+      - `none`: No subdomain (aliasdomain.com)
+      - `www`: Use www subdomain (www.aliasdomain.com)
+      - `*`: Use wildcard subdomain (*.aliasdomain.com)
+    enum: [none, www, *]
+    default: "www"
+    example: "www"
+
+  redirect_type:
+    type: string
+    description: |
+      Type of redirect to apply
+      
+      ### Allowed Values:
+      - `""`: No redirect
+      - `no`: No flag
+      - `R`: R redirect
+      - `L`: L redirect
+      - `R,L`: R and L redirect
+      - `R=301,L`: 301 permanent redirect
+      - `last`: Last
+      - `break`: Break
+      - `redirect`: Redirect
+      - `permanent`: Permanent
+      - `proxy`: Proxy
+    enum: ["", no, R, L, R,L, R=301,L, last, break, redirect, permanent, proxy]
+    default: ""
+    example: "R=301,L"
+
+  redirect_path:
+    type: string
+    description: |
+      Path or URL to redirect to
+      
+      ### Validation Rules:
+      - Must be a valid URL or absolute path
+      - If redirect_type is 'proxy', must be a URL (not a path)
+    maxLength: 255
+    example: "/new-location"
+
+  seo_redirect:
+    type: string
+    description: |
+      SEO redirect options (only for alias domains)
+      
+      ### Allowed Values:
+      - `""`: No redirect
+      - `non_www_to_www`: domain.tld => www.domain.tld
+      - `www_to_non_www`: www.domain.tld => domain.tld
+      - `*_domain_tld_to_domain_tld`: *.domain.tld => domain.tld
+      - `*_domain_tld_to_www_domain_tld`: *.domain.tld => www.domain.tld
+      - `*_to_domain_tld`: * => domain.tld
+      - `*_to_www_domain_tld`: * => www.domain.tld
+    enum: ["", non_www_to_www, www_to_non_www, *_domain_tld_to_domain_tld, *_domain_tld_to_www_domain_tld, *_to_domain_tld, *_to_www_domain_tld]
+    default: ""
+    example: "www_to_non_www"
+
+  ssl_letsencrypt_exclude:
+    type: string
+    description: Exclude from Let's Encrypt SSL certificate
+    enum: [y, n]
+    default: "n"
+
+  active:
+    type: string
+    description: Whether the web child domain is active
+    enum: [y, n]
+    default: "y"
+
+  # System fields (readonly)
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID who created the record
+    example: 1
+
+  sys_groupid:
+    type: integer
+    readOnly: true
+    description: System group ID for the record
+    example: 1
+
+  sys_perm:
+    type: string
+    readOnly: true
+    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_group:
+    type: string
+    readOnly: true
+    description: Group permissions for the record
+    example: "riud"
+
+  sys_perm_other:
+    type: string
+    readOnly: true
+    description: Other permissions for the record
+    example: ""
+
+  created_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Creation timestamp
+    example: "2023-01-01T12:00:00Z"
+
+  updated_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Last update timestamp
+    example: "2023-01-01T12:00:00Z"
+
+  # Response only fields (not for input)
+  server_name:
+    type: string
+    readOnly: true
+    description: Name of the server where the web child domain is hosted
+    example: "server1.example.com"
+
+  parent_domain:
+    type: string
+    readOnly: true
+    description: Name of the parent domain
+    example: "example.com"
+
+description: |
+  A web child domain represents either a subdomain or an alias domain in ISPConfig.
+  
+  ### Subdomains
+  - Subdomains are hierarchical child domains of a parent domain (e.g., sub.example.com)
+  - They share the web root with the parent domain but can have their own content
+  - Example: blog.example.com, shop.example.com
+  
+  ### Alias Domains
+  - Alias domains are alternative domain names that point to an existing web domain
+  - They can have their own subdomain prefix (www, *, or none)
+  - Example: example.net pointing to example.com
+  
+  ### Redirects
+  - Both subdomains and alias domains support various types of redirects
+  - SEO redirects help with canonicalization (www vs non-www, etc.)
+  - Custom redirects allow for flexible URL rewriting
+  
+  ### SSL/TLS
+  - Child domains can be included or excluded from Let's Encrypt SSL certificates
+  - SSL settings are inherited from the parent domain by default

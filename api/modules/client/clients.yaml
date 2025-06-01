@@ -1,0 +1,171 @@
+# Client endpoints
+/clients:
+  get:
+    tags:
+      - Clients
+    summary: List all clients
+    description: |
+      Returns a paginated list of clients with filtering, sorting, and pagination support.
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: contact_name
+        in: query
+        description: Filter by contact name (supports wildcards with %)
+        schema:
+          type: string
+      - name: company_name
+        in: query
+        description: Filter by company name (supports wildcards with %)
+        schema:
+          type: string
+      - name: email
+        in: query
+        description: Filter by email address (supports wildcards with %)
+        schema:
+          type: string
+      - name: customer_no
+        in: query
+        description: Filter by customer number
+        schema:
+          type: string
+    responses:
+      '200':
+        description: A list of clients
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/Client.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Clients
+    summary: Create a new client
+    description: |
+      Creates a new client with the specified configuration.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/Client.yaml'
+    responses:
+      '201':
+        description: Client created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/Client.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/clients/{client_id}:
+  parameters:
+    - name: client_id
+      in: path
+      description: Client ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Clients
+    summary: Get client by ID
+    description: Returns a single client by its ID
+    responses:
+      '200':
+        description: Client details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/Client.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Clients
+    summary: Update client
+    description: Updates an existing client configuration
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/Client.yaml'
+    responses:
+      '200':
+        description: Client updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/Client.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Clients
+    summary: Delete client
+    description: Deletes a client by ID
+    responses:
+      '204':
+        description: Client deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Client cannot be deleted because it has associated resources
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

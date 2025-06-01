@@ -1,0 +1,89 @@
+type: object
+x_db_table: server
+required:
+  - dns_server
+  - dns_master
+  - dns_slave
+  - dns_ns1
+  - dns_ns2
+properties:
+  dns_server:
+    type: string
+    enum: [y, n]
+    description: Whether the DNS server is enabled
+    example: "y"
+  dns_master:
+    type: string
+    enum: [y, n]
+    description: Whether this is a master DNS server
+    example: "y"
+  dns_slave:
+    type: string
+    enum: [y, n]
+    description: Whether this is a slave DNS server
+    example: "n"
+  dns_ns1:
+    type: string
+    format: hostname
+    description: Primary nameserver hostname
+    example: "ns1.example.com"
+  dns_ns2:
+    type: string
+    format: hostname
+    description: Secondary nameserver hostname
+    example: "ns2.example.com"
+  dns_ns3:
+    type: string
+    format: hostname
+    description: Tertiary nameserver hostname
+    example: "ns3.example.com"
+  dns_ns4:
+    type: string
+    format: hostname
+    description: Quaternary nameserver hostname
+    example: "ns4.example.com"
+  dns_mx1:
+    type: string
+    format: hostname
+    description: Primary mail exchanger hostname
+    example: "mail.example.com"
+  dns_mx2:
+    type: string
+    format: hostname
+    description: Secondary mail exchanger hostname
+    example: "mail2.example.com"
+  dns_mx3:
+    type: string
+    format: hostname
+    description: Tertiary mail exchanger hostname
+    example: "mail3.example.com"
+  dns_mx4:
+    type: string
+    format: hostname
+    description: Quaternary mail exchanger hostname
+    example: "mail4.example.com"
+  dns_soa:
+    type: string
+    format: email
+    description: SOA email address (with @ replaced by .)
+    example: "hostmaster.example.com"
+  dns_ttl:
+    type: integer
+    description: Default TTL for DNS records
+    example: 86400
+  dns_refresh:
+    type: integer
+    description: Refresh interval for DNS zones
+    example: 10800
+  dns_retry:
+    type: integer
+    description: Retry interval for failed zone transfers
+    example: 3600
+  dns_expire:
+    type: integer
+    description: Expiry time for DNS zones
+    example: 604800
+  dns_minimum:
+    type: integer
+    description: Minimum TTL for negative caching
+    example: 3600

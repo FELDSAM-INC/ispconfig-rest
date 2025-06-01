@@ -1,0 +1,12 @@
+type: object
+description: System configuration for domains in ISPConfig
+properties:
+  use_domain_module:
+    type: string
+    enum: [y, n]
+    description: Whether to use the domain module
+    example: "y"
+  new_domain_html:
+    type: string
+    description: HTML content for new domain page
+    example: "<h1>Welcome to your new domain!</h1>"

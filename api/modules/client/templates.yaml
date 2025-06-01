@@ -1,0 +1,165 @@
+# Client Template endpoints
+/templates:
+  get:
+    tags:
+      - Client Templates
+    summary: List all client templates
+    description: |
+      Returns a paginated list of client templates with filtering and sorting support.
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: template_type
+        in: query
+        description: Filter by template type (m = main, a = additional)
+        schema:
+          type: string
+          enum: [m, a]
+      - name: template_name
+        in: query
+        description: Filter by template name (supports wildcards with %)
+        schema:
+          type: string
+    responses:
+      '200':
+        description: A list of client templates
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/ClientTemplate.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Client Templates
+    summary: Create a new client template
+    description: |
+      Creates a new client template with the specified configuration.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/ClientTemplate.yaml'
+    responses:
+      '201':
+        description: Client template created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/ClientTemplate.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/templates/{template_id}:
+  parameters:
+    - name: template_id
+      in: path
+      description: Client Template ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Client Templates
+    summary: Get client template by ID
+    description: Returns a single client template by its ID
+    responses:
+      '200':
+        description: Client template details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/ClientTemplate.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Client Templates
+    summary: Update client template
+    description: Updates an existing client template configuration
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/ClientTemplate.yaml'
+    responses:
+      '200':
+        description: Client template updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/ClientTemplate.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Client Templates
+    summary: Delete client template
+    description: |
+      Deletes a client template by ID.
+      
+      **Note:** A template cannot be deleted if it is assigned to any clients.
+    responses:
+      '204':
+        description: Client template deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Template cannot be deleted because it is assigned to one or more clients
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

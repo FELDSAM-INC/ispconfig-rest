@@ -1,0 +1,85 @@
+# Directive Snippet Schema
+# This schema defines the structure of a directive snippet in ISPConfig
+
+type: object
+x-db-table: directive_snippets
+properties:
+  directive_snippets_id:
+    type: integer
+    format: int32
+    description: Unique identifier for the directive snippet
+    readOnly: true
+    example: 1
+    x-db-field: directive_snippets_id
+  sys_userid:
+    type: integer
+    format: int32
+    description: System user ID who created the record
+    readOnly: true
+    example: 1
+    x-db-field: sys_userid
+  sys_groupid:
+    type: integer
+    format: int32
+    description: System group ID
+    readOnly: true
+    example: 1
+    x-db-field: sys_groupid
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    description: User permissions (r = read, i = insert, u = update, d = delete)
+    example: "riud"
+    x-db-field: sys_perm_user
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    description: Group permissions (r = read, i = insert, u = update, d = delete)
+    example: "riud"
+    x-db-field: sys_perm_group
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    description: Other permissions (r = read, i = insert, u = update, d = delete)
+    example: ""
+    x-db-field: sys_perm_other
+  name:
+    type: string
+    maxLength: 255
+    description: Name of the directive snippet
+    example: "Custom PHP Settings"
+    x-db-field: name
+  type:
+    type: string
+    enum: [apache, nginx, php, proxy]
+    description: Type of the directive snippet
+    example: "php"
+    x-db-field: type
+  snippet:
+    type: string
+    description: The actual directive snippet content
+    example: "php_admin_value memory_limit 256M"
+    x-db-field: snippet
+  customer_viewable:
+    type: string
+    enum: [y, n]
+    description: Whether the snippet is visible to customers (y = yes, n = no)
+    example: "y"
+    x-db-field: customer_viewable
+  active:
+    type: string
+    enum: [y, n]
+    description: Whether the snippet is active (y = yes, n = no)
+    example: "y"
+    x-db-field: active
+  update_sites:
+    type: string
+    enum: [y, n]
+    description: Whether to update sites using this snippet (y = yes, n = no)
+    example: "y"
+    x-db-field: update_sites
+  required_php_snippets:
+    type: string
+    description: Comma-separated list of required PHP snippet IDs
+    example: "1,2,3"
+    x-db-field: required_php_snippets

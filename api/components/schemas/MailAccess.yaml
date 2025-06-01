@@ -1,0 +1,135 @@
+type: object
+x-db-table: mail_access
+description: Auto-generated schema for mail_access
+required:
+  - server_id
+  - source
+  - access
+  - type
+  - active
+properties:
+  id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the mail access rule
+    example: 123
+    x-db-field: access_id
+
+  server_id:
+    type: integer
+    format: int64
+    description: |
+      Server ID where the access rule is configured
+      - Must be a valid server ID with mail server enabled
+    example: 1
+
+  source:
+    type: string
+    description: |
+      Source pattern to match
+      - Can be an email address, domain, or IP address
+      - If it starts with @, it's treated as a domain
+      - If it's an IP address, it can include CIDR notation
+      - Will be converted to lowercase for email/domain values
+    example: "spammer@example.com"
+    maxLength: 255
+
+  access:
+    type: string
+    description: |
+      Action to take for matching messages
+      - 'REJECT': Reject the message with a bounce
+      - 'OK': Allow the message (whitelist)
+      - Other Postfix access(5) actions may be supported
+    default: "REJECT"
+    example: "REJECT"
+
+  type:
+    type: string
+    description: |
+      Type of access rule
+      - 'recipient': Apply to recipient addresses
+      - 'sender': Apply to sender addresses
+      - 'client': Apply to client connections (IP-based)
+      - Note: Non-admin users can only use 'recipient' or 'sender'
+    enum: [recipient, sender, client]
+    default: "recipient"
+
+  active:
+    type: string
+    description: |
+      Whether the rule is active
+      - 'y': Rule is active
+      - 'n': Rule is disabled
+    enum: [y, n]
+    default: "y"
+
+  # System fields (readonly)
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID who created the record
+    example: 1
+
+  sys_groupid:
+    type: integer
+    readOnly: true
+    description: System group ID for the record
+    example: 1
+
+  sys_perm:
+    type: string
+    readOnly: true
+    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_group:
+    type: string
+    readOnly: true
+    description: Group permissions for the record
+    example: "riud"
+
+  sys_perm_other:
+    type: string
+    readOnly: true
+    description: Other permissions for the record
+    example: ""
+
+  created_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Creation timestamp
+    example: "2023-01-01T12:00:00Z"
+
+  updated_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Last update timestamp
+    example: "2023-01-01T12:00:00Z"
+
+description: |
+  Mail access rules control how incoming mail is handled based on sender, recipient,
+  or client IP address. These rules can be used to implement blacklists and whitelists.
+  
+  ### Key Features
+  - Block or allow messages based on sender, recipient, or client IP
+  - Support for exact matches, domains, and IP ranges
+  - Per-server configuration
+  
+  ### Rule Types
+  - **recipient**: Apply to recipient email addresses
+  - **sender**: Apply to sender email addresses
+  - **client**: Apply to connecting client IP addresses (admin only)
+  
+  ### Access Actions
+  - **REJECT**: Reject the message with a bounce (default)
+  - **OK**: Allow the message (whitelist)
+  - Other Postfix access(5) actions may be supported
+  
+  ### Permissions
+  - Non-admin users can only create rules for their own domains
+  - Only admins can create 'client' type rules
+  - The number of rules may be limited by the user's plan

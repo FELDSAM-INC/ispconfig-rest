@@ -1,0 +1,213 @@
+# Web Folder endpoints
+/sites/web-folders:
+  get:
+    tags:
+      - Web Folders
+    summary: List all web folders
+    description: |
+      Returns a paginated list of web folders.
+      The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      You can filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Example: `path[ilike]=%uploads%&active[eq]=y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=id` or `sort=-created_at`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: parent_domain_id
+        in: query
+        description: Filter by parent domain ID
+        schema:
+          type: integer
+          format: int64
+      - name: active
+        in: query
+        description: Filter by active status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+    responses:
+      '200':
+        description: A list of web folders
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/WebFolder.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Web Folders
+    summary: Create a new web folder
+    description: |
+      Creates a new web folder for a domain.
+      
+      ### Validation Rules
+      - Path must be a valid directory path
+      - Parent domain must exist and be accessible
+      - User must have permission to create web folders
+      - User must be within their allowed limits for web folders
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/WebFolder.yaml'
+    responses:
+      '201':
+        description: Web folder created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/WebFolder.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+        description: |
+          Bad Request. Possible reasons:
+          - Invalid path format
+          - Parent domain not found or inaccessible
+          - Directory already exists
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/sites/web-folders/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: Web folder ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Web Folders
+    summary: Get web folder by ID
+    description: Returns a single web folder by its ID
+    responses:
+      '200':
+        description: Web folder details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/WebFolder.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Web Folders
+    summary: Update web folder
+    description: |
+      Updates an existing web folder configuration.
+      
+      ### Notes
+      - Only the active status can be updated
+      - Path and parent domain cannot be changed after creation
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              active:
+                type: string
+                enum: [y, n]
+                description: Whether the web folder is active
+    responses:
+      '200':
+        description: Web folder updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/WebFolder.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Web Folders
+    summary: Delete web folder
+    description: |
+      Deletes a web folder by ID.
+      
+      ### Notes
+      - This will remove the folder configuration but not the actual directory
+      - Any associated web folder users will also be deleted
+      - This action cannot be undone
+    responses:
+      '204':
+        description: Web folder deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Web folder is currently in use
+          - Insufficient permissions
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

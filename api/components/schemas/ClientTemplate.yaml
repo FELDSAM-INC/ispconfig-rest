@@ -1,0 +1,286 @@
+type: object
+x-db-table: client_template
+description: Client template defines a set of resource limits and settings that can be applied to clients
+required:
+  - template_name
+  - template_type
+properties:
+  template_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the template
+    example: 1
+
+  sys_userid:
+    type: integer
+    format: int64
+    readOnly: true
+    description: System user ID who created the template
+    example: 1
+
+  sys_groupid:
+    type: integer
+    format: int64
+    readOnly: true
+    description: System group ID
+    example: 1
+
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    readOnly: true
+    description: User permissions (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    readOnly: true
+    description: Group permissions
+    example: "riud"
+
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    readOnly: true
+    description: Other permissions
+    example: "r"
+
+  template_type:
+    type: string
+    enum: [m, a]
+    description: |
+      Type of template:
+      - m = Main template (defines all limits)
+      - a = Additional template (adds to main template limits)
+    example: "m"
+
+  template_name:
+    type: string
+    maxLength: 255
+    description: Name of the template
+    example: "Reseller Basic"
+
+  # Mail Server Settings
+  mail_servers:
+    type: string
+    description: Comma-separated list of allowed mail server IDs
+    example: "1,2,3"
+
+  # Limits
+  limit_client:
+    type: integer
+    description: Maximum number of clients that can be created (-1 for unlimited, 0 for none)
+    default: 0
+    example: 10
+
+  limit_maildomain:
+    type: integer
+    description: Maximum number of mail domains (-1 for unlimited, 0 for none)
+    default: 0
+    example: 5
+
+  limit_mailbox:
+    type: integer
+    description: Maximum number of mailboxes (-1 for unlimited, 0 for none)
+    default: 0
+    example: 100
+
+  limit_mailalias:
+    type: integer
+    description: Maximum number of mail aliases (-1 for unlimited, 0 for none)
+    default: 0
+    example: 50
+
+  limit_mailaliasdomain:
+    type: integer
+    description: Maximum number of mail alias domains (-1 for unlimited, 0 for none)
+    default: -1
+    example: 5
+
+  limit_mailforward:
+    type: integer
+    description: Maximum number of mail forwards (-1 for unlimited, 0 for none)
+    default: 0
+    example: 50
+
+  limit_mailcatchall:
+    type: integer
+    description: Maximum number of catch-all addresses (-1 for unlimited, 0 for none)
+    default: -1
+    example: 1
+
+  limit_mailrouting:
+    type: integer
+    description: Maximum number of mail routings (0 for none)
+    default: 0
+    example: 0
+
+  limit_mail_wblist:
+    type: integer
+    description: Maximum number of mail whitelist/blacklist entries (0 for none)
+    default: 0
+    example: 0
+
+  limit_mailfilter:
+    type: integer
+    description: Maximum number of mail filters (-1 for unlimited, 0 for none)
+    default: -1
+    example: 50
+
+  limit_fetchmail:
+    type: integer
+    description: Maximum number of fetchmail entries (-1 for unlimited, 0 for none)
+    default: -1
+    example: 5
+
+  limit_mailquota:
+    type: integer
+    description: Mailbox quota in MB (-1 for unlimited, 0 for default)
+    default: -1
+    example: 1024
+
+  limit_spamfilter_wblist:
+    type: integer
+    description: Maximum number of spam filter whitelist/blacklist entries (0 for none)
+    default: 0
+    example: 0
+
+  limit_spamfilter_user:
+    type: integer
+    description: Maximum number of spam filter users (0 for none)
+    default: 0
+    example: 0
+
+  limit_spamfilter_policy:
+    type: integer
+    description: Maximum number of spam filter policies (0 for none)
+    default: 0
+    example: 0
+
+  # Web Limits
+  limit_web_domain:
+    type: integer
+    description: Maximum number of web domains (-1 for unlimited, 0 for none)
+    default: 0
+    example: 5
+
+  limit_web_quota:
+    type: integer
+    description: Web space quota in MB (-1 for unlimited, 0 for default)
+    default: -1
+    example: 1024
+
+  limit_web_subdomain:
+    type: integer
+    description: Maximum number of subdomains (-1 for unlimited, 0 for none)
+    default: -1
+    example: 10
+
+  limit_web_aliasdomain:
+    type: integer
+    description: Maximum number of alias domains (-1 for unlimited, 0 for none)
+    default: -1
+    example: 5
+
+  limit_ftp_user:
+    type: integer
+    description: Maximum number of FTP users (-1 for unlimited, 0 for none)
+    default: 0
+    example: 10
+
+  # Database Limits
+  limit_database:
+    type: integer
+    description: Maximum number of databases (-1 for unlimited, 0 for none)
+    default: 0
+    example: 5
+
+  limit_database_quota:
+    type: integer
+    description: Database quota in MB (-1 for unlimited, 0 for default)
+    default: -1
+    example: 1024
+
+  limit_database_user:
+    type: integer
+    description: Maximum number of database users (-1 for unlimited, 0 for none)
+    default: -1
+    example: 10
+
+  # DNS Limits
+  limit_dns_zone:
+    type: integer
+    description: Maximum number of DNS zones (-1 for unlimited, 0 for none)
+    default: 0
+    example: 5
+
+  limit_dns_record:
+    type: integer
+    description: Maximum number of DNS records per zone (-1 for unlimited, 0 for none)
+    default: -1
+    example: 100
+
+  limit_dns_slave_zone:
+    type: integer
+    description: Maximum number of DNS slave zones (-1 for unlimited, 0 for none)
+    default: -1
+    example: 5
+
+  # Other Limits
+  limit_shell_user:
+    type: integer
+    description: Maximum number of shell users (0 for none)
+    default: 0
+    example: 0
+
+  limit_webdav_user:
+    type: integer
+    description: Maximum number of WebDAV users (0 for none)
+    default: 0
+    example: 0
+
+  limit_cron:
+    type: integer
+    description: Maximum number of cron jobs (0 for none)
+    default: 0
+    example: 10
+
+  limit_cron_type:
+    type: string
+    enum: [url, chrooted, full]
+    description: Type of cron access
+    default: url
+    example: url
+
+  limit_cron_frequency:
+    type: integer
+    description: Minimum minutes between cron job executions
+    default: 5
+    example: 5
+
+  limit_traffic_quota:
+    type: integer
+    description: Monthly traffic quota in MB (-1 for unlimited, 0 for default)
+    default: -1
+    example: 10240
+
+example:
+  template_id: 1
+  template_type: "m"
+  template_name: "Reseller Basic"
+  mail_servers: "1,2,3"
+  limit_client: 10
+  limit_maildomain: 5
+  limit_mailbox: 100
+  limit_mailalias: 50
+  limit_web_domain: 5
+  limit_web_quota: 1024
+  limit_database: 5
+  limit_database_quota: 1024
+  limit_ftp_user: 10
+  limit_dns_zone: 5
+  limit_dns_record: 100
+  limit_cron: 10
+  limit_traffic_quota: 10240

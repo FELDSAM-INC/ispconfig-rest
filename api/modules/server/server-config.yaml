@@ -1,0 +1,731 @@
+# Server Configuration API
+# This API allows managing server configurations in ISPConfig
+
+openapi: 3.0.0
+info:
+  title: Server Configuration API
+  description: API for managing server configurations in ISPConfig
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: ISPConfig API Server
+
+tags:
+  - name: Server Configuration
+    description: Server configuration management
+  - name: Server Mail Configuration
+    description: Server mail service configuration
+  - name: Server Web Configuration
+    description: Server web service configuration
+  - name: Server DNS Configuration
+    description: Server DNS service configuration
+  - name: Server FastCGI Configuration
+    description: Server FastCGI configuration
+  - name: Server XMPP Configuration
+    description: Server XMPP service configuration
+  - name: Server Jailkit Configuration
+    description: Server Jailkit configuration
+  - name: Server UFW Configuration
+    description: Server UFW firewall configuration
+  - name: Server Vlogger Configuration
+    description: Server Vlogger configuration
+  - name: Server Cron Configuration
+    description: Server Cron configuration
+  - name: Server Rescue Configuration
+    description: Server Rescue system configuration
+
+paths:
+  # Main server configuration endpoints
+  /server/configs:
+    get:
+      tags:
+        - Server Configuration
+      summary: List all server configurations
+      description: Returns a paginated list of all server configurations
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/offset.yaml'
+        - $ref: '../../components/parameters/limit.yaml'
+        - $ref: '../../components/parameters/order.yaml'
+        - $ref: '../../components/parameters/sort.yaml'
+      responses:
+        '200':
+          description: A paginated list of server configurations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '../../components/schemas/ServerConfig.yaml'
+                  pagination:
+                    $ref: '../../components/schemas/Pagination.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    post:
+      tags:
+        - Server Configuration
+      summary: Create a new server configuration
+      description: Creates a new server configuration
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerConfig.yaml'
+      responses:
+        '201':
+          description: Server configuration created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  /server/configs/{server_id}:
+    get:
+      tags:
+        - Server Configuration
+      summary: Get server configuration by ID
+      description: Returns a single server configuration by ID
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      responses:
+        '200':
+          description: Server configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    put:
+      tags:
+        - Server Configuration
+      summary: Update a server configuration
+      description: Updates an existing server configuration
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerConfig.yaml'
+      responses:
+        '200':
+          description: Server configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    delete:
+      tags:
+        - Server Configuration
+      summary: Delete a server configuration
+      description: Deletes a server configuration by ID
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      responses:
+        '204':
+          description: Server configuration deleted successfully
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  # Mail configuration endpoints
+  /server/configs/{server_id}/mail:
+    get:
+      tags:
+        - Server Mail Configuration
+      summary: Get mail configuration for a server
+      description: Returns the mail configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      responses:
+        '200':
+          description: Mail configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerMailConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    put:
+      tags:
+        - Server Mail Configuration
+      summary: Update mail configuration for a server
+      description: Updates the mail configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerMailConfig.yaml'
+      responses:
+        '200':
+          description: Mail configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerMailConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  # Web configuration endpoints
+  /server/configs/{server_id}/web:
+    get:
+      tags:
+        - Server Web Configuration
+      summary: Get web configuration for a server
+      description: Returns the web configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      responses:
+        '200':
+          description: Web configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerWebConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    put:
+      tags:
+        - Server Web Configuration
+      summary: Update web configuration for a server
+      description: Updates the web configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerWebConfig.yaml'
+      responses:
+        '200':
+          description: Web configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerWebConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  # DNS configuration endpoints
+  /server/configs/{server_id}/dns:
+    get:
+      tags:
+        - Server DNS Configuration
+      summary: Get DNS configuration for a server
+      description: Returns the DNS configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      responses:
+        '200':
+          description: DNS configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerDnsConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    put:
+      tags:
+        - Server DNS Configuration
+      summary: Update DNS configuration for a server
+      description: Updates the DNS configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerDnsConfig.yaml'
+      responses:
+        '200':
+          description: DNS configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerDnsConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  # FastCGI configuration endpoints
+  /server/configs/{server_id}/fastcgi:
+    get:
+      tags:
+        - Server FastCGI Configuration
+      summary: Get FastCGI configuration for a server
+      description: Returns the FastCGI configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      responses:
+        '200':
+          description: FastCGI configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerFastCgiConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    put:
+      tags:
+        - Server FastCGI Configuration
+      summary: Update FastCGI configuration for a server
+      description: Updates the FastCGI configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerFastCgiConfig.yaml'
+      responses:
+        '200':
+          description: FastCGI configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerFastCgiConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  # XMPP configuration endpoints
+  /server/configs/{server_id}/xmpp:
+    get:
+      tags:
+        - Server XMPP Configuration
+      summary: Get XMPP configuration for a server
+      description: Returns the XMPP configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      responses:
+        '200':
+          description: XMPP configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerXmppConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    put:
+      tags:
+        - Server XMPP Configuration
+      summary: Update XMPP configuration for a server
+      description: Updates the XMPP configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerXmppConfig.yaml'
+      responses:
+        '200':
+          description: XMPP configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerXmppConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  # Jailkit configuration endpoints
+  /server/configs/{server_id}/jailkit:
+    get:
+      tags:
+        - Server Jailkit Configuration
+      summary: Get Jailkit configuration for a server
+      description: Returns the Jailkit configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      responses:
+        '200':
+          description: Jailkit configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerJailkitConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    put:
+      tags:
+        - Server Jailkit Configuration
+      summary: Update Jailkit configuration for a server
+      description: Updates the Jailkit configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerJailkitConfig.yaml'
+      responses:
+        '200':
+          description: Jailkit configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerJailkitConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  # UFW Firewall configuration endpoints
+  /server/configs/{server_id}/ufw:
+    get:
+      tags:
+        - Server UFW Configuration
+      summary: Get UFW firewall configuration for a server
+      description: Returns the UFW firewall configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      responses:
+        '200':
+          description: UFW firewall configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerUfwConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    put:
+      tags:
+        - Server UFW Configuration
+      summary: Update UFW firewall configuration for a server
+      description: Updates the UFW firewall configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerUfwConfig.yaml'
+      responses:
+        '200':
+          description: UFW firewall configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerUfwConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  # Vlogger configuration endpoints
+  /server/configs/{server_id}/vlogger:
+    get:
+      tags:
+        - Server Vlogger Configuration
+      summary: Get Vlogger configuration for a server
+      description: Returns the Vlogger configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      responses:
+        '200':
+          description: Vlogger configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerVloggerConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    put:
+      tags:
+        - Server Vlogger Configuration
+      summary: Update Vlogger configuration for a server
+      description: Updates the Vlogger configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerVloggerConfig.yaml'
+      responses:
+        '200':
+          description: Vlogger configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerVloggerConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  # Cron configuration endpoints
+  /server/configs/{server_id}/cron:
+    get:
+      tags:
+        - Server Cron Configuration
+      summary: Get Cron configuration for a server
+      description: Returns the Cron configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      responses:
+        '200':
+          description: Cron configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerCronConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    put:
+      tags:
+        - Server Cron Configuration
+      summary: Update Cron configuration for a server
+      description: Updates the Cron configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerCronConfig.yaml'
+      responses:
+        '200':
+          description: Cron configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerCronConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  # Rescue configuration endpoints
+  /server/configs/{server_id}/rescue:
+    get:
+      tags:
+        - Server Rescue Configuration
+      summary: Get Rescue configuration for a server
+      description: Returns the Rescue configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      responses:
+        '200':
+          description: Rescue configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerRescueConfig.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+    put:
+      tags:
+        - Server Rescue Configuration
+      summary: Update Rescue configuration for a server
+      description: Updates the Rescue configuration for a specific server
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/server_id.yaml'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerRescueConfig.yaml'
+      responses:
+        '200':
+          description: Rescue configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/ServerRescueConfig.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          $ref: '../../components/responses/NotFound.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'

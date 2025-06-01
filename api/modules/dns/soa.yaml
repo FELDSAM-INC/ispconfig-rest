@@ -1,0 +1,190 @@
+# DNS SOA (Start of Authority) endpoints
+/dns/soa:
+  get:
+    tags:
+      - DNS
+    summary: List all DNS zones
+    description: |
+      Returns a paginated list of DNS zones.
+      The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      You can filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Example: `origin[ilike]=%example%&active[eq]=y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=origin` or `sort=-created_at`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: origin
+        in: query
+        description: Filter by zone origin (supports wildcards with %)
+        schema:
+          type: string
+      - name: active
+        in: query
+        description: Filter by active status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+    responses:
+      '200':
+        description: A list of DNS zones
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/DnsSoa.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - DNS
+    summary: Create a new DNS zone
+    description: Creates a new DNS zone with the specified configuration
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/DnsSoa.yaml'
+    responses:
+      '201':
+        description: DNS zone created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/DnsSoa.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/dns/soa/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: DNS zone ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - DNS
+    summary: Get DNS zone by ID
+    description: Returns a single DNS zone by its ID
+    responses:
+      '200':
+        description: DNS zone details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/DnsSoa.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - DNS
+    summary: Update DNS zone
+    description: |
+      Updates an existing DNS zone configuration.
+      
+      ### Partial Updates
+      Only include the fields you want to update. Omitted fields will remain unchanged.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/DnsSoa.yaml'
+    responses:
+      '200':
+        description: DNS zone updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/DnsSoa.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - DNS
+    summary: Delete DNS zone
+    description: Deletes a DNS zone by ID
+    responses:
+      '204':
+        description: DNS zone deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Zone cannot be deleted because it has DNS records
+          - Zone cannot be deleted due to server constraints
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

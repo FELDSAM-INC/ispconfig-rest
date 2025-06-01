@@ -1,0 +1,75 @@
+type: object
+x_db_table: server
+required:
+  - mail_server_type
+  - mail_server_port
+  - mail_auth
+  - mail_ssl
+properties:
+  mail_server_type:
+    type: string
+    enum: [dovecot, courier, cyrus, other]
+    description: Type of the mail server software
+    example: "dovecot"
+  mail_server_port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    description: Port for IMAP/POP3 service
+    example: 143
+  mail_auth:
+    type: string
+    enum: [y, n]
+    description: Whether mail authentication is enabled
+    example: "y"
+  mail_ssl:
+    type: string
+    enum: [y, n]
+    description: Whether SSL/TLS is enabled for mail services
+    example: "y"
+  mail_ssl_cert_file:
+    type: string
+    description: Path to SSL certificate file for mail services
+    example: "/etc/ssl/certs/mail.crt"
+  mail_ssl_key_file:
+    type: string
+    description: Path to SSL private key file for mail services
+    example: "/etc/ssl/private/mail.key"
+  mail_ssl_ca_file:
+    type: string
+    description: Path to SSL CA certificate file for mail services
+    example: "/etc/ssl/certs/mail-ca.crt"
+  mail_ssl_cert_trusted:
+    type: string
+    enum: [y, n]
+    description: Whether the SSL certificate is trusted
+    example: "n"
+  mail_ssl_cert_country:
+    type: string
+    description: Country for SSL certificate
+    example: "US"
+  mail_ssl_cert_state:
+    type: string
+    description: State/Province for SSL certificate
+    example: "California"
+  mail_ssl_cert_locality:
+    type: string
+    description: Locality for SSL certificate
+    example: "San Francisco"
+  mail_ssl_cert_organisation:
+    type: string
+    description: Organization for SSL certificate
+    example: "Example Inc."
+  mail_ssl_cert_organisation_unit:
+    type: string
+    description: Organizational unit for SSL certificate
+    example: "IT Department"
+  mail_ssl_cert_common_name:
+    type: string
+    description: Common name for SSL certificate
+    example: "mail.example.com"
+  mail_ssl_cert_email:
+    type: string
+    format: email
+    description: Email for SSL certificate
+    example: "admin@example.com"

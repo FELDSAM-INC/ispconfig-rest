@@ -1,0 +1,20 @@
+type: object
+description: System configuration for DNS in ISPConfig
+properties:
+  default_dnsserver:
+    type: integer
+    description: Default DNS server ID
+    example: 1
+  default_slave_dnsserver:
+    type: integer
+    description: Default slave DNS server ID
+    example: 2
+  dns_external_slave_fqdn:
+    type: string
+    description: FQDN of external slave DNS server
+    example: "ns2.example.com"
+  dns_show_zoneexport:
+    type: string
+    enum: [y, n]
+    description: Whether to show zone export option
+    example: "n"

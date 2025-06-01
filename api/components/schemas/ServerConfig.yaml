@@ -1,0 +1,170 @@
+type: object
+x_db_table: server
+required:
+  - server_name
+  - ip_address
+  - hostname
+  - active
+properties:
+  server_id:
+    type: integer
+    format: int64
+    description: Unique identifier for the server
+    readOnly: true
+    example: 1
+  server_name:
+    type: string
+    description: Name of the server
+    example: "web01"
+  ip_address:
+    type: string
+    format: ipv4
+    description: Primary IPv4 address of the server
+    example: "192.168.1.10"
+  ipv6_address:
+    type: string
+    format: ipv6
+    description: Primary IPv6 address of the server
+    example: "2001:db8::1"
+  hostname:
+    type: string
+    format: hostname
+    description: Fully qualified domain name of the server
+    example: "web01.example.com"
+  active:
+    type: string
+    enum: [y, n]
+    description: Whether the server is active (y) or not (n)
+    example: "y"
+  auto_network_configuration:
+    type: string
+    enum: [y, n]
+    description: Whether automatic network configuration is enabled
+    example: "n"
+  netmask:
+    type: string
+    format: ipv4
+    description: Network mask for the primary IPv4 address
+    example: "255.255.255.0"
+  v6_prefix:
+    type: string
+    description: IPv6 network prefix
+    example: "2001:db8::/64"
+  gateway:
+    type: string
+    format: ipv4
+    description: Default IPv4 gateway
+    example: "192.168.1.1"
+  v6_gateway:
+    type: string
+    format: ipv6
+    description: Default IPv6 gateway
+    example: "2001:db8::1"
+  dns1:
+    type: string
+    format: ipv4
+    description: Primary DNS server (IPv4)
+    example: "8.8.8.8"
+  dns2:
+    type: string
+    format: ipv4
+    description: Secondary DNS server (IPv4)
+    example: "8.8.4.4"
+  dns3:
+    type: string
+    format: ipv4
+    description: Tertiary DNS server (IPv4)
+    example: "1.1.1.1"
+  dns1_v6:
+    type: string
+    format: ipv6
+    description: Primary DNS server (IPv6)
+    example: "2001:4860:4860::8888"
+  dns2_v6:
+    type: string
+    format: ipv6
+    description: Secondary DNS server (IPv6)
+    example: "2001:4860:4860::8844"
+  dns3_v6:
+    type: string
+    format: ipv6
+    description: Tertiary DNS server (IPv6)
+    example: "2606:4700:4700::1111"
+  nameserver:
+    type: string
+    description: Default nameserver for domains on this server
+    example: "ns1.example.com"
+  nameserver2:
+    type: string
+    description: Secondary nameserver for domains on this server
+    example: "ns2.example.com"
+  nameserver3:
+    type: string
+    description: Tertiary nameserver for domains on this server
+    example: "ns3.example.com"
+  timezone:
+    type: string
+    description: Server timezone
+    example: "UTC"
+  backup_interval:
+    type: string
+    enum: [daily, weekly, monthly]
+    description: Default backup interval for this server
+    example: "daily"
+  backup_copies:
+    type: integer
+    description: Number of backup copies to keep
+    example: 7
+  backup_encrypt:
+    type: string
+    enum: [y, n]
+    description: Whether to encrypt backups
+    example: "n"
+  backup_encrypt_password:
+    type: string
+    format: password
+    description: Password for encrypted backups
+    writeOnly: true
+  backup_time:
+    type: string
+    description: Time of day to perform backups (HH:MM)
+    example: "02:00"
+  backup_weekday:
+    type: string
+    enum: [0, 1, 2, 3, 4, 5, 6]
+    description: Day of week for weekly backups (0=Sunday, 6=Saturday)
+    example: "0"
+  backup_day:
+    type: integer
+    minimum: 1
+    maximum: 31
+    description: Day of month for monthly backups
+    example: 1
+  ssh_port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    description: SSH server port
+    example: 22
+  ssh_rsa_key:
+    type: string
+    description: SSH RSA public key
+  ssh_dsa_key:
+    type: string
+    description: SSH DSA public key
+  ssh_ecdsa_key:
+    type: string
+    description: SSH ECDSA public key
+  ssh_ed25519_key:
+    type: string
+    description: SSH ED25519 public key
+  ssh_root_login:
+    type: string
+    enum: [y, n]
+    description: Whether root login via SSH is allowed
+    example: "n"
+  ssh_password_login:
+    type: string
+    enum: [y, n]
+    description: Whether password authentication is allowed for SSH
+    example: "y"

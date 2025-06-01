@@ -1,0 +1,69 @@
+type: object
+description: System configuration for mail in ISPConfig
+properties:
+  enable_custom_login:
+    type: string
+    enum: [y, n]
+    description: Whether to enable custom login for mail
+    example: "n"
+  enable_welcome_mail:
+    type: string
+    enum: [y, n]
+    description: Whether to send welcome emails
+    example: "y"
+  show_per_domain_relay_options:
+    type: string
+    enum: [y, n]
+    description: Whether to show per-domain relay options
+    example: "n"
+  mailbox_show_autoresponder_tab:
+    type: string
+    enum: [y, n]
+    description: Whether to show autoresponder tab for mailboxes
+    example: "y"
+  mailbox_show_quota_tab:
+    type: string
+    enum: [y, n]
+    description: Whether to show quota tab for mailboxes
+    example: "y"
+  mailbox_show_forwarding_tab:
+    type: string
+    enum: [y, n]
+    description: Whether to show forwarding tab for mailboxes
+    example: "y"
+  mailbox_show_filter_tab:
+    type: string
+    enum: [y, n]
+    description: Whether to show filter tab for mailboxes
+    example: "y"
+  mailbox_show_last_access:
+    type: string
+    enum: [y, n]
+    description: Whether to show last access time for mailboxes
+    example: "n"
+  mailboxlist_webmail_link:
+    type: string
+    enum: [y, n]
+    description: Whether to show webmail link in mailbox list
+    example: "n"
+  webmail_url:
+    type: string
+    format: uri
+    maxLength: 255
+    description: URL for webmail access
+    example: "https://webmail.example.com"
+  mailmailinglist_link:
+    type: string
+    enum: [y, n]
+    description: Whether to show mailing list link
+    example: "n"
+  mailmailinglist_url:
+    type: string
+    format: uri
+    maxLength: 255
+    description: URL for mailing list management
+    example: "https://lists.example.com"
+  default_mailserver:
+    type: integer
+    description: Default mail server ID
+    example: 1

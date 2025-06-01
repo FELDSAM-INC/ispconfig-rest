@@ -1,0 +1,78 @@
+# System Logs API
+# This API provides access to system logs
+
+openapi: 3.0.0
+info:
+  title: System Logs API
+  description: API for accessing system logs
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: ISPConfig API Server
+
+tags:
+  - name: Monitor
+    description: System monitoring and logging
+
+paths:
+  /monitor/system-logs:
+    get:
+      tags:
+        - Monitor
+      summary: List system logs
+      description: |
+        Retrieves a list of system log entries.
+        
+        You can filter logs by server, log level, and date range.
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/offset.yaml'
+        - $ref: '../../components/parameters/limit.yaml'
+        - $ref: '../../components/parameters/order.yaml'
+        - $ref: '../../components/parameters/sort.yaml'
+        - name: server_id
+          in: query
+          description: Filter by server ID
+          schema:
+            type: integer
+            format: int64
+        - name: loglevel
+          in: query
+          description: Filter by log level (0=info, 1=warning, 2=error, etc.)
+          schema:
+            type: integer
+            format: int32
+        - name: start_date
+          in: query
+          description: Filter by start date (UNIX timestamp)
+          schema:
+            type: integer
+            format: int64
+        - name: end_date
+          in: query
+          description: Filter by end date (UNIX timestamp)
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: List of system logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '../../components/schemas/SystemLog.yaml'
+                  pagination:
+                    $ref: '../../components/schemas/Pagination.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'

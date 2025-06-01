@@ -1,0 +1,30 @@
+type: object
+x-db-table: client_template_assigned
+description: Represents the assignment of a template to a client
+required:
+  - client_id
+  - client_template_id
+properties:
+  assigned_template_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the assignment
+    example: 1
+
+  client_id:
+    type: integer
+    format: int64
+    description: ID of the client
+    example: 42
+
+  client_template_id:
+    type: integer
+    format: int64
+    description: ID of the template being assigned
+    example: 5
+
+example:
+  assigned_template_id: 1
+  client_id: 42
+  client_template_id: 5

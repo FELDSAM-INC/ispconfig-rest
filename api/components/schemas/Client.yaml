@@ -1,0 +1,465 @@
+type: object
+x-db-table: client
+description: Client represents a customer or reseller in the system
+required:
+  - contact_name
+  - email
+  - username
+  - password
+  - language
+properties:
+  client_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the client
+    example: 42
+
+  # Contact Information
+  contact_name:
+    type: string
+    maxLength: 64
+    description: Full name of the contact person
+    example: John Doe
+  
+  contact_firstname:
+    type: string
+    maxLength: 64
+    description: First name of the contact person
+    example: John
+  
+  email:
+    type: string
+    format: email
+    maxLength: 255
+    description: Primary email address
+    example: john.doe@example.com
+  
+  telephone:
+    type: string
+    maxLength: 32
+    description: Phone number
+    example: "+1-555-123-4567"
+  
+  mobile:
+    type: string
+    maxLength: 32
+    description: Mobile phone number
+    example: "+1-555-987-6543"
+  
+  fax:
+    type: string
+    maxLength: 32
+    description: Fax number
+    example: "+1-555-456-7890"
+  
+  # Company Information
+  company_name:
+    type: string
+    maxLength: 64
+    description: Company name
+    example: Acme Inc.
+  
+  company_id:
+    type: string
+    maxLength: 255
+    description: Company registration number
+    example: "123456789"
+  
+  vat_id:
+    type: string
+    maxLength: 64
+    description: VAT identification number
+    example: "DE123456789"
+  
+  customer_no:
+    type: string
+    maxLength: 64
+    description: Customer number
+    example: "CUST-001"
+  
+  # Address
+  street:
+    type: string
+    maxLength: 255
+    description: Street address
+    example: 123 Main St
+  
+  zip:
+    type: string
+    maxLength: 32
+    description: ZIP/Postal code
+    example: "12345"
+  
+  city:
+    type: string
+    maxLength: 64
+    description: City
+    example: New York
+  
+  state:
+    type: string
+    maxLength: 32
+    description: State/Province
+    example: NY
+  
+  country:
+    type: string
+    maxLength: 2
+    description: 2-letter country code (ISO 3166-1 alpha-2)
+    example: US
+  
+  # Authentication
+  username:
+    type: string
+    minLength: 3
+    maxLength: 64
+    description: Username for login
+    example: johndoe
+  
+  password:
+    type: string
+    minLength: 8
+    writeOnly: true
+    description: Password (write-only, never returned in responses)
+    example: "s3cr3tP@ssw0rd"
+  
+  # Bank Information
+  bank_account_owner:
+    type: string
+    maxLength: 255
+    description: Bank account owner name
+    example: John Doe
+  
+  bank_account_number:
+    type: string
+    maxLength: 255
+    description: Bank account number
+    example: "1234567890"
+  
+  bank_code:
+    type: string
+    maxLength: 255
+    description: Bank code
+    example: "12345678"
+  
+  bank_name:
+    type: string
+    maxLength: 255
+    description: Bank name
+    example: "Bank of America"
+  
+  bank_account_iban:
+    type: string
+    maxLength: 255
+    description: IBAN
+    example: "DE89370400440532013000"
+  
+  bank_account_swift:
+    type: string
+    maxLength: 255
+    description: SWIFT/BIC code
+    example: "BOFAUS3N"
+  
+  paypal_email:
+    type: string
+    format: email
+    maxLength: 255
+    description: PayPal email address
+    example: paypal@example.com
+  
+  # Settings
+  language:
+    type: string
+    maxLength: 2
+    description: 2-letter language code (ISO 639-1)
+    default: en
+    example: en
+  
+  usertheme:
+    type: string
+    maxLength: 32
+    description: Theme for the user interface
+    example: default
+  
+  template_master:
+    type: integer
+    format: int64
+    description: ID of the template to use for this client
+    example: 1
+  
+  template_additional:
+    type: string
+    description: Additional template settings (JSON)
+    example: "{ \"features\": { \"dark_mode\": true } }"
+  
+  # Limits
+  limit_client:
+    type: integer
+    description: Maximum number of clients this client can create (-1 for unlimited)
+    default: -1
+    example: -1
+  
+  limit_domain:
+    type: integer
+    description: Maximum number of domains (-1 for unlimited)
+    default: -1
+    example: 10
+  
+  limit_maildomain:
+    type: integer
+    description: Maximum number of mail domains (-1 for unlimited)
+    default: -1
+    example: 5
+  
+  limit_mailbox:
+    type: integer
+    description: Maximum number of mailboxes (-1 for unlimited)
+    default: -1
+    example: 100
+  
+  limit_web_domain:
+    type: integer
+    description: Maximum number of web domains (-1 for unlimited)
+    default: -1
+    example: 5
+  
+  limit_web_quota:
+    type: integer
+    description: Web space quota in MB (-1 for unlimited)
+    default: -1
+    example: 1024
+  
+  limit_database:
+    type: integer
+    description: Maximum number of databases (-1 for unlimited)
+    default: -1
+    example: 5
+  
+  limit_database_quota:
+    type: integer
+    description: Database quota in MB (-1 for unlimited)
+    default: -1
+    example: 1024
+  
+  limit_ftp_user:
+    type: integer
+    description: Maximum number of FTP users (-1 for unlimited)
+    default: -1
+    example: 10
+  
+  limit_shell_user:
+    type: integer
+    description: Maximum number of shell users (0 for none)
+    default: 0
+    example: 0
+  
+  limit_webdav_user:
+    type: integer
+    description: Maximum number of WebDAV users (0 for none)
+    default: 0
+    example: 0
+  
+  limit_cron:
+    type: integer
+    description: Maximum number of cron jobs (0 for none)
+    default: 0
+    example: 10
+  
+  limit_cron_type:
+    type: string
+    enum: [url, chrooted, full]
+    description: Type of cron access
+    default: url
+    example: url
+  
+  limit_cron_frequency:
+    type: integer
+    description: Minimum minutes between cron job executions
+    default: 5
+    example: 5
+  
+  limit_traffic_quota:
+    type: integer
+    description: Monthly traffic quota in MB (-1 for unlimited)
+    default: -1
+    example: 10240
+  
+  # Mail Limits
+  limit_mailquota:
+    type: integer
+    description: Mailbox quota in MB (-1 for unlimited)
+    default: -1
+    example: 1024
+  
+  limit_mail_alias:
+    type: integer
+    description: Maximum number of mail aliases (-1 for unlimited)
+    default: -1
+    example: 50
+  
+  limit_mail_alias_domain:
+    type: integer
+    description: Maximum number of mail alias domains (-1 for unlimited)
+    default: -1
+    example: 5
+  
+  limit_mail_forward:
+    type: integer
+    description: Maximum number of mail forwards (-1 for unlimited)
+    default: -1
+    example: 50
+  
+  limit_mail_catchall:
+    type: integer
+    description: Maximum number of catch-all addresses (-1 for unlimited)
+    default: -1
+    example: 5
+  
+  limit_mail_routing:
+    type: integer
+    description: Maximum number of mail routings (0 for none)
+    default: 0
+    example: 0
+  
+  limit_mail_wblist:
+    type: integer
+    description: Maximum number of mail whitelist/blacklist entries (0 for none)
+    default: 0
+    example: 0
+  
+  limit_mailfilter:
+    type: integer
+    description: Maximum number of mail filters (-1 for unlimited)
+    default: -1
+    example: 50
+  
+  limit_fetchmail:
+    type: integer
+    description: Maximum number of fetchmail entries (-1 for unlimited)
+    default: -1
+    example: 5
+  
+  limit_spamfilter_wblist:
+    type: integer
+    description: Maximum number of spam filter whitelist/blacklist entries (0 for none)
+    default: 0
+    example: 0
+  
+  limit_spamfilter_user:
+    type: integer
+    description: Maximum number of spam filter users (0 for none)
+    default: 0
+    example: 0
+  
+  limit_spamfilter_policy:
+    type: integer
+    description: Maximum number of spam filter policies (0 for none)
+    default: 0
+    example: 0
+  
+  # DNS Limits
+  limit_dns_zone:
+    type: integer
+    description: Maximum number of DNS zones (-1 for unlimited)
+    default: -1
+    example: 5
+  
+  limit_dns_record:
+    type: integer
+    description: Maximum number of DNS records per zone (-1 for unlimited)
+    default: -1
+    example: 100
+  
+  limit_dns_slave_zone:
+    type: integer
+    description: Maximum number of DNS slave zones (-1 for unlimited)
+    default: -1
+    example: 5
+  
+  # System Fields
+  sys_userid:
+    type: integer
+    format: int64
+    readOnly: true
+    description: System user ID who created the record
+  
+  sys_groupid:
+    type: integer
+    format: int64
+    readOnly: true
+    description: System group ID
+  
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    readOnly: true
+    description: User permissions (r=read, i=insert, u=update, d=delete)
+  
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    readOnly: true
+    description: Group permissions
+  
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    readOnly: true
+    description: Other permissions
+  
+  # Timestamps
+  created_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Creation timestamp
+  
+  updated_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Last update timestamp
+
+  # Status
+  active:
+    type: string
+    enum: [y, n]
+    description: Whether the client account is active
+    default: y
+    example: y
+
+example:
+  client_id: 42
+  contact_name: John Doe
+  contact_firstname: John
+  email: john.doe@example.com
+  telephone: "+1-555-123-4567"
+  company_name: Acme Inc.
+  company_id: "123456789"
+  vat_id: "DE123456789"
+  customer_no: "CUST-001"
+  street: 123 Main St
+  zip: "12345"
+  city: New York
+  state: NY
+  country: US
+  username: johndoe
+  language: en
+  usertheme: default
+  limit_domain: 10
+  limit_maildomain: 5
+  limit_mailbox: 100
+  limit_web_domain: 5
+  limit_web_quota: 1024
+  limit_database: 5
+  limit_database_quota: 1024
+  limit_ftp_user: 10
+  limit_traffic_quota: 10240
+  limit_mailquota: 1024
+  limit_mail_alias: 50
+  limit_mail_forward: 50
+  limit_mailfilter: 50
+  limit_dns_zone: 5
+  limit_dns_record: 100
+  active: y

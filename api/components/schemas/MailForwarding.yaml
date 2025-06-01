@@ -1,0 +1,159 @@
+type: object
+x-db-table: mail_forwarding
+description: Auto-generated schema for mail_forwarding
+required:
+  - source
+  - destination
+  - type
+  - active
+  - allow_send_as
+  - greylisting
+properties:
+  forwarding_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the forwarding entry
+    example: 1
+    x-db-field: forwarding_id
+
+  server_id:
+    type: integer
+    format: int64
+    description: Server ID where the forwarding is configured
+    example: 1
+    x-db-field: server_id
+
+  source:
+    type: string
+    description: |
+      Source address for the forwarding rule.
+      - For forwards: full email address (user@domain.tld)
+      - For catchalls: domain with @ prefix (@domain.tld)
+    example: "user@example.com"
+    x-db-field: source
+    oneOf:
+      - format: email
+        pattern: '^[^@]+@[^@]+\.[^@]+$'  # Standard email format
+      - pattern: '^@[\w\.\-]{1,255}\.[a-zA-Z\-]{2,63}$'  # Catchall format
+
+  destination:
+    type: string
+    description: |
+      Comma-separated list of destination email addresses
+      - Each address must be a valid email
+      - Addresses can be separated by commas, semicolons, or whitespace
+    example: "forward@example.com,another@example.com"
+    x-db-field: destination
+
+  type:
+    type: string
+    description: |
+      Type of the forwarding entry
+      - 'forward' - Regular email forward
+      - 'catchall' - Catch-all forward for a domain
+      - 'alias' - Email alias (not commonly used)
+    enum: [forward, catchall, alias]
+    default: forward
+    x-db-field: type
+
+  allow_send_as:
+    type: string
+    enum: [y, n]
+    default: n
+    description: |
+      Allow sending emails as this address
+      - 'y' - Allow sending as this address
+      - 'n' - Do not allow sending as this address
+    x-db-field: allow_send_as
+
+  active:
+    type: string
+    enum: [y, n]
+    default: y
+    description: |
+      Whether the forwarding is active
+      - 'y': Forwarding is active
+      - 'n': Forwarding is disabled
+    x-db-field: active
+
+  greylisting:
+    type: string
+    enum: [y, n]
+    default: y
+    description: |
+      Enable greylisting for this forward
+      - 'y': Enable greylisting
+      - 'n': Disable greylisting
+    x-db-field: greylisting
+
+  # System fields (readonly)
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID who created the record
+    example: 1
+    x-db-field: sys_userid
+
+  sys_groupid:
+    type: integer
+    readOnly: true
+    description: System group ID for the record
+    example: 1
+    x-db-field: sys_groupid
+
+  sys_perm:
+    type: string
+    readOnly: true
+    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+    x-db-field: sys_perm
+
+  sys_perm_group:
+    type: string
+    readOnly: true
+    description: Group permissions for the record
+    example: "riud"
+    x-db-field: sys_perm_group
+
+  sys_perm_other:
+    type: string
+    readOnly: true
+    description: Other permissions for the record
+    example: ""
+    x-db-field: sys_perm_other
+
+  # Additional metadata (not stored in DB)
+  is_catchall:
+    type: boolean
+    readOnly: true
+    description: True if this is a catchall forward (source starts with @)
+    example: false
+
+description: |
+  Email forwarding configuration.
+  
+  ### Types of Forwards
+  - **Regular Forward**: Forwards emails from a specific address to one or more destinations
+    - Source: `user@example.com`
+    - Type: `forward`
+  
+  - **Catchall Forward**: Forwards all emails for a domain to a specific address
+    - Source: `@example.com`
+    - Type: `catchall`
+  
+  - **Alias**: Email alias (less common)
+    - Source: `alias@example.com`
+    - Type: `alias`
+  
+  ### Features
+  - Multiple destinations (comma-separated)
+  - Send-as permissions
+  - Greylisting support
+  - Domain-based access control
+  
+  ### Validation Rules
+  - Source must be a valid email or catchall format
+  - Destination must contain at least one valid email
+  - User must have permissions for the domain
+  - Subject to forwarding limits in client/group settings

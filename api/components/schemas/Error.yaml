@@ -1,0 +1,13 @@
+type: object
+properties:
+  code:
+    type: integer
+    format: int32
+  message:
+    type: string
+  fields:
+    type: object
+    additionalProperties:
+      type: array
+      items:
+        type: string

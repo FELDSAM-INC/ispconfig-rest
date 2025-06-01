@@ -1,0 +1,160 @@
+type: object
+x-db-table: spamfilter_policy
+description: Auto-generated schema for spamfilter_policy
+required:
+  - policy_name
+  - virus_lover
+  - spam_lover
+  - banned_files_lover
+  - bad_header_lover
+  - bypass_virus_checks
+  - bypass_banned_checks
+  - bypass_header_checks
+properties:
+  id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the spamfilter policy
+    example: 1
+    x-db-field: id
+
+  policy_name:
+    type: string
+    description: Name of the spamfilter policy
+    maxLength: 255
+    example: "Default Policy"
+    x-db-field: policy_name
+
+  virus_lover:
+    type: string
+    description: Whether to allow viruses
+    enum: [Y, N]
+    default: "N"
+    x-db-field: virus_lover
+
+  spam_lover:
+    type: string
+    description: Whether to allow spam
+    enum: [Y, N]
+    default: "N"
+    x-db-field: spam_lover
+
+  banned_files_lover:
+    type: string
+    description: Whether to allow banned file types
+    enum: [Y, N]
+    default: "N"
+    x-db-field: banned_files_lover
+
+  bad_header_lover:
+    type: string
+    description: Whether to allow emails with bad headers
+    enum: [Y, N]
+    default: "N"
+    x-db-field: bad_header_lover
+
+  bypass_virus_checks:
+    type: string
+    description: Whether to bypass virus checks
+    enum: [Y, N]
+    default: "N"
+    x-db-field: bypass_virus_checks
+
+  bypass_banned_checks:
+    type: string
+    description: Whether to bypass banned file checks
+    enum: [Y, N]
+    default: "N"
+    x-db-field: bypass_banned_checks
+
+  bypass_header_checks:
+    type: string
+    description: Whether to bypass header checks
+    enum: [Y, N]
+    default: "N"
+    x-db-field: bypass_header_checks
+
+  virus_quarantine_to:
+    type: string
+    description: Email address to send quarantined viruses to
+    maxLength: 255
+    example: "virus-quarantine@example.com"
+    x-db-field: virus_quarantine_to
+
+  spam_quarantine_to:
+    type: string
+    description: Email address to send quarantined spam to
+    maxLength: 255
+    example: "spam-quarantine@example.com"
+    x-db-field: spam_quarantine_to
+
+  banned_quarantine_to:
+    type: string
+    description: Email address to send quarantined banned files to
+    maxLength: 255
+    example: "banned-quarantine@example.com"
+    x-db-field: banned_quarantine_to
+
+  bad_header_quarantine_to:
+    type: string
+    description: Email address to send emails with bad headers to
+    maxLength: 255
+    example: "bad-header-quarantine@example.com"
+    x-db-field: bad_header_quarantine_to
+
+  clean_quarantine_to:
+    type: string
+    description: Email address to send clean messages to
+    maxLength: 255
+    example: "clean-quarantine@example.com"
+    x-db-field: clean_quarantine_to
+
+  # System fields (readonly)
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID who created the record
+    example: 1
+    x-db-field: sys_userid
+
+  sys_groupid:
+    type: integer
+    readOnly: true
+    description: System group ID for the record
+    example: 1
+    x-db-field: sys_groupid
+
+  sys_perm:
+    type: string
+    readOnly: true
+    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+    x-db-field: sys_perm
+
+  sys_perm_group:
+    type: string
+    readOnly: true
+    description: Group permissions for the record
+    example: "riud"
+    x-db-field: sys_perm_group
+
+  sys_perm_other:
+    type: string
+    readOnly: true
+    description: Other permissions for the record
+    example: "r"
+    x-db-field: sys_perm_other
+
+description: |
+  Spamfilter policy defines how email messages should be processed by the spam filter.
+  It includes settings for handling viruses, spam, banned files, and more.
+  
+  ### Key Features
+  - Configure how different types of email content are handled
+  - Set up quarantine destinations for different message types
+  - Control which security checks to bypass
+  
+  ### Access Control
+  - Readable by all authenticated users
+  - Only admin users can create, update, or delete policies

@@ -1,0 +1,90 @@
+type: object
+x-db-table: mail_get
+description: Auto-generated schema for mail_get
+required:
+  - server_id
+  - type
+  - source_server
+  - source_username
+  - source_password
+  - destination_username
+  - active
+properties:
+  mailget_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the mail get entry
+    example: 1
+    x-db-field: mailget_id
+
+  server_id:
+    type: integer
+    format: int64
+    description: Server ID where the mail get is configured
+    example: 1
+    x-db-field: server_id
+
+  type:
+    type: string
+    description: Protocol type for fetching emails
+    enum: [pop3, imap, pop3ssl, imapssl]
+    example: pop3
+    x-db-field: type
+
+  source_server:
+    type: string
+    description: Hostname or IP address of the source mail server
+    example: mail.example.com
+    pattern: '^([\w\.\-]{2,64}\.[a-zA-Z\-]{2,10}|(?:[0-9]{1,3}\.){3}[0-9]{1,3})$'
+    x-db-field: source_server
+
+  source_username:
+    type: string
+    description: Username for authenticating with the source mail server
+    example: user@example.com
+    x-db-field: source_username
+
+  source_password:
+    type: string
+    format: password
+    description: Password for authenticating with the source mail server
+    writeOnly: true
+    x-db-field: source_password
+
+  source_delete:
+    type: string
+    enum: [y, n]
+    default: n
+    description: Whether to delete messages from the source server after fetching
+    x-db-field: source_delete
+
+  destination_username:
+    type: string
+    description: Local username where emails will be delivered
+    example: localuser
+    x-db-field: destination_username
+
+  active:
+    type: string
+    enum: [y, n]
+    default: y
+    description: Whether the mail get entry is active
+    x-db-field: active
+
+description: |
+  Mail Get configuration for fetching emails from external mail servers.
+  
+  ### Features
+  - Supports multiple protocols (POP3, IMAP, with/without SSL)
+  - Can delete messages from source after fetching
+  - Can be enabled/disabled
+  
+  ### Validation Rules
+  - Source server must be a valid hostname or IP address
+  - Authentication credentials are required
+  - Local destination must be a valid local user
+  
+  ### Notes
+  - System administrators can manage all mail get entries
+  - Regular users can only manage entries on their servers

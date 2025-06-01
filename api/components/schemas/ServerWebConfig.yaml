@@ -1,0 +1,83 @@
+type: object
+x_db_table: server
+required:
+  - server_type
+  - apache2_http_port
+  - apache2_ssl_port
+  - php_fastcgi
+  - php_fpm
+properties:
+  server_type:
+    type: string
+    enum: [apache, nginx, litespeed, other]
+    description: Type of the web server software
+    example: "apache"
+  apache2_http_port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    description: Port for HTTP connections
+    example: 80
+  apache2_ssl_port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    description: Port for HTTPS connections
+    example: 443
+  php_fastcgi:
+    type: string
+    enum: [y, n]
+    description: Whether PHP FastCGI is enabled
+    example: "y"
+  php_fpm:
+    type: string
+    enum: [y, n]
+    description: Whether PHP-FPM is enabled
+    example: "y"
+  php_fpm_port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    description: Port for PHP-FPM service
+    example: 9000
+  php_fpm_socket:
+    type: string
+    description: Path to PHP-FPM socket
+    example: "/var/run/php/php-fpm.sock"
+  php_fpm_pm:
+    type: string
+    enum: [static, dynamic, ondemand]
+    description: PHP-FPM process manager
+    example: "dynamic"
+  php_fpm_max_children:
+    type: integer
+    description: Maximum number of PHP-FPM children
+    example: 50
+  php_fpm_start_servers:
+    type: integer
+    description: Number of PHP-FPM start servers
+    example: 5
+  php_fpm_min_spare_servers:
+    type: integer
+    description: Minimum number of PHP-FPM spare servers
+    example: 5
+  php_fpm_max_spare_servers:
+    type: integer
+    description: Maximum number of PHP-FPM spare servers
+    example: 35
+  php_fpm_process_idle_timeout:
+    type: string
+    description: PHP-FPM process idle timeout
+    example: "10s"
+  php_fpm_max_requests:
+    type: integer
+    description: Maximum number of requests per PHP-FPM process
+    example: 500
+  php_fpm_status_path:
+    type: string
+    description: Path for PHP-FPM status page
+    example: "/status"
+  php_fpm_ping_path:
+    type: string
+    description: Path for PHP-FPM ping page
+    example: "/ping"

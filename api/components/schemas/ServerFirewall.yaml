@@ -1,0 +1,32 @@
+type: object
+x_db_table: firewall
+required:
+  - server_id
+  - tcp_port
+  - udp_port
+  - active
+properties:
+  firewall_id:
+    type: integer
+    format: int64
+    description: Unique identifier for the firewall rule
+    readOnly: true
+    example: 1
+  server_id:
+    type: integer
+    format: int64
+    description: ID of the server this firewall rule applies to
+    example: 1
+  tcp_port:
+    type: string
+    description: Comma-separated list of TCP ports or port ranges (e.g., "80,443,8080:8090")
+    example: "21,22,80,443,8080:8090"
+  udp_port:
+    type: string
+    description: Comma-separated list of UDP ports or port ranges
+    example: "53,123,161:162"
+  active:
+    type: string
+    enum: [y, n]
+    description: Whether the firewall rule is active (y) or not (n)
+    example: "y"

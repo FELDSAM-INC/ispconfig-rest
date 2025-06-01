@@ -1,0 +1,210 @@
+# Mail Relay Recipients endpoints
+/mail/relay-recipients:
+  get:
+    tags:
+      - Mail
+    summary: List all mail relay recipients
+    description: |
+      Returns a paginated list of mail relay recipients.
+      The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      Filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      
+      Examples:
+      - Find by source: `source[eq]=user@example.com`
+      - Find by access: `access[eq]=OK`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=source` or `sort=-created`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: source
+        in: query
+        description: Filter by source email or pattern
+        schema:
+          type: string
+      - name: access
+        in: query
+        description: Filter by access value
+        schema:
+          type: string
+    responses:
+      '200':
+        description: A list of mail relay recipients
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/MailRelayRecipient.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Mail
+    summary: Create a new mail relay recipient
+    description: |
+      Creates a new mail relay recipient.
+      
+      ### Validation Rules
+      - Source must be a valid email, domain, or IP pattern
+      - Access must be a valid Postfix access control value
+      - User must have permissions for the server
+      
+      ### Notes
+      - System administrators can create relay recipients on any server
+      - Regular users can only create relay recipients on their servers
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailRelayRecipient.yaml'
+    responses:
+      '201':
+        description: Mail relay recipient created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailRelayRecipient.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+        description: |
+          Bad Request. Possible reasons:
+          - Invalid source format
+          - Invalid access value
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+        description: |
+          Forbidden. Possible reasons:
+          - No permission to use the server
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/mail/relay-recipients/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: Mail relay recipient ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Mail
+    summary: Get mail relay recipient by ID
+    description: Returns a single mail relay recipient by its ID
+    responses:
+      '200':
+        description: Mail relay recipient details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailRelayRecipient.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Mail
+    summary: Update mail relay recipient
+    description: |
+      Updates an existing mail relay recipient.
+      
+      ### Notes
+      - The source and server_id cannot be changed after creation
+      - Only the access value can be updated
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailRelayRecipient.yaml'
+    responses:
+      '200':
+        description: Mail relay recipient updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailRelayRecipient.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Mail
+    summary: Delete mail relay recipient
+    description: |
+      Deletes a mail relay recipient by ID.
+      
+      ### Notes
+      - The operation is permanent and cannot be undone
+      - User must have permission to modify the server
+    responses:
+      '204':
+        description: Mail relay recipient deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Recipient is in use
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

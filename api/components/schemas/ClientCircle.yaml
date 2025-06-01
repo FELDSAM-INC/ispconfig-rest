@@ -1,0 +1,79 @@
+type: object
+x-db-table: client_circle
+description: Client Circle defines a group of clients that can be managed together
+required:
+  - circle_name
+  - client_ids
+  - active
+properties:
+  circle_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the circle
+    example: 1
+
+  sys_userid:
+    type: integer
+    format: int64
+    readOnly: true
+    description: System user ID who created the circle
+    example: 1
+
+  sys_groupid:
+    type: integer
+    format: int64
+    readOnly: true
+    description: System group ID
+    example: 1
+
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    readOnly: true
+    description: User permissions (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    readOnly: true
+    description: Group permissions
+    example: "riud"
+
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    readOnly: true
+    description: Other permissions
+    example: ""
+
+  circle_name:
+    type: string
+    maxLength: 64
+    description: Name of the client circle
+    example: "Reseller Group A"
+
+  client_ids:
+    type: string
+    description: Comma-separated list of client IDs belonging to this circle
+    example: "1,5,12,25"
+
+  description:
+    type: string
+    description: Optional description of the circle
+    example: "Resellers from Eastern Europe region"
+
+  active:
+    type: string
+    enum: [y, n]
+    description: Whether the circle is active
+    default: "y"
+    example: "y"
+
+example:
+  circle_id: 1
+  circle_name: "Reseller Group A"
+  client_ids: "1,5,12,25"
+  description: "Resellers from Eastern Europe region"
+  active: "y"

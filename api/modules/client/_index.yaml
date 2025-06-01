@@ -1,0 +1,25 @@
+# Client module API paths
+
+# Include Client paths
+clients:
+  $ref: './clients.yaml'
+
+# Include Reseller paths
+resellers:
+  $ref: './resellers.yaml'
+
+# Include Client Template paths
+templates:
+  $ref: './templates.yaml'
+
+# Include Client Template Assignment paths
+template-assignments:
+  $ref: './template_assignments.yaml'
+
+# Include Client Circle paths
+circles:
+  $ref: './circles.yaml'
+
+# Include Client Domain paths
+domains:
+  $ref: './domains.yaml'

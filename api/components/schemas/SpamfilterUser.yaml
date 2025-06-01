@@ -1,0 +1,110 @@
+type: object
+x-db-table: spamfilter_users
+description: Auto-generated schema for spamfilter_users
+required:
+  - server_id
+  - policy_id
+  - email
+  - fullname
+  - local
+properties:
+  id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the spamfilter user
+    example: 1
+    x-db-field: id
+
+  server_id:
+    type: integer
+    format: int64
+    description: Server ID where the spamfilter is configured
+    example: 1
+    x-db-field: server_id
+
+  policy_id:
+    type: integer
+    format: int64
+    description: ID of the spamfilter policy to apply
+    example: 1
+    x-db-field: policy_id
+
+  priority:
+    type: integer
+    description: Priority of the rule (1-10)
+    minimum: 1
+    maximum: 10
+    default: 5
+    example: 5
+    x-db-field: priority
+
+  email:
+    type: string
+    description: Email address to apply the policy to
+    format: email
+    maxLength: 255
+    example: "user@example.com"
+    x-db-field: email
+
+  fullname:
+    type: string
+    description: Full name of the user
+    maxLength: 255
+    example: "John Doe"
+    x-db-field: fullname
+
+  local:
+    type: string
+    description: Whether this is a local user
+    enum: [Y, N]
+    default: "Y"
+    x-db-field: local
+
+  # System fields (readonly)
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID who created the record
+    example: 1
+    x-db-field: sys_userid
+
+  sys_groupid:
+    type: integer
+    readOnly: true
+    description: System group ID for the record
+    example: 1
+    x-db-field: sys_groupid
+
+  sys_perm:
+    type: string
+    readOnly: true
+    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+    x-db-field: sys_perm
+
+  sys_perm_group:
+    type: string
+    readOnly: true
+    description: Group permissions for the record
+    example: "riud"
+    x-db-field: sys_perm_group
+
+  sys_perm_other:
+    type: string
+    readOnly: true
+    description: Other permissions for the record
+    example: ""
+    x-db-field: sys_perm_other
+
+description: |
+  Spamfilter user maps an email address to a spamfilter policy.
+  
+  ### Key Features
+  - Assign spamfilter policies to specific email addresses
+  - Set priority for rule matching
+  - Support for both local and non-local users
+  
+  ### Access Control
+  - Users can only see and manage their own spamfilter settings
+  - Admin users can manage all spamfilter users

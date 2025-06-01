@@ -1,0 +1,106 @@
+type: object
+x-db-table: web_database_user
+description: Auto-generated schema for web_database_user
+required:
+  - database_user_id
+  - database_user
+  - database_password
+  - server_id
+  - sys_groupid
+  - sys_userid
+  - sys_perm_user
+  - sys_perm_group
+  - sys_perm_other
+properties:
+  database_user_id:
+    type: integer
+    format: int32
+    minimum: 1
+    readOnly: true
+    description: Unique identifier for the database user
+    example: 42
+    x-db-field: database_user_id
+  sys_userid:
+    type: integer
+    format: int32
+    minimum: 0
+    default: 0
+    description: ID of the system user who created this database user
+    example: 1
+  sys_groupid:
+    type: integer
+    format: int32
+    minimum: 0
+    default: 0
+    description: System group ID that owns this database user
+    example: 10
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    nullable: true
+    description: User permissions (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    nullable: true
+    description: Group permissions (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    nullable: true
+    description: Other permissions (r=read, i=insert, u=update, d=delete)
+    example: ""
+  server_id:
+    type: integer
+    format: int32
+    minimum: 0
+    default: 0
+    description: ID of the server where the database user is created
+    example: 1
+  database_user:
+    type: string
+    maxLength: 64
+    nullable: true
+    description: Username for the database user (2-64 alphanumeric + underscore characters)
+    pattern: '^[a-zA-Z0-9_]+$'
+    example: "dbuser123"
+  database_user_prefix:
+    type: string
+    maxLength: 50
+    default: ""
+    description: Prefix for the database username
+    example: "user_"
+  database_password:
+    type: string
+    format: password
+    writeOnly: true
+    maxLength: 64
+    nullable: true
+    description: Password for the database user (MySQL)
+    example: "securepassword123"
+  database_password_sha2:
+    type: string
+    format: password
+    writeOnly: true
+    maxLength: 70
+    nullable: true
+    description: SHA2 hashed password for the database user (MySQL 8.0+)
+    example: "*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19"
+  database_password_mongo:
+    type: string
+    format: password
+    writeOnly: true
+    maxLength: 32
+    nullable: true
+    description: Password for MongoDB user
+    example: "mongo_secure_password"
+  database_password_postgres:
+    type: string
+    format: password
+    writeOnly: true
+    maxLength: 255
+    nullable: true
+    description: Hashed password for PostgreSQL database user
+    example: "md5a8f5f5c423659176e8f5d5e5e8f5d5e"

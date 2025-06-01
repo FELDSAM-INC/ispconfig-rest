@@ -1,0 +1,12 @@
+# This file serves as an index for all parameter definitions
+limit:
+  $ref: './limit.yaml'
+
+offset:
+  $ref: './offset.yaml'
+
+sort:
+  $ref: './sort.yaml'
+
+order:
+  $ref: './order.yaml'

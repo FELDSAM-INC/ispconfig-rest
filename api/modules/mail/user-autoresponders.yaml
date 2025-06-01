@@ -1,0 +1,93 @@
+# Mail User Autoresponder endpoints
+/mail/users/{mailuser_id}/autoresponder:
+  parameters:
+    - name: mailuser_id
+      in: path
+      description: ID of the mail user
+      required: true
+      schema:
+        type: integer
+        format: int32
+  
+  get:
+    tags:
+      - Mail Users
+      - Autoresponders
+    summary: Get autoresponder configuration for a mail user
+    description: Retrieve the current autoresponder settings for a specific mail user
+    responses:
+      '200':
+        description: Autoresponder configuration retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: '../../../components/schemas/MailUserAutoresponder.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+  
+  put:
+    tags:
+      - Mail Users
+      - Autoresponders
+    summary: Update autoresponder configuration for a mail user
+    description: Update the autoresponder settings for a specific mail user
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailUserAutoresponder.yaml'
+    responses:
+      '200':
+        description: Autoresponder configuration updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: '../../../components/schemas/MailUserAutoresponder.yaml'
+                message:
+                  type: string
+                  example: Autoresponder updated successfully
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+  
+  delete:
+    tags:
+      - Mail Users
+      - Autoresponders
+    summary: Disable autoresponder for a mail user
+    description: Disable the autoresponder for a specific mail user
+    responses:
+      '204':
+        description: Autoresponder disabled successfully
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

@@ -1,0 +1,229 @@
+type: object
+x-db-table: dns_soa
+description: Auto-generated schema for dns_soa
+required:
+  - server_id
+  - origin
+  - ns
+  - mbox
+  - serial
+  - refresh
+  - retry
+  - expire
+  - minimum
+  - ttl
+  - active
+  - sys_groupid
+
+properties:
+  # System Fields
+  id:
+    type: integer
+    format: int32
+    x-db-field: id
+    minimum: 1
+    readOnly: true
+    description: Unique identifier for the DNS zone
+    example: 42
+
+  sys_userid:
+    type: integer
+    format: int32
+    minimum: 1
+    readOnly: true
+    description: ID of the system user who created this DNS zone
+    example: 1
+
+  sys_groupid:
+    type: integer
+    format: int32
+    minimum: 1
+    description: System group ID that owns this DNS zone
+    example: 10
+
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    default: 'riud'
+    description: User permissions (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    default: 'riud'
+    description: Group permissions (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    default: ''
+    description: Other permissions (r=read, i=insert, u=update, d=delete)
+    example: ""
+
+  # DNS Zone Information
+  server_id:
+    type: integer
+    format: int32
+    minimum: 1
+    description: ID of the server where the DNS zone is hosted
+    example: 1
+
+  origin:
+    type: string
+    maxLength: 255
+    pattern: '^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$'
+    description: |
+      The domain name for which this zone is authoritative.
+      Must be a valid domain name in lowercase.
+    example: "example.com"
+
+  ns:
+    type: string
+    maxLength: 255
+    description: |
+      The primary nameserver for this zone.
+      Should be a fully qualified domain name.
+    example: "ns1.example.com"
+
+  mbox:
+    type: string
+    maxLength: 255
+    description: |
+      The email address of the administrator for this zone.
+      The '@' should be replaced with a dot (e.g., admin.example.com)
+    example: "admin.example.com"
+
+  serial:
+    type: integer
+    format: int32
+    minimum: 1
+    maximum: 4294967295
+    description: |
+      The serial number of the zone.
+      Should be incremented each time the zone is modified.
+    example: 2023060101
+
+  refresh:
+    type: integer
+    format: int32
+    minimum: 60
+    description: |
+      The time in seconds that secondary DNS servers should wait before
+      refreshing the zone from the primary server.
+    example: 7200
+
+  retry:
+    type: integer
+    format: int32
+    minimum: 60
+    description: |
+      The time in seconds that secondary servers should wait before
+      retrying a failed zone transfer.
+    example: 3600
+
+  expire:
+    type: integer
+    format: int32
+    minimum: 60
+    description: |
+      The time in seconds that a secondary server should continue to respond
+      with the zone data if it cannot refresh the zone.
+    example: 1209600
+
+  minimum:
+    type: integer
+    format: int32
+    minimum: 0
+    description: |
+      The minimum TTL that should be exported with any RR from this zone.
+    example: 86400
+
+  ttl:
+    type: integer
+    format: int32
+    minimum: 0
+    description: |
+      The default TTL for records in this zone.
+    example: 3600
+
+  active:
+    type: string
+    enum: [y, n]
+    default: 'y'
+    description: Whether the DNS zone is active
+    example: 'y'
+
+  xfer:
+    type: string
+    maxLength: 255
+    nullable: true
+    description: |
+      List of IP addresses or networks allowed to perform zone transfers.
+      Separate multiple entries with semicolons.
+    example: "192.168.1.1; 10.0.0.0/8"
+
+  also_notify:
+    type: string
+    maxLength: 255
+    nullable: true
+    description: |
+      List of IP addresses to also notify when the zone changes.
+      Separate multiple entries with semicolons.
+    example: "192.168.1.2; 192.168.1.3"
+
+  update_acl:
+    type: string
+    maxLength: 255
+    nullable: true
+    description: |
+      Access control list for dynamic updates.
+      Format: IP-address [key_name]
+    example: "192.168.1.0/24"
+
+  dnssec_initialized:
+    type: string
+    enum: [y, n]
+    default: 'n'
+    readOnly: true
+    description: Whether DNSSEC is initialized for this zone
+    example: 'n'
+
+  dnssec_wanted:
+    type: string
+    enum: [y, n]
+    default: 'n'
+    description: Whether DNSSEC is wanted for this zone
+    example: 'n'
+
+  dnssec_algo:
+    type: string
+    enum: [NSEC3RSASHA1, ECDSAP256SHA256]
+    default: 'ECDSAP256SHA256'
+    description: DNSSEC algorithm to use
+    example: "ECDSAP256SHA256"
+
+  dnssec_last_signed:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Timestamp when the zone was last signed
+    example: 1654051200
+
+  dnssec_info:
+    type: string
+    format: text
+    readOnly: true
+    description: DNSSEC key information (JSON)
+    example: "{...}"
+
+  rendered_zone:
+    type: string
+    format: text
+    readOnly: true
+    description: The rendered zone file content
+    example: "$ORIGIN example.com.\n$TTL 3600\n@ IN SOA ns1.example.com. admin.example.com. (\n  2023060101 ; serial\n  7200      ; refresh\n  3600      ; retry\n  1209600   ; expire\n  86400     ; minimum\n)"

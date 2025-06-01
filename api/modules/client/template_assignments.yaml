@@ -1,0 +1,138 @@
+# Client Template Assignment endpoints
+/clients/{client_id}/templates:
+  parameters:
+    - name: client_id
+      in: path
+      description: Client ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Client Template Assignments
+    summary: List all templates assigned to a client
+    description: |
+      Returns a list of all templates assigned to the specified client.
+    responses:
+      '200':
+        description: A list of assigned templates
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/ClientTemplateAssigned.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Client Template Assignments
+    summary: Assign a template to a client
+    description: |
+      Assigns a template to a client. If the template is already assigned, it will be updated.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - client_template_id
+            properties:
+              client_template_id:
+                type: integer
+                format: int64
+                description: ID of the template to assign
+                example: 5
+    responses:
+      '201':
+        description: Template assigned to client successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/ClientTemplateAssigned.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/clients/{client_id}/templates/{template_id}:
+  parameters:
+    - name: client_id
+      in: path
+      description: Client ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: template_id
+      in: path
+      description: Template ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Client Template Assignments
+    summary: Get template assignment details
+    description: Returns details of a specific template assignment for a client
+    responses:
+      '200':
+        description: Template assignment details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/ClientTemplateAssigned.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Client Template Assignments
+    summary: Unassign a template from a client
+    description: Removes a template assignment from a client
+    responses:
+      '204':
+        description: Template unassigned successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Cannot unassign a required template
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

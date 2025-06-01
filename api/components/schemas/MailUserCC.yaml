@@ -1,0 +1,41 @@
+type: object
+x-db-table: mail_user
+description: Mail user CC and forward settings
+required:
+  - mailuser_id
+  - cc
+  - forward_in_lda
+properties:
+  mailuser_id:
+    type: integer
+    format: int64
+    description: ID of the mail user
+    example: 1
+    x-db-field: mailuser_id
+
+  cc:
+    type: string
+    description: Comma-separated list of email addresses to CC all emails to
+    example: "user1@example.com, user2@example.com"
+    x-db-field: cc
+
+  forward_in_lda:
+    type: string
+    enum: [y, n]
+    default: n
+    description: Whether to forward emails to the CC addresses using LDA (Local Delivery Agent)
+    example: "y"
+    x-db-field: forward_in_lda
+
+description: |
+  CC and forward settings for a mail user.
+  
+  ### Features
+  - Forward emails to additional CC addresses
+  - Control LDA forwarding behavior
+  
+  ### Notes
+  - The CC field can contain multiple email addresses separated by commas
+  - When forward_in_lda is enabled, emails are forwarded using the Local Delivery Agent
+  - System administrators can manage all settings
+  - Regular users can only manage their own settings

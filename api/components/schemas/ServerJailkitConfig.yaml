@@ -1,0 +1,38 @@
+type: object
+x_db_table: server
+required:
+  - jailkit
+  - jailkit_path
+  - jailkit_shell
+  - jailkit_skel
+properties:
+  jailkit:
+    type: string
+    enum: [y, n]
+    description: Whether Jailkit is enabled
+    example: "y"
+  jailkit_path:
+    type: string
+    description: Base path for Jailkit jails
+    example: "/var/jail"
+  jailkit_shell:
+    type: string
+    description: Default shell for jailed users
+    example: "/bin/bash"
+  jailkit_skel:
+    type: string
+    description: Skeleton directory for new jails
+    example: "/etc/skel"
+  jailkit_tmpfs:
+    type: string
+    enum: [y, n]
+    description: Whether to use tmpfs for jail filesystems
+    example: "y"
+  jailkit_tmpfs_size:
+    type: string
+    description: Size limit for tmpfs filesystems
+    example: "100M"
+  jailkit_devices:
+    type: string
+    description: Device files to include in jails
+    example: "null,zero,random,urandom,tty,ptmx,pts/*"

@@ -1,0 +1,47 @@
+type: object
+x_db_table: server
+required:
+  - vlogger_enabled
+  - vlogger_interval
+  - vlogger_log_dir
+  - vlogger_retention
+properties:
+  vlogger_enabled:
+    type: string
+    enum: [y, n]
+    description: Whether Vlogger is enabled
+    example: "y"
+  vlogger_interval:
+    type: integer
+    description: Logging interval in minutes
+    example: 5
+  vlogger_log_dir:
+    type: string
+    description: Directory for Vlogger logs
+    example: "/var/log/vlogger"
+  vlogger_retention:
+    type: integer
+    description: Number of days to retain logs
+    example: 30
+  vlogger_compress:
+    type: string
+    enum: [y, n]
+    description: Whether to compress old logs
+    example: "y"
+  vlogger_compress_cmd:
+    type: string
+    description: Command to use for compression
+    example: "gzip -9"
+  vlogger_compress_ext:
+    type: string
+    description: File extension for compressed logs
+    example: ".gz"
+  vlogger_postrotate:
+    type: string
+    description: Command to run after log rotation
+    example: "/etc/init.d/rsyslog restart"
+  vlogger_dateext:
+    type: string
+    enum: [y, n]
+    description: Whether to use date extensions for rotated logs
+    example: "y"

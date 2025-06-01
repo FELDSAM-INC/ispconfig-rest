@@ -1,0 +1,170 @@
+# Client Circle endpoints
+/circles:
+  get:
+    tags:
+      - Client Circles
+    summary: List all client circles
+    description: |
+      Returns a paginated list of client circles with filtering and sorting support.
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: active
+        in: query
+        description: Filter by active status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+      - name: circle_name
+        in: query
+        description: Filter by circle name (supports wildcards with %)
+        schema:
+          type: string
+      - name: description
+        in: query
+        description: Filter by description (supports wildcards with %)
+        schema:
+          type: string
+    responses:
+      '200':
+        description: A list of client circles
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/ClientCircle.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Client Circles
+    summary: Create a new client circle
+    description: |
+      Creates a new client circle with the specified configuration.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/ClientCircle.yaml'
+    responses:
+      '201':
+        description: Client circle created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/ClientCircle.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/circles/{circle_id}:
+  parameters:
+    - name: circle_id
+      in: path
+      description: Client Circle ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Client Circles
+    summary: Get client circle by ID
+    description: Returns a single client circle by its ID
+    responses:
+      '200':
+        description: Client circle details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/ClientCircle.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Client Circles
+    summary: Update client circle
+    description: Updates an existing client circle configuration
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/ClientCircle.yaml'
+    responses:
+      '200':
+        description: Client circle updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/ClientCircle.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Client Circles
+    summary: Delete client circle
+    description: |
+      Deletes a client circle by ID.
+      
+      **Note:** The circle will be permanently removed from the system.
+    responses:
+      '204':
+        description: Client circle deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Circle is in use and cannot be deleted
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

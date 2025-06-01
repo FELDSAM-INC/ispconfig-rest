@@ -1,0 +1,79 @@
+type: object
+x_db_table: server
+required:
+  - xmpp_server
+  - xmpp_http_bind
+  - xmpp_vhost
+  - xmpp_s2s
+properties:
+  xmpp_server:
+    type: string
+    enum: [y, n]
+    description: Whether XMPP server is enabled
+    example: "y"
+  xmpp_http_bind:
+    type: string
+    enum: [y, n]
+    description: Whether HTTP binding is enabled for XMPP
+    example: "y"
+  xmpp_vhost:
+    type: string
+    format: hostname
+    description: XMPP virtual host
+    example: "xmpp.example.com"
+  xmpp_s2s:
+    type: string
+    enum: [y, n]
+    description: Whether server-to-server (S2S) communication is enabled
+    example: "y"
+  xmpp_port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    description: Port for XMPP client connections
+    example: 5222
+  xmpp_ssl_port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    description: Port for XMPP SSL/TLS connections
+    example: 5223
+  xmpp_http_bind_port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    description: Port for XMPP HTTP binding
+    example: 5280
+  xmpp_http_bind_ssl_port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    description: Port for XMPP HTTP binding with SSL/TLS
+    example: 5281
+  xmpp_s2s_port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    description: Port for XMPP server-to-server (S2S) connections
+    example: 5269
+  xmpp_ssl_cert_file:
+    type: string
+    description: Path to SSL certificate file for XMPP
+    example: "/etc/ssl/certs/xmpp.crt"
+  xmpp_ssl_key_file:
+    type: string
+    description: Path to SSL private key file for XMPP
+    example: "/etc/ssl/private/xmpp.key"
+  xmpp_ssl_ca_file:
+    type: string
+    description: Path to SSL CA certificate file for XMPP
+    example: "/etc/ssl/certs/xmpp-ca.crt"
+  xmpp_ssl_dhparam_file:
+    type: string
+    description: Path to DH parameters file for XMPP
+    example: "/etc/ssl/dhparam.pem"
+  xmpp_ssl_cert_trusted:
+    type: string
+    enum: [y, n]
+    description: Whether the SSL certificate is trusted
+    example: "n"

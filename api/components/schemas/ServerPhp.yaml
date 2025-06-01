@@ -1,0 +1,128 @@
+# Server PHP Version Schema
+type: object
+x-db-table: server_php
+properties:
+  server_php_id:
+    type: integer
+    format: int32
+    description: Unique identifier for the PHP version
+    readOnly: true
+    example: 1
+    x-db-field: server_php_id
+  sys_userid:
+    type: integer
+    format: int32
+    description: System user ID who created the record
+    readOnly: true
+    example: 1
+    x-db-field: sys_userid
+  sys_groupid:
+    type: integer
+    format: int32
+    description: System group ID
+    readOnly: true
+    example: 1
+    x-db-field: sys_groupid
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    description: User permissions (r = read, i = insert, u = update, d = delete)
+    example: "riud"
+    x-db-field: sys_perm_user
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    description: Group permissions (r = read, i = insert, u = update, d = delete)
+    example: "riud"
+    x-db-field: sys_perm_group
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    description: Other permissions (r = read, i = insert, u = update, d = delete)
+    example: ""
+    x-db-field: sys_perm_other
+  server_id:
+    type: integer
+    format: int32
+    description: ID of the server this PHP version is associated with
+    example: 1
+    x-db-field: server_id
+  client_id:
+    type: integer
+    format: int32
+    description: ID of the client who owns this PHP version
+    example: 1
+    x-db-field: client_id
+  name:
+    type: string
+    maxLength: 255
+    description: Name of the PHP version (e.g., 'php7.4', 'php8.0')
+    example: "php8.0"
+    x-db-field: name
+  php_fastcgi_binary:
+    type: string
+    maxLength: 255
+    description: Path to the PHP FastCGI binary
+    example: "/usr/bin/php-cgi8.0"
+    x-db-field: php_fastcgi_binary
+  php_fastcgi_ini_dir:
+    type: string
+    maxLength: 255
+    description: Directory containing PHP FastCGI configuration files
+    example: "/etc/php/8.0/cgi/conf.d"
+    x-db-field: php_fastcgi_ini_dir
+  php_fpm_init_script:
+    type: string
+    maxLength: 255
+    description: Path to the PHP-FPM init script
+    example: "/etc/init.d/php8.0-fpm"
+    x-db-field: php_fpm_init_script
+  php_fpm_ini_dir:
+    type: string
+    maxLength: 255
+    description: Directory containing PHP-FPM configuration files
+    example: "/etc/php/8.0/fpm/conf.d"
+    x-db-field: php_fpm_ini_dir
+  php_fpm_pool_dir:
+    type: string
+    maxLength: 255
+    description: Directory containing PHP-FPM pool configuration files
+    example: "/etc/php/8.0/fpm/pool.d"
+    x-db-field: php_fpm_pool_dir
+  php_fpm_socket_dir:
+    type: string
+    maxLength: 255
+    description: Directory where PHP-FPM socket files are stored
+    example: "/var/run/php"
+    x-db-field: php_fpm_socket_dir
+  php_cli_binary:
+    type: string
+    maxLength: 255
+    description: Path to the PHP CLI binary
+    example: "/usr/bin/php8.0"
+    x-db-field: php_cli_binary
+  php_jk_section:
+    type: string
+    maxLength: 255
+    description: JK connector section name for Apache Tomcat integration
+    example: "php8.0"
+    x-db-field: php_jk_section
+  active:
+    type: string
+    enum: ["y", "n"]
+    description: Whether this PHP version is active
+    default: "y"
+    example: "y"
+    x-db-field: active
+  sortprio:
+    type: integer
+    format: int32
+    description: Sort priority (lower numbers appear first)
+    default: 100
+    example: 100
+    x-db-field: sortprio
+required:
+  - server_id
+  - name
+  - php_cli_binary
+  - php_jk_section

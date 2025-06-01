@@ -1,0 +1,282 @@
+type: object
+x-db-table: mail_user
+description: Auto-generated schema for mail_user
+required:
+  - email
+  - login
+  - password
+  - name
+  - quota
+  - active
+properties:
+  id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the mail user
+    example: 123
+    x-db-field: mailuser_id
+
+  server_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Server ID where the mail user is hosted
+    example: 1
+
+  email:
+    type: string
+    format: email
+    description: |
+      Full email address of the user
+      - Must be a valid email address
+      - Must be unique across all mail users
+      - Will be converted to lowercase on save
+      - IDN domains are automatically converted to punycode
+    example: "user@example.com"
+    maxLength: 255
+
+  login:
+    type: string
+    description: |
+      Login username for the mail user
+      - Must be unique across all mail users
+      - Can be the same as the local part of the email
+      - Must match pattern: ^[_a-z0-9][\w\.\-_+@]{1,63}$
+      - Will be converted to lowercase on save
+    example: "user"
+    maxLength: 255
+    pattern: '^[_a-z0-9][\w\.\-\+@]{1,63}$'
+
+  password:
+    type: string
+    format: password
+    description: |
+      Password for the mail user
+      - Required when creating a new user
+      - Must be at least 5 characters long
+      - For stronger security, use a mix of:
+        - Uppercase and lowercase letters
+        - Numbers
+        - Special characters
+      - Will be encrypted before storage
+    example: "SecurePassword123!"
+    writeOnly: true
+    minLength: 5
+    maxLength: 255
+
+  name:
+    type: string
+    description: |
+      Display name of the mail user
+      - Used in "From" field when sending emails
+    example: "John Doe"
+    maxLength: 255
+
+  quota:
+    type: integer
+    format: int64
+    description: |
+      Mailbox quota in bytes
+      - Set to 0 for unlimited quota
+      - Set to -1 to use domain default
+      - Minimum value: -1
+    example: 1073741824  # 1GB
+    minimum: -1
+
+  cc:
+    type: string
+    description: |
+      Comma-separated list of email addresses to CC all incoming mail to
+      - Each address must be a valid email
+      - Will be converted to lowercase on save
+    example: "notify@example.com,archive@example.com"
+    maxLength: 65535
+
+  forward_in_lda:
+    type: string
+    description: |
+      Whether to deliver incoming mail to this mailbox when forwarding is set
+      - 'y': Keep a copy in the mailbox
+      - 'n': Only forward, don't store
+    enum: [y, n]
+    default: "n"
+
+  sender_cc:
+    type: string
+    description: |
+      Comma-separated list of email addresses to BCC all outgoing mail from this user to
+      - Each address must be a valid email
+      - Will be converted to lowercase on save
+    example: "backup@example.com"
+    maxLength: 65535
+
+  sender_bcc:
+    type: string
+    description: |
+      Comma-separated list of email addresses to BCC all outgoing mail from this user to
+      - Each address must be a valid email
+      - Will be converted to lowercase on save
+    example: "backup@example.com"
+    maxLength: 65535
+
+  maildir:
+    type: string
+    readOnly: true
+    description: |
+      Path to the maildir directory
+      - Automatically generated based on the email address
+    example: "/var/vmail/example.com/user/"
+    maxLength: 255
+
+  quota_used:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Current disk usage in bytes
+    example: 1048576  # 1MB
+
+  percent_in_use:
+    type: number
+    format: float
+    readOnly: true
+    description: Percentage of quota used (0-100)
+    example: 50.5
+    minimum: 0
+    maximum: 100
+
+  spam_hits:
+    type: integer
+    readOnly: true
+    description: Number of spam messages caught
+    example: 5
+
+  spam_moves:
+    type: integer
+    readOnly: true
+    description: Number of spam messages moved to spam folder
+    example: 3
+
+  spam_tag_level:
+    type: number
+    format: float
+    description: Spam score level for tagging messages as spam
+    example: 5.0
+
+  spam_kill_level:
+    type: number
+    format: float
+    description: Spam score level for rejecting messages
+    example: 20.0
+
+  spam_tag2_level:
+    type: number
+    format: float
+    description: Secondary spam score level for tagging
+    example: 10.0
+
+  spam_tag3_level:
+    type: number
+    format: float
+    description: Tertiary spam score level for tagging
+    example: 15.0
+
+  spam_subject_tag:
+    type: string
+    description: Prefix to add to subject of spam messages
+    example: "[SPAM] "
+    maxLength: 255
+
+  spam_allow_tell:
+    type: string
+    description: Whether to report spam statistics
+    enum: [y, n]
+    default: "y"
+
+  autosearch:
+    type: string
+    description: Whether to enable email search indexing
+    enum: [y, n]
+    default: "y"
+
+  active:
+    type: string
+    description: |
+      Whether the mail user is active
+      - 'y': Account is active
+      - 'n': Account is disabled
+    enum: [y, n]
+    default: "y"
+
+  # System fields (readonly)
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID who created the record
+    example: 1
+
+  sys_groupid:
+    type: integer
+    readOnly: true
+    description: System group ID for the record
+    example: 1
+
+  sys_perm:
+    type: string
+    readOnly: true
+    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_group:
+    type: string
+    readOnly: true
+    description: Group permissions for the record
+    example: "riud"
+
+  sys_perm_other:
+    type: string
+    readOnly: true
+    description: Other permissions for the record
+    example: ""
+
+  created_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Creation timestamp
+    example: "2023-01-01T12:00:00Z"
+
+  updated_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Last update timestamp
+    example: "2023-01-01T12:00:00Z"
+
+description: |
+  A mail user represents an email account that can send and receive email.
+  
+  ### Key Features
+  - Email account with mailbox storage
+  - Spam filtering and scoring
+  - Email forwarding and aliases
+  - Quota management
+  - Activity monitoring
+  
+  ### Password Requirements
+  - Minimum length: 5 characters
+  - Recommended: At least 8 characters with a mix of:
+    - Uppercase and lowercase letters
+    - Numbers
+    - Special characters
+  
+  ### Quota Management
+  - Set to 0 for unlimited storage
+  - Set to -1 to use domain default
+  - Check `quota_used` and `percent_in_use` for current usage
+  
+  ### Spam Filtering
+  - Messages are scored for spam likelihood
+  - Multiple threshold levels for different actions
+  - Customizable subject tagging
+  - Per-user spam statistics

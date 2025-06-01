@@ -1,0 +1,41 @@
+# SystemLog Schema
+# Represents a system log entry
+
+type: object
+x-db-table: sys_log
+properties:
+  syslog_id:
+    type: integer
+    format: int64
+    description: Unique identifier for the system log entry
+    x-db-field: syslog_id
+    example: 12345
+  server_id:
+    type: integer
+    format: int64
+    description: ID of the server this log entry belongs to
+    x-db-field: server_id
+    example: 1
+  datalog_id:
+    type: integer
+    format: int64
+    description: Reference to the related data log entry
+    x-db-field: datalog_id
+    example: 54321
+  loglevel:
+    type: integer
+    format: int32
+    description: Log level (0=info, 1=warning, 2=error, etc.)
+    x-db-field: loglevel
+    example: 1
+  tstamp:
+    type: integer
+    format: int64
+    description: Unix timestamp when the log entry was created
+    x-db-field: tstamp
+    example: 1622505600
+  message:
+    type: string
+    description: The log message
+    x-db-field: message
+    example: "Server connection failed"

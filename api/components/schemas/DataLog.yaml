@@ -1,0 +1,66 @@
+# DataLog Schema
+# Represents a data log entry in the system
+
+type: object
+x-db-table: sys_datalog
+properties:
+  datalog_id:
+    type: integer
+    format: int64
+    description: Unique identifier for the data log entry
+    x-db-field: datalog_id
+    example: 12345
+  server_id:
+    type: integer
+    format: int64
+    description: ID of the server this log entry belongs to
+    x-db-field: server_id
+    example: 1
+  dbtable:
+    type: string
+    description: Database table that was modified
+    x-db-field: dbtable
+    example: "web_domain"
+  dbidx:
+    type: string
+    description: Database index/ID of the modified record
+    x-db-field: dbidx
+    example: "42"
+  action:
+    type: string
+    enum: ["I", "U", "D"]
+    description: Action performed - I (Insert), U (Update), D (Delete)
+    x-db-field: action
+    example: "U"
+  tstamp:
+    type: integer
+    format: int64
+    description: Unix timestamp when the action was performed
+    x-db-field: tstamp
+    example: 1622505600
+  user:
+    type: string
+    description: Username of the user who performed the action
+    x-db-field: user
+    example: "admin"
+  data:
+    type: string
+    description: Serialized data containing the changes
+    x-db-field: data
+    example: "{\"field\":\"value\"}"
+  status:
+    type: string
+    enum: ["pending", "ok", "warning", "error"]
+    description: Status of the data log entry
+    x-db-field: status
+    example: "ok"
+  error:
+    type: string
+    description: Error message if status is error
+    x-db-field: error
+    example: "Connection failed"
+  session_id:
+    type: string
+    description: Session ID of the user who performed the action
+    x-db-field: session_id
+    example: "abc123def456"

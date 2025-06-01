@@ -1,0 +1,53 @@
+type: object
+x-db-table: mail_relay_recipient
+description: Auto-generated schema for mail_relay_recipient
+required:
+  - server_id
+  - source
+  - access
+properties:
+  relay_recipient_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the relay recipient
+    example: 1
+    x-db-field: relay_recipient_id
+
+  server_id:
+    type: integer
+    format: int64
+    description: Server ID where the relay recipient is configured
+    example: 1
+    x-db-field: server_id
+
+  source:
+    type: string
+    description: Source email address or pattern for relay access
+    example: user@example.com
+    x-db-field: source
+    pattern: '^[^@]+@[^@]+\.[^@]+$|^@[^@]+\.[^@]+$|^[^@]+$'
+
+  access:
+    type: string
+    description: Access control setting (typically 'OK' for allowed)
+    example: OK
+    default: OK
+    x-db-field: access
+
+description: |
+  Email relay recipient configuration.
+  
+  ### Features
+  - Controls which email addresses can relay through the server
+  - Supports wildcard patterns
+  - Can be used for SMTP authentication
+  
+  ### Validation Rules
+  - Source must be a valid email, domain, or IP pattern
+  - Access must be a valid Postfix access control value
+  - User must have permissions for the server
+  
+  ### Notes
+  - System administrators can manage all relay recipients
+  - Regular users can only view/modify recipients on their servers

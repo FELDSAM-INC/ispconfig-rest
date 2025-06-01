@@ -1,0 +1,17 @@
+# DNS module API paths
+
+# Include DNS SOA (Start of Authority) paths
+soa:
+  $ref: './soa.yaml'
+
+# Include DNS Template paths
+templates:
+  $ref: './template.yaml'
+
+# Include DNS Slave Zone paths
+slaves:
+  $ref: './slave.yaml'
+
+# Include DNS Record paths
+records:
+  $ref: './records.yaml'

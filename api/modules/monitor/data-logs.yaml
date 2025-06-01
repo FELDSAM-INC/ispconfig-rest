@@ -1,0 +1,128 @@
+# Data Logs API
+# This API provides access to data change logs
+
+openapi: 3.0.0
+info:
+  title: Data Logs API
+  description: API for accessing data change logs
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: ISPConfig API Server
+
+tags:
+  - name: Monitor
+    description: System monitoring and logging
+
+paths:
+  /monitor/data-logs:
+    get:
+      tags:
+        - Monitor
+      summary: List data logs
+      description: |
+        Retrieves a list of data change logs.
+        
+        You can filter logs by server, table, action, status, and date range.
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '../../components/parameters/offset.yaml'
+        - $ref: '../../components/parameters/limit.yaml'
+        - $ref: '../../components/parameters/order.yaml'
+        - $ref: '../../components/parameters/sort.yaml'
+        - name: server_id
+          in: query
+          description: Filter by server ID
+          schema:
+            type: integer
+            format: int64
+        - name: dbtable
+          in: query
+          description: Filter by database table name
+          schema:
+            type: string
+        - name: action
+          in: query
+          description: Filter by action type (I=Insert, U=Update, D=Delete)
+          schema:
+            type: string
+            enum: [I, U, D]
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [pending, ok, warning, error]
+        - name: start_date
+          in: query
+          description: Filter by start date (UNIX timestamp)
+          schema:
+            type: integer
+            format: int64
+        - name: end_date
+          in: query
+          description: Filter by end date (UNIX timestamp)
+          schema:
+            type: integer
+            format: int64
+        - name: unprocessed_only
+          in: query
+          description: |
+            If true, returns only logs that haven't been processed by the server yet.
+            This is determined by comparing the log's timestamp with the server's 'updated' timestamp.
+            Only logs with a timestamp newer than the server's 'updated' timestamp are considered unprocessed.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of data logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '../../components/schemas/DataLog.yaml'
+                  pagination:
+                    $ref: '../../components/schemas/Pagination.yaml'
+        '400':
+          $ref: '../../components/responses/BadRequest.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'
+
+  /monitor/data-logs/{datalog_id}:
+    get:
+      tags:
+        - Monitor
+      summary: Get data log details
+      description: Retrieves detailed information about a specific data log entry.
+      security:
+        - basicAuth: []
+      parameters:
+        - name: datalog_id
+          in: path
+          required: true
+          description: ID of the data log entry
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Data log details
+          content:
+            application/json:
+              schema:
+                $ref: '../../components/schemas/DataLog.yaml'
+        '401':
+          $ref: '../../components/responses/Unauthorized.yaml'
+        '404':
+          description: Data log not found
+        '500':
+          $ref: '../../components/responses/InternalServerError.yaml'

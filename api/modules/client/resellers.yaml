@@ -1,0 +1,183 @@
+# Reseller endpoints
+/resellers:
+  get:
+    tags:
+      - Resellers
+    summary: List all resellers
+    description: |
+      Returns a paginated list of resellers with filtering, sorting, and pagination support.
+      Resellers are clients with limit_client > 0 or = -1.
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: contact_name
+        in: query
+        description: Filter by contact name (supports wildcards with %)
+        schema:
+          type: string
+      - name: company_name
+        in: query
+        description: Filter by company name (supports wildcards with %)
+        schema:
+          type: string
+      - name: email
+        in: query
+        description: Filter by email address (supports wildcards with %)
+        schema:
+          type: string
+      - name: customer_no
+        in: query
+        description: Filter by customer number
+        schema:
+          type: string
+    responses:
+      '200':
+        description: A list of resellers
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/ClientReseller.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Resellers
+    summary: Create a new reseller
+    description: Create a new reseller with the provided details
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/ClientReseller.yaml'
+    responses:
+      '201':
+        description: Reseller created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: '../../../components/schemas/ClientReseller.yaml'
+                message:
+                  type: string
+                  example: Reseller created successfully
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/resellers/{client_id}:
+  parameters:
+    - name: client_id
+      in: path
+      description: Reseller ID
+      required: true
+      schema:
+        type: integer
+        format: int32
+  
+  get:
+    tags:
+      - Resellers
+    summary: Get reseller by ID
+    description: Returns a single reseller by ID
+    responses:
+      '200':
+        description: Reseller details
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: '../../../components/schemas/ClientReseller.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Resellers
+    summary: Update a reseller
+    description: Update an existing reseller's details
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/ClientReseller.yaml'
+    responses:
+      '200':
+        description: Reseller updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: '../../../components/schemas/ClientReseller.yaml'
+                message:
+                  type: string
+                  example: Reseller updated successfully
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Resellers
+    summary: Delete a reseller
+    description: Delete a reseller by ID
+    responses:
+      '204':
+        description: Reseller deleted successfully
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

@@ -1,0 +1,81 @@
+type: object
+x-db-table: mail_transport
+description: Auto-generated schema for mail_transport
+required:
+  - server_id
+  - domain
+  - transport
+  - active
+properties:
+  transport_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the transport
+    example: 1
+    x-db-field: transport_id
+
+  server_id:
+    type: integer
+    format: int64
+    description: Server ID where the transport is configured
+    example: 1
+    x-db-field: server_id
+
+  domain:
+    type: string
+    description: Domain name for the transport
+    example: example.com
+    x-db-field: domain
+    pattern: '^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$'
+
+  transport:
+    type: string
+    description: Transport definition (e.g., 'smtp:[mail.example.com]:587')
+    example: smtp:[mail.example.com]:587
+    x-db-field: transport
+
+  sort_order:
+    type: integer
+    format: int32
+    description: Sort order for transport rules
+    default: 0
+    x-db-field: sort_order
+
+  active:
+    type: string
+    enum: [y, n]
+    default: y
+    description: Whether the transport is active
+    x-db-field: active
+
+  created:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Creation timestamp
+    x-db-field: created
+
+  modified:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Last modification timestamp
+    x-db-field: modified
+
+description: |
+  Email transport configuration.
+  
+  ### Features
+  - Defines how emails for specific domains should be routed
+  - Supports various transport methods (SMTP, LMTP, etc.)
+  - Can be enabled/disabled
+  
+  ### Validation Rules
+  - Domain must be a valid domain name
+  - Transport must be a valid Postfix transport definition
+  - User must have permissions for the server
+  
+  ### Notes
+  - System administrators can manage all transports
+  - Regular users can only view/modify transports on their servers

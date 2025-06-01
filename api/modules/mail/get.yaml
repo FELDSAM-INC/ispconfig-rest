@@ -1,0 +1,222 @@
+# Mail Get endpoints
+/mail/get:
+  get:
+    tags:
+      - Mail
+    summary: List all mail get configurations
+    description: |
+      Returns a paginated list of mail get configurations.
+      The results can be filtered, sorted, and paginated.
+      
+      ### Filtering
+      Filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Examples:
+      - Find by type: `type[eq]=pop3`
+      - Find active configs: `active[eq]=y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=source_server` or `sort=-created`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: type
+        in: query
+        description: Filter by protocol type (pop3, imap, pop3ssl, imapssl)
+        schema:
+          type: string
+          enum: [pop3, imap, pop3ssl, imapssl]
+      - name: source_server
+        in: query
+        description: Filter by source server hostname or IP
+        schema:
+          type: string
+      - name: active
+        in: query
+        description: Filter by active status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+    responses:
+      '200':
+        description: A list of mail get configurations
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/MailGet.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Mail
+    summary: Create a new mail get configuration
+    description: |
+      Creates a new mail get configuration.
+      
+      ### Validation Rules
+      - Source server must be a valid hostname or IP
+      - Authentication credentials are required
+      - Local destination must be a valid local user
+      
+      ### Notes
+      - System administrators can create entries for any server
+      - Regular users can only create entries for their servers
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailGet.yaml'
+    responses:
+      '201':
+        description: Mail get configuration created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailGet.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+        description: |
+          Bad Request. Possible reasons:
+          - Invalid source server format
+          - Missing required fields
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+        description: |
+          Forbidden. Possible reasons:
+          - No permission to use the server
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/mail/get/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: Mail get configuration ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Mail
+    summary: Get mail get configuration by ID
+    description: Returns a single mail get configuration by its ID
+    responses:
+      '200':
+        description: Mail get configuration details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailGet.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Mail
+    summary: Update mail get configuration
+    description: |
+      Updates an existing mail get configuration.
+      
+      ### Notes
+      - The server_id cannot be changed after creation
+      - Password is only updated if provided
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailGet.yaml'
+    responses:
+      '200':
+        description: Mail get configuration updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailGet.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Mail
+    summary: Delete mail get configuration
+    description: |
+      Deletes a mail get configuration by ID.
+      
+      ### Notes
+      - The operation is permanent and cannot be undone
+      - User must have permission to modify the configuration
+    responses:
+      '204':
+        description: Mail get configuration deleted successfully
+      '400':
+        description: |
+          Bad Request. Possible reasons:
+          - Configuration is in use
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

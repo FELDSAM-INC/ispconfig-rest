@@ -1,0 +1,37 @@
+# System module API paths
+
+# System configuration
+configs:
+  $ref: './system-config.yaml'
+
+# Sites configuration
+sites:
+  $ref: './sites-config.yaml'
+
+# Mail configuration
+mail:
+  $ref: './mail-config.yaml'
+
+# DNS configuration
+dns:
+  $ref: './dns-config.yaml'
+
+# Domains configuration
+domains:
+  $ref: './domains-config.yaml'
+
+# Miscellaneous configuration
+misc:
+  $ref: './misc-config.yaml'
+
+# DNS Certification Authorities
+dns-cas:
+  $ref: './dns-cas-config.yaml'
+
+# Service resynchronization
+resync:
+  $ref: './resync.yaml'
+
+# Directive Snippets
+directive-snippets:
+  $ref: './directive-snippets.yaml'

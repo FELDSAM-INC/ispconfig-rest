@@ -1,0 +1,183 @@
+type: object
+x-db-table: shell_user
+description: Auto-generated schema for shell_user
+required:
+  - username
+  - parent_domain_id
+  - password
+  - chroot
+  - quota_size
+  - active
+properties:
+  shell_user_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the shell user
+    example: 123
+    x-db-field: shell_user_id
+
+  server_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Server ID where the shell user is hosted
+    example: 1
+
+  parent_domain_id:
+    type: integer
+    format: int64
+    description: ID of the parent web domain this shell user belongs to
+    example: 42
+
+  username:
+    type: string
+    description: Username for the shell user (without prefix)
+    minLength: 1
+    maxLength: 32
+    pattern: '^[\w\.\-]{1,32}$'
+    example: "johndoe"
+
+  username_prefix:
+    type: string
+    readOnly: true
+    description: Automatically generated username prefix based on configuration
+    maxLength: 25
+    example: "client1_"
+
+  username_full:
+    type: string
+    readOnly: true
+    description: Full username including prefix
+    example: "client1_johndoe"
+
+  password:
+    type: string
+    writeOnly: true
+    description: Password for the shell user (required if SSH authentication is set to password)
+    minLength: 8
+    example: "strongpassword123"
+
+  chroot:
+    type: string
+    description: Chroot jail type for the shell user
+    enum: [no, jailkit]
+    default: "no"
+    example: "jailkit"
+
+  quota_size:
+    type: integer
+    description: Disk quota in MB (-1 for unlimited)
+    default: -1
+    example: 1024
+
+  active:
+    type: string
+    description: Whether the shell user is active
+    enum: [y, n]
+    default: "y"
+    example: "y"
+
+  ssh_rsa:
+    type: string
+    description: SSH public key for key-based authentication (required if SSH authentication is set to key)
+    maxLength: 600
+    example: "ssh-rsa AAAAB3NzaC1yc2E..."
+
+  # Advanced fields (only for admin)
+  puser:
+    type: string
+    description: System user (UID) for the shell user (admin only)
+    example: "www-data"
+
+  pgroup:
+    type: string
+    description: System group (GID) for the shell user (admin only)
+    example: "www-data"
+
+  dir:
+    type: string
+    readOnly: true
+    description: Home directory path (automatically set to parent domain's document root)
+    example: "/var/www/client1/web1/web"
+
+  sys_groupid:
+    type: integer
+    readOnly: true
+    description: System group ID inherited from parent domain
+    example: 5000
+
+  created_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Creation timestamp
+    example: "2023-01-01T12:00:00Z"
+
+  updated_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Last update timestamp
+    example: "2023-01-01T12:00:00Z"
+
+  # Response only fields (not for input)
+  server_name:
+    type: string
+    readOnly: true
+    description: Name of the server where the shell user is hosted
+    example: "server1.example.com"
+
+  parent_domain:
+    type: string
+    readOnly: true
+    description: Name of the parent domain
+    example: "example.com"
+
+  # System fields (readonly)
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID who created the record
+    example: 1
+
+  sys_perm:
+    type: string
+    readOnly: true
+    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_group:
+    type: string
+    readOnly: true
+    description: Group permissions for the record
+    example: "riud"
+
+  sys_perm_other:
+    type: string
+    readOnly: true
+    description: Other permissions for the record
+    example: ""
+
+description: |
+  A shell user provides SSH access to a website's document root with optional chroot restrictions.
+  The username will be automatically prefixed according to system configuration.
+  
+  ### Authentication Methods
+  The system can be configured to use either password or SSH key authentication:
+  - **Password authentication**: Set the `password` field
+  - **SSH key authentication**: Set the `ssh_rsa` field with the public key
+  
+  ### Chroot Jails
+  - `no`: No chroot restrictions
+  - `jailkit`: Use Jailkit for chroot environment
+  
+  ### Quotas
+  - Set `quota_size` to `-1` for unlimited disk space
+  - Values in MB (e.g., `1024` for 1GB)
+  
+  ### Parent Domain
+  Each shell user must be associated with a web domain which determines:
+  - The server where the user is created
+  - The home directory (set to domain's document root)
+  - System user/group permissions

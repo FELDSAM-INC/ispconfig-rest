@@ -1,0 +1,115 @@
+type: object
+x-db-table: spamfilter_wblist
+description: Auto-generated schema for spamfilter_wblist
+required:
+  - server_id
+  - wb
+  - rid
+  - email
+  - priority
+  - active
+properties:
+  wblist_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the whitelist/blacklist entry
+    example: 1
+    x-db-field: wblist_id
+
+  server_id:
+    type: integer
+    format: int64
+    description: Server ID where the spamfilter is configured
+    example: 1
+    x-db-field: server_id
+
+  wb:
+    type: string
+    description: Type of list entry
+    enum: [W, B]
+    default: "B"
+    x-db-field: wb
+    x-enum-titles:
+      W: "Whitelist"
+      B: "Blacklist"
+
+  rid:
+    type: integer
+    format: int64
+    description: Reference to spamfilter user ID (0 for global rules)
+    default: 0
+    example: 1
+    x-db-field: rid
+
+  email:
+    type: string
+    description: Email address or pattern to match
+    maxLength: 255
+    example: "spammer@example.com"
+    x-db-field: email
+
+  priority:
+    type: integer
+    description: Priority of the rule (1-10)
+    minimum: 1
+    maximum: 10
+    default: 5
+    example: 5
+    x-db-field: priority
+
+  active:
+    type: string
+    description: Whether the rule is active
+    enum: [y, n]
+    default: "y"
+    x-db-field: active
+
+  # System fields (readonly)
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID who created the record
+    example: 1
+    x-db-field: sys_userid
+
+  sys_groupid:
+    type: integer
+    readOnly: true
+    description: System group ID for the record
+    example: 1
+    x-db-field: sys_groupid
+
+  sys_perm:
+    type: string
+    readOnly: true
+    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+    x-db-field: sys_perm
+
+  sys_perm_group:
+    type: string
+    readOnly: true
+    description: Group permissions for the record
+    example: "riud"
+    x-db-field: sys_perm_group
+
+  sys_perm_other:
+    type: string
+    readOnly: true
+    description: Other permissions for the record
+    example: ""
+    x-db-field: sys_perm_other
+
+description: |
+  Whitelist/Blacklist entries for the spamfilter.
+  
+  ### Key Features
+  - Whitelist trusted senders (W)
+  - Blacklist known spammers (B)
+  - Set priority for rule matching
+  - Enable/disable rules as needed
+  
+  ### Access Control
+  - Users can manage their own whitelist/blacklist entries
+  - Admin users can manage all entries

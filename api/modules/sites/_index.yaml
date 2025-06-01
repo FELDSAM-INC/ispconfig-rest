@@ -1,0 +1,42 @@
+# Main index file for Sites module paths
+# This file combines all the individual path files
+
+# Include web domains paths
+web-domains:
+  $ref: './web-domains.yaml'
+
+# Include database paths
+databases:
+  $ref: './databases.yaml'
+
+# Include database users paths
+database-users:
+  $ref: './database-users.yaml'
+
+# Include FTP users paths
+ftp-users:
+  $ref: './ftp-users.yaml'
+
+# Include shell users paths
+shell-users:
+  $ref: './shell-users.yaml'
+
+# Include cron jobs paths
+cron-jobs:
+  $ref: './cron-jobs.yaml'
+
+# Include web child domains paths
+web-child-domains:
+  $ref: './web-child-domains.yaml'
+
+# Include WebDAV users paths
+webdav-users:
+  $ref: './webdav-users.yaml'
+
+# Include web folders paths
+web-folders:
+  $ref: './web-folders.yaml'
+
+# Include web folder users paths
+web-folder-users:
+  $ref: './web-folder-users.yaml'

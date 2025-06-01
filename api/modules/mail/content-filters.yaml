@@ -1,0 +1,212 @@
+# Mail Content Filter endpoints
+/mail/content-filters:
+  get:
+    tags:
+      - Mail Content Filters
+    summary: List all mail content filter rules
+    description: |
+      Returns a paginated list of mail content filter rules.
+      Only accessible by admin users.
+      
+      ### Filtering
+      Filter results using query parameters in the format `field[op]=value`.
+      
+      Supported operators:
+      - `eq` - Equal to
+      - `neq` - Not equal to
+      - `gt` - Greater than
+      - `gte` - Greater than or equal to
+      - `lt` - Less than
+      - `lte` - Less than or equal to
+      - `like` - Case-sensitive pattern matching (use % as wildcard)
+      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
+      - `in` - Value is in a comma-separated list
+      
+      Example: `type[eq]=header&active[eq]=y`
+      
+      ### Sorting
+      Sort results using the `sort` parameter. Prefix with `-` for descending order.
+      
+      Example: `sort=type` or `sort=-content_filter_id`
+      
+      ### Pagination
+      - `page` - Page number (default: 1)
+      - `per_page` - Items per page (default: 20, max: 100)
+    parameters:
+      - $ref: '../../../components/parameters/limit.yaml'
+      - $ref: '../../../components/parameters/offset.yaml'
+      - $ref: '../../../components/parameters/sort.yaml'
+      - $ref: '../../../components/parameters/order.yaml'
+      - name: type
+        in: query
+        description: Filter by filter type (header/body/mime_header/nested_header)
+        schema:
+          type: string
+          enum: [header, body, mime_header, nested_header]
+      - name: action
+        in: query
+        description: Filter by action type
+        schema:
+          type: string
+          enum: [DISCARD, DUNNO, FILTER, HOLD, IGNORE, PREPEND, REDIRECT, REPLACE, REJECT, WARN]
+      - name: active
+        in: query
+        description: Filter by active status (y/n)
+        schema:
+          type: string
+          enum: [y, n]
+    responses:
+      '200':
+        description: A list of mail content filter rules
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../../components/schemas/MailContentFilter.yaml'
+                pagination:
+                  $ref: '../../../components/schemas/Pagination.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+        description: Only admin users can access content filters
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Mail Content Filters
+    summary: Create a new mail content filter rule
+    description: |
+      Creates a new mail content filter rule.
+      Only accessible by admin users.
+      
+      ### Validation Rules
+      - Pattern is required
+      - Server must be a valid mail server
+      - Server cannot be changed after creation
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailContentFilter.yaml'
+    responses:
+      '201':
+        description: Mail content filter rule created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailContentFilter.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+        description: Only admin users can create content filter rules
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+/mail/content-filters/{id}:
+  parameters:
+    - name: id
+      in: path
+      description: Mail content filter rule ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - Mail Content Filters
+    summary: Get mail content filter rule by ID
+    description: Returns a single mail content filter rule by its ID
+    responses:
+      '200':
+        description: Mail content filter rule details
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailContentFilter.yaml'
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+        description: Only admin users can view content filter rules
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - Mail Content Filters
+    summary: Update mail content filter rule
+    description: |
+      Updates an existing mail content filter rule.
+      Only accessible by admin users.
+      
+      ### Notes
+      - The server_id cannot be changed after creation
+      - All fields except server_id can be updated
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../../components/schemas/MailContentFilter.yaml'
+    responses:
+      '200':
+        description: Mail content filter rule updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../../components/schemas/MailContentFilter.yaml'
+      '400':
+        $ref: '../../../components/responses/BadRequest.yaml'
+        description: |
+          Bad Request. Possible reasons:
+          - Attempt to change server_id
+          - Invalid data format
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+        description: Only admin users can update content filter rules
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Mail Content Filters
+    summary: Delete mail content filter rule
+    description: |
+      Deletes a mail content filter rule by ID.
+      Only accessible by admin users.
+      
+      ### Notes
+      - This will permanently delete the filter rule
+      - This action cannot be undone
+    responses:
+      '204':
+        description: Mail content filter rule deleted successfully
+      '401':
+        $ref: '../../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../components/responses/Forbidden.yaml'
+        description: Only admin users can delete content filter rules
+      '404':
+        $ref: '../../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../../components/responses/InternalServerError.yaml'

@@ -1,0 +1,201 @@
+type: object
+x-db-table: mail_domain
+description: Auto-generated schema for mail_domain
+required:
+  - server_id
+  - domain
+  - active
+  - local_delivery
+properties:
+  id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Unique identifier for the mail domain
+    example: 123
+    x-db-field: domain_id
+
+  server_id:
+    type: integer
+    format: int64
+    description: Server ID where the mail domain is hosted
+    example: 1
+
+  domain:
+    type: string
+    description: |
+      Mail domain name (e.g., example.com)
+      
+      ### Validation Rules:
+      - Must be a valid domain name
+      - Must be unique across all mail domains
+      - Will be converted to lowercase on save
+      - IDN domains are automatically converted to punycode
+    example: "example.com"
+    maxLength: 255
+
+  dkim:
+    type: string
+    description: |
+      Whether DKIM (DomainKeys Identified Mail) is enabled for this domain
+      - 'y': DKIM is enabled
+      - 'n': DKIM is disabled
+    enum: [y, n]
+    default: "n"
+
+  dkim_private:
+    type: string
+    description: |
+      DKIM private key
+      - Required when dkim is set to 'y'
+      - Must be a valid private key
+    format: textarea
+    example: |
+      -----BEGIN PRIVATE KEY-----
+      MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQ...
+      -----END PRIVATE KEY-----
+
+  dkim_public:
+    type: string
+    description: |
+      DKIM public key (read-only)
+      - Automatically generated from the private key
+    readOnly: true
+    format: textarea
+    example: |
+      -----BEGIN PUBLIC KEY-----
+      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
+      -----END PUBLIC KEY-----
+
+  dkim_selector:
+    type: string
+    description: |
+      DKIM selector
+      - Used in the DNS record name (_selector._domainkey.example.com)
+      - Must be alphanumeric with dots and hyphens allowed
+      - Maximum length: 126 characters
+    default: "default"
+    pattern: '^[a-z0-9]{1,63}(?:\.[a-z0-9]{1,63})?$'
+    example: "default"
+
+  relay_host:
+    type: string
+    description: |
+      Relay host for outbound email
+      - Leave empty to use the default mail server
+      - Format: hostname or IP address with optional port (host:port)
+    maxLength: 255
+    example: "smtp.example.com:587"
+
+  relay_user:
+    type: string
+    description: |
+      Username for authenticating with the relay host
+      - Required if relay_host is set
+    maxLength: 255
+    example: "user@example.com"
+
+  relay_pass:
+    type: string
+    description: |
+      Password for authenticating with the relay host
+      - Required if relay_host and relay_user are set
+      - Write-only field (never returned in responses)
+    writeOnly: true
+    maxLength: 255
+    example: "your_password"
+
+  active:
+    type: string
+    description: |
+      Whether the mail domain is active
+      - 'y': Domain is active
+      - 'n': Domain is inactive
+    enum: [y, n]
+    default: "y"
+
+
+  local_delivery:
+    type: string
+    description: |
+      Whether to accept and deliver mail locally for this domain
+      - 'y': Accept and deliver mail locally
+      - 'n': Reject mail for this domain (useful for relay-only domains)
+    enum: [y, n]
+    default: "y"
+
+  # System fields (readonly)
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID who created the record
+    example: 1
+
+  sys_groupid:
+    type: integer
+    readOnly: true
+    description: System group ID for the record
+    example: 1
+
+  sys_perm:
+    type: string
+    readOnly: true
+    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    example: "riud"
+
+  sys_perm_group:
+    type: string
+    readOnly: true
+    description: Group permissions for the record
+    example: "riud"
+
+  sys_perm_other:
+    type: string
+    readOnly: true
+    description: Other permissions for the record
+    example: ""
+
+  created_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Creation timestamp
+    example: "2023-01-01T12:00:00Z"
+
+  updated_at:
+    type: string
+    format: date-time
+    readOnly: true
+    description: Last update timestamp
+    example: "2023-01-01T12:00:00Z"
+
+  # Response only fields (not for input)
+  server_name:
+    type: string
+    readOnly: true
+    description: Name of the server where the mail domain is hosted
+    example: "mail1.example.com"
+
+description: |
+  A mail domain represents an email domain that can send and receive email.
+  
+  ### Key Features
+  - Email routing and delivery configuration
+  - DKIM support for email authentication
+  - Relay host configuration for outbound email
+  - Local delivery control
+  
+  ### DKIM Configuration
+  - Generate DKIM keys using the `dkim_genkey` tool
+  - Set `dkim: y` and provide the private key in `dkim_private`
+  - The public key will be automatically generated
+  - Add a DNS TXT record: `selector._domainkey IN TXT "v=DKIM1; k=rsa; p=PUBLIC_KEY"`
+  
+  ### Relay Configuration
+  - Set `relay_host` to forward outbound email through another server
+  - Provide `relay_user` and `relay_pass` if authentication is required
+  - Leave `relay_host` empty to use the default mail server
+  
+  ### Local Delivery
+  - Set `local_delivery: y` to accept and deliver email locally
+  - Set `local_delivery: n` to reject email (useful for relay-only domains)

@@ -1,0 +1,494 @@
+pk = primary key
+fk = foreign key
+-> = references
+i = int
+ui = unsigned int
+bi = bigint
+v = varchar
+t = text
+dt = datetime
+ts = timestamp
+e = enum
+b = blob
+d = date
+c = char
+m = mediumtext
+b = enum('n','y')
+set: = SET type with allowed values
+* = NOT NULL
+. = has default
+_ = prefix grouping
+dec = decimal(5,2)
+
+*
+->sys_userid = sys_user.userid
+->sys_groupid = sys_group.groupid
+
+client
+pk:client_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+company_{name[v64],id[v255]} gender[e:m,f.] contact_{first,}name[v64]
+customer_no[v64] vat_id[v64] street[v255] zip[v32] city[v64] state[v32] country[c2]
+contact_{tel,mobile,fax}[v32] email[v255] internet[v255*] icq[v16] notes[t]
+bank_{owner,num,code,name,iban,swift}[v255] paypal[v255]
+default_{mail,web,dns,slave_dns,db}server[ui*.1]
+{mail,web,dns,db}_servers[t]
+limit_{maildomain,mailbox,mailalias,aliasdomain,forward,catchall}[i.-1]
+limit_{routing,wblist}[i.0] limit_{filter,fetchmail,quota}[i.-1]
+limit_spam_{wblist,user,policy}[i.0] limit_{backup[b.y],relay[b.n]}
+limit_xmpp_{domain,user}[i.-1]
+limit_xmpp_{muc,anon,vjud,proxy,status,pastebin,httparchive}[b.n]
+limit_xmpp_auth_options[v255.'plain,hashed,isp']
+web_php_options[v255.'no,fast-cgi,cgi,mod,suphp,php-fpm,hhvm']
+ssh_chroot[v255.'no,jailkit,ssh-chroot']
+limit_{cgi,ssi,perl,ruby,python}[b.n]
+limit_{web_domain,web_quota,web_subdomain,web_aliasdomain}[i.-1]
+limit_{ftp_user,shell_user,webdav_user}[i.-1]
+force_suexec[b.y] limit_hterror[b.n]
+limit_{wildcard,ssl,ssl_letsencrypt}[b.n]
+limit_web_ip[t]
+limit_dns_{zone,slave_zone,record}[i.-1]
+limit_{database,database_user,database_quota}[i.-1]
+limit_cron[i.0] limit_cron_type[e:url,chrooted,full.url] limit_cron_frequency[i.5]
+limit_traffic_quota[i.-1] limit_client[i.0]
+limit_{domainmodule,mailmailinglist,directive_snippets}[i.0]
+limit_aps[i.-1]
+limit_openvz_vm[i.0] limit_openvz_vm_template_id[i.0]
+parent_client_id[ui.0]
+template_master[ui.0] template_additional[t]
+access_{user[v64],pass[v200],lang[c2.en],theme[v32.default]}
+can_use_api[b.n] created_at[i] locked[b.n] canceled[b.n]
+tmp_data[b] id_rsa[t] ssh_rsa[v600]
+customer_no_{template[v255.'R[CLIENTID]C[CUSTOMER_NO]'],start[i.1],counter[i.0]}
+added_{date[d],by[v255]} 
+validation_status[e:accept,review,reject.accept]
+risk_score[ui.0] activation_code[v10]
+->parent_client_id = client.client_id
+->default_mailserver = server.server_id
+->default_webserver = server.server_id
+->default_dnsserver = server.server_id
+->default_slave_dnsserver = server.server_id
+->default_dbserver = server.server_id
+
+client_circle
+pk:circle_id[i*]
+sys_{userid,groupid}[i.0] sys_perm_{user,group,other}[v5]
+circle_{name[v64],ids[t],desc[t]} active[b.y]
+
+client_message_template
+pk:client_message_template_id[i*]
+sys_{userid,groupid}[i.0] sys_perm_{user,group,other}[v5]
+template_{type[v255],name[v255]} subject[v255] message[t]
+
+client_template
+pk:template_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+template_name[v64.] template_type[v1.m]
+mail_servers[t] xmpp_servers[t] web_servers[t] dns_servers[t] db_servers[t]
+limit_maildomain[i.-1] limit_mailbox[i.-1] limit_mailalias[i.-1] limit_mailaliasdomain[i.-1]
+limit_mailforward[i.-1] limit_mailcatchall[i.-1] limit_mailrouting[i.0] limit_mail_wblist[i.0]
+limit_mailfilter[i.-1] limit_fetchmail[i.-1] limit_mailquota[i.-1]
+limit_spamfilter_{wblist,user,policy}[i.0]
+limit_{mail_backup,relayhost}[b.{y,n}]
+limit_xmpp_{domain,user}[i.-1]
+limit_xmpp_{muc,anon,vjud,proxy,status,pastebin,httparchive}[b.n]
+limit_web_{domain,quota,subdomain,aliasdomain}[i.-1]
+limit_web_ip[t]
+web_php_options[v255.] ssh_chroot[v255.]
+limit_{cgi,ssi,perl,ruby,python}[b.n] force_suexec[b.y]
+limit_{hterror,wildcard,ssl,ssl_letsencrypt}[b.n]
+limit_{ftp_user[i.-1],shell_user[i.0],webdav_user[i.0]}
+limit_{backup,directive_snippets}[b.{y,n}] limit_aps[i.-1]
+limit_dns_{zone,slave_zone,record}[i.-1] default_slave_dnsserver[i.0]
+limit_database[i.-1] limit_database_user[i.-1] limit_database_quota[i.-1]
+limit_cron[i.0] limit_cron_type[e:url,chrooted,full.url] limit_cron_frequency[i.5]
+limit_traffic_quota[i.-1] limit_client[i.0] limit_domainmodule[i.0]
+limit_mailmailinglist[i.-1] limit_openvz_vm[i.0] limit_openvz_vm_template_id[i.0]
+
+client_template_assigned
+pk:assigned_template_id[i*]
+client_id[i*] client_template_id[i.0]
+->client_id = client.client_id
+->client_template_id = client_template.template_id
+
+country
+pk:iso[c2] name[v64*] printable[v64*] iso3[c3] numcode[i] eu[b.n]
+
+cron
+pk:id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[ui*] parent_domain_id[ui*]
+type[e:url,chrooted,full] command[t]
+run_{min,hour,mday,month,wday}[v100]
+log[b.n] active[b.y]
+
+directive_snippets
+pk:directive_snippets_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+name[v255] type[v255] snippet[m]
+customer_viewable[b.n] required_php_snippets[v255*]
+active[b.y] master_directive_snippets_id[ui.0]
+update_sites[b.n]
+
+dns_rr
+pk:id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[i*] zone[ui*] name[v255*]
+type[e:A,AAAA,ALIAS,CNAME,etc] data[t*] aux[ui.0]
+ttl[ui.3600] active[e:N,Y.Y] stamp[ts] serial[ui]
+
+dns_slave
+pk:id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[i*] origin[v255*] ns[v255*]
+active[e:N,Y.N] xfer[t]
+
+dns_soa
+pk:id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5*.] 
+server_id[i*.1]
+origin[v255*.] ns[v255*.] mbox[v255*.]
+serial[ui*.1] refresh[ui*.28800] retry[ui*.7200] expire[ui*.604800]
+minimum[ui*.3600] ttl[ui*.3600]
+active[e:N,Y.N]
+xfer[t] also_notify[t] update_acl[v255]
+dnssec_{initialized,wanted}[e:Y,N.N]
+dnssec_algo[set:NSEC3RSASHA1,ECDSAP256SHA256.ECDSAP256SHA256]
+dnssec_last_signed[bi*.0] dnssec_info[t]
+rendered_zone[m]
+
+dns_ssl_ca
+pk:id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+active[e:N,Y.N] ca_{name,issue}[v255*]
+ca_{wildcard[e:Y,N.N],iodef[t*],critical[i.0]}
+
+dns_template
+pk:template_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+name[v64] fields[v255] template[t]
+visible[e:N,Y.Y]
+
+domain
+pk:domain_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5*]
+domain[v255*]
+
+firewall
+pk:firewall_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[ui*.] tcp_port[t] udp_port[t] active[b.y]
+
+ftp_traffic
+pk:hostname[v255*],traffic_date[d]
+in_bytes[ui*] out_bytes[ui*]
+
+ftp_user
+pk:ftp_user_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[ui*.] parent_domain_id[ui*.]
+username[v64] username_prefix[v50*.] password[v200]
+quota_{size,files}[bi.-1]
+active[b.y]
+uid[v64] gid[v64] dir[v255]
+{ul,dl}_ratio[i.-1] {ul,dl}_bandwidth[i.-1]
+expires[dt]
+user_type[set:user,system.user]
+user_config[t]
+key:{active[i],server_id[i],username[i],quota_files[i]}
+
+iptables
+pk:iptables_id[ui*]
+server_id[ui*.] table[v10] source_ip[v16] destination_ip[v16]
+protocol[v10.TCP] singleport[v10] multiport[v40]
+state[v20] target[v10] active[b.y]
+
+mail_access
+pk:access_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5*]
+server_id[i*.] source[v255*] access[v255*]
+type[set:recipient,sender,client] active[b.y]
+
+mail_backup
+pk:backup_id[ui*]
+server_id[ui*.] parent_domain_id[ui*.] mailuser_id[ui*.]
+backup_mode[v64*] tstamp[ui*.] filename[v255*] filesize[v20*]
+
+mail_content_filter 
+pk:content_filter_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[i*.] type[v255] pattern[v255] data[v255] action[v255] active[v255.y]
+
+mail_domain
+pk:domain_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5*]
+server_id[ui*.] domain[v255*] dkim[b.n] dkim_selector[v63.default]
+dkim_{private,public}[m] relay_{host,user,pass}[v255*] active[b.n]
+
+mail_forwarding
+pk:forwarding_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5*]
+server_id[ui*.] source[v255*] destination[t]
+type[e:alias,aliasdomain,forward,catchall]
+active[b.n] allow_send_as[b.n] greylisting[b.n]
+
+mail_get
+pk:mailget_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[ui*.] type[v255] source_{server,username,password}[v255]
+source_{delete,read_all}[v255.y] destination[v255] active[v255.y]
+
+mail_mailinglist
+pk:mailinglist_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5*]
+server_id[ui*.] domain[v255*] listname[v255*] email[v255*] password[v255*]
+
+mail_relay_domain
+pk:relay_domain_id[bi*]
+sys_{userid,groupid}[i.0] sys_perm_{user,group,other}[v5]
+server_id[i.0] domain[v255] access[v255.OK] active[v255.y]
+
+mail_relay_recipient
+pk:relay_recipient_id[i*]
+sys_{userid,groupid}[i.0] sys_perm_{user,group,other}[v5]
+server_id[i.0] source[v255] access[v255.OK] active[v255.y]
+
+mail_traffic
+pk:traffic_id[ui*]
+mailuser_id[ui*.] month[c7*] traffic[ui*.]
+
+mail_transport
+pk:transport_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5*]
+server_id[ui*.] domain[v255*] transport[v255*]
+sort_order[ui.5] active[b.n]
+
+mail_user
+pk:mailuser_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5*.]
+server_id[ui*.] email[v255*.] login[v255*.] password[v255*.]
+name[v255*.] uid[i.5000] gid[i.5000]
+maildir[v255*.] maildir_format[v255.maildir] quota[bi.0]
+cc[t] forward_in_lda[b.n] sender_cc[v255*.]
+homedir[v255*.]
+autoresponder[b.n] autoresponder_{start,end}_date[dt]
+autoresponder_subject[v255*.Out of office reply]
+autoresponder_text[m]
+move_junk[e:y,a,n.y] purge_{trash,junk}_days[i.0]
+custom_mailfilter[m]
+postfix[b.y] greylisting[b.n] access[b.y]
+disable_{imap,pop3,deliver,smtp,sieve,sieve-filter,lda,lmtp,doveadm}[b.n]
+disable_{quota-status,indexer-worker}[b.n]
+last_access[i]
+last_quota_notification[d]
+backup_interval[v255.none] backup_copies[i.1]
+imap_prefix[v255]
+
+mail_user_filter
+pk:filter_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+mailuser_id[ui*.] rulename[v64] source[v255]
+searchterm[v255] op[v255] action[v255] target[v255] active[b.y]
+
+monitor_data
+server_id[ui*.] type[v255*] created[ui*.] data[m]
+state[e:no_state,unknown,ok,info,warning,critical,error]
+
+remote_user
+pk:remote_userid[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+remote_{username,password}[v{64,200}*] remote_access[b.y]
+remote_{ips,functions}[t]
+
+server
+pk:server_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5*]
+server_name[v255*]
+{mail,web,dns,file,db,vserver,proxy,firewall,xmpp}_server[i.0]
+config[t] updated[ui.0] mirror_server_id[ui.0]
+dbversion[ui.1] active[i.1]
+
+server_ip
+pk:server_ip_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[ui*.] client_id[ui.0]
+ip_type[e:IPv4,IPv6] ip_address[v39]
+virtualhost[b.y] virtualhost_port[v255.80,443]
+
+server_ip_map
+pk:server_ip_map_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[ui*.] source_ip[v15] destination_ip[v35*]
+active[b.y]
+
+server_php
+pk:server_php_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[ui*.] client_id[ui.0] name[v255]
+php_fastcgi_{binary,ini_dir}[v255]
+php_fpm_{init_script,ini_dir,pool_dir,socket_dir}[v255]
+active[b.y] sortprio[i.100]
+
+shell_user
+pk:shell_user_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[ui*.] parent_domain_id[ui*]
+username[v64] username_prefix[v50*] password[v200]
+quota_size[i.-1] active[b.y] puser[v255] pgroup[v255]
+shell[v255./bin/bash] dir[v255] chroot[v255]
+ssh_rsa[t]
+
+spamfilter_policy
+pk:id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5*.]
+policy_name[v64]
+{virus,spam,banned_files,bad_header}_lover[e:N,Y.N]
+bypass_{virus,spam,banned,header}_checks[e:N,Y.N]
+spam_modifies_subj[e:N,Y.N]
+{virus,spam,banned,bad_header,clean,other}_quarantine_to[v255]
+spam_{tag,tag2,kill,dsn_cutoff,quarantine_cutoff}_level[dec]
+addr_extension_{virus,spam,banned,bad_header}[v64]
+warn{virus,banned,badh}recip[c1.N]
+{newvirus,virus,banned,bad_header,spam}_admin[v64]
+spam_subject_tag{,2}[v64]
+message_size_limit[ui]
+banned_rulenames[v64]
+policyd_quota_{in,out}[i.-1] policyd_quota_{in,out}_period[i.24]
+policyd_greylist[e:Y,N.N]
+rspamd_greylisting[b.n] rspamd_spam_greylisting_level[dec5.2]
+rspamd_spam_{tag_level[dec5.2],tag_method[e:add_header,rewrite_subject.rewrite_subject],kill_level[dec5.2]}
+
+spamfilter_users
+pk:id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5*]
+server_id[ui*.] priority[ui.7] policy_id[ui.0]
+email[v255*] fullname[v64] local[c1]
+
+spamfilter_wblist
+pk:wblist_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5*]
+server_id[ui*.] wb[e:W,B.W] rid[ui*.] email[v255*]
+priority[ui*.] active[b.y]
+
+sys_config
+pk:group[v64*],name[v64*]
+value[v255*]
+
+sys_cron
+pk:name[v50*]
+last_run[dt] next_run[dt] running[i.0]
+
+sys_datalog
+pk:datalog_id[ui*]
+server_id[ui*.] dbtable[v255*] dbidx[v255*]
+action[c1*] tstamp[i*] user[v255*] data[t]
+status[set:pending,ok,warning,error.ok] error[m]
+session_id[v64*]
+
+sys_group
+pk:groupid[ui*]
+name[v64*] description[t] client_id[ui.0]
+
+sys_ini
+pk:sysini_id[ui*]
+config[t] default_logo[t] custom_logo[t]
+
+sys_log
+pk:syslog_id[ui*]
+server_id[ui*.] datalog_id[ui*.] loglevel[i*.0]
+tstamp[ui*.] message[t]
+
+sys_user
+pk:userid[ui*]
+sys_{userid[ui.1],groupid[ui.1]} sys_perm_{user,group,other}[v5]
+username[v64*] passwort[v200*] modules[v255*]
+startmodule[v255*] app_theme[v32.default]
+typ[v16.user] active[i.1] language[v2.en]
+groups[t] default_group[ui.0] client_id[ui.0]
+ssh_rsa[v{600,2000}] id_rsa[v{600,2000}]
+lost_password_{function[i.1],hash[v50],reqtime[dt]}
+otp_{type[set:none,email.none],data[v255],recovery[v64],attempts[i.0]}
+
+web_backup
+pk:backup_id[ui*]
+server_id[ui*.] parent_domain_id[ui*.]
+backup_{type[e:web,mysql,mongodb],mode[v64*],format[v64*]}
+tstamp[ui*.] filename[v255*] filesize[v20*]
+backup_password[v255*]
+
+web_database
+pk:database_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[ui*.] parent_domain_id[ui*.]
+type[v16.y] database_name[v64] database_name_prefix[v50*.]
+database_quota[i] database_charset[v64] quota_exceeded[b.n]
+last_quota_notification[d]
+database_user_id[ui] database_ro_user_id[ui]
+remote_access[b.y] remote_ips[t]
+backup_interval[v255.none] backup_copies[i.1]
+active[b.y]
+
+web_database_user
+pk:database_user_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[ui.0] database_user[v64] database_user_prefix[v50*]
+database_password[v64] database_password_mongo[v32]
+
+web_domain
+pk:domain_id[ui*]
+sys_{userid,groupid}[ui*.] sys_perm_{user,group,other}[v5]
+server_id[ui*] ip_address[v39] ipv6_address[v255]
+domain[v255*] type[v32] parent_domain_id[ui*]
+vhost_type[v32] document_root[v255] web_folder[v100]
+system_{user,group}[v255] quota_{hd[i.0],traffic[i.-1]}
+{cgi,ssi,suexec}[b.y] errordocs[i.1]
+is_subdomainwww[i.1] subdomain[e:none,www,*.none]
+{php[v32.y],ruby[b.n],python[b.n],perl[b.n]}
+redirect_{type,path}[v255] seo_redirect[v255] rewrite_to_https[b.n]
+ssl[b.n] ssl_letsencrypt[b.n] ssl_letsencrypt_exclude[b.n]
+ssl_{state,locality,organisation,organisation_unit,country,domain}[v255]
+ssl_{request,cert,bundle,key}[m] ssl_action[v16]
+stats_{password[v255],type[v255.awstats]}
+allow_override[v255.'All']
+apache_directives[m] nginx_directives[m]
+proxy_{directives[m],protocol[b.n]}
+php_fpm_{use_socket[b.y],chroot[b.n]}
+php_{open_basedir[m],custom_ini[m]}
+pm[e:static,dynamic,ondemand.ondemand]
+pm_{max_children[i.10],start_servers[i.2],min_spare_servers[i.1],max_spare_servers[i.5],process_idle_timeout[i.10],max_requests[i.0]}
+backup_{interval[v255.none],copies[i.1],format_web[v255.default],format_db[v255.gzip],encrypt[b.n],password[v255],excludes[m]}
+http_port[ui.80] https_port[ui.443]
+traffic_quota_lock[b.n] last_quota_notification[d]
+rewrite_rules[m] folder_directive_snippets[t]
+log_retention[i.10] enable_pagespeed[b.n]
+server_php_id[ui.0]
+jailkit_chroot_app_{sections[m],programs[m]}
+delete_unused_jailkit[b.n]
+last_jailkit_{update[d],hash[v255]}
+disable_symlinknotowner[b.n]
+added_{date[d],by[v255]}
+directive_snippets_id[ui.0]
+active[b.y]
+->server_id = server.server_id
+->parent_domain_id = web_domain.domain_id
+->sys_userid = sys_user.userid
+->sys_groupid = sys_group.groupid
+->server_php_id = server_php.server_php_id
+->directive_snippets_id = directive_snippets.directive_snippets_id
+
+web_folder
+pk:web_folder_id[i*]
+sys_{userid,groupid}[i.0] sys_perm_{user,group,other}[v5]
+server_id[i.0] parent_domain_id[i.0]
+path[v255] active[v255.y]
+
+web_folder_user
+pk:web_folder_user_id[i*]
+sys_{userid,groupid}[i.0] sys_perm_{user,group,other}[v5]
+server_id[i.0] web_folder_id[i.0]
+username[v255] password[v255] active[v255.y]
+
+web_traffic
+pk:hostname[v255*],traffic_date[d]
+traffic_bytes[ui*]
+

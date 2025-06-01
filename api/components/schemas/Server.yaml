@@ -1,0 +1,122 @@
+# Server Schema
+# This schema defines the structure of a server in ISPConfig
+
+type: object
+x-db-table: server
+required:
+  - server_name
+  - ip_address
+  - hostname
+  - active
+properties:
+  server_id:
+    type: integer
+    format: int32
+    description: Unique identifier for the server
+    readOnly: true
+    example: 1
+    x-db-field: server_id
+  sys_userid:
+    type: integer
+    format: int32
+    description: System user ID who created the record
+    readOnly: true
+    example: 1
+    x-db-field: sys_userid
+  sys_groupid:
+    type: integer
+    format: int32
+    description: System group ID
+    readOnly: true
+    example: 1
+    x-db-field: sys_groupid
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    description: User permissions (r = read, i = insert, u = update, d = delete)
+    example: "riud"
+    x-db-field: sys_perm_user
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    description: Group permissions (r = read, i = insert, u = update, d = delete)
+    example: "riud"
+    x-db-field: sys_perm_group
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    description: Other permissions (r = read, i = insert, u = update, d = delete)
+    example: ""
+    x-db-field: sys_perm_other
+  server_name:
+    type: string
+    maxLength: 255
+    description: Name of the server
+    example: "web01"
+    x-db-field: server_name
+  ip_address:
+    type: string
+    format: ipv4
+    description: Primary IP address of the server
+    example: "192.168.1.100"
+    x-db-field: ip_address
+  hostname:
+    type: string
+    maxLength: 255
+    description: Fully qualified domain name of the server
+    example: "web01.example.com"
+    x-db-field: hostname
+  mail_server:
+    type: integer
+    description: Whether this server is a mail server (0 = no, 1 = yes)
+    enum: [0, 1]
+    example: 1
+    x-db-field: mail_server
+  web_server:
+    type: integer
+    description: Whether this server is a web server (0 = no, 1 = yes)
+    enum: [0, 1]
+    example: 1
+    x-db-field: web_server
+  dns_server:
+    type: integer
+    description: Whether this server is a DNS server (0 = no, 1 = yes)
+    enum: [0, 1]
+    example: 0
+    x-db-field: dns_server
+  file_server:
+    type: integer
+    description: Whether this server is a file server (0 = no, 1 = yes)
+    enum: [0, 1]
+    example: 0
+    x-db-field: file_server
+  db_server:
+    type: integer
+    description: Whether this server is a database server (0 = no, 1 = yes)
+    enum: [0, 1]
+    example: 0
+    x-db-field: db_server
+  vserver_server:
+    type: integer
+    description: Whether this server is a virtual server (0 = no, 1 = yes)
+    enum: [0, 1]
+    example: 0
+    x-db-field: vserver_server
+  xmpp_server:
+    type: integer
+    description: Whether this server is an XMPP server (0 = no, 1 = yes)
+    enum: [0, 1]
+    example: 0
+    x-db-field: xmpp_server
+  mirror_server_id:
+    type: integer
+    format: int32
+    description: ID of the mirror server (if any)
+    example: 2
+    x-db-field: mirror_server_id
+  active:
+    type: integer
+    description: Whether the server is active (0 = inactive, 1 = active)
+    enum: [0, 1]
+    example: 1
+    x-db-field: active

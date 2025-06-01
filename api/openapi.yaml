@@ -1,0 +1,62 @@
+openapi: 3.0.0
+info:
+  title: ISPConfig REST API
+  description: |
+    REST API for ISPConfig 3.2+
+    
+    This API provides programmatic access to ISPConfig functionality.
+  version: 1.0.0
+  contact:
+    name: ISPConfig API Support
+    url: https://www.ispconfig.org/
+    email: support@ispconfig.org
+
+servers:
+  - url: https://{hostname}:8080/api/v1
+    description: ISPConfig API server
+    variables:
+      hostname:
+        default: localhost
+        description: Hostname or IP address of the ISPConfig server
+
+# Security scheme (basic auth)
+security:
+  - basicAuth: []
+
+# Include all components and paths
+components:
+  # Security schemes
+  securitySchemes:
+    $ref: './components/securitySchemes.yaml'
+  
+  # Reusable schemas (data models)
+  schemas:
+    $ref: './components/schemas/_index.yaml'
+  
+  # Reusable parameters
+  parameters:
+    $ref: './components/parameters/_index.yaml'
+  
+  # Reusable responses
+  responses:
+    $ref: './components/responses/_index.yaml'
+
+# Include all paths from modules
+paths:
+  # Client module
+  $ref: './modules/client/_index.yaml'
+  
+  # DNS module
+  $ref: './modules/dns/_index.yaml'
+
+  # Mail module
+  $ref: './modules/mail/_index.yaml'
+
+  # Server module
+  $ref: './modules/server/_index.yaml'
+
+  # Sites module
+  $ref: './modules/sites/_index.yaml'
+
+  # System module
+  $ref: 'modules/system/_index.yaml'

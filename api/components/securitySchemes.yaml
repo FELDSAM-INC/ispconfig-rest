@@ -1,0 +1,4 @@
+basicAuth:
+  type: http
+  scheme: basic
+  description: Basic authentication using ISPConfig username and password
