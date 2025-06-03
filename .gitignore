@@ -1,2 +1,8 @@
-/source_code
+/vendor
+/.idea
+Homestead.json
+Homestead.yaml
+.phpunit.result.cache
 .DS_Store
+/.env
+/venv
