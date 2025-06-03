@@ -1,5 +1,5 @@
 # Client Template endpoints
-/templates:
+/clients/templates:
   get:
     tags:
       - Client Templates
@@ -77,7 +77,7 @@
       '500':
         $ref: '../../../components/responses/InternalServerError.yaml'
 
-/templates/{template_id}:
+/clients/templates/{template_id}:
   parameters:
     - name: template_id
       in: path

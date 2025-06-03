@@ -1,5 +1,5 @@
 # Client Circle endpoints
-/circles:
+/clients/circles:
   get:
     tags:
       - Client Circles
@@ -82,7 +82,7 @@
       '500':
         $ref: '../../../components/responses/InternalServerError.yaml'
 
-/circles/{circle_id}:
+/clients/circles/{circle_id}:
   parameters:
     - name: circle_id
       in: path
