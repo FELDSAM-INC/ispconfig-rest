@@ -118,11 +118,26 @@ class Client extends BaseModel
     ];
 
     /**
-     * Get the templates assigned to this client
+     * Get the master template assigned to this client
      */
-    public function templates()
+    public function masterTemplate()
     {
-        return $this->hasMany(ClientTemplateAssigned::class, 'client_id');
+        return $this->belongsTo(ClientTemplate::class, 'template_master', 'template_id');
+    }
+    
+    /**
+     * Get the additional templates assigned to this client
+     */
+    public function addonTemplates()
+    {
+        return $this->belongsToMany(
+            ClientTemplate::class,
+            'client_template_assigned',
+            'client_id',
+            'client_template_id',
+            'client_id',
+            'template_id'
+        );
     }
 
     /**

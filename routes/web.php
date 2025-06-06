@@ -39,13 +39,19 @@ $router->group(['prefix' => $apiPrefix, 'middleware' => 'api.auth'], function ()
     $router->put('clients/templates/{id}', 'Api\V1\ClientTemplateController@update');
     $router->delete('clients/templates/{id}', 'Api\V1\ClientTemplateController@destroy');
     
+    // Client Template Assignment endpoints
+    $router->get('clients/{client_id}/templates', 'Api\V1\ClientTemplateAssignmentController@index');
+    $router->post('clients/{client_id}/templates', 'Api\V1\ClientTemplateAssignmentController@store');
+    $router->get('clients/{client_id}/templates/{template_id}', 'Api\V1\ClientTemplateAssignmentController@show');
+    $router->delete('clients/{client_id}/templates/{template_id}', 'Api\V1\ClientTemplateAssignmentController@destroy');
+
     // Client endpoints - general routes last
     $router->get('clients', 'Api\V1\ClientController@index');
     $router->post('clients', 'Api\V1\ClientController@store');
     $router->get('clients/{id}', 'Api\V1\ClientController@show');
     $router->put('clients/{id}', 'Api\V1\ClientController@update');
     $router->delete('clients/{id}', 'Api\V1\ClientController@destroy');
-
+    
     // Monitor - DataLog endpoints
     $router->get('monitor/data-logs', 'Api\V1\Monitor\DataLogController@index');
     $router->get('monitor/data-logs/{datalog_id}', 'Api\V1\Monitor\DataLogController@show');

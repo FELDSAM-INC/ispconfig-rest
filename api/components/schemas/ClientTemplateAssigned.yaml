@@ -1,6 +1,6 @@
 type: object
 x-db-table: client_template_assigned
-description: Represents the assignment of a template to a client
+description: Represents the assignment of a addon template to a client
 required:
   - client_id
   - client_template_id

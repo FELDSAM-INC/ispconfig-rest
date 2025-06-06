@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\SysUser;
+use App\Services\ClientTemplateService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
@@ -65,7 +66,15 @@ class ClientController extends Controller
             return response()->json(['error' => 'Client not found'], Response::HTTP_NOT_FOUND);
         }
         
-        return response()->json($client);
+        // Include template assignments in the response
+        $templateService = new ClientTemplateService();
+        $templateAssignments = $templateService->getClientTemplateAssignments($id);
+        
+        // Convert client to array and add template assignments
+        $clientData = $client->toArray();
+        $clientData['template_assignments'] = $templateAssignments;
+        
+        return response()->json($clientData);
     }
 
     /**

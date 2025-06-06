@@ -67,8 +67,6 @@ class ClientTemplate extends BaseModel
         'sys_perm_user',
         'sys_perm_group',
         'sys_perm_other',
-        'server_id',
-        'active',
         
         // Template fields
         'template_name',
@@ -121,7 +119,6 @@ class ClientTemplate extends BaseModel
         'sys_userid' => 'integer',
         'sys_groupid' => 'integer',
         'server_id' => 'integer',
-        'active' => 'string',
         'limit_client' => 'integer',
         'limit_maildomain' => 'integer',
         'limit_mailbox' => 'integer',
@@ -158,7 +155,6 @@ class ClientTemplate extends BaseModel
      * @var array
      */
     protected $attributes = [
-        'active' => 'y',
         'template_type' => 'm',
         'limit_client' => 0,
         'limit_maildomain' => 0,
