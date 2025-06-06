@@ -123,6 +123,9 @@ class ClientTemplateService
             }
         }
 
+        // Apply template changes to client limits
+        $this->applyClientTemplates($clientId);
+
         return true;
     }
 
@@ -152,6 +155,11 @@ class ClientTemplateService
         
         // If it's a master template, assign it to the client
         if ($template->template_type === 'm') {
+            // Check if client already has a master template
+            if ($client->template_master) {
+                throw new \Exception("Client already has a master template assigned");
+            }
+            
             // Update the master template
             $this->updateClientMasterTemplate($clientId, $templateId);
             
@@ -163,15 +171,21 @@ class ClientTemplateService
                 'template' => $template
             ];
         } else {
+            // Check if client already has this additional template
+            $hasTemplate = $client->addonTemplates()
+                ->where('client_template.template_id', $templateId)
+                ->exists();
+
+            if ($hasTemplate) {
+                throw new \Exception("Client already has this template assigned");
+            }
+            
             // For additional templates, use the belongsToMany relationship
             // This will automatically create the entry in the pivot table
-            $client->addonTemplates()->attach($templateId, [
-                'sys_userid' => $client->sys_userid,
-                'sys_groupid' => $client->sys_groupid,
-                'sys_perm_user' => $client->sys_perm_user,
-                'sys_perm_group' => $client->sys_perm_group,
-                'sys_perm_other' => $client->sys_perm_other
-            ]);
+            $client->addonTemplates()->attach($templateId);
+            
+            // Apply template changes to client limits
+            $this->applyClientTemplates($clientId);
             
             // Return formatted response
             return [
@@ -281,6 +295,9 @@ class ClientTemplateService
         // Update the template_master field directly
         $client->template_master = $templateId;
         $client->save();
+        
+        // Apply template changes to client limits
+        $this->applyClientTemplates($clientId);
 
         return true;
     }
@@ -290,35 +307,22 @@ class ClientTemplateService
      * 
      * @param int $clientId
      * @param int $templateId
-     * @return bool
-     * @throws \Exception
+     * @return array|null
      */
     public function deleteTemplateAssignment($clientId, $templateId)
     {
-        $client = Client::find($clientId);
-        
-        if (!$client) {
-            throw new \Exception("Client not found");
-        }
-        
-        // Check if this is a master template or additional template
-        $template = ClientTemplate::find($templateId);
-        
-        if (!$template) {
-            throw new \Exception("Template not found");
-        }
-        
-        // If it's a master template, clear the field in the client table
-        if ($template->template_type === 'm') {
-            // Only update if this is actually the client's master template
-            if ($client->masterTemplate && $client->masterTemplate->template_id == $templateId) {
-                $client->template_master = null;
-                $client->save();
-            } else {
-                throw new \Exception("This template is not assigned as the master template for this client");
-            }
+        // Get the client and template
+        $client = Client::findOrFail($clientId);
+        $template = ClientTemplate::findOrFail($templateId);
+
+        // Determine if this is a master template or an additional template
+        if ($template->template_type === 'm' && $client->template_master == $templateId) {
+            // Unassign master template
+            $client->template_master = null;
+            $client->save();
+            $result = ['client_id' => $clientId, 'client_template_id' => $templateId, 'is_master' => true];
         } else {
-            // For additional templates, detach using the relationship
+            // Unassign additional template
             $hasTemplate = $client->addonTemplates()
                 ->where('client_template.template_id', $templateId)
                 ->exists();
@@ -328,6 +332,250 @@ class ClientTemplateService
             }
             
             $client->addonTemplates()->detach($templateId);
+            $result = ['client_id' => $clientId, 'client_template_id' => $templateId, 'is_master' => false];
+        }
+        
+        // Apply template changes to client limits
+        $this->applyClientTemplates($clientId);
+        
+        return $result;
+    }
+
+    /**
+     * Field type definitions for client template fields
+     * Based on the form definitions in ISPConfig
+     */
+    protected $fieldTypes = [
+        // CHECKBOXARRAY fields - values are combined with separator
+        'ssh_chroot' => ['type' => 'CHECKBOXARRAY', 'separator' => ','],
+        'web_php_options' => ['type' => 'CHECKBOXARRAY', 'separator' => ','],
+        
+        // MULTIPLE fields - values are combined with separator
+        'mail_servers' => ['type' => 'MULTIPLE', 'separator' => ','],
+        'web_servers' => ['type' => 'MULTIPLE', 'separator' => ','],
+        'dns_servers' => ['type' => 'MULTIPLE', 'separator' => ','],
+        'db_servers' => ['type' => 'MULTIPLE', 'separator' => ','],
+        
+        // CHECKBOX fields - special handling for y/n values
+        'force_suexec' => ['type' => 'CHECKBOX', 'less_limited' => 'n'], // n is less limited
+        'active' => ['type' => 'CHECKBOX', 'less_limited' => 'y'], // y is less limited
+        'limit_cgi' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
+        'limit_ssi' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
+        'limit_perl' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
+        'limit_ruby' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
+        'limit_python' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
+        'force_suexec' => ['type' => 'CHECKBOX', 'less_limited' => 'n'],
+        'limit_hterror' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
+        'limit_wildcard' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
+        'limit_ssl' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
+        'limit_ssl_letsencrypt' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
+        'limit_directive_snippets' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
+        
+        // SELECT fields - lower index value is chosen
+        'limit_shell_user' => ['type' => 'SELECT'],
+        'limit_webdav_user' => ['type' => 'SELECT'],
+        'limit_backup' => ['type' => 'SELECT']
+    ];
+    
+    /**
+     * Apply client templates to update client limits
+     *
+     * @param int $clientId
+     * @return bool
+     */
+    public function applyClientTemplates($clientId)
+    {
+        // Get client record
+        $client = Client::find($clientId);
+        if (!$client) {
+            return false;
+        }
+        
+        // Check if client is a reseller
+        $isReseller = ($client->limit_client != 0);
+        
+        // Get master template
+        $masterTemplate = $client->masterTemplate;
+        if (!$masterTemplate) {
+            // No master template, nothing to apply
+            return false;
+        }
+        
+        // Start with master template limits
+        $limits = $masterTemplate->getAttributes();
+        
+        // Handle reseller-specific adjustments for master template
+        if ($isReseller && $limits['limit_client'] == 0) {
+            $limits['limit_client'] = -1;
+        } elseif (!$isReseller && $limits['limit_client'] != 0) {
+            $limits['limit_client'] = 0;
+        }
+        
+        // Get additional templates
+        $additionalTemplates = $client->addonTemplates;
+
+        // Process additional templates
+        foreach ($additionalTemplates as $template) {
+            // Handle reseller-specific adjustments for additional templates
+            if ($isReseller && $template->limit_client == 0) {
+                continue;
+            }
+            
+            // Process each limit field in the additional template
+            foreach ($template->getAttributes() as $key => $value) {
+                // Skip non-limit fields and empty values
+                if ((!strpos($key, 'limit_') === 0 && 
+                     !strpos($key, 'default_') === 0 && 
+                     !strpos($key, '_servers') !== false && 
+                     $key != 'ssh_chroot' && 
+                     $key != 'web_php_options' && 
+                     $key != 'force_suexec') || 
+                    empty($value)) {
+                    continue;
+                }
+                
+                // Handle numeric limits
+                if (is_numeric($value)) {
+                    // Skip if the current limit is unlimited (-1)
+                    if (isset($limits[$key]) && $limits[$key] == -1) {
+                        continue;
+                    }
+                    
+                    // For default server fields, take the first non-zero value
+                    if (strpos($key, 'default_') === 0) {
+                        if (!isset($limits[$key]) || $limits[$key] == 0) {
+                            $limits[$key] = $value;
+                        }
+                    } 
+                    // For all other numeric fields, add the values
+                    else {
+                        if (!isset($limits[$key])) {
+                            $limits[$key] = 0;
+                        }
+                        
+                        // If either value is unlimited (-1), result is unlimited
+                        if ($limits[$key] == -1 || $value == -1) {
+                            $limits[$key] = -1;
+                        } else {
+                            $limits[$key] += $value;
+                        }
+                    }
+                }
+                // Handle string limits based on field type
+                elseif (is_string($value)) {
+                    // Get field type definition
+                    $fieldType = isset($this->fieldTypes[$key]) ? $this->fieldTypes[$key] : null;
+                    
+                    // Handle based on field type
+                    if ($fieldType) {
+                        switch ($fieldType['type']) {
+                            case 'CHECKBOXARRAY':
+                            case 'MULTIPLE':
+                                // For fields that combine values with a separator
+                                if (!isset($limits[$key])) {
+                                    $limits[$key] = '';
+                                }
+                                
+                                $separator = isset($fieldType['separator']) ? $fieldType['separator'] : ',';
+                                $limitsValues = !empty($limits[$key]) ? explode($separator, $limits[$key]) : [];
+                                $additionalValues = !empty($value) ? explode($separator, $value) : [];
+                                
+                                // Combine values from both templates
+                                $limitsUnified = array_unique(array_merge($limitsValues, $additionalValues));
+                                $limits[$key] = implode($separator, array_filter($limitsUnified));
+                                break;
+                                
+                            case 'CHECKBOX':
+                                // For checkbox fields, determine which value is less limited
+                                $lessLimited = isset($fieldType['less_limited']) ? $fieldType['less_limited'] : 'y';
+                                
+                                if (!isset($limits[$key])) {
+                                    $limits[$key] = ($lessLimited == 'y') ? 'n' : 'y';
+                                }
+                                
+                                if ($lessLimited == 'y') {
+                                    // 'y' is less limited than 'n'
+                                    if ($limits[$key] == 'y' || $value == 'y') {
+                                        $limits[$key] = 'y';
+                                    }
+                                } else {
+                                    // 'n' is less limited than 'y'
+                                    if ($limits[$key] == 'n' || $value == 'n') {
+                                        $limits[$key] = 'n';
+                                    }
+                                }
+                                break;
+                                
+                            case 'SELECT':
+                                // For SELECT fields, choose the lower index value
+                                // In Laravel implementation, we'll just keep the master template value
+                                // as we don't have access to the original form definition's value array
+                                break;
+                                
+                            default:
+                                // Default handling for unknown types
+                                if (!isset($limits[$key])) {
+                                    $limits[$key] = $value;
+                                }
+                        }
+                    } else {
+                        // Default handling for fields without explicit type definition
+                        // For server lists
+                        if (in_array($key, ['mail_servers', 'web_servers', 'dns_servers', 'db_servers'])) {
+                            if (!isset($limits[$key])) {
+                                $limits[$key] = '';
+                            }
+                            
+                            $limitsValues = !empty($limits[$key]) ? explode(',', $limits[$key]) : [];
+                            $additionalValues = !empty($value) ? explode(',', $value) : [];
+                            
+                            $limitsUnified = array_unique(array_merge($limitsValues, $additionalValues));
+                            $limits[$key] = implode(',', array_filter($limitsUnified));
+                        } 
+                        // Default for other string fields - keep master template value
+                        else {
+                            if (!isset($limits[$key])) {
+                                $limits[$key] = $value;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Update client with new limits
+        $updateData = [];
+        
+        // Only update limit and related fields
+        foreach ($limits as $key => $value) {
+            if ((strpos($key, 'limit_') === 0 || 
+                 strpos($key, 'default_') === 0 || 
+                 strpos($key, '_servers') !== false || 
+                 $key == 'ssh_chroot' || 
+                 $key == 'web_php_options' || 
+                 $key == 'force_suexec') && 
+                !is_array($value)) {
+                
+                // Skip default server fields with value 0
+                if (strpos($key, 'default_') === 0 && $value == 0) {
+                    continue;
+                }
+                
+                // Don't set limit_client for non-resellers
+                if (!$isReseller && $key == 'limit_client') {
+                    continue;
+                }
+                
+                $updateData[$key] = $value;
+            }
+        }
+        
+        // Update client record
+        if (!empty($updateData)) {
+            foreach ($updateData as $key => $value) {
+                $client->$key = $value;
+            }
+            $client->save();
         }
         
         return true;
