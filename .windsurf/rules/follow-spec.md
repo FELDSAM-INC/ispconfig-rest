@@ -34,12 +34,15 @@ ISPConfig implements a robust change management system through the `sys_datalog`
 
 ### Direct Database Modifications are Prohibited
 
-**Important:** Database changes must never be made directly to the tables. Instead, all modifications must be logged through the `sys_datalog` table. This ensures:
+**Important:** Database changes must never be made directly to the tables for updates. All modifications must be logged through the `sys_datalog` table. This ensures:
 - Proper change tracking
 - System consistency
 - Audit trail maintenance
 - Proper event handling
 - Asynchronous processing
+
+New records have to be inserted directly to tables and also must be logged to `sys_datalog` table.
+
 
 ### Datalog Structure
 ```sql
@@ -63,7 +66,6 @@ All database operations must include these Common Fields metioted above.
 1. Instead of direct SQL operations:
    ```sql
    -- DO NOT USE direct SQL:
-   INSERT INTO client (company_name, ...) VALUES ('New Corp', ...);
    UPDATE client SET company_name = 'Updated Corp' WHERE client_id = 1;
    DELETE FROM client WHERE client_id = 1;
    ```
