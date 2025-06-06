@@ -31,8 +31,6 @@ class ClientDomain extends BaseModel
         'sys_perm_user',
         'sys_perm_group',
         'sys_perm_other'
-        // 'server_id' and 'active' are not in ClientDomain.yaml for this endpoint
-        // 'domain_option' is also not in ClientDomain.yaml
     ];
 
     /**
