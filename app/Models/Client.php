@@ -5,6 +5,39 @@ namespace App\Models;
 class Client extends BaseModel
 {
     /**
+     * Validation rules for the model
+     *
+     * @var array
+     */
+    public static $rules = [
+        'company_name' => 'sometimes|string|max:255',
+        'contact_name' => 'sometimes|string|max:255',
+        'contact_firstname' => 'sometimes|string|max:255',
+        'customer_no' => 'sometimes|string|max:255',
+        'username' => 'sometimes|string|max:255',
+        'password' => 'sometimes|string|min:8',
+        'language' => 'sometimes|string|max:2',
+        'usertheme' => 'sometimes|string|max:32',
+        'street' => 'sometimes|string|max:255',
+        'zip' => 'sometimes|string|max:32',
+        'city' => 'sometimes|string|max:255',
+        'state' => 'sometimes|string|max:255',
+        'country' => 'sometimes|string|max:255',
+        'telephone' => 'sometimes|string|max:32',
+        'mobile' => 'sometimes|string|max:32',
+        'fax' => 'sometimes|string|max:32',
+        'email' => 'sometimes|email|max:255',
+        'internet' => 'sometimes|url|max:255',
+        'notes' => 'sometimes|nullable|string',
+        'template_master' => 'sometimes|integer|exists:client_template,template_id',
+        'template_additional' => 'sometimes|string',
+        'parent_client_id' => 'sometimes|integer|nullable',
+        'locked' => 'sometimes|in:y,n',
+        'canceled' => 'sometimes|in:y,n',
+        'can_use_api' => 'sometimes|in:y,n',
+    ];
+    
+    /**
      * The table associated with the model.
      *
      * @var string
@@ -61,7 +94,7 @@ class Client extends BaseModel
         'web_php_options',
         'ssh_chroot',
         'web_limits_disable',
-        'reseller_id',
+        'parent_client_id',
         'locked',
         'canceled',
         'can_use_api',

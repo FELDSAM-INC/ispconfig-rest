@@ -25,23 +25,37 @@ $router->get('/', function () use ($router) {
 $apiPrefix = env('API_PREFIX', 'api/v1');
 
 $router->group(['prefix' => $apiPrefix, 'middleware' => 'api.auth'], function () use ($router) {
-    // Client endpoints
-    $router->get('clients', 'Api\V1\ClientController@index');
-    $router->get('clients/{id}', 'Api\V1\ClientController@show');
-    $router->post('clients', 'Api\V1\ClientController@store');
-    $router->put('clients/{id}', 'Api\V1\ClientController@update');
-    $router->delete('clients/{id}', 'Api\V1\ClientController@destroy');
-    
-    // Client Domain endpoints
+    // Client Domain endpoints - more specific routes first
     $router->get('clients/domains', 'Api\V1\ClientDomainController@index');
     $router->get('clients/domains/{id}', 'Api\V1\ClientDomainController@show');
     $router->post('clients/domains', 'Api\V1\ClientDomainController@store');
     $router->put('clients/domains/{id}', 'Api\V1\ClientDomainController@update');
     $router->delete('clients/domains/{id}', 'Api\V1\ClientDomainController@destroy');
     
+    // Client Template endpoints - more specific routes first
+    $router->get('clients/templates', 'Api\V1\ClientTemplateController@index');
+    $router->get('clients/templates/{id}', 'Api\V1\ClientTemplateController@show');
+    $router->post('clients/templates', 'Api\V1\ClientTemplateController@store');
+    $router->put('clients/templates/{id}', 'Api\V1\ClientTemplateController@update');
+    $router->delete('clients/templates/{id}', 'Api\V1\ClientTemplateController@destroy');
+    
+    // Client endpoints - general routes last
+    $router->get('clients', 'Api\V1\ClientController@index');
+    $router->post('clients', 'Api\V1\ClientController@store');
+    $router->get('clients/{id}', 'Api\V1\ClientController@show');
+    $router->put('clients/{id}', 'Api\V1\ClientController@update');
+    $router->delete('clients/{id}', 'Api\V1\ClientController@destroy');
+
     // Monitor - DataLog endpoints
     $router->get('monitor/data-logs', 'Api\V1\Monitor\DataLogController@index');
     $router->get('monitor/data-logs/{datalog_id}', 'Api\V1\Monitor\DataLogController@show');
+    
+    // Reseller endpoints
+    $router->get('resellers', 'Api\V1\ClientResellerController@index');
+    $router->post('resellers', 'Api\V1\ClientResellerController@store');
+    $router->get('resellers/{id}', 'Api\V1\ClientResellerController@show');
+    $router->put('resellers/{id}', 'Api\V1\ClientResellerController@update');
+    $router->delete('resellers/{id}', 'Api\V1\ClientResellerController@destroy');
     
     // Additional endpoints can be added here for other ISPConfig entities
     // based on the API specification in the api/ directory
