@@ -15,6 +15,12 @@ properties:
     description: Unique identifier for the client
     example: 42
 
+  parent_client_id:
+    type: integer
+    format: int64
+    description: ID of the parent client (reseller)
+    example: 2
+
   # Contact Information
   contact_name:
     type: string
@@ -27,6 +33,13 @@ properties:
     maxLength: 64
     description: First name of the contact person
     example: John
+  
+  gender:
+    type: string
+    enum: ['', 'm', 'f']
+    description: Gender of the contact person
+    default: ''
+    example: m
   
   email:
     type: string
@@ -52,6 +65,23 @@ properties:
     maxLength: 32
     description: Fax number
     example: "+1-555-456-7890"
+  
+  internet:
+    type: string
+    maxLength: 255
+    description: Website URL
+    example: "https://www.example.com"
+  
+  icq:
+    type: string
+    maxLength: 16
+    description: ICQ number
+    example: "123456789"
+  
+  notes:
+    type: string
+    description: Free-form notes about the client
+    example: "VIP customer, requires priority support"
   
   # Company Information
   company_name:
@@ -168,6 +198,74 @@ properties:
     description: PayPal email address
     example: paypal@example.com
   
+  # Server Configuration
+  default_mailserver:
+    type: integer
+    format: int64
+    description: Default mail server ID
+    default: 1
+    example: 1
+  
+  default_webserver:
+    type: integer
+    format: int64
+    description: Default web server ID
+    default: 1
+    example: 1
+  
+  default_dnsserver:
+    type: integer
+    format: int64
+    description: Default DNS server ID
+    default: 1
+    example: 1
+  
+  default_slave_dnsserver:
+    type: integer
+    format: int64
+    description: Default slave DNS server ID
+    default: 1
+    example: 1
+  
+  default_dbserver:
+    type: integer
+    format: int64
+    description: Default database server ID
+    default: 1
+    example: 1
+  
+  default_xmppserver:
+    type: integer
+    format: int64
+    description: Default XMPP server ID
+    default: 1
+    example: 1
+  
+  mail_servers:
+    type: string
+    description: Available mail servers (comma-separated IDs)
+    example: "1,2,3"
+  
+  web_servers:
+    type: string
+    description: Available web servers (comma-separated IDs)
+    example: "1,2"
+  
+  dns_servers:
+    type: string
+    description: Available DNS servers (comma-separated IDs)
+    example: "1,2"
+  
+  db_servers:
+    type: string
+    description: Available database servers (comma-separated IDs)
+    example: "1,2"
+  
+  xmpp_servers:
+    type: string
+    description: Available XMPP servers (comma-separated IDs)
+    example: "1"
+  
   # Settings
   language:
     type: string
@@ -242,6 +340,18 @@ properties:
     default: -1
     example: 1024
   
+  limit_database_postgresql:
+    type: integer
+    description: Maximum number of PostgreSQL databases (-1 for unlimited)
+    default: -1
+    example: 3
+  
+  limit_database_user:
+    type: integer
+    description: Maximum number of database users (-1 for unlimited)
+    default: -1
+    example: 10
+  
   limit_ftp_user:
     type: integer
     description: Maximum number of FTP users (-1 for unlimited)
@@ -259,6 +369,107 @@ properties:
     description: Maximum number of WebDAV users (0 for none)
     default: 0
     example: 0
+  
+  # Web-specific Limits & Options
+  limit_web_ip:
+    type: string
+    description: Allowed web IP addresses (comma-separated)
+    example: "*"
+  
+  limit_web_subdomain:
+    type: integer
+    description: Maximum number of subdomains (-1 for unlimited)
+    default: -1
+    example: 10
+  
+  limit_web_aliasdomain:
+    type: integer
+    description: Maximum number of alias domains (-1 for unlimited)
+    default: -1
+    example: 5
+  
+  web_php_options:
+    type: string
+    description: Available PHP execution options
+    default: "no,fast-cgi,cgi,mod,suphp,php-fpm,hhvm"
+    example: "no,fast-cgi,php-fpm"
+  
+  limit_cgi:
+    type: string
+    enum: [n, y]
+    description: CGI script execution allowed
+    default: n
+    example: n
+  
+  limit_ssi:
+    type: string
+    enum: [n, y]
+    description: Server Side Includes allowed
+    default: n
+    example: n
+  
+  limit_perl:
+    type: string
+    enum: [n, y]
+    description: Perl script execution allowed
+    default: n
+    example: n
+  
+  limit_ruby:
+    type: string
+    enum: [n, y]
+    description: Ruby script execution allowed
+    default: n
+    example: n
+  
+  limit_python:
+    type: string
+    enum: [n, y]
+    description: Python script execution allowed
+    default: n
+    example: n
+  
+  force_suexec:
+    type: string
+    enum: [n, y]
+    description: Force SuEXEC for better security
+    default: y
+    example: y
+  
+  limit_hterror:
+    type: string
+    enum: [n, y]
+    description: Custom error pages allowed
+    default: n
+    example: n
+  
+  limit_wildcard:
+    type: string
+    enum: [n, y]
+    description: Wildcard subdomains allowed
+    default: n
+    example: n
+  
+  limit_ssl:
+    type: string
+    enum: [n, y]
+    description: SSL certificates allowed
+    default: n
+    example: y
+  
+  limit_ssl_letsencrypt:
+    type: string
+    enum: [n, y]
+    description: Let's Encrypt SSL certificates allowed
+    default: n
+    example: y
+  
+  # Shell Configuration
+  ssh_chroot:
+    type: string
+    description: SSH chroot options
+    default: "no,jailkit,ssh-chroot"
+    example: "no,jailkit"
   
   limit_cron:
     type: integer
@@ -322,6 +533,26 @@ properties:
     default: 0
     example: 0
   
+  limit_mail_backup:
+    type: string
+    enum: [n, y]
+    description: Mail backup allowed
+    default: y
+    example: y
+  
+  limit_relayhost:
+    type: string
+    enum: [n, y]
+    description: Mail relay host allowed
+    default: n
+    example: n
+  
+  limit_mailmailinglist:
+    type: integer
+    description: Maximum number of mailing lists (-1 for unlimited)
+    default: -1
+    example: 5
+  
   limit_mail_wblist:
     type: integer
     description: Maximum number of mail whitelist/blacklist entries (0 for none)
@@ -358,6 +589,74 @@ properties:
     default: 0
     example: 0
   
+  # XMPP/Chat Limits
+  limit_xmpp_domain:
+    type: integer
+    description: Maximum number of XMPP domains (-1 for unlimited)
+    default: -1
+    example: 3
+  
+  limit_xmpp_user:
+    type: integer
+    description: Maximum number of XMPP users (-1 for unlimited)
+    default: -1
+    example: 50
+  
+  limit_xmpp_muc:
+    type: string
+    enum: [n, y]
+    description: Multi-user chat allowed
+    default: n
+    example: n
+  
+  limit_xmpp_anon:
+    type: string
+    enum: [n, y]
+    description: Anonymous XMPP access allowed
+    default: n
+    example: n
+  
+  limit_xmpp_auth_options:
+    type: string
+    description: Available XMPP authentication methods
+    default: "plain,hashed,isp"
+    example: "plain,hashed"
+  
+  limit_xmpp_vjud:
+    type: string
+    enum: [n, y]
+    description: XMPP user directory allowed
+    default: n
+    example: n
+  
+  limit_xmpp_proxy:
+    type: string
+    enum: [n, y]
+    description: XMPP proxy access allowed
+    default: n
+    example: n
+  
+  limit_xmpp_status:
+    type: string
+    enum: [n, y]
+    description: XMPP status module allowed
+    default: n
+    example: n
+  
+  limit_xmpp_pastebin:
+    type: string
+    enum: [n, y]
+    description: XMPP pastebin allowed
+    default: n
+    example: n
+  
+  limit_xmpp_httparchive:
+    type: string
+    enum: [n, y]
+    description: XMPP HTTP archive allowed
+    default: n
+    example: n
+  
   # DNS Limits
   limit_dns_zone:
     type: integer
@@ -376,6 +675,45 @@ properties:
     description: Maximum number of DNS slave zones (-1 for unlimited)
     default: -1
     example: 5
+  
+  # Additional Service Limits
+  limit_domainmodule:
+    type: integer
+    description: Domain module access limit
+    default: 0
+    example: 0
+  
+  limit_openvz_vm:
+    type: integer
+    description: Maximum number of OpenVZ VMs
+    default: 0
+    example: 0
+  
+  limit_openvz_vm_template_id:
+    type: integer
+    description: OpenVZ VM template ID limit
+    default: 0
+    example: 0
+  
+  limit_backup:
+    type: string
+    enum: [n, y]
+    description: Backup service allowed
+    default: y
+    example: y
+  
+  limit_directive_snippets:
+    type: string
+    enum: [n, y]
+    description: Directive snippets allowed
+    default: n
+    example: n
+  
+  limit_aps:
+    type: integer
+    description: Maximum number of application installer packages (-1 for unlimited)
+    default: -1
+    example: 10
   
   # System Fields
   sys_userid:
@@ -428,6 +766,98 @@ properties:
     description: Whether the client account is active
     default: y
     example: y
+  
+  # Account Management
+  can_use_api:
+    type: string
+    enum: [n, y]
+    description: API access allowed
+    default: n
+    example: y
+  
+  locked:
+    type: string
+    enum: [n, y]
+    description: Account locked status
+    default: n
+    example: n
+  
+  canceled:
+    type: string
+    enum: [n, y]
+    description: Account canceled status
+    default: n
+    example: n
+  
+  added_date:
+    type: string
+    format: date
+    description: Date when account was added
+    example: "2024-01-15"
+  
+  added_by:
+    type: string
+    maxLength: 255
+    description: User who added this account
+    example: "admin"
+  
+  validation_status:
+    type: string
+    enum: [accept, review, reject]
+    description: Account validation status
+    default: accept
+    example: accept
+  
+  risk_score:
+    type: integer
+    format: int32
+    description: Risk assessment score
+    default: 0
+    example: 0
+  
+  activation_code:
+    type: string
+    maxLength: 10
+    description: Account activation code
+    example: "ABC123"
+  
+  # Customer Number Management
+  customer_no_template:
+    type: string
+    maxLength: 255
+    description: Customer number template
+    default: "R[CLIENTID]C[CUSTOMER_NO]"
+    example: "R[CLIENTID]C[CUSTOMER_NO]"
+  
+  customer_no_start:
+    type: integer
+    description: Starting customer number
+    default: 1
+    example: 1
+  
+  customer_no_counter:
+    type: integer
+    description: Current customer number counter
+    default: 0
+    example: 5
+  
+  # Technical Fields
+  tmp_data:
+    type: string
+    format: byte
+    description: Temporary data storage
+    writeOnly: true
+  
+  id_rsa:
+    type: string
+    description: RSA private key
+    writeOnly: true
+  
+  ssh_rsa:
+    type: string
+    maxLength: 600
+    description: SSH RSA public key
+    example: "ssh-rsa AAAAB3NzaC1yc2E..."
 
 example:
   client_id: 42
