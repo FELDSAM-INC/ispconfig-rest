@@ -2,15 +2,15 @@
 /mail/spamfilter/wblist:
   get:
     tags:
-      - Spamfilter
+      - Mail Spamfilter
     summary: List all whitelist/blacklist entries
     description: |
       Returns a paginated list of whitelist and blacklist entries.
       Non-admin users can only see their own entries.
-      
+
       ### Filtering
       Filter results using query parameters in the format `field[op]=value`.
-      
+
       Supported operators:
       - `eq` - Equal to
       - `neq` - Not equal to
@@ -21,22 +21,22 @@
       - `like` - Case-sensitive pattern matching (use % as wildcard)
       - `ilike` - Case-insensitive pattern matching (use % as wildcard)
       - `in` - Value is in a comma-separated list
-      
+
       Example: `email[ilike]=%example.com&wb[eq]=B&active[eq]=y`
-      
+
       ### Sorting
       Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
+
       Example: `sort=email` or `sort=-priority`
-      
+
       ### Pagination
       - `page` - Page number (default: 1)
       - `per_page` - Items per page (default: 20, max: 100)
     parameters:
-      - $ref: '../../../components/parameters/limit.yaml'
-      - $ref: '../../../components/parameters/offset.yaml'
-      - $ref: '../../../components/parameters/sort.yaml'
-      - $ref: '../../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
       - name: email
         in: query
         description: Filter by email/pattern (supports wildcards with %)
@@ -71,21 +71,21 @@
                 data:
                   type: array
                   items:
-                    $ref: '../../../components/schemas/SpamfilterWBList.yaml'
+                    $ref: '../../components/schemas/SpamfilterWBList.yaml'
                 pagination:
-                  $ref: '../../../components/schemas/Pagination.yaml'
+                  $ref: '../../components/schemas/Pagination.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   post:
     tags:
-      - Spamfilter
+      - Mail Spamfilter
     summary: Create a new whitelist/blacklist entry
     description: |
       Creates a new whitelist or blacklist entry.
-      
+
       ### Validation Rules
       - Email/pattern and type (wb) are required
       - Non-admin users can only create entries for themselves (using their user ID as rid)
@@ -95,28 +95,28 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/SpamfilterWBList.yaml'
+            $ref: '../../components/schemas/SpamfilterWBList.yaml'
     responses:
       '201':
         description: Whitelist/blacklist entry created successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/SpamfilterWBList.yaml'
+              $ref: '../../components/schemas/SpamfilterWBList.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
         description: Referenced user or server not found
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/spamfilter/wblist/{id}:
   parameters:
@@ -129,7 +129,7 @@
         format: int64
   get:
     tags:
-      - Spamfilter
+      - Mail Spamfilter
     summary: Get whitelist/blacklist entry by ID
     description: |
       Returns a single whitelist/blacklist entry by its ID.
@@ -140,23 +140,23 @@
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/SpamfilterWBList.yaml'
+              $ref: '../../components/schemas/SpamfilterWBList.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   put:
     tags:
-      - Spamfilter
+      - Mail Spamfilter
     summary: Update whitelist/blacklist entry
     description: |
       Updates an existing whitelist/blacklist entry.
-      
+
       ### Notes
       - Non-admin users can only update their own entries
       - Email and rid cannot be changed after creation
@@ -165,44 +165,44 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/SpamfilterWBList.yaml'
+            $ref: '../../components/schemas/SpamfilterWBList.yaml'
     responses:
       '200':
         description: Whitelist/blacklist entry updated successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/SpamfilterWBList.yaml'
+              $ref: '../../components/schemas/SpamfilterWBList.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   delete:
     tags:
-      - Spamfilter
+      - Mail Spamfilter
     summary: Delete whitelist/blacklist entry
     description: |
       Deletes a whitelist/blacklist entry by ID.
-      
+
       ### Notes
       - Non-admin users can only delete their own entries
     responses:
       '204':
         description: Whitelist/blacklist entry deleted successfully
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'

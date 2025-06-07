@@ -1,8 +1,16 @@
 # Mail User Filters endpoints
-/mail/user-filters:
+/mail/users/{id}/filters:
+  parameters:
+    - name: id
+      in: path
+      description: Mail user ID
+      required: true
+      schema:
+        type: integer
+        format: int64
   get:
     tags:
-      - Mail
+      - Mail Users
     summary: List all mail user filters
     description: |
       Returns a paginated list of mail user filters.
@@ -23,7 +31,6 @@
       - `in` - Value is in a comma-separated list
       
       Examples:
-      - Find by mail user ID: `mailuser_id[eq]=1`
       - Find active filters: `active[eq]=y`
       
       ### Sorting
@@ -35,16 +42,10 @@
       - `page` - Page number (default: 1)
       - `per_page` - Items per page (default: 20, max: 100)
     parameters:
-      - $ref: '../../../components/parameters/limit.yaml'
-      - $ref: '../../../components/parameters/offset.yaml'
-      - $ref: '../../../components/parameters/sort.yaml'
-      - $ref: '../../../components/parameters/order.yaml'
-      - name: mailuser_id
-        in: query
-        description: Filter by mail user ID
-        schema:
-          type: integer
-          format: int64
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
       - name: source
         in: query
         description: Filter by source field
@@ -68,21 +69,21 @@
                 data:
                   type: array
                   items:
-                    $ref: '../../../components/schemas/MailUserFilter.yaml'
+                    $ref: '../../components/schemas/MailUserFilter.yaml'
                 pagination:
-                  $ref: '../../../components/schemas/Pagination.yaml'
+                  $ref: '../../components/schemas/Pagination.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   post:
     tags:
-      - Mail
+      - Mail Users
     summary: Create a new mail user filter
     description: |
       Creates a new mail user filter rule.
@@ -102,37 +103,44 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/MailUserFilter.yaml'
+            $ref: '../../components/schemas/MailUserFilter.yaml'
     responses:
       '201':
         description: Mail user filter created successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/MailUserFilter.yaml'
+              $ref: '../../components/schemas/MailUserFilter.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
         description: |
           Bad Request. Possible reasons:
           - Missing required fields
           - Invalid source or operation
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
         description: |
           Forbidden. Possible reasons:
           - No permission to create filters for this user
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
-/mail/user-filters/{id}:
+/mail/users/{id}/filters/{filter_id}:
   parameters:
     - name: id
+      in: path
+      description: Mail user ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: filter_id
       in: path
       description: Mail user filter ID
       required: true
@@ -141,7 +149,7 @@
         format: int64
   get:
     tags:
-      - Mail
+      - Mail Users
     summary: Get mail user filter by ID
     description: Returns a single mail user filter by its ID
     responses:
@@ -150,19 +158,19 @@
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/MailUserFilter.yaml'
+              $ref: '../../components/schemas/MailUserFilter.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   put:
     tags:
-      - Mail
+      - Mail Users
     summary: Update mail user filter
     description: |
       Updates an existing mail user filter.
@@ -175,32 +183,32 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/MailUserFilter.yaml'
+            $ref: '../../components/schemas/MailUserFilter.yaml'
     responses:
       '200':
         description: Mail user filter updated successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/MailUserFilter.yaml'
+              $ref: '../../components/schemas/MailUserFilter.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   delete:
     tags:
-      - Mail
+      - Mail Users
     summary: Delete mail user filter
     description: |
       Deletes a mail user filter by ID.
@@ -216,10 +224,10 @@
           Bad Request. Possible reasons:
           - Filter is in use
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'

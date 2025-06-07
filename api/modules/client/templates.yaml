@@ -7,10 +7,10 @@
     description: |
       Returns a paginated list of client templates with filtering and sorting support.
     parameters:
-      - $ref: '../../../components/parameters/limit.yaml'
-      - $ref: '../../../components/parameters/offset.yaml'
-      - $ref: '../../../components/parameters/sort.yaml'
-      - $ref: '../../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
       - name: template_type
         in: query
         description: Filter by template type (m = main, a = additional)
@@ -33,17 +33,17 @@
                 data:
                   type: array
                   items:
-                    $ref: '../../../components/schemas/ClientTemplate.yaml'
+                    $ref: '../../components/schemas/ClientTemplate.yaml'
                 pagination:
-                  $ref: '../../../components/schemas/Pagination.yaml'
+                  $ref: '../../components/schemas/Pagination.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   post:
     tags:
@@ -56,26 +56,26 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/ClientTemplate.yaml'
+            $ref: '../../components/schemas/ClientTemplate.yaml'
     responses:
       '201':
         description: Client template created successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/ClientTemplate.yaml'
+              $ref: '../../components/schemas/ClientTemplate.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
 /clients/templates/{template_id}:
   parameters:
@@ -97,15 +97,15 @@
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/ClientTemplate.yaml'
+              $ref: '../../components/schemas/ClientTemplate.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   put:
     tags:
@@ -117,28 +117,28 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/ClientTemplate.yaml'
+            $ref: '../../components/schemas/ClientTemplate.yaml'
     responses:
       '200':
         description: Client template updated successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/ClientTemplate.yaml'
+              $ref: '../../components/schemas/ClientTemplate.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   delete:
     tags:
@@ -156,10 +156,10 @@
           Bad Request. Possible reasons:
           - Template cannot be deleted because it is assigned to one or more clients
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'

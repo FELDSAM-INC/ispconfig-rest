@@ -70,7 +70,13 @@
     summary: Get a domain by ID
     description: Returns a single domain by its ID
     parameters:
-      - $ref: '../../components/parameters/domainIdParam.yaml'
+      - name: domain_id
+        in: path
+        description: Domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Domain details
@@ -91,7 +97,13 @@
     summary: Update a domain
     description: Updates an existing domain's details
     parameters:
-      - $ref: '../../components/parameters/domainIdParam.yaml'
+    - name: domain_id
+      in: path
+      description: Domain ID
+      required: true
+      schema:
+        type: integer
+        format: int64
     requestBody:
       required: true
       content:
@@ -122,7 +134,13 @@
     summary: Delete a domain
     description: Deletes a domain by its ID
     parameters:
-      - $ref: '../../components/parameters/domainIdParam.yaml'
+    - name: domain_id
+      in: path
+      description: Domain ID
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '204':
         description: Domain deleted successfully

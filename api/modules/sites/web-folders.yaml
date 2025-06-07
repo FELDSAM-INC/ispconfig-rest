@@ -33,10 +33,10 @@
       - `page` - Page number (default: 1)
       - `per_page` - Items per page (default: 20, max: 100)
     parameters:
-      - $ref: '../../../components/parameters/limit.yaml'
-      - $ref: '../../../components/parameters/offset.yaml'
-      - $ref: '../../../components/parameters/sort.yaml'
-      - $ref: '../../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
       - name: parent_domain_id
         in: query
         description: Filter by parent domain ID
@@ -60,17 +60,17 @@
                 data:
                   type: array
                   items:
-                    $ref: '../../../components/schemas/WebFolder.yaml'
+                    $ref: '../../components/schemas/WebFolder.yaml'
                 pagination:
-                  $ref: '../../../components/schemas/Pagination.yaml'
+                  $ref: '../../components/schemas/Pagination.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   post:
     tags:
@@ -89,31 +89,31 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/WebFolder.yaml'
+            $ref: '../../components/schemas/WebFolder.yaml'
     responses:
       '201':
         description: Web folder created successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/WebFolder.yaml'
+              $ref: '../../components/schemas/WebFolder.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
         description: |
           Bad Request. Possible reasons:
           - Invalid path format
           - Parent domain not found or inaccessible
           - Directory already exists
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
 /sites/web-folders/{id}:
   parameters:
@@ -135,15 +135,15 @@
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/WebFolder.yaml'
+              $ref: '../../components/schemas/WebFolder.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   put:
     tags:
@@ -172,17 +172,17 @@
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/WebFolder.yaml'
+              $ref: '../../components/schemas/WebFolder.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   delete:
     tags:
@@ -204,10 +204,10 @@
           - Web folder is currently in use
           - Insufficient permissions
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'

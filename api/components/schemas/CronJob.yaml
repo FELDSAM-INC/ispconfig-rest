@@ -1,6 +1,5 @@
 type: object
 x-db-table: web_cron
-description: Represents a scheduled cron job
 required:
   - server_id
   - parent_domain_id
@@ -176,8 +175,10 @@ properties:
     example: "example.com"
 
 description: |
-  A cron job allows scheduling commands to run periodically at fixed times, dates, or intervals.
+  ## Represents a scheduled cron job
   
+  A cron job allows scheduling commands to run periodically at fixed times, dates, or intervals.
+
   ### Cron Job Types
   - **url**: For web requests (http/https)
   - **full**: Full shell command execution with full system access

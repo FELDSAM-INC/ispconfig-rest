@@ -1,69 +1,77 @@
 ---
 # Mail User CC API Endpoints
-# Path: /mail/users/{mailuser_id}/cc
 
-get:
-  tags:
-    - mail
-    - user
-    - cc
-  summary: Get CC settings for a mail user
-  description: Retrieve the CC and forward settings for a specific mail user
-  operationId: getMailUserCC
-  parameters:
-    - $ref: '../../../components/parameters/mailuser_id.yaml'
-  responses:
-    '200':
-      description: Successful operation
-      content:
-        application/json:
-          schema:
-            $ref: '../../../components/schemas/MailUserCC.yaml'
-    '400':
-      $ref: '../../../components/responses/400BadRequest.yaml'
-    '401':
-      $ref: '../../../components/responses/401Unauthorized.yaml'
-    '403':
-      $ref: '../../../components/responses/403Forbidden.yaml'
-    '404':
-      $ref: '../../../components/responses/404NotFound.yaml'
-    '500':
-      $ref: '../../../components/responses/500InternalServerError.yaml'
-  security:
-    - basicAuth: []
-
-put:
-  tags:
-    - mail
-    - user
-    - cc
-  summary: Update CC settings for a mail user
-  description: Update the CC and forward settings for a specific mail user
-  operationId: updateMailUserCC
-  parameters:
-    - $ref: '../../../components/parameters/mailuser_id.yaml'
-  requestBody:
-    required: true
-    content:
-      application/json:
+/mail/users/{id}/cc:
+  get:
+    tags:
+      - Mail Users
+    summary: Get CC settings for a mail user
+    description: Retrieve the CC and forward settings for a specific mail user
+    operationId: getMailUserCC
+    parameters:
+      - name: id
+        in: path
+        description: Mail user ID
+        required: true
         schema:
-          $ref: '../../../components/schemas/MailUserCC.yaml'
-  responses:
-    '200':
-      description: CC settings updated successfully
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: Successful operation
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/MailUserCC.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+    security:
+      - basicAuth: []
+
+  put:
+    tags:
+      - Mail Users
+    summary: Update CC settings for a mail user
+    description: Update the CC and forward settings for a specific mail user
+    operationId: updateMailUserCC
+    parameters:
+      - name: id
+        in: path
+        description: Mail user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+    requestBody:
+      required: true
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/MailUserCC.yaml'
-    '400':
-      $ref: '../../../components/responses/400BadRequest.yaml'
-    '401':
-      $ref: '../../../components/responses/401Unauthorized.yaml'
-    '403':
-      $ref: '../../../components/responses/403Forbidden.yaml'
-    '404':
-      $ref: '../../../components/responses/404NotFound.yaml'
-    '500':
-      $ref: '../../../components/responses/500InternalServerError.yaml'
-  security:
-    - basicAuth: []
+            $ref: '../../components/schemas/MailUserCC.yaml'
+    responses:
+      '200':
+        description: CC settings updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/MailUserCC.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+    security:
+      - basicAuth: []

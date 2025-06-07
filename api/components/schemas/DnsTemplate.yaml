@@ -1,6 +1,5 @@
 type: object
 x-db-table: dns_template
-description: Auto-generated schema for dns_template
 required:
   - name
   - fields

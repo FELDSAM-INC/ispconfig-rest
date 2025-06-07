@@ -1,6 +1,5 @@
 type: object
 x-db-table: mail_access
-description: Auto-generated schema for mail_access
 required:
   - server_id
   - source

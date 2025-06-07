@@ -1,6 +1,5 @@
 type: object
 x-db-table: server
-description: Auto-generated schema for server
 required:
   - server_id
   - ip_address

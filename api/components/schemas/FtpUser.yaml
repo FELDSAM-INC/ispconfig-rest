@@ -1,6 +1,5 @@
 type: object
 x-db-table: ftp_user
-description: Auto-generated schema for ftp_user
 required:
   - parent_domain_id
   - username

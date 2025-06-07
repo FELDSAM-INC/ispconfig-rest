@@ -1,6 +1,5 @@
 type: object
 x-db-table: web_domain
-description: Auto-generated schema for web_domain
 required:
   - domain_id
   - domain

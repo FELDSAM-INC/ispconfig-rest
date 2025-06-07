@@ -33,10 +33,10 @@
       - `page` - Page number (default: 1)
       - `per_page` - Items per page (default: 20, max: 100)
     parameters:
-      - $ref: '../../../components/parameters/limit.yaml'
-      - $ref: '../../../components/parameters/offset.yaml'
-      - $ref: '../../../components/parameters/sort.yaml'
-      - $ref: '../../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
       - name: origin
         in: query
         description: Filter by zone origin (supports wildcards with %)
@@ -64,15 +64,15 @@
                 data:
                   type: array
                   items:
-                    $ref: '../../../components/schemas/DnsSlave.yaml'
+                    $ref: '../../components/schemas/DnsSlave.yaml'
                 pagination:
-                  $ref: '../../../components/schemas/Pagination.yaml'
+                  $ref: '../../components/schemas/Pagination.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   post:
     tags:
@@ -84,26 +84,26 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/DnsSlave.yaml'
+            $ref: '../../components/schemas/DnsSlave.yaml'
     responses:
       '201':
         description: DNS slave zone created successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/DnsSlave.yaml'
+              $ref: '../../components/schemas/DnsSlave.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
 /dns/slaves/{id}:
   parameters:
@@ -125,15 +125,15 @@
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/DnsSlave.yaml'
+              $ref: '../../components/schemas/DnsSlave.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   put:
     tags:
@@ -149,28 +149,28 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/DnsSlave.yaml'
+            $ref: '../../components/schemas/DnsSlave.yaml'
     responses:
       '200':
         description: DNS slave zone updated successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/DnsSlave.yaml'
+              $ref: '../../components/schemas/DnsSlave.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   delete:
     tags:
@@ -185,10 +185,10 @@
           Bad Request. Possible reasons:
           - Slave zone cannot be deleted because it's in use
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'

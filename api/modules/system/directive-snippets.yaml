@@ -1,186 +1,154 @@
 # Directive Snippets API
-# This API allows managing directive snippets in ISPConfig
 
-openapi: 3.0.0
-info:
-  title: Directive Snippets API
-  description: API for managing directive snippets in ISPConfig
-  version: 1.0.0
+/system/directive-snippets:
+  get:
+    tags:
+      - Directive Snippets
+    summary: List all directive snippets
+    description: Returns a paginated list of all directive snippets
+    security:
+      - basicAuth: []
+    parameters:
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - name: type
+        in: query
+        description: Filter snippets by type (apache, nginx, php, proxy)
+        schema:
+          type: string
+          enum: [apache, nginx, php, proxy]
+      - name: active
+        in: query
+        description: Filter snippets by active status
+        schema:
+          type: string
+          enum: [y, n]
+    responses:
+      '200':
+        description: A paginated list of directive snippets
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/DirectiveSnippet.yaml'
+                pagination:
+                  $ref: '../../components/schemas/Pagination.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
 
-servers:
-  - url: /api/v1
-    description: ISPConfig API Server
-
-tags:
-  - name: Directive Snippets
-    description: Directive snippets management
-
-paths:
-  /system/directive-snippets:
-    get:
-      tags:
-        - Directive Snippets
-      summary: List all directive snippets
-      description: Returns a paginated list of all directive snippets
-      security:
-        - basicAuth: []
-      parameters:
-        - $ref: '../../components/parameters/offset.yaml'
-        - $ref: '../../components/parameters/limit.yaml'
-        - $ref: '../../components/parameters/order.yaml'
-        - $ref: '../../components/parameters/sort.yaml'
-        - name: type
-          in: query
-          description: Filter snippets by type (apache, nginx, php, proxy)
+  post:
+    tags:
+      - Directive Snippets
+    summary: Create a new directive snippet
+    description: Creates a new directive snippet
+    security:
+      - basicAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
           schema:
-            type: string
-            enum: [apache, nginx, php, proxy]
-        - name: active
-          in: query
-          description: Filter snippets by active status
-          schema:
-            type: string
-            enum: [y, n]
-      responses:
-        '200':
-          description: A paginated list of directive snippets
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '../../components/schemas/DirectiveSnippet.yaml'
-                  pagination:
-                    $ref: '../../components/schemas/Pagination.yaml'
-        '401':
-          $ref: '../../components/responses/Unauthorized.yaml'
-        '500':
-          $ref: '../../components/responses/InternalServerError.yaml'
-
-    post:
-      tags:
-        - Directive Snippets
-      summary: Create a new directive snippet
-      description: Creates a new directive snippet
-      security:
-        - basicAuth: []
-      requestBody:
-        required: true
+            $ref: '../../components/schemas/DirectiveSnippet.yaml'
+    responses:
+      '201':
+        description: Directive snippet created successfully
         content:
           application/json:
             schema:
               $ref: '../../components/schemas/DirectiveSnippet.yaml'
-      responses:
-        '201':
-          description: Directive snippet created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '../../components/schemas/DirectiveSnippet.yaml'
-        '400':
-          $ref: '../../components/responses/BadRequest.yaml'
-        '401':
-          $ref: '../../components/responses/Unauthorized.yaml'
-        '409':
-          $ref: '../../components/responses/Conflict.yaml'
-        '500':
-          $ref: '../../components/responses/InternalServerError.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
 
-  /system/directive-snippets/{directive_snippets_id}:
-    get:
-      tags:
-        - Directive Snippets
-      summary: Get a directive snippet by ID
-      description: Returns a single directive snippet by its ID
-      security:
-        - basicAuth: []
-      parameters:
-        - name: directive_snippets_id
-          in: path
-          description: ID of the directive snippet to retrieve
-          required: true
-          schema:
-            type: integer
-            format: int32
-      responses:
-        '200':
-          description: Directive snippet details
-          content:
-            application/json:
-              schema:
-                $ref: '../../components/schemas/DirectiveSnippet.yaml'
-        '401':
-          $ref: '../../components/responses/Unauthorized.yaml'
-        '404':
-          $ref: '../../components/responses/NotFound.yaml'
-        '500':
-          $ref: '../../components/responses/InternalServerError.yaml'
-
-    put:
-      tags:
-        - Directive Snippets
-      summary: Update a directive snippet
-      description: Updates an existing directive snippet
-      security:
-        - basicAuth: []
-      parameters:
-        - name: directive_snippets_id
-          in: path
-          description: ID of the directive snippet to update
-          required: true
-          schema:
-            type: integer
-            format: int32
-      requestBody:
+/system/directive-snippets/{id}:
+  parameters:
+      - name: id
+        in: path
+        description: ID of the directive snippet to retrieve
         required: true
+        schema:
+          type: integer
+          format: int64
+  get:
+    tags:
+      - Directive Snippets
+    summary: Get a directive snippet by ID
+    description: Returns a single directive snippet by its ID
+    security:
+      - basicAuth: []
+    responses:
+      '200':
+        description: Directive snippet details
         content:
           application/json:
             schema:
               $ref: '../../components/schemas/DirectiveSnippet.yaml'
-      responses:
-        '200':
-          description: Directive snippet updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '../../components/schemas/DirectiveSnippet.yaml'
-        '400':
-          $ref: '../../components/responses/BadRequest.yaml'
-        '401':
-          $ref: '../../components/responses/Unauthorized.yaml'
-        '404':
-          $ref: '../../components/responses/NotFound.yaml'
-        '500':
-          $ref: '../../components/responses/InternalServerError.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
 
-    delete:
-      tags:
-        - Directive Snippets
-      summary: Delete a directive snippet
-      description: Deletes a directive snippet by ID
-      security:
-        - basicAuth: []
-      parameters:
-        - name: directive_snippets_id
-          in: path
-          description: ID of the directive snippet to delete
-          required: true
+  put:
+    tags:
+      - Directive Snippets
+    summary: Update a directive snippet
+    description: Updates an existing directive snippet
+    security:
+      - basicAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
           schema:
-            type: integer
-            format: int32
-      responses:
-        '204':
-          description: Directive snippet deleted successfully
-        '400':
-          $ref: '../../components/responses/BadRequest.yaml'
-        '401':
-          $ref: '../../components/responses/Unauthorized.yaml'
-        '403':
-          $ref: '../../components/responses/Forbidden.yaml'
-        '404':
-          $ref: '../../components/responses/NotFound.yaml'
-        '500':
-          $ref: '../../components/responses/InternalServerError.yaml'
+            $ref: '../../components/schemas/DirectiveSnippet.yaml'
+    responses:
+      '200':
+        description: Directive snippet updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/DirectiveSnippet.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - Directive Snippets
+    summary: Delete a directive snippet
+    description: Deletes a directive snippet by ID
+    security:
+      - basicAuth: []
+    responses:
+      '204':
+        description: Directive snippet deleted successfully
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

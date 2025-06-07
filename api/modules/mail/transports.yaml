@@ -2,7 +2,7 @@
 /mail/transports:
   get:
     tags:
-      - Mail
+      - Mail Transports
     summary: List all mail transports
     description: |
       Returns a paginated list of mail transports.
@@ -35,10 +35,10 @@
       - `page` - Page number (default: 1)
       - `per_page` - Items per page (default: 20, max: 100)
     parameters:
-      - $ref: '../../../components/parameters/limit.yaml'
-      - $ref: '../../../components/parameters/offset.yaml'
-      - $ref: '../../../components/parameters/sort.yaml'
-      - $ref: '../../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
       - name: domain
         in: query
         description: Filter by domain name
@@ -66,21 +66,21 @@
                 data:
                   type: array
                   items:
-                    $ref: '../../../components/schemas/MailTransport.yaml'
+                    $ref: '../../components/schemas/MailTransport.yaml'
                 pagination:
-                  $ref: '../../../components/schemas/Pagination.yaml'
+                  $ref: '../../components/schemas/Pagination.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   post:
     tags:
-      - Mail
+      - Mail Transports
     summary: Create a new mail transport
     description: |
       Creates a new mail transport.
@@ -100,34 +100,34 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/MailTransport.yaml'
+            $ref: '../../components/schemas/MailTransport.yaml'
     responses:
       '201':
         description: Mail transport created successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/MailTransport.yaml'
+              $ref: '../../components/schemas/MailTransport.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
         description: |
           Bad Request. Possible reasons:
           - Invalid domain format
           - Invalid transport definition
           - Domain already in use
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
         description: |
           Forbidden. Possible reasons:
           - No permission to use the server
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/transports/{id}:
   parameters:
@@ -140,7 +140,7 @@
         format: int64
   get:
     tags:
-      - Mail
+      - Mail Transports
     summary: Get mail transport by ID
     description: Returns a single mail transport by its ID
     responses:
@@ -149,19 +149,19 @@
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/MailTransport.yaml'
+              $ref: '../../components/schemas/MailTransport.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   put:
     tags:
-      - Mail
+      - Mail Transports
     summary: Update mail transport
     description: |
       Updates an existing mail transport.
@@ -174,32 +174,32 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/MailTransport.yaml'
+            $ref: '../../components/schemas/MailTransport.yaml'
     responses:
       '200':
         description: Mail transport updated successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/MailTransport.yaml'
+              $ref: '../../components/schemas/MailTransport.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   delete:
     tags:
-      - Mail
+      - Mail Transports
     summary: Delete mail transport
     description: |
       Deletes a mail transport by ID.
@@ -215,10 +215,10 @@
           Bad Request. Possible reasons:
           - Transport is in use
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'

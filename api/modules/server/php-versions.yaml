@@ -1,74 +1,71 @@
 # Server PHP Versions API Endpoints
-# Path: /server/php-versions
 
-get:
-  tags:
-    - server
-    - php
-  summary: List all PHP versions
-  description: Returns a list of all configured PHP versions with their settings
-  operationId: listPhpVersions
-  parameters:
-    - $ref: '../../../components/parameters/offset.yaml'
-    - $ref: '../../../components/parameters/limit.yaml'
-    - $ref: '../../../components/parameters/sort.yaml'
-    - $ref: '../../../components/parameters/order.yaml'
-  responses:
-    '200':
-      description: A list of PHP versions
+/servers/{id}/php-versions:
+  get:
+    tags:
+      - Server PHP Versions
+    summary: List all PHP versions
+    description: Returns a list of all configured PHP versions with their settings
+    operationId: listPhpVersions
+    parameters:
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
+    responses:
+      '200':
+        description: A list of PHP versions
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/ServerPhp.yaml'
+                pagination:
+                  $ref: '../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+    security:
+      - basicAuth: []
+
+  post:
+    tags:
+      - Server PHP Versions
+    summary: Create a new PHP version
+    description: Creates a new PHP version with the specified settings
+    operationId: createPhpVersion
+    requestBody:
+      required: true
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              data:
-                type: array
-                items:
-                  $ref: '../../../components/schemas/ServerPhp.yaml'
-              pagination:
-                $ref: '../../../components/schemas/Pagination.yaml'
-    '400':
-      $ref: '../../../components/responses/BadRequest.yaml'
-    '401':
-      $ref: '../../../components/responses/Unauthorized.yaml'
-    '500':
-      $ref: '../../../components/responses/InternalServerError.yaml'
-  security:
-    - basicAuth: []
+            $ref: '../../components/schemas/ServerPhp.yaml'
+    responses:
+      '201':
+        description: PHP version created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerPhp.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+    security:
+      - basicAuth: []
 
-post:
-  tags:
-    - server
-    - php
-  summary: Create a new PHP version
-  description: Creates a new PHP version with the specified settings
-  operationId: createPhpVersion
-  requestBody:
-    required: true
-    content:
-      application/json:
-        schema:
-          $ref: '../../../components/schemas/ServerPhp.yaml'
-  responses:
-    '201':
-      description: PHP version created successfully
-      content:
-        application/json:
-          schema:
-            $ref: '../../../components/schemas/ServerPhp.yaml'
-    '400':
-      $ref: '../../../components/responses/400BadRequest.yaml'
-    '401':
-      $ref: '../../../components/responses/401Unauthorized.yaml'
-    '403':
-      $ref: '../../../components/responses/403Forbidden.yaml'
-    '500':
-      $ref: '../../../components/responses/500InternalServerError.yaml'
-  security:
-    - basicAuth: []
-
-# Path: /server/php-versions/{php_version_id}
-'/{php_version_id}':
+/servers/{id}/php-versions/{php_version_id}:
   parameters:
     - name: php_version_id
       in: path
@@ -81,8 +78,7 @@ post:
 
   get:
     tags:
-      - server
-      - php
+      - Server PHP Versions
     summary: Get a PHP version by ID
     description: Returns detailed information about a specific PHP version
     operationId: getPhpVersion
@@ -92,22 +88,21 @@ post:
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/ServerPhp.yaml'
+              $ref: '../../components/schemas/ServerPhp.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
     security:
       - basicAuth: []
 
   put:
     tags:
-      - server
-      - php
+      - Server PHP Versions
     summary: Update a PHP version
     description: Updates an existing PHP version with new settings
     operationId: updatePhpVersion
@@ -116,31 +111,30 @@ post:
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/ServerPhp.yaml'
+            $ref: '../../components/schemas/ServerPhp.yaml'
     responses:
       '200':
         description: PHP version updated successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/ServerPhp.yaml'
+              $ref: '../../components/schemas/ServerPhp.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
     security:
       - basicAuth: []
 
   delete:
     tags:
-      - server
-      - php
+      - Server PHP Versions
     summary: Delete a PHP version
     description: Deletes a PHP version configuration
     operationId: deletePhpVersion
@@ -148,14 +142,14 @@ post:
       '204':
         description: PHP version deleted successfully
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
     security:
       - basicAuth: []

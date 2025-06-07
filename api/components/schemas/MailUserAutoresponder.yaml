@@ -1,6 +1,5 @@
 type: object
 x-db-table: mail_user
-description: Mail user autoresponder configuration
 required:
   - mailuser_id
   - autoresponder
@@ -66,6 +65,8 @@ properties:
     x-db-field: autoresponder_text
 
 description: |
+  ## Mail user autoresponder configuration
+
   Autoresponder configuration for a mail user.
   
   ### Features

@@ -1,6 +1,5 @@
 type: object
 x-db-table: dns_rr
-description: Auto-generated schema for dns_rr
 required:
   - zone
   - type

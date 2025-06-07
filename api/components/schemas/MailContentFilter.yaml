@@ -1,6 +1,5 @@
 type: object
 x-db-table: mail_content_filter
-description: Auto-generated schema for mail_content_filter
 required:
   - server_id
   - type

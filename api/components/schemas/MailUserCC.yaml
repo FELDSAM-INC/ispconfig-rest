@@ -1,6 +1,5 @@
 type: object
 x-db-table: mail_user
-description: Mail user CC and forward settings
 required:
   - mailuser_id
   - cc
@@ -28,6 +27,8 @@ properties:
     x-db-field: forward_in_lda
 
 description: |
+  ## Mail user CC and forward settings
+
   CC and forward settings for a mail user.
   
   ### Features

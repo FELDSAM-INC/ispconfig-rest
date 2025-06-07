@@ -2,7 +2,7 @@
 /mail/forwards:
   get:
     tags:
-      - Mail
+      - Mail Forwards
     summary: List all mail forwards, catchalls, and aliases
     description: |
       Returns a paginated list of mail forwards, catchalls, and aliases.
@@ -49,10 +49,10 @@
       - `page` - Page number (default: 1)
       - `per_page` - Items per page (default: 20, max: 100)
     parameters:
-      - $ref: '../../../components/parameters/limit.yaml'
-      - $ref: '../../../components/parameters/offset.yaml'
-      - $ref: '../../../components/parameters/sort.yaml'
-      - $ref: '../../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
       - name: source
         in: query
         description: Filter by source email address (supports wildcards with %)
@@ -87,21 +87,21 @@
                 data:
                   type: array
                   items:
-                    $ref: '../../../components/schemas/MailForwarding.yaml'
+                    $ref: '../../components/schemas/MailForwarding.yaml'
                 pagination:
-                  $ref: '../../../components/schemas/Pagination.yaml'
+                  $ref: '../../components/schemas/Pagination.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   post:
     tags:
-      - Mail
+      - Mail Forwards
     summary: Create a new mail forward or catchall
     description: |
       Creates a new mail forward or catchall.
@@ -132,16 +132,16 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/MailForwarding.yaml'
+            $ref: '../../components/schemas/MailForwarding.yaml'
     responses:
       '201':
         description: Mail forward created successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/MailForwarding.yaml'
+              $ref: '../../components/schemas/MailForwarding.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
         description: |
           Bad Request. Possible reasons:
           - Invalid email format
@@ -149,19 +149,19 @@
           - Invalid destination email
           - Forward already exists
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
         description: |
           Forbidden. Possible reasons:
           - User has reached forward limit
           - No permission to use the source domain
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/forwards/{id}:
   parameters:
@@ -174,7 +174,7 @@
         format: int64
   get:
     tags:
-      - Mail
+      - Mail Forwards
     summary: Get mail forward or catchall by ID
     description: |
       Returns a single mail forward or catchall by its ID.
@@ -186,19 +186,19 @@
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/MailForwarding.yaml'
+              $ref: '../../components/schemas/MailForwarding.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   put:
     tags:
-      - Mail
+      - Mail Forwards
     summary: Update mail forward or catchall
     description: |
       Updates an existing mail forward or catchall.
@@ -214,32 +214,32 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/MailForwarding.yaml'
+            $ref: '../../components/schemas/MailForwarding.yaml'
     responses:
       '200':
         description: Mail forward updated successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/MailForwarding.yaml'
+              $ref: '../../components/schemas/MailForwarding.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   delete:
     tags:
-      - Mail
+      - Mail Forwards
     summary: Delete mail forward or catchall
     description: |
       Deletes a mail forward or catchall by ID.
@@ -256,10 +256,10 @@
           Bad Request. Possible reasons:
           - Forward is in use
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'

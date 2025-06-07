@@ -33,10 +33,10 @@
       - `page` - Page number (default: 1)
       - `per_page` - Items per page (default: 20, max: 100)
     parameters:
-      - $ref: '../../../components/parameters/limit.yaml'
-      - $ref: '../../../components/parameters/offset.yaml'
-      - $ref: '../../../components/parameters/sort.yaml'
-      - $ref: '../../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
       - name: type
         in: query
         description: Filter by filter type (header/body/mime_header/nested_header)
@@ -66,16 +66,16 @@
                 data:
                   type: array
                   items:
-                    $ref: '../../../components/schemas/MailContentFilter.yaml'
+                    $ref: '../../components/schemas/MailContentFilter.yaml'
                 pagination:
-                  $ref: '../../../components/schemas/Pagination.yaml'
+                  $ref: '../../components/schemas/Pagination.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
         description: Only admin users can access content filters
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   post:
     tags:
@@ -94,25 +94,25 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/MailContentFilter.yaml'
+            $ref: '../../components/schemas/MailContentFilter.yaml'
     responses:
       '201':
         description: Mail content filter rule created successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/MailContentFilter.yaml'
+              $ref: '../../components/schemas/MailContentFilter.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
         description: Only admin users can create content filter rules
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/content-filters/{id}:
   parameters:
@@ -134,16 +134,16 @@
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/MailContentFilter.yaml'
+              $ref: '../../components/schemas/MailContentFilter.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
         description: Only admin users can view content filter rules
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   put:
     tags:
@@ -161,31 +161,31 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/MailContentFilter.yaml'
+            $ref: '../../components/schemas/MailContentFilter.yaml'
     responses:
       '200':
         description: Mail content filter rule updated successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/MailContentFilter.yaml'
+              $ref: '../../components/schemas/MailContentFilter.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
         description: |
           Bad Request. Possible reasons:
           - Attempt to change server_id
           - Invalid data format
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
         description: Only admin users can update content filter rules
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   delete:
     tags:
@@ -202,11 +202,11 @@
       '204':
         description: Mail content filter rule deleted successfully
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
         description: Only admin users can delete content filter rules
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'

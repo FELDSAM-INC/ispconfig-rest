@@ -1,6 +1,5 @@
 type: object
 x-db-table: spamfilter_policy
-description: Auto-generated schema for spamfilter_policy
 required:
   - policy_name
   - virus_lover

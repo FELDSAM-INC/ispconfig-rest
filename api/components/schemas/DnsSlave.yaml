@@ -1,6 +1,5 @@
 type: object
 x-db-table: dns_slave
-description: Auto-generated schema for dns_slave
 required:
   - server_id
   - origin

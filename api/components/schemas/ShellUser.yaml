@@ -1,6 +1,5 @@
 type: object
 x-db-table: shell_user
-description: Auto-generated schema for shell_user
 required:
   - username
   - parent_domain_id

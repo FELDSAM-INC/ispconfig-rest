@@ -1,88 +1,71 @@
 # Resync API
-# This API allows resyncing various services in ISPConfig
+/system/resync:
+  post:
+    tags:
+      - Resync
+    summary: Trigger resync operation
+    description: |
+      Triggers resync operations for the specified services across servers.
 
-openapi: 3.0.0
-info:
-  title: Resync API
-  description: API for resyncing services in ISPConfig
-  version: 1.0.0
+      When resync_all=1 is specified, all services will be resynced for the specified server.
+      Individual services can also be resynced by setting their respective flags to 1.
+    security:
+      - basicAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/ResyncRequest.yaml'
+    responses:
+      '204':
+        description: Resync operations have been queued
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
 
-servers:
-  - url: /api/v1
-    description: ISPConfig API Server
-
-tags:
-  - name: Resync
-    description: Service resynchronization
-
-paths:
-  /system/resync:
-    post:
-      tags:
-        - Resync
-      summary: Trigger resync operation
-      description: |
-        Triggers resync operations for the specified services across servers.
-        
-        When resync_all=1 is specified, all services will be resynced for the specified server.
-        Individual services can also be resynced by setting their respective flags to 1.
-      security:
-        - basicAuth: []
-      requestBody:
-        required: true
+/system/resync/servers:
+  get:
+    tags:
+      - Resync
+    summary: Get available servers for resync
+    description: Returns a list of servers available for resync operations
+    security:
+      - basicAuth: []
+    parameters:
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - name: server_type
+        in: query
+        description: Filter servers by type (web, mail, dns, db, file, vserver)
+        schema:
+          type: string
+          enum: [web, mail, dns, db, file, vserver]
+      - name: active
+        in: query
+        description: Filter by active status
+        schema:
+          type: boolean
+    responses:
+      '200':
+        description: List of available servers
         content:
           application/json:
             schema:
-              $ref: '../../components/schemas/ResyncRequest.yaml'
-      responses:
-        '204':
-          description: Resync operations have been queued
-        '400':
-          $ref: '../../components/responses/BadRequest.yaml'
-        '401':
-          $ref: '../../components/responses/Unauthorized.yaml'
-        '500':
-          $ref: '../../components/responses/InternalServerError.yaml'
-
-  /system/resync/servers:
-    get:
-      tags:
-        - Resync
-      summary: Get available servers for resync
-      description: Returns a list of servers available for resync operations
-      security:
-        - basicAuth: []
-      parameters:
-        - $ref: '../../components/parameters/offset.yaml'
-        - $ref: '../../components/parameters/limit.yaml'
-        - $ref: '../../components/parameters/order.yaml'
-        - $ref: '../../components/parameters/sort.yaml'
-        - name: server_type
-          in: query
-          description: Filter servers by type (web, mail, dns, db, file, vserver)
-          schema:
-            type: string
-            enum: [web, mail, dns, db, file, vserver]
-        - name: active
-          in: query
-          description: Filter by active status
-          schema:
-            type: boolean
-      responses:
-        '200':
-          description: List of available servers
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '../../components/schemas/Server.yaml'
-                  pagination:
-                    $ref: '../../components/schemas/Pagination.yaml'
-        '401':
-          $ref: '../../components/responses/Unauthorized.yaml'
-        '500':
-          $ref: '../../components/responses/InternalServerError.yaml'
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/Server.yaml'
+                pagination:
+                  $ref: '../../components/schemas/Pagination.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

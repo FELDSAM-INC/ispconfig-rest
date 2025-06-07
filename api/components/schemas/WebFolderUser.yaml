@@ -1,6 +1,5 @@
 type: object
 x-db-table: web_folder_user
-description: Auto-generated schema for web_folder_user
 required:
   - server_id
   - web_folder_id

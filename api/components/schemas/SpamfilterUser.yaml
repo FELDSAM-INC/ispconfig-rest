@@ -1,6 +1,5 @@
 type: object
 x-db-table: spamfilter_users
-description: Auto-generated schema for spamfilter_users
 required:
   - server_id
   - policy_id

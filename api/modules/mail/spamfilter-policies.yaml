@@ -2,14 +2,14 @@
 /mail/spamfilter/policies:
   get:
     tags:
-      - Spamfilter
+      - Mail Spamfilter
     summary: List all spamfilter policies
     description: |
       Returns a paginated list of spamfilter policies.
-      
+
       ### Filtering
       Filter results using query parameters in the format `field[op]=value`.
-      
+
       Supported operators:
       - `eq` - Equal to
       - `neq` - Not equal to
@@ -20,22 +20,22 @@
       - `like` - Case-sensitive pattern matching (use % as wildcard)
       - `ilike` - Case-insensitive pattern matching (use % as wildcard)
       - `in` - Value is in a comma-separated list
-      
+
       Example: `policy_name[ilike]=%default%&virus_lover[eq]=N`
-      
+
       ### Sorting
       Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
+
       Example: `sort=policy_name` or `sort=-id`
-      
+
       ### Pagination
       - `page` - Page number (default: 1)
       - `per_page` - Items per page (default: 20, max: 100)
     parameters:
-      - $ref: '../../../components/parameters/limit.yaml'
-      - $ref: '../../../components/parameters/offset.yaml'
-      - $ref: '../../../components/parameters/sort.yaml'
-      - $ref: '../../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
       - name: policy_name
         in: query
         description: Filter by policy name (supports wildcards with %)
@@ -52,23 +52,23 @@
                 data:
                   type: array
                   items:
-                    $ref: '../../../components/schemas/SpamfilterPolicy.yaml'
+                    $ref: '../../components/schemas/SpamfilterPolicy.yaml'
                 pagination:
-                  $ref: '../../../components/schemas/Pagination.yaml'
+                  $ref: '../../components/schemas/Pagination.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   post:
     tags:
-      - Spamfilter
+      - Mail Spamfilter
     summary: Create a new spamfilter policy
     description: |
       Creates a new spamfilter policy.
-      
+
       ### Validation Rules
       - Policy name is required and must be unique
       - Only admin users can create policies
@@ -77,26 +77,26 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/SpamfilterPolicy.yaml'
+            $ref: '../../components/schemas/SpamfilterPolicy.yaml'
     responses:
       '201':
         description: Spamfilter policy created successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/SpamfilterPolicy.yaml'
+              $ref: '../../components/schemas/SpamfilterPolicy.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/spamfilter/policies/{id}:
   parameters:
@@ -109,7 +109,7 @@
         format: int64
   get:
     tags:
-      - Spamfilter
+      - Mail Spamfilter
     summary: Get spamfilter policy by ID
     description: Returns a single spamfilter policy by its ID
     responses:
@@ -118,23 +118,23 @@
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/SpamfilterPolicy.yaml'
+              $ref: '../../components/schemas/SpamfilterPolicy.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   put:
     tags:
-      - Spamfilter
+      - Mail Spamfilter
     summary: Update spamfilter policy
     description: |
       Updates an existing spamfilter policy.
-      
+
       ### Notes
       - Only admin users can update policies
       - Policy name must remain unique
@@ -143,36 +143,36 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/SpamfilterPolicy.yaml'
+            $ref: '../../components/schemas/SpamfilterPolicy.yaml'
     responses:
       '200':
         description: Spamfilter policy updated successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/SpamfilterPolicy.yaml'
+              $ref: '../../components/schemas/SpamfilterPolicy.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '422':
-        $ref: '../../../components/responses/UnprocessableEntity.yaml'
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   delete:
     tags:
-      - Spamfilter
+      - Mail Spamfilter
     summary: Delete spamfilter policy
     description: |
       Deletes a spamfilter policy by ID.
-      
+
       ### Notes
       - Only admin users can delete policies
       - Cannot delete a policy that is in use by spamfilter users
@@ -184,10 +184,10 @@
           Bad Request. Possible reasons:
           - Policy is in use by spamfilter users
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'

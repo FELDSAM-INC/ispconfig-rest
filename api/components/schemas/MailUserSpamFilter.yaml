@@ -1,6 +1,5 @@
 type: object
 x-db-table: mail_user
-description: Mail user spam filter settings
 required:
   - mailuser_id
   - move_junk
@@ -63,6 +62,8 @@ properties:
     x-db-field: custom_mailfilter
 
 description: |
+  ## Mail user spam filter settings
+
   Spam filter settings for a mail user.
   
   ### Features

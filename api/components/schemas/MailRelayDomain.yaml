@@ -1,6 +1,5 @@
 type: object
 x-db-table: mail_relay_domain
-description: Auto-generated schema for mail_relay_domain
 required:
   - server_id
   - domain

@@ -1,6 +1,5 @@
 type: object
 x-db-table: web_database_user
-description: Auto-generated schema for web_database_user
 required:
   - database_user_id
   - database_user

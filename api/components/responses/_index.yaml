@@ -16,3 +16,6 @@ Conflict:
 
 InternalServerError:
   $ref: './InternalServerError.yaml'
+
+UnprocessableEntity:
+  $ref: './UnprocessableEntity.yaml'

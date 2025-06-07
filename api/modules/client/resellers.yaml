@@ -8,10 +8,10 @@
       Returns a paginated list of resellers with filtering, sorting, and pagination support.
       Resellers are clients with limit_client > 0 or = -1.
     parameters:
-      - $ref: '../../../components/parameters/limit.yaml'
-      - $ref: '../../../components/parameters/offset.yaml'
-      - $ref: '../../../components/parameters/sort.yaml'
-      - $ref: '../../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
       - name: contact_name
         in: query
         description: Filter by contact name (supports wildcards with %)
@@ -43,17 +43,17 @@
                 data:
                   type: array
                   items:
-                    $ref: '../../../components/schemas/ClientReseller.yaml'
+                    $ref: '../../components/schemas/ClientReseller.yaml'
                 pagination:
-                  $ref: '../../../components/schemas/Pagination.yaml'
+                  $ref: '../../components/schemas/Pagination.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   post:
     tags:
@@ -65,7 +65,7 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/ClientReseller.yaml'
+            $ref: '../../components/schemas/ClientReseller.yaml'
     responses:
       '201':
         description: Reseller created successfully
@@ -75,24 +75,24 @@
               type: object
               properties:
                 data:
-                  $ref: '../../../components/schemas/ClientReseller.yaml'
+                  $ref: '../../components/schemas/ClientReseller.yaml'
                 message:
                   type: string
                   example: Reseller created successfully
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
-/resellers/{client_id}:
+/resellers/{id}:
   parameters:
-    - name: client_id
+    - name: id
       in: path
       description: Reseller ID
       required: true
@@ -114,17 +114,17 @@
               type: object
               properties:
                 data:
-                  $ref: '../../../components/schemas/ClientReseller.yaml'
+                  $ref: '../../components/schemas/ClientReseller.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   put:
     tags:
@@ -136,7 +136,7 @@
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/ClientReseller.yaml'
+            $ref: '../../components/schemas/ClientReseller.yaml'
     responses:
       '200':
         description: Reseller updated successfully
@@ -146,22 +146,22 @@
               type: object
               properties:
                 data:
-                  $ref: '../../../components/schemas/ClientReseller.yaml'
+                  $ref: '../../components/schemas/ClientReseller.yaml'
                 message:
                   type: string
                   example: Reseller updated successfully
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '409':
-        $ref: '../../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/Conflict.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
 
   delete:
     tags:
@@ -172,12 +172,12 @@
       '204':
         description: Reseller deleted successfully
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'

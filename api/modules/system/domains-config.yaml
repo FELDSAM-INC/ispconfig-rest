@@ -1,56 +1,46 @@
-openapi: 3.0.0
-info:
-  title: ISPConfig Domains Configuration API
-  description: API for managing ISPConfig domains-related system configuration
-  version: 1.0.0
-servers:
-  - url: /api/v1
-    description: ISPConfig API v1
-
-paths:
-  /system/config/domains:
-    get:
-      tags: [System]
-      summary: Get domains configuration
-      description: Retrieve the domains-related system configuration
-      security:
-        - basicAuth: []
-      responses:
-        '200':
-          description: Domains configuration retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '../../components/schemas/SystemDomainsConfig.yaml'
-        '401':
-          $ref: '../../components/responses/Unauthorized.yaml'
-        '500':
-          $ref: '../../components/responses/InternalServerError.yaml'
-    
-    put:
-      tags: [System]
-      summary: Update domains configuration
-      description: Update the domains-related system configuration
-      security:
-        - basicAuth: []
-      requestBody:
-        required: true
+/system/config/domains:
+  get:
+    tags: [System]
+    summary: Get domains configuration
+    description: Retrieve the domains-related system configuration
+    security:
+      - basicAuth: []
+    responses:
+      '200':
+        description: Domains configuration retrieved successfully
         content:
           application/json:
             schema:
               $ref: '../../components/schemas/SystemDomainsConfig.yaml'
-      responses:
-        '200':
-          description: Domains configuration updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '../../components/schemas/SystemDomainsConfig.yaml'
-        '400':
-          $ref: '../../components/responses/BadRequest.yaml'
-        '401':
-          $ref: '../../components/responses/Unauthorized.yaml'
-        '403':
-          $ref: '../../components/responses/Forbidden.yaml'
-        '500':
-          $ref: '../../components/responses/InternalServerError.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags: [System]
+    summary: Update domains configuration
+    description: Update the domains-related system configuration
+    security:
+      - basicAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/SystemDomainsConfig.yaml'
+    responses:
+      '200':
+        description: Domains configuration updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/SystemDomainsConfig.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

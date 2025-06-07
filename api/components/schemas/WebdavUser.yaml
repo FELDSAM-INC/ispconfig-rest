@@ -1,6 +1,5 @@
 type: object
 x-db-table: webdav_user
-description: Auto-generated schema for webdav_user
 required:
   - server_id
   - parent_domain_id

@@ -1,6 +1,5 @@
 type: object
 x-db-table: mail_relay_recipient
-description: Auto-generated schema for mail_relay_recipient
 required:
   - server_id
   - source

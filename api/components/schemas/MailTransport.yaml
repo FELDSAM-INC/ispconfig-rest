@@ -1,6 +1,5 @@
 type: object
 x-db-table: mail_transport
-description: Auto-generated schema for mail_transport
 required:
   - server_id
   - domain

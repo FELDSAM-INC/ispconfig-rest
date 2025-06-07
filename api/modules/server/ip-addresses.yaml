@@ -1,74 +1,71 @@
 # Server IP Addresses API Endpoints
-# Path: /server/ip-addresses
 
-get:
-  tags:
-    - server
-    - ip-addresses
-  summary: List all server IP addresses
-  description: Returns a list of all configured server IP addresses
-  operationId: listServerIps
-  parameters:
-    - $ref: '../../../components/parameters/offset.yaml'
-    - $ref: '../../../components/parameters/limit.yaml'
-    - $ref: '../../../components/parameters/sort.yaml'
-    - $ref: '../../../components/parameters/order.yaml'
-  responses:
-    '200':
-      description: A list of server IP addresses
+/servers/{id}/ip-addresses:
+  get:
+    tags:
+      - Server IPs
+    summary: List all server IP addresses
+    description: Returns a list of all configured server IP addresses
+    operationId: listServerIps
+    parameters:
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
+    responses:
+      '200':
+        description: A list of server IP addresses
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/ServerIp.yaml'
+                pagination:
+                  $ref: '../../components/schemas/Pagination.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+    security:
+      - basicAuth: []
+
+  post:
+    tags:
+      - Server IPs
+    summary: Create a new server IP address
+    description: Creates a new server IP address with the specified settings
+    operationId: createServerIp
+    requestBody:
+      required: true
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              data:
-                type: array
-                items:
-                  $ref: '../../../components/schemas/ServerIp.yaml'
-              pagination:
-                $ref: '../../../components/schemas/Pagination.yaml'
-    '400':
-      $ref: '../../../components/responses/BadRequest.yaml'
-    '401':
-      $ref: '../../../components/responses/Unauthorized.yaml'
-    '500':
-      $ref: '../../../components/responses/InternalServerError.yaml'
-  security:
-    - basicAuth: []
+            $ref: '../../components/schemas/ServerIp.yaml'
+    responses:
+      '201':
+        description: Server IP address created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerIp.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+    security:
+      - basicAuth: []
 
-post:
-  tags:
-    - server
-    - ip-addresses
-  summary: Create a new server IP address
-  description: Creates a new server IP address with the specified settings
-  operationId: createServerIp
-  requestBody:
-    required: true
-    content:
-      application/json:
-        schema:
-          $ref: '../../../components/schemas/ServerIp.yaml'
-  responses:
-    '201':
-      description: Server IP address created successfully
-      content:
-        application/json:
-          schema:
-            $ref: '../../../components/schemas/ServerIp.yaml'
-    '400':
-      $ref: '../../../components/responses/BadRequest.yaml'
-    '401':
-      $ref: '../../../components/responses/Unauthorized.yaml'
-    '403':
-      $ref: '../../../components/responses/Forbidden.yaml'
-    '500':
-      $ref: '../../../components/responses/InternalServerError.yaml'
-  security:
-    - basicAuth: []
-
-# Path: /server/ip-addresses/{ip_address_id}
-'/{ip_address_id}':
+/servers/{id}/ip-addresses/{ip_address_id}:
   parameters:
     - name: ip_address_id
       in: path
@@ -81,8 +78,7 @@ post:
 
   get:
     tags:
-      - server
-      - ip-addresses
+      - Server IPs
     summary: Get a server IP address by ID
     description: Returns detailed information about a specific server IP address
     operationId: getServerIp
@@ -92,22 +88,21 @@ post:
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/ServerIp.yaml'
+              $ref: '../../components/schemas/ServerIp.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
     security:
       - basicAuth: []
 
   put:
     tags:
-      - server
-      - ip-addresses
+      - Server IPs
     summary: Update a server IP address
     description: Updates an existing server IP address with new settings
     operationId: updateServerIp
@@ -116,31 +111,30 @@ post:
       content:
         application/json:
           schema:
-            $ref: '../../../components/schemas/ServerIp.yaml'
+            $ref: '../../components/schemas/ServerIp.yaml'
     responses:
       '200':
         description: Server IP address updated successfully
         content:
           application/json:
             schema:
-              $ref: '../../../components/schemas/ServerIp.yaml'
+              $ref: '../../components/schemas/ServerIp.yaml'
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
     security:
       - basicAuth: []
 
   delete:
     tags:
-      - server
-      - ip-addresses
+      - Server IPs
     summary: Delete a server IP address
     description: Deletes a server IP address configuration
     operationId: deleteServerIp
@@ -148,14 +142,14 @@ post:
       '204':
         description: Server IP address deleted successfully
       '400':
-        $ref: '../../../components/responses/BadRequest.yaml'
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
-        $ref: '../../../components/responses/Unauthorized.yaml'
+        $ref: '../../components/responses/Unauthorized.yaml'
       '403':
-        $ref: '../../../components/responses/Forbidden.yaml'
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        $ref: '../../../components/responses/NotFound.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
-        $ref: '../../../components/responses/InternalServerError.yaml'
+        $ref: '../../components/responses/InternalServerError.yaml'
     security:
       - basicAuth: []

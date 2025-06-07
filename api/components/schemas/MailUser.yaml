@@ -1,6 +1,5 @@
 type: object
 x-db-table: mail_user
-description: Auto-generated schema for mail_user
 required:
   - email
   - login

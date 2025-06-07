@@ -1,74 +1,57 @@
 # Server Status API
-# This API provides access to server status information
+/monitor/servers/status:
+  get:
+    tags:
+      - Monitor
+    summary: List all servers status
+    description: |
+      Retrieves status information for all servers.
+    security:
+      - basicAuth: []
+    responses:
+      '200':
+        description: List of servers status
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/ServerStatus.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
 
-openapi: 3.0.0
-info:
-  title: Server Status API
-  description: API for accessing server status and metrics
-  version: 1.0.0
-
-servers:
-  - url: /api/v1
-    description: ISPConfig API Server
-
-tags:
-  - name: Monitor
-    description: System monitoring and logging
-
-paths:
-  /monitor/servers/status:
-    get:
-      tags:
-        - Monitor
-      summary: List all servers status
-      description: |
-        Retrieves status information for all servers.
-      security:
-        - basicAuth: []
-      responses:
-        '200':
-          description: List of servers status
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '../../components/schemas/ServerStatus.yaml'
-        '401':
-          $ref: '../../components/responses/Unauthorized.yaml'
-        '500':
-          $ref: '../../components/responses/InternalServerError.yaml'
-
-  /monitor/servers/{server_id}/status:
-    get:
-      tags:
-        - Monitor
-      summary: Get server status
-      description: |
-        Retrieves detailed status information for a specific server.
-      security:
-        - basicAuth: []
-      parameters:
-        - name: server_id
-          in: path
-          required: true
-          description: ID of the server
-          schema:
-            type: integer
-            format: int64
-      responses:
-        '200':
-          description: Server status details
-          content:
-            application/json:
-              schema:
-                $ref: '../../components/schemas/ServerStatus.yaml'
-        '401':
-          $ref: '../../components/responses/Unauthorized.yaml'
-        '404':
-          description: Server not found
-        '500':
-          $ref: '../../components/responses/InternalServerError.yaml'
+/monitor/servers/{id}/status:
+  get:
+    tags:
+      - Monitor
+    summary: Get server status
+    description: |
+      Retrieves detailed status information for a specific server.
+    security:
+      - basicAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the server
+        schema:
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: Server status details
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerStatus.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        description: Server not found
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
