@@ -12,22 +12,26 @@ info:
     email: support@ispconfig.org
 
 servers:
-  - url: https://{hostname}:8080/api/v1
+  - url: http://{hostname}:8000/api/v1
     description: ISPConfig API server
     variables:
       hostname:
         default: localhost
         description: Hostname or IP address of the ISPConfig server
 
-# Security scheme (basic auth)
+# Security scheme (API Key)
 security:
-  - basicAuth: []
+  - apiKeyAuth: []
 
 # Include all components and paths
 components:
   # Security schemes
-  # securitySchemes:
-  #   $ref: './components/securitySchemes.yaml'
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
   
   # Reusable schemas (data models)
   schemas:

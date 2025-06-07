@@ -21,6 +21,12 @@ $router->get('/', function () use ($router) {
     ]);
 });
 
+// Swagger Documentation Routes
+$router->get('/api/documentation', 'SwaggerController@index');
+$router->get('/api/spec', 'SwaggerController@getSpec');
+$router->get('/api/modules/{path:.*}', 'SwaggerController@getModuleSpec');
+$router->get('/api/components/{path:.*}', 'SwaggerController@getModuleSpec');
+
 // API Routes - Versioned
 $apiPrefix = env('API_PREFIX', 'api/v1');
 
