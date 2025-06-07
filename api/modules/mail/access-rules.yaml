@@ -138,19 +138,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/access-rules/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Mail access rule ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail Access Rules
     summary: Get mail access rule by ID
     description: Returns a single mail access rule by its ID
+    parameters:
+      - name: id
+        in: path
+        description: Mail access rule ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Mail access rule details
@@ -179,6 +179,14 @@
       - Non-admin users can only update rules for their own domains
       - Non-admin users cannot change the rule type to 'client'
       - The source and type combination must remain unique per server
+    parameters:
+      - name: id
+        in: path
+        description: Mail access rule ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -218,6 +226,14 @@
       - This will permanently delete the access rule
       - This action cannot be undone
       - Non-admin users can only delete their own rules
+    parameters:
+      - name: id
+        in: path
+        description: Mail access rule ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Mail access rule deleted successfully

@@ -96,19 +96,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /dns/templates/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: DNS template ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - DNS Templates
     summary: Get DNS template by ID
     description: Returns a single DNS template by its ID
+    parameters:
+      - name: id
+        in: path
+        description: DNS template ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: DNS template details
@@ -134,6 +134,14 @@
       
       ### Partial Updates
       Only include the fields you want to update. Omitted fields will remain unchanged.
+    parameters:
+      - name: id
+        in: path
+        description: DNS template ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -167,6 +175,14 @@
       - DNS Templates
     summary: Delete DNS template
     description: Deletes a DNS template by ID
+    parameters:
+      - name: id
+        in: path
+        description: DNS template ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: DNS template deleted successfully

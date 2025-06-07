@@ -113,14 +113,6 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/spamfilter/users/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Spamfilter user ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail Spamfilter
@@ -128,6 +120,14 @@
     description: |
       Returns a single spamfilter user by its ID.
       Non-admin users can only see their own entries.
+    parameters:
+      - name: id
+        in: path
+        description: Spamfilter user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Spamfilter user details
@@ -154,6 +154,14 @@
       ### Notes
       - Non-admin users can only update their own entries
       - Email and server_id cannot be changed after creation
+    parameters:
+      - name: id
+        in: path
+        description: Spamfilter user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -189,6 +197,14 @@
 
       ### Notes
       - Non-admin users can only delete their own entries
+    parameters:
+      - name: id
+        in: path
+        description: Spamfilter user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Spamfilter user deleted successfully

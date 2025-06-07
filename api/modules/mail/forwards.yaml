@@ -164,14 +164,6 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/forwards/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Mail forward ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail Forwards
@@ -180,6 +172,14 @@
       Returns a single mail forward or catchall by its ID.
       
       The response will include the `is_catchall` flag to easily identify catchall entries.
+    parameters:
+      - name: id
+        in: path
+        description: Mail forward ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Mail forward details
@@ -209,6 +209,15 @@
       - For catchalls, only the domain part is considered when matching
       - Only the destination, active status, allow_send_as, and greylisting can be updated
       - The `is_catchall` flag is read-only and determined by the source format
+    
+    parameters:
+      - name: id
+        in: path
+        description: Mail forward ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -248,6 +257,15 @@
       - The operation is permanent and cannot be undone
       - User must have permission to modify the source domain
       - System administrators can delete any forward/catchall
+    
+    parameters:
+      - name: id
+        in: path
+        description: Mail forward ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Mail forward deleted successfully

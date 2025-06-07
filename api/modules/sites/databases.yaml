@@ -94,19 +94,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /sites/databases/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Database ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Databases
     summary: Get database by ID
     description: Returns a single database by its ID
+    parameters:
+      - name: id
+        in: path
+        description: ID of the database
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Database details
@@ -138,6 +138,14 @@
         application/json:
           schema:
             $ref: '../../components/schemas/Database.yaml'
+    parameters:
+      - name: id
+        in: path
+        description: ID of the database
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Database updated successfully
@@ -165,6 +173,14 @@
       - Databases
     summary: Delete database
     description: Deletes a database by ID
+    parameters:
+      - name: id
+        in: path
+        description: ID of the database
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Database deleted successfully

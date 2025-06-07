@@ -114,19 +114,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /sites/cron-jobs/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Cron job ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Cron Jobs
     summary: Get cron job by ID
     description: Returns a single cron job by its ID
+    parameters:
+      - name: id
+        in: path
+        description: ID of the cron job
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Cron job details
@@ -163,6 +163,14 @@
         application/json:
           schema:
             $ref: '../../components/schemas/CronJob.yaml'
+    parameters:
+      - name: id
+        in: path
+        description: ID of the cron job
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Cron job updated successfully
@@ -190,6 +198,14 @@
       - Cron Jobs
     summary: Delete cron job
     description: Deletes a cron job by ID
+    parameters:
+      - name: id
+        in: path
+        description: ID of the cron job
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Cron job deleted successfully

@@ -129,19 +129,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/domains/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Mail domain ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail Domains
     summary: Get mail domain by ID
     description: Returns a single mail domain by its ID
+    parameters:
+      - name: id
+        in: path
+        description: Mail domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Mail domain details
@@ -170,6 +170,14 @@
       - When updating DKIM settings, both private and public keys must be provided
       - To disable DKIM, set `dkim: n`
       - To update relay settings, provide all relay-related fields
+    parameters:
+      - name: id
+        in: path
+        description: Mail domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -209,6 +217,14 @@
       - This will remove the mail domain configuration but not the actual domain
       - Any associated mailboxes, aliases, and forwarders will also be deleted
       - This action cannot be undone
+    parameters:
+      - name: id
+        in: path
+        description: Mail domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Mail domain deleted successfully

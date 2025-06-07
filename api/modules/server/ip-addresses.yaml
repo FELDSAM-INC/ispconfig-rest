@@ -12,6 +12,14 @@
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/sort.yaml'
       - $ref: '../../components/parameters/order.yaml'
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
     responses:
       '200':
         description: A list of server IP addresses
@@ -41,6 +49,15 @@
     summary: Create a new server IP address
     description: Creates a new server IP address with the specified settings
     operationId: createServerIp
+    parameters:
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
     requestBody:
       required: true
       content:
@@ -66,22 +83,29 @@
       - basicAuth: []
 
 /servers/{id}/ip-addresses/{ip_address_id}:
-  parameters:
-    - name: ip_address_id
-      in: path
-      description: ID of the IP address
-      required: true
-      schema:
-        type: integer
-        format: int32
-      example: 1
-
   get:
     tags:
       - Server IPs
     summary: Get a server IP address by ID
     description: Returns detailed information about a specific server IP address
     operationId: getServerIp
+    parameters:
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      - name: ip_address_id
+        in: path
+        description: ID of the IP address
+        required: true
+        schema:
+          type: integer
+          format: int32
+        example: 1
     responses:
       '200':
         description: Server IP address details
@@ -106,6 +130,23 @@
     summary: Update a server IP address
     description: Updates an existing server IP address with new settings
     operationId: updateServerIp
+    parameters:
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      - name: ip_address_id
+        in: path
+        description: ID of the IP address
+        required: true
+        schema:
+          type: integer
+          format: int32
+        example: 1
     requestBody:
       required: true
       content:
@@ -138,6 +179,23 @@
     summary: Delete a server IP address
     description: Deletes a server IP address configuration
     operationId: deleteServerIp
+    parameters:
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      - name: ip_address_id
+        in: path
+        description: ID of the IP address
+        required: true
+        schema:
+          type: integer
+          format: int32
+        example: 1
     responses:
       '204':
         description: Server IP address deleted successfully

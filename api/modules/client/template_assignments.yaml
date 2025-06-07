@@ -1,19 +1,19 @@
 # Client Template Assignment endpoints
 /clients/{client_id}/templates:
-  parameters:
-    - name: client_id
-      in: path
-      description: Client ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Client Template Assignments
     summary: List all templates assigned to a client
     description: |
       Returns a list of all templates assigned to the specified client.
+    parameters:
+      - name: client_id
+        in: path
+        description: Client ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: A list of assigned templates
@@ -43,6 +43,14 @@
     summary: Assign a template to a client
     description: |
       Assigns a template to a client. If the template is already assigned, it will be updated.
+    parameters:
+      - name: client_id
+        in: path
+        description: Client ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -80,26 +88,26 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /clients/{client_id}/templates/{template_id}:
-  parameters:
-    - name: client_id
-      in: path
-      description: Client ID
-      required: true
-      schema:
-        type: integer
-        format: int64
-    - name: template_id
-      in: path
-      description: Template ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Client Template Assignments
     summary: Get template assignment details
     description: Returns details of a specific template assignment for a client
+    parameters:
+      - name: client_id
+        in: path
+        description: Client ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: template_id
+        in: path
+        description: Template ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Template assignment details
@@ -121,6 +129,21 @@
       - Client Template Assignments
     summary: Unassign a template from a client
     description: Removes a template assignment from a client
+    parameters:
+      - name: client_id
+        in: path
+        description: Client ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: template_id
+        in: path
+        description: Template ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Template unassigned successfully

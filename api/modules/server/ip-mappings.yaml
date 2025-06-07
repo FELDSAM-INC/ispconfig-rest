@@ -12,6 +12,14 @@
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/sort.yaml'
       - $ref: '../../components/parameters/order.yaml'
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
     responses:
       '200':
         description: A list of server IP mappings
@@ -41,6 +49,15 @@
     summary: Create a new server IP mapping
     description: Creates a new server IP mapping with the specified settings
     operationId: createServerIpMapping
+    parameters:
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
     requestBody:
       required: true
       content:
@@ -66,22 +83,29 @@
       - basicAuth: []
 
 /servers/{id}/ip-mappings/{mapping_id}:
-  parameters:
-    - name: mapping_id
-      in: path
-      description: ID of the IP mapping
-      required: true
-      schema:
-        type: integer
-        format: int32
-      example: 1
-
   get:
     tags:
       - Server IPs
     summary: Get a server IP mapping by ID
     description: Returns detailed information about a specific server IP mapping
     operationId: getServerIpMapping
+    parameters:
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      - name: mapping_id
+        in: path
+        description: ID of the IP mapping
+        required: true
+        schema:
+          type: integer
+          format: int32
+        example: 1
     responses:
       '200':
         description: Server IP mapping details
@@ -106,6 +130,23 @@
     summary: Update a server IP mapping
     description: Updates an existing server IP mapping with new settings
     operationId: updateServerIpMapping
+    parameters:
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      - name: mapping_id
+        in: path
+        description: ID of the IP mapping
+        required: true
+        schema:
+          type: integer
+          format: int32
+        example: 1
     requestBody:
       required: true
       content:
@@ -138,6 +179,23 @@
     summary: Delete a server IP mapping
     description: Deletes a server IP mapping configuration
     operationId: deleteServerIpMapping
+    parameters:
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      - name: mapping_id
+        in: path
+        description: ID of the IP mapping
+        required: true
+        schema:
+          type: integer
+          format: int32
+        example: 1
     responses:
       '204':
         description: Server IP mapping deleted successfully

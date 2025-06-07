@@ -83,19 +83,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /clients/circles/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Client Circle ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Client Circles
     summary: Get client circle by ID
     description: Returns a single client circle by its ID
+    parameters:
+      - name: id
+        in: path
+        description: Client Circle ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Client circle details
@@ -117,6 +117,14 @@
       - Client Circles
     summary: Update client circle
     description: Updates an existing client circle configuration
+    parameters:
+      - name: id
+        in: path
+        description: Client Circle ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -153,6 +161,14 @@
       Deletes a client circle by ID.
       
       **Note:** The circle will be permanently removed from the system.
+    parameters:
+      - name: id
+        in: path
+        description: Client Circle ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Client circle deleted successfully

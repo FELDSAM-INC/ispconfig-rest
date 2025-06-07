@@ -78,19 +78,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /clients/templates/{template_id}:
-  parameters:
-    - name: template_id
-      in: path
-      description: Client Template ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Client Templates
     summary: Get client template by ID
     description: Returns a single client template by its ID
+    parameters:
+      - name: template_id
+        in: path
+        description: Client Template ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Client template details
@@ -112,6 +112,14 @@
       - Client Templates
     summary: Update client template
     description: Updates an existing client template configuration
+    parameters:
+      - name: template_id
+        in: path
+        description: Client Template ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -148,6 +156,14 @@
       Deletes a client template by ID.
       
       **Note:** A template cannot be deleted if it is assigned to any clients.
+    parameters:
+      - name: template_id
+        in: path
+        description: Client Template ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Client template deleted successfully

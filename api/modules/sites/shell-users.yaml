@@ -104,19 +104,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /sites/shell-users/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Shell user ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Shell Users
     summary: Get shell user by ID
     description: Returns a single shell user by its ID
+    parameters:
+      - name: id
+        in: path
+        description: ID of the shell user
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Shell user details
@@ -153,6 +153,14 @@
         application/json:
           schema:
             $ref: '../../components/schemas/ShellUser.yaml'
+    parameters:
+      - name: id
+        in: path
+        description: ID of the shell user
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Shell user updated successfully
@@ -180,6 +188,14 @@
       - Shell Users
     summary: Delete shell user
     description: Deletes a shell user by ID
+    parameters:
+      - name: id
+        in: path
+        description: ID of the shell user
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Shell user deleted successfully

@@ -3,8 +3,6 @@
     tags: [System]
     summary: List DNS CAs
     description: Retrieve a list of DNS Certification Authorities
-    security:
-      - basicAuth: []
     parameters:
       - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/limit.yaml'
@@ -33,8 +31,6 @@
     tags: [System]
     summary: Create a new DNS CA
     description: Add a new DNS Certification Authority
-    security:
-      - basicAuth: []
     requestBody:
       required: true
       content:
@@ -57,22 +53,19 @@
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
-/system/config/dns-cas/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: ID of the DNS CA
-      required: true
-      schema:
-        type: integer
-        format: int64
-
+/system/config/dns-cas/{id}:  
   get:
     tags: [System]
     summary: Get a DNS CA
     description: Retrieve details of a specific DNS Certification Authority
-    security:
-      - basicAuth: []
+    parameters:
+      - name: id
+        in: path
+        description: ID of the DNS CA
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: DNS CA retrieved successfully
@@ -91,12 +84,18 @@
     tags: [System]
     summary: Update a DNS CA
     description: Update an existing DNS Certification Authority
-    security:
-      - basicAuth: []
+    parameters:
+      - name: id
+        in: path
+        description: ID of the DNS CA
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
-        multipart/form-data:
+        application/json:
           schema:
             $ref: '../../components/schemas/DnsCaConfig.yaml'
     responses:
@@ -121,8 +120,14 @@
     tags: [System]
     summary: Delete a DNS CA
     description: Remove a DNS Certification Authority
-    security:
-      - basicAuth: []
+    parameters:
+      - name: id
+        in: path
+        description: ID of the DNS CA
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: DNS CA deleted successfully

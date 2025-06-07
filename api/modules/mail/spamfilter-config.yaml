@@ -102,14 +102,6 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/spamfilter/config/{server_id}:
-  parameters:
-    - name: server_id
-      in: path
-      description: Server ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail Spamfilter
@@ -117,6 +109,14 @@
     description: |
       Returns a single spamfilter server configuration by its ID.
       Only accessible by admin users.
+    parameters:
+      - name: server_id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64 
     responses:
       '200':
         description: Spamfilter server configuration details
@@ -144,6 +144,14 @@
       ### Notes
       - Server ID cannot be changed
       - All fields are required on update
+    parameters:
+      - name: server_id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:

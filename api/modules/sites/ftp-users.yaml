@@ -94,19 +94,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /sites/ftp-users/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: FTP user ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - FTP Users
     summary: Get FTP user by ID
     description: Returns a single FTP user by its ID
+    parameters:
+      - name: id
+        in: path
+        description: ID of the FTP user
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: FTP user details
@@ -138,6 +138,14 @@
         application/json:
           schema:
             $ref: '../../components/schemas/FtpUser.yaml'
+    parameters:
+      - name: id
+        in: path
+        description: ID of the FTP user
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: FTP user updated successfully
@@ -165,6 +173,14 @@
       - FTP Users
     summary: Delete FTP user
     description: Deletes an FTP user by ID
+    parameters:
+      - name: id
+        in: path
+        description: ID of the FTP user
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: FTP user deleted successfully

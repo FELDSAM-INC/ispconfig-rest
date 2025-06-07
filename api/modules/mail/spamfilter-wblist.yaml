@@ -119,14 +119,6 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/spamfilter/wblist/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Whitelist/blacklist entry ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail Spamfilter
@@ -134,6 +126,14 @@
     description: |
       Returns a single whitelist/blacklist entry by its ID.
       Non-admin users can only see their own entries.
+    parameters:
+      - name: id
+        in: path
+        description: Whitelist/blacklist entry ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Whitelist/blacklist entry details
@@ -160,6 +160,14 @@
       ### Notes
       - Non-admin users can only update their own entries
       - Email and rid cannot be changed after creation
+    parameters:
+      - name: id
+        in: path
+        description: Whitelist/blacklist entry ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -195,6 +203,14 @@
 
       ### Notes
       - Non-admin users can only delete their own entries
+    parameters:
+      - name: id
+        in: path
+        description: Whitelist/blacklist entry ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Whitelist/blacklist entry deleted successfully

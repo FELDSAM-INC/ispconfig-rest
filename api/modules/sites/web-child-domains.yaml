@@ -123,19 +123,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /sites/web-child-domains/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Web child domain ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Web Child Domains
     summary: Get web child domain by ID
     description: Returns a single web child domain by its ID
+    parameters:
+      - name: id
+        in: path
+        description: ID of the web child domain
+        required: true
+        schema:
+          type: integer
+          format: int64 
     responses:
       '200':
         description: Web child domain details
@@ -171,6 +171,14 @@
         application/json:
           schema:
             $ref: '../../components/schemas/WebChildDomain.yaml'
+    parameters:
+      - name: id
+        in: path
+        description: ID of the web child domain
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Web child domain updated successfully
@@ -204,6 +212,14 @@
       - This will remove the web configuration and any associated files
       - DNS records will be updated if managed by ISPConfig
       - This action cannot be undone
+    parameters:
+      - name: id
+        in: path
+        description: ID of the web child domain
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Web child domain deleted successfully

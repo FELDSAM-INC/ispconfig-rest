@@ -101,19 +101,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /dns/soa/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: DNS zone ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - DNS
     summary: Get DNS zone by ID
     description: Returns a single DNS zone by its ID
+    parameters:
+      - name: id
+        in: path
+        description: DNS zone ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: DNS zone details
@@ -139,6 +139,14 @@
       
       ### Partial Updates
       Only include the fields you want to update. Omitted fields will remain unchanged.
+    parameters:
+      - name: id
+        in: path
+        description: DNS zone ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -172,6 +180,14 @@
       - DNS
     summary: Delete DNS zone
     description: Deletes a DNS zone by ID
+    parameters:
+      - name: id
+        in: path
+        description: DNS zone ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: DNS zone deleted successfully

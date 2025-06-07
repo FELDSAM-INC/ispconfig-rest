@@ -130,19 +130,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/transports/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Mail transport ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail Transports
     summary: Get mail transport by ID
     description: Returns a single mail transport by its ID
+    parameters:
+      - name: id
+        in: path
+        description: Mail transport ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Mail transport details
@@ -169,6 +169,14 @@
       ### Notes
       - The domain and server_id cannot be changed after creation
       - Only the transport, sort_order, and active status can be updated
+    parameters:
+      - name: id
+        in: path
+        description: Mail transport ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -207,6 +215,14 @@
       ### Notes
       - The operation is permanent and cannot be undone
       - User must have permission to modify the server
+    parameters:
+      - name: id
+        in: path
+        description: Mail transport ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Mail transport deleted successfully

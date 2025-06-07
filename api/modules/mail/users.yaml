@@ -138,19 +138,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/users/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Mail user ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail Users
     summary: Get mail user by ID
     description: Returns a single mail user by its ID
+    parameters:
+      - name: id
+        in: path
+        description: Mail user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Mail user details
@@ -180,6 +180,14 @@
       - To update the password, provide the new password in the `password` field
       - Quota can be updated at any time
       - Set `active: n` to disable the account without deleting it
+    parameters:
+      - name: id
+        in: path
+        description: Mail user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -220,6 +228,14 @@
       - All emails in the mailbox will be deleted
       - Any forwards or aliases will be removed
       - This action cannot be undone
+    parameters:
+      - name: id
+        in: path
+        description: Mail user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Mail user deleted successfully

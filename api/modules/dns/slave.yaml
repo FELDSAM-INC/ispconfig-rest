@@ -106,19 +106,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /dns/slaves/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: DNS slave zone ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - DNS Slave Zones
     summary: Get DNS slave zone by ID
     description: Returns a single DNS slave zone by its ID
+    parameters:
+      - name: id
+        in: path
+        description: DNS slave zone ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: DNS slave zone details
@@ -144,6 +144,14 @@
       
       ### Partial Updates
       Only include the fields you want to update. Omitted fields will remain unchanged.
+    parameters:
+      - name: id
+        in: path
+        description: DNS slave zone ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -177,6 +185,14 @@
       - DNS Slave Zones
     summary: Delete DNS slave zone
     description: Deletes a DNS slave zone by ID
+    parameters:
+      - name: id
+        in: path
+        description: DNS slave zone ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: DNS slave zone deleted successfully

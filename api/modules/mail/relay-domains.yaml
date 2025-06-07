@@ -122,19 +122,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/relay-domains/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Mail relay domain ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail Relay Domains
     summary: Get mail relay domain by ID
     description: Returns a single mail relay domain by its ID
+    parameters:
+      - name: id
+        in: path
+        description: Mail relay domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Mail relay domain details
@@ -161,6 +161,14 @@
       ### Notes
       - The domain name cannot be changed after creation
       - Only the active status can be updated
+    parameters:
+      - name: id
+        in: path
+        description: Mail relay domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -199,6 +207,14 @@
       ### Notes
       - The operation is permanent and cannot be undone
       - User must have permission to modify the server
+    parameters:
+      - name: id
+        in: path
+        description: Mail relay domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Mail relay domain deleted successfully

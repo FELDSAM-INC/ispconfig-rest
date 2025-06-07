@@ -90,21 +90,20 @@
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
-/resellers/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Reseller ID
-      required: true
-      schema:
-        type: integer
-        format: int32
-  
+/resellers/{id}:  
   get:
     tags:
       - Resellers
     summary: Get reseller by ID
     description: Returns a single reseller by ID
+    parameters:
+      - name: id
+        in: path
+        description: Reseller ID
+        required: true
+        schema:
+          type: integer
+          format: int32
     responses:
       '200':
         description: Reseller details
@@ -131,6 +130,14 @@
       - Resellers
     summary: Update a reseller
     description: Update an existing reseller's details
+    parameters:
+      - name: id
+        in: path
+        description: Reseller ID
+        required: true
+        schema:
+          type: integer
+          format: int32
     requestBody:
       required: true
       content:
@@ -168,6 +175,14 @@
       - Resellers
     summary: Delete a reseller
     description: Delete a reseller by ID
+    parameters:
+      - name: id
+        in: path
+        description: Reseller ID
+        required: true
+        schema:
+          type: integer
+          format: int32
     responses:
       '204':
         description: Reseller deleted successfully

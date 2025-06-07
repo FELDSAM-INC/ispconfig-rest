@@ -94,19 +94,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /sites/web-domains/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Web domain ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Web Domains
     summary: Get web domain by ID
     description: Returns a single web domain by its ID
+    parameters:
+      - name: id
+        in: path
+        description: ID of the web domain
+        required: true
+        schema:
+          type: integer
+          format: int64 
     responses:
       '200':
         description: Web domain details
@@ -165,6 +165,14 @@
       - Web Domains
     summary: Delete web domain
     description: Deletes a web domain by ID
+    parameters:
+      - name: id
+        in: path
+        description: ID of the web domain
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Web domain deleted successfully
@@ -185,19 +193,19 @@
 
 # SSL Certificate endpoints
 /sites/web-domains/{id}/ssl:
-  parameters:
-    - name: id
-      in: path
-      description: Web domain ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Web Domains
     summary: Get SSL certificate
     description: Returns the SSL certificate details for a web domain
+    parameters:
+      - name: id
+        in: path
+        description: ID of the web domain
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: SSL certificate details
@@ -238,6 +246,14 @@
       - Web Domains
     summary: Upload SSL certificate
     description: Uploads an SSL certificate for a web domain
+    parameters:
+      - name: id
+        in: path
+        description: ID of the web domain
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -283,6 +299,14 @@
       - Web Domains
     summary: Remove SSL certificate
     description: Removes the SSL certificate from a web domain
+    parameters:
+      - name: id
+        in: path
+        description: ID of the web domain
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: SSL certificate removed successfully
@@ -304,7 +328,7 @@
     parameters:
       - name: id
         in: path
-        description: Web domain ID
+        description: ID of the web domain
         required: true
         schema:
           type: integer

@@ -87,19 +87,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /clients/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Client ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Clients
     summary: Get client by ID
     description: Returns a single client by its ID
+    parameters:
+      - name: id
+        in: path
+        description: Client ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Client details
@@ -121,6 +121,14 @@
       - Clients
     summary: Update client
     description: Updates an existing client configuration
+    parameters:
+      - name: id
+        in: path
+        description: Client ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -154,6 +162,14 @@
       - Clients
     summary: Delete client
     description: Deletes a client by ID
+    parameters:
+      - name: id
+        in: path
+        description: Client ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Client deleted successfully

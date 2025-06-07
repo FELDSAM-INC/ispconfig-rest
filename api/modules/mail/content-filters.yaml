@@ -114,20 +114,20 @@
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
-/mail/content-filters/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Mail content filter rule ID
-      required: true
-      schema:
-        type: integer
-        format: int64
+/mail/content-filters/{id}: 
   get:
     tags:
       - Mail Content Filters
     summary: Get mail content filter rule by ID
     description: Returns a single mail content filter rule by its ID
+    parameters:
+      - name: id
+        in: path
+        description: Mail content filter rule ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Mail content filter rule details
@@ -156,6 +156,14 @@
       ### Notes
       - The server_id cannot be changed after creation
       - All fields except server_id can be updated
+    parameters:
+      - name: id
+        in: path
+        description: Mail content filter rule ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -198,6 +206,14 @@
       ### Notes
       - This will permanently delete the filter rule
       - This action cannot be undone
+    parameters:
+      - name: id
+        in: path
+        description: Mail content filter rule ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Mail content filter rule deleted successfully

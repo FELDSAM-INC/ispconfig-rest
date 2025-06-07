@@ -6,8 +6,6 @@
       - Directive Snippets
     summary: List all directive snippets
     description: Returns a paginated list of all directive snippets
-    security:
-      - basicAuth: []
     parameters:
       - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/limit.yaml'
@@ -49,8 +47,6 @@
       - Directive Snippets
     summary: Create a new directive snippet
     description: Creates a new directive snippet
-    security:
-      - basicAuth: []
     requestBody:
       required: true
       content:
@@ -74,21 +70,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /system/directive-snippets/{id}:
-  parameters:
-      - name: id
-        in: path
-        description: ID of the directive snippet to retrieve
-        required: true
-        schema:
-          type: integer
-          format: int64
   get:
     tags:
       - Directive Snippets
     summary: Get a directive snippet by ID
     description: Returns a single directive snippet by its ID
-    security:
-      - basicAuth: []
+    parameters:
+      - name: id
+        in: path
+        description: ID of the directive snippet
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Directive snippet details
@@ -108,14 +102,20 @@
       - Directive Snippets
     summary: Update a directive snippet
     description: Updates an existing directive snippet
-    security:
-      - basicAuth: []
     requestBody:
       required: true
       content:
         application/json:
           schema:
             $ref: '../../components/schemas/DirectiveSnippet.yaml'
+    parameters:
+      - name: id
+        in: path
+        description: ID of the directive snippet
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Directive snippet updated successfully
@@ -137,8 +137,14 @@
       - Directive Snippets
     summary: Delete a directive snippet
     description: Deletes a directive snippet by ID
-    security:
-      - basicAuth: []
+    parameters:
+      - name: id
+        in: path
+        description: ID of the directive snippet
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Directive snippet deleted successfully

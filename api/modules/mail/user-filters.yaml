@@ -1,13 +1,5 @@
 # Mail User Filters endpoints
 /mail/users/{id}/filters:
-  parameters:
-    - name: id
-      in: path
-      description: Mail user ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail Users
@@ -46,6 +38,13 @@
       - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/sort.yaml'
       - $ref: '../../components/parameters/order.yaml'
+      - name: id
+        in: path
+        description: Mail user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
       - name: source
         in: query
         description: Filter by source field
@@ -98,6 +97,14 @@
       ### Notes
       - System administrators can create filters for any user
       - Regular users can only create filters for themselves
+    parameters:
+      - name: id
+        in: path
+        description: Mail user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -132,26 +139,26 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/users/{id}/filters/{filter_id}:
-  parameters:
-    - name: id
-      in: path
-      description: Mail user ID
-      required: true
-      schema:
-        type: integer
-        format: int64
-    - name: filter_id
-      in: path
-      description: Mail user filter ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail Users
     summary: Get mail user filter by ID
     description: Returns a single mail user filter by its ID
+    parameters:
+      - name: id
+        in: path
+        description: Mail user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: filter_id
+        in: path
+        description: Mail user filter ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Mail user filter details
@@ -178,6 +185,21 @@
       ### Notes
       - The mailuser_id cannot be changed after creation
       - All fields except password are updated if provided
+    parameters:
+      - name: id
+        in: path
+        description: Mail user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: filter_id
+        in: path
+        description: Mail user filter ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -216,6 +238,21 @@
       ### Notes
       - The operation is permanent and cannot be undone
       - User must have permission to modify the filter
+    parameters:
+      - name: id
+        in: path
+        description: Mail user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: filter_id
+        in: path
+        description: Mail user filter ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Mail user filter deleted successfully

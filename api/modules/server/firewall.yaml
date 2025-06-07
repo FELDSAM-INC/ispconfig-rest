@@ -23,11 +23,14 @@
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/sort.yaml'
       - $ref: '../../components/parameters/order.yaml'
-      - name: server_id
-        in: query
-        description: Filter by server ID
+      - name: id
+        in: path
+        description: Server ID
+        required: true
         schema:
           type: integer
+          format: int64
+        example: 1
       - name: active
         in: query
         description: Filter by active status (y/n)
@@ -82,6 +85,15 @@
       - `udp_port` must be a valid comma-separated list of ports or port ranges
       - `active` must be either 'y' or 'n'
     operationId: createFirewallRule
+    parameters:
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
     requestBody:
       required: true
       content:
@@ -109,22 +121,29 @@
       - basicAuth: []
 
 /servers/{id}/firewall/{firewall_id}:
-  parameters:
-    - name: firewall_id
-      in: path
-      description: ID of the firewall rule
-      required: true
-      schema:
-        type: integer
-        format: int64
-      example: 1
-
   get:
     tags:
       - Server Firewall
     summary: Get a firewall rule by ID
     description: Returns detailed information about a specific firewall rule
     operationId: getFirewallRule
+    parameters:
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      - name: firewall_id
+        in: path
+        description: ID of the firewall rule
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
     responses:
       '200':
         description: Firewall rule details
@@ -158,6 +177,23 @@
       - `udp_port` must be a valid comma-separated list of ports or port ranges if provided
       - `active` must be either 'y' or 'n' if provided
     operationId: updateFirewallRule
+    parameters:
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      - name: firewall_id
+        in: path
+        description: ID of the firewall rule
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
     requestBody:
       required: true
       content:
@@ -192,6 +228,23 @@
     summary: Delete a firewall rule
     description: Deletes a firewall rule configuration
     operationId: deleteFirewallRule
+    parameters:
+      - name: id
+        in: path
+        description: Server ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+      - name: firewall_id
+        in: path
+        description: ID of the firewall rule
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
     responses:
       '204':
         description: Firewall rule deleted successfully

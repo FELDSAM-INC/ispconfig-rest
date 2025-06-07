@@ -128,19 +128,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/get/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Mail get configuration ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail
     summary: Get mail get configuration by ID
     description: Returns a single mail get configuration by its ID
+    parameters:
+      - name: id
+        in: path
+        description: Mail get configuration ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Mail get configuration details
@@ -167,6 +167,15 @@
       ### Notes
       - The server_id cannot be changed after creation
       - Password is only updated if provided
+    
+    parameters:
+      - name: id
+        in: path
+        description: Mail get configuration ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -205,6 +214,15 @@
       ### Notes
       - The operation is permanent and cannot be undone
       - User must have permission to modify the configuration
+    
+    parameters:
+      - name: id
+        in: path
+        description: Mail get configuration ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Mail get configuration deleted successfully

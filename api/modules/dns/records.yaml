@@ -179,19 +179,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /dns/records/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: DNS record ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - DNS Records
     summary: Get DNS record by ID
     description: Returns a single DNS record by its ID
+    parameters:
+      - name: id
+        in: path
+        description: DNS record ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: DNS record details
@@ -219,6 +219,14 @@
       Only include the fields you want to update. Omitted fields will remain unchanged.
       
       See the POST endpoint for field requirements based on record type.
+    parameters:
+      - name: id
+        in: path
+        description: DNS record ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -252,6 +260,14 @@
       - DNS Records
     summary: Delete DNS record
     description: Deletes a DNS record by ID
+    parameters:
+      - name: id
+        in: path
+        description: DNS record ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: DNS record deleted successfully

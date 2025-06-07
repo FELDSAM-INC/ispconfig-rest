@@ -137,19 +137,19 @@
         $ref: '../../components/responses/InternalServerError.yaml'
 
 /mail/alias-domains/{id}:
-  parameters:
-    - name: id
-      in: path
-      description: Mail alias domain ID
-      required: true
-      schema:
-        type: integer
-        format: int64
   get:
     tags:
       - Mail Alias Domains
     summary: Get mail alias domain by ID
     description: Returns a single mail alias domain by its ID
+    parameters:
+      - name: id
+        in: path
+        description: Mail alias domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: Mail alias domain details
@@ -177,6 +177,14 @@
       - The source domain cannot be changed after creation
       - The destination domain must be an existing domain that belongs to the user
       - The type and active status can be updated
+    parameters:
+      - name: id
+        in: path
+        description: Mail alias domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -216,6 +224,14 @@
       - This will remove the alias domain configuration
       - Any emails sent to the alias domain will no longer be delivered to the destination domain
       - This action cannot be undone
+    parameters:
+      - name: id
+        in: path
+        description: Mail alias domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Mail alias domain deleted successfully
