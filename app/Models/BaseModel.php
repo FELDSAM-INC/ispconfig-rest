@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\YesNoBoolean;
 use App\Services\DatalogService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
@@ -71,19 +72,34 @@ abstract class BaseModel extends Model
 
             // The $original_attributes_for_datalog holds the 'old' state for updates.
             // For inserts, it's an empty array, which is correct for datalog's 'old' part.
-
             if ($action === 'u') {
                 $diff_old = [];
                 $diff_new = [];
                 $all_keys = array_unique(array_merge(array_keys($original_attributes_for_datalog), array_keys($current_attributes_for_datalog)));
 
                 foreach ($all_keys as $key) {
-                    $old_value = $original_attributes_for_datalog[$key] ?? null;
-                    $new_value = $current_attributes_for_datalog[$key] ?? null;
+                    // Use array_key_exists to properly check for the existence of the key
+                    // This ensures we don't lose false/0/empty string values
+                    $old_value = array_key_exists($key, $original_attributes_for_datalog) 
+                        ? $original_attributes_for_datalog[$key] 
+                        : null;
+                    $new_value = array_key_exists($key, $current_attributes_for_datalog) 
+                        ? $current_attributes_for_datalog[$key] 
+                        : null;
+                    
+                    // Normalize boolean values for comparison
+                    $isBooleanField = isset($this->casts[$key]) && (
+                        $this->casts[$key] === 'boolean' || 
+                        is_a($this->casts[$key], 'boolean', false) ||
+                        $this->casts[$key] === YesNoBoolean::class
+                    );
+                    
+                    if ($isBooleanField) {
+                        $old_value = $this->normalizeBooleanForDatalog($old_value);
+                        $new_value = $this->normalizeBooleanForDatalog($new_value);
+                    }
 
                     // A field is considered changed if its value differs, or if it's added/removed.
-                    // Note: ISPConfig's diffrec might have slightly different nuances for null vs. not set,
-                    // but this covers the main cases of value changes, additions, and removals.
                     if ($old_value !== $new_value || 
                         (array_key_exists($key, $original_attributes_for_datalog) && !array_key_exists($key, $current_attributes_for_datalog)) || 
                         (!array_key_exists($key, $original_attributes_for_datalog) && array_key_exists($key, $current_attributes_for_datalog))) {
@@ -178,5 +194,19 @@ abstract class BaseModel extends Model
         }
 
         return $deleted;
+    }
+    
+    /**
+     * Normalize boolean values for datalog comparison
+     *
+     * @param mixed $value
+     * @return string
+     */
+    protected function normalizeBooleanForDatalog($value)
+    {
+        if ($value === true || $value === 'Y' || $value === '1' || $value === 1) {
+            return 'Y';
+        }
+        return 'N';
     }
 }
