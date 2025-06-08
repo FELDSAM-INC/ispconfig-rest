@@ -23,9 +23,18 @@ class ClientCircle extends BaseModel
         'active' => 'required|in:y,n'
     ];
 
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'active' => \App\Casts\YesNoBoolean::class,
+    ];
+
     // Default values
     protected $attributes = [
-        'active' => 'y'
+        'active' => true
     ];
 
     /**
