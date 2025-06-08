@@ -43,6 +43,7 @@ class DnsSoa extends BaseModel
         'minimum',
         'ttl',
         'active',
+        'sys_userid',
         'sys_groupid',
         'sys_perm_user',
         'sys_perm_group',
@@ -106,6 +107,7 @@ class DnsSoa extends BaseModel
         'minimum' => 'required|integer|min:0|max:2147483647',
         'ttl' => 'required|integer|min:0|max:2147483647',
         'active' => 'required|in:y,n',
+        'sys_userid' => 'required|integer|exists:sys_user,userid',
         'sys_groupid' => 'required|integer|exists:sys_group,groupid',
         'sys_perm_user' => 'sometimes|string|max:5|regex:/^[riud]*$/',
         'sys_perm_group' => 'sometimes|string|max:5|regex:/^[riud]*$/',
@@ -129,6 +131,7 @@ class DnsSoa extends BaseModel
         if ($id) {
             $rules['origin'] = 'required|string|max:255|regex:/^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/|unique:dns_soa,origin,' . $id . ',id';
             $rules['server_id'] = 'sometimes|integer|exists:server,server_id';
+            $rules['sys_userid'] = 'sometimes|integer|exists:sys_user,userid';
             $rules['sys_groupid'] = 'sometimes|integer|exists:sys_group,groupid';
         }
         

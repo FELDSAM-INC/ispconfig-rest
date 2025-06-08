@@ -38,11 +38,20 @@ class DnsRecord extends BaseModel
         'aux',
         'ttl',
         'active',
-        'protected',
+        'stamp',
+        'serial',
+        'sys_userid',
         'sys_groupid',
         'sys_perm_user',
         'sys_perm_group',
-        'sys_perm_other',
+        'sys_perm_other'
+    ];
+    
+    /**
+     * The meta attributes to use for data field parsing.
+     */
+    protected $meta = [
+        'protected',
         'priority',
         'port',
         'weight',
@@ -56,9 +65,8 @@ class DnsRecord extends BaseModel
         'cert_matching_type',
         'cert_fingerprint',
         'ordername',
-        'auth',
+        'auth'
     ];
-
     /**
      * The attributes that should be cast.
      *
@@ -66,19 +74,9 @@ class DnsRecord extends BaseModel
      */
     protected $casts = [
         'active' => \App\Casts\YesNoBoolean::class,
-        'protected' => \App\Casts\YesNoBoolean::class,
-        'auth' => \App\Casts\YesNoBoolean::class,
         'ttl' => 'integer',
-        'priority' => 'integer',
-        'port' => 'integer',
-        'weight' => 'integer',
-        'algorithm' => 'integer',
-        'cert_type' => 'integer',
-        'cert_key_tag' => 'integer',
-        'cert_algorithm' => 'integer',
-        'cert_usage' => 'integer',
-        'cert_selector' => 'integer',
-        'cert_matching_type' => 'integer',
+        'stamp' => 'integer',
+        'serial' => 'integer',
         'server_id' => 'integer',
         'zone' => 'integer',
         'sys_groupid' => 'integer',
@@ -92,19 +90,8 @@ class DnsRecord extends BaseModel
      */
     protected $attributes = [
         'active' => true,
-        'protected' => false,
         'auth' => true,
         'ttl' => 3600,
-        'priority' => 0,
-        'port' => 0,
-        'weight' => 0,
-        'algorithm' => 0,
-        'cert_type' => 0,
-        'cert_key_tag' => 0,
-        'cert_algorithm' => 0,
-        'cert_usage' => 0,
-        'cert_selector' => 0,
-        'cert_matching_type' => 0,
         'sys_perm_user' => 'riud',
         'sys_perm_group' => 'riud',
         'sys_perm_other' => '',
@@ -140,6 +127,7 @@ class DnsRecord extends BaseModel
             'active' => 'in:y,n',
             'protected' => 'in:y,n',
             'auth' => 'in:y,n',
+            'sys_userid' => 'integer|exists:sys_user,userid',
             'sys_groupid' => 'integer|exists:sys_group,groupid',
             'sys_perm_user' => 'string|max:5|regex:/^[riud]*$/',
             'sys_perm_group' => 'string|max:5|regex:/^[riud]*$/',
@@ -161,6 +149,7 @@ class DnsRecord extends BaseModel
             $rules['name'] = 'required|' . $rules['name'];
             $rules['type'] = 'required|' . $rules['type'];
             $rules['data'] = 'required|' . $rules['data'];
+            $rules['sys_userid'] = 'required|' . $rules['sys_userid'];
             $rules['sys_groupid'] = 'required|' . $rules['sys_groupid'];
         }
         
@@ -288,15 +277,7 @@ class DnsRecord extends BaseModel
      */
     public function zone()
     {
-        return $this->belongsTo(DnsSoa::class, 'zone', 'id');
-    }
-
-    /**
-     * Get the server that owns the record.
-     */
-    public function server()
-    {
-        return $this->belongsTo(Server::class, 'server_id', 'server_id');
+        return $this->belongsTo(DnsSoa::class, 'id', 'zone');
     }
 
     /**
