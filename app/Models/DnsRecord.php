@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\DnsSerialService;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -46,7 +48,7 @@ class DnsRecord extends BaseModel
         'sys_perm_group',
         'sys_perm_other'
     ];
-    
+
     /**
      * The meta attributes to use for data field parsing.
      */
@@ -75,7 +77,7 @@ class DnsRecord extends BaseModel
     protected $casts = [
         'active' => \App\Casts\YesNoBoolean::class,
         'ttl' => 'integer',
-        'stamp' => 'integer',
+        'stamp' => 'string',
         'serial' => 'integer',
         'server_id' => 'integer',
         'zone' => 'integer',
@@ -109,7 +111,7 @@ class DnsRecord extends BaseModel
 
     /**
      * Get the base validation rules for the model
-     * 
+     *
      * @param bool $forUpdate Whether the rules are for an update operation
      * @return array
      */
@@ -142,7 +144,7 @@ class DnsRecord extends BaseModel
             'cert_fingerprint' => 'string|max:255',
             'ordername' => 'string|max:255',
         ];
-        
+
         // For create operations, make required fields mandatory
         if (!$forUpdate) {
             $rules['zone'] = 'required|' . $rules['zone'];
@@ -152,10 +154,10 @@ class DnsRecord extends BaseModel
             $rules['sys_userid'] = 'required|' . $rules['sys_userid'];
             $rules['sys_groupid'] = 'required|' . $rules['sys_groupid'];
         }
-        
+
         return $rules;
     }
-    
+
     /**
      * Validation rules for the model
      *
@@ -175,13 +177,13 @@ class DnsRecord extends BaseModel
     public static function getValidationRules($type = null, $id = null, $forUpdate = false)
     {
         $rules = self::getBaseRules($forUpdate);
-        
+
         // Add type-specific validation rules
         if ($type) {
             $method = 'validate' . $type . 'Record';
             if (method_exists(static::class, $method)) {
                 $typeRules = static::$method();
-                
+
                 // If this is an update, make type-specific rules optional
                 if ($forUpdate) {
                     foreach ($typeRules as $field => &$rule) {
@@ -189,11 +191,11 @@ class DnsRecord extends BaseModel
                         $typeRules[$field] = preg_replace('/^required\|?/', '', $rule);
                     }
                 }
-                
+
                 $rules = array_merge($rules, $typeRules);
             }
         }
-        
+
         // For updates, add the current record ID to the unique constraints
         if ($id) {
             // No need to add 'sometimes' as all rules are optional for updates
@@ -201,7 +203,7 @@ class DnsRecord extends BaseModel
             $rules['zone'] = 'exists:dns_soa,id';
             $rules['sys_groupid'] = 'exists:sys_group,groupid';
         }
-        
+
         return $rules;
     }
 
@@ -304,6 +306,20 @@ class DnsRecord extends BaseModel
     }
 
     /**
+     * Update the serial number for this DNS record.
+     *
+     * @return int The new serial number
+     */
+    public function updateSerial()
+    {
+        $currentSerial = $this->serial ?? 0;
+        $this->serial = DnsSerialService::getNextSerialNumber($currentSerial);
+        $this->save(['timestamps' => false]); // Prevent infinite loop
+
+        return $this->serial;
+    }
+
+    /**
      * Boot the model.
      *
      * @return void
@@ -314,10 +330,6 @@ class DnsRecord extends BaseModel
 
         // Set default values when creating a new model
         static::creating(function ($model) {
-            if (empty($model->sys_userid)) {
-                $model->sys_userid = auth()->id() ?? 1;
-            }
-            
             // Set default TTL from zone if not provided
             if (empty($model->ttl) && $model->zone) {
                 $zone = DnsSoa::find($model->zone);
@@ -327,8 +339,28 @@ class DnsRecord extends BaseModel
             }
         });
 
+        // When updating a record, update the stamp and serial
+        static::updating(function ($model) {
+            // Update timestamp
+            $model->stamp = DnsSerialService::getCurrentTimestamp();
+
+            // Always update the serial on record updates
+            $currentSerial = $model->getOriginal('serial') ?? 0;
+            $model->serial = DnsSerialService::getNextSerialNumber($currentSerial);
+        });
+
+        // When a record is created, update the zone's serial
+        static::created(function ($model) {
+            if ($model->zone) {
+                $zone = DnsSoa::find($model->zone);
+                if ($zone) {
+                    $zone->incrementSerial();
+                }
+            }
+        });
+
         // When a record is updated, update the zone's serial
-        static::saved(function ($model) {
+        static::updated(function ($model) {
             if ($model->zone) {
                 $zone = DnsSoa::find($model->zone);
                 if ($zone) {

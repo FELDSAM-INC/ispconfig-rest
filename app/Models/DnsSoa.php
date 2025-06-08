@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\DnsSerialService;
 use Carbon\Carbon;
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -192,30 +192,10 @@ class DnsSoa extends BaseModel
      */
     public function incrementSerial()
     {
-        $this->serial = $this->getNextSerialNumber();
+        $this->serial = DnsSerialService::getNextSerialNumber($this->serial);
         $this->save();
         
         return $this->serial;
-    }
-
-    /**
-     * Generate the next serial number for the zone.
-     *
-     * @return int
-     */
-    protected function getNextSerialNumber()
-    {
-        $now = Carbon::now();
-        $datePart = (int) $now->format('Ymd');
-        $currentSerial = $this->serial;
-        
-        // If the current serial is from today, increment the counter
-        if ($currentSerial >= $datePart * 100) {
-            return $currentSerial + 1;
-        }
-        
-        // Otherwise, start a new serial with today's date
-        return $datePart * 100;
     }
 
     /**
