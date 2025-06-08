@@ -21,7 +21,15 @@ class YesNoBoolean implements CastsAttributes
         if ($value === null) {
             return false;
         }
-        return $value === 'Y' || $value === true || $value === '1' || $value === 1;
+        
+        // Handle string values (Y/N from database)
+        if (is_string($value)) {
+            $value = strtoupper($value);
+            return $value === 'Y' || $value === '1' || $value === 'TRUE';
+        }
+        
+        // Handle boolean or numeric values
+        return (bool) $value;
     }
 
     /**
@@ -60,14 +68,15 @@ class YesNoBoolean implements CastsAttributes
             return null;
         }
         
+        // Convert the value to database format ('Y' or 'N')
+        $newValue = $this->toDbValue($value);
+        
         // Get the current original value before any changes
         $original = $model->getOriginal($key);
         
-        // Convert the value to database format
-        $newValue = $this->toDbValue($value);
-        
-        // If the value hasn't changed, return the original value to prevent marking as dirty
-        if ($original !== null && $this->toDbValue($original) === $newValue) {
+        // If the original value exists and is already in the correct format ('Y' or 'N'),
+        // and the new value would be the same, return the original to prevent marking as dirty
+        if ($original !== null && in_array($original, ['Y', 'N']) && $original === $newValue) {
             return $original;
         }
         
