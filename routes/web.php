@@ -65,17 +65,31 @@ $router->group(['prefix' => $apiPrefix, 'middleware' => 'api.auth'], function ()
     $router->put('clients/{id}', 'Api\V1\ClientController@update');
     $router->delete('clients/{id}', 'Api\V1\ClientController@destroy');
     
-    // Monitor - DataLog endpoints
-    $router->get('monitor/data-logs', 'Api\V1\Monitor\DataLogController@index');
-    $router->get('monitor/data-logs/{datalog_id}', 'Api\V1\Monitor\DataLogController@show');
-    
     // Reseller endpoints
     $router->get('resellers', 'Api\V1\ClientResellerController@index');
     $router->post('resellers', 'Api\V1\ClientResellerController@store');
     $router->get('resellers/{id}', 'Api\V1\ClientResellerController@show');
     $router->put('resellers/{id}', 'Api\V1\ClientResellerController@update');
     $router->delete('resellers/{id}', 'Api\V1\ClientResellerController@destroy');
+ 
+    // DNS Zone (SOA) endpoints
+    $router->get('dns/soa', 'Api\V1\DnsSoaController@index');
+    $router->post('dns/soa', 'Api\V1\DnsSoaController@store');
+    $router->get('dns/soa/{id}', 'Api\V1\DnsSoaController@show');
+    $router->put('dns/soa/{id}', 'Api\V1\DnsSoaController@update');
+    $router->delete('dns/soa/{id}', 'Api\V1\DnsSoaController@destroy');
     
+    // DNS Record endpoints
+    $router->get('dns/records', 'Api\V1\DnsRecordController@index');
+    $router->post('dns/records', 'Api\V1\DnsRecordController@store');
+    $router->get('dns/records/{id}', 'Api\V1\DnsRecordController@show');
+    $router->put('dns/records/{id}', 'Api\V1\DnsRecordController@update');
+    $router->delete('dns/records/{id}', 'Api\V1\DnsRecordController@destroy');
+
+    // Monitor - DataLog endpoints
+    $router->get('monitor/data-logs', 'Api\V1\Monitor\DataLogController@index');
+    $router->get('monitor/data-logs/{datalog_id}', 'Api\V1\Monitor\DataLogController@show');
+
     // Additional endpoints can be added here for other ISPConfig entities
     // based on the API specification in the api/ directory
 });
