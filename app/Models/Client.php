@@ -103,9 +103,7 @@ class Client extends BaseModel
         'sys_groupid',
         'sys_perm_user',
         'sys_perm_group',
-        'sys_perm_other',
-        'server_id',
-        'active'
+        'sys_perm_other'
     ];
 
     /**
