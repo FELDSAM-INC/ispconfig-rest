@@ -50,6 +50,13 @@ $router->group(['prefix' => $apiPrefix, 'middleware' => 'api.auth'], function ()
     $router->post('clients/{client_id}/templates', 'Api\V1\ClientTemplateAssignmentController@store');
     $router->get('clients/{client_id}/templates/{template_id}', 'Api\V1\ClientTemplateAssignmentController@show');
     $router->delete('clients/{client_id}/templates/{template_id}', 'Api\V1\ClientTemplateAssignmentController@destroy');
+    
+    // Client Circle endpoints
+    $router->get('clients/circles', 'Api\V1\ClientCircleController@index');
+    $router->post('clients/circles', 'Api\V1\ClientCircleController@store');
+    $router->get('clients/circles/{id}', 'Api\V1\ClientCircleController@show');
+    $router->put('clients/circles/{id}', 'Api\V1\ClientCircleController@update');
+    $router->delete('clients/circles/{id}', 'Api\V1\ClientCircleController@destroy');
 
     // Client endpoints - general routes last
     $router->get('clients', 'Api\V1\ClientController@index');
