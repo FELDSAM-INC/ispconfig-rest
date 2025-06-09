@@ -478,7 +478,7 @@ class DnsRecord extends BaseModel
         }
 
         // Process meta fields into the data field
-        $this->data = DnsRecordMetaService::metaToData($attributes, $type);
+        list($this->aux, $this->data) = DnsRecordMetaService::metaToData($attributes, $type);
     }
 
     /**
@@ -495,7 +495,7 @@ class DnsRecord extends BaseModel
         $type = strtoupper($this->type);
 
         // Extract meta fields from data
-        $metaData = DnsRecordMetaService::dataToMeta($this->data, $type);
+        $metaData = DnsRecordMetaService::dataToMeta($this->getAttributes(), $type);
 
         return $metaData;
     }

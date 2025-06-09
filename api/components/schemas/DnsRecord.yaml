@@ -146,10 +146,6 @@ properties:
       Auxiliary data whose meaning depends on the record type:
       - MX: Priority (0-65535)
       - SRV: Priority (0-65535)
-      - CAA: Flags (0-255)
-      - SSHFP: Algorithm number
-      - TLSA: Certificate usage (0-255)
-      - DS: Key tag (0-65535)
       - NAPTR: Order (0-65535)
     x-db-field: aux
     example: 10

@@ -12,7 +12,7 @@ class DnsRecordMetaService
      *
      * @param array $data The input data with meta fields
      * @param string $type The DNS record type
-     * @return string The formatted data field
+     * @return array The aux and formatted data field
      */
     public static function metaToData(array $data, string $type)
     {
@@ -40,24 +40,24 @@ class DnsRecordMetaService
             case 'DS':
                 return self::formatDsData($data);
             default:
-                return $data['data'] ?? '';
+                return [$data['aux'] ?? '', $data['data'] ?? ''];
         }
     }
 
     /**
      * Convert data field to meta fields based on record type
      *
-     * @param string $data The data field from the database
+     * @param array $data The attributes from the database
      * @param string $type The DNS record type
      * @return array The extracted meta fields
      */
-    public static function dataToMeta(string $data, string $type)
+    public static function dataToMeta(array $data, string $type)
     {
         $type = strtoupper($type);
 
         // If the type is TXT, we need to guess if it is SPF or DMARC
         if($type === 'TXT') {
-            $type = self::guessType($data);
+            $type = self::guessType($data['data']);
         }
 
         switch ($type) {
@@ -121,26 +121,19 @@ class DnsRecordMetaService
             $hostname .= '.';
         }
 
-        return $priority . ' ' . $hostname;
+        return [$priority, $hostname];
     }
 
     /**
      * Parse MX record data into meta fields
      *
-     * @param string $data The data field from the database
+     * @param array $data The attributes from the database
      * @return array The extracted meta fields
      */
-    private static function parseMxData(string $data)
+    private static function parseMxData(array $data)
     {
-        // Split the data into priority and hostname
-        $parts = preg_split('/\s+/', $data, 2);
-
-        if (count($parts) < 2) {
-            return ['data' => $data];
-        }
-
-        $priority = (int)$parts[0];
-        $hostname = $parts[1];
+        $priority = $data['aux'];
+        $hostname = $data['data'];
 
         // Remove trailing dot if present
         if (!empty($hostname) && substr($hostname, -1) === '.') {
@@ -172,25 +165,25 @@ class DnsRecordMetaService
             $hostname .= '.';
         }
 
-        return $priority . ' ' . $weight . ' ' . $port . ' ' . $hostname;
+        return [$priority, $weight . ' ' . $port . ' ' . $hostname];
     }
 
     /**
      * Parse SRV record data into meta fields
      *
-     * @param string $data The data field from the database
+     * @param array $data The attributes from the database
      * @return array The extracted meta fields
      */
-    private static function parseSrvData(string $data)
+    private static function parseSrvData(array $data)
     {
         // Split the data into priority, weight, port, and target
-        $parts = preg_split('/\s+/', $data, 4);
+        $parts = preg_split('/\s+/', $data['data'], 3);
 
-        if (count($parts) < 4) {
-            return ['data' => $data];
+        if (count($parts) < 3) {
+            return [];
         }
 
-        $hostname = $parts[3];
+        $hostname = $parts[2];
 
         // Remove trailing dot if present
         if (!empty($hostname) && substr($hostname, -1) === '.') {
@@ -198,9 +191,9 @@ class DnsRecordMetaService
         }
 
         return [
-            'priority' => (int)$parts[0],
-            'weight' => (int)$parts[1],
-            'port' => (int)$parts[2],
+            'priority' => (int)$data['aux'],
+            'weight' => (int)$parts[0],
+            'port' => (int)$parts[1],
             'hostname' => $hostname
         ];
     }
@@ -219,19 +212,19 @@ class DnsRecordMetaService
         $matchingType = $data['matching_type'] ?? 0;
         $hash = $data['hash'] ?? '';
 
-        return $certUsage . ' ' . $selector . ' ' . $matchingType . ' ' . $hash;
+        return ['', $certUsage . ' ' . $selector . ' ' . $matchingType . ' ' . $hash];
     }
 
     /**
      * Parse TLSA record data into meta fields
      *
-     * @param string $data The data field from the database
+     * @param array $data The attributes from the database
      * @return array The extracted meta fields
      */
-    private static function parseTlsaData(string $data)
+    private static function parseTlsaData(array $data)
     {
         // Split the data into usage, selector, matching_type, and certificate
-        $parts = preg_split('/\s+/', $data, 4);
+        $parts = preg_split('/\s+/', $data['data'], 4);
 
         if (count($parts) < 4) {
             return [];
@@ -258,19 +251,19 @@ class DnsRecordMetaService
         $hashType = $data['hash_type'] ?? 0;
         $hash = $data['hash'] ?? '';
 
-        return $algorithm . ' ' . $hashType . ' ' . $hash;
+        return ['', $algorithm . ' ' . $hashType . ' ' . $hash];
     }
 
     /**
      * Parse SSHFP record data into meta fields
      *
-     * @param string $data The data field from the database
+     * @param array $data The attributes from the database
      * @return array The extracted meta fields
      */
-    private static function parseSshfpData(string $data)
+    private static function parseSshfpData(array $data)
     {
         // Split the data into algorithm, fingerprint_type, and fingerprint
-        $parts = preg_split('/\s+/', $data, 3);
+        $parts = preg_split('/\s+/', $data['data'], 3);
 
         if (count($parts) < 3) {
             return [];
@@ -308,22 +301,22 @@ class DnsRecordMetaService
             $value = '"' . $value . '"';
         }
 
-        return $flag . ' ' . $tag . ' ' . $value;
+        return ['', $flag . ' ' . $tag . ' ' . $value];
     }
 
     /**
      * Parse CAA record data into meta fields
      *
-     * @param string $data The data field from the database
+     * @param array $data The attributes from the database
      * @return array The extracted meta fields
      */
-    private static function parseCaaData(string $data)
+    private static function parseCaaData(array $data)
     {
         // Split the data into flag, tag, and value
-        $parts = preg_split('/\s+/', $data, 3);
+        $parts = preg_split('/\s+/', $data['data'], 3);
 
         if (count($parts) < 3) {
-            return ['data' => $data];
+            return [];
         }
 
         $flag = (int)$parts[0];
@@ -371,19 +364,19 @@ class DnsRecordMetaService
             $os = '"' . $os . '"';
         }
 
-        return $cpu . ' ' . $os;
+        return ['', $cpu . ' ' . $os];
     }
 
     /**
      * Parse HINFO record data into meta fields
      *
-     * @param string $data The data field from the database
+     * @param array $data The attributes from the database
      * @return array The extracted meta fields
      */
-    private static function parseHinfoData(string $data)
+    private static function parseHinfoData(array $data)
     {
         // Split the data into CPU and OS
-        $parts = preg_split('/\s+/', $data, 2);
+        $parts = preg_split('/\s+/', $data['data'], 2);
 
         if (count($parts) < 2) {
             return [];
@@ -461,16 +454,16 @@ class DnsRecordMetaService
                 break;
         }
 
-        return 'v=spf1 ' . implode(' ', $spf);
+        return ['', 'v=spf1 ' . implode(' ', $spf)];
     }
 
     /**
      * Parse SPF record data into meta fields
      *
-     * @param string $data The data field from the database
+     * @param array $data The attributes from the database
      * @return array The extracted meta fields
      */
-    private static function parseSpfData(string $data)
+    private static function parseSpfData(array $data)
     {
         $result = [
             'allow_mx' => false,
@@ -482,7 +475,7 @@ class DnsRecordMetaService
             'policy' => 'fail'
         ];
 
-        foreach (preg_split('/\s+/', $data) as $part) {
+        foreach (preg_split('/\s+/', $data['data']) as $part) {
             switch (true) {
                 case $part === 'mx':
                     $result['allow_mx'] = true;
@@ -573,17 +566,19 @@ class DnsRecordMetaService
             $dmarc[] = "aspf={$aspf}";
         }
 
-        return 'v=DMARC1; ' . implode(';', $dmarc);
+        return ['', 'v=DMARC1; ' . implode(';', $dmarc)];
     }
 
     /**
      * Parse DMARC record data into meta fields
      *
-     * @param string $data The data field from the database
+     * @param array $data The attributes from the database
      * @return array The extracted meta fields
      */
-    private static function parseDmarcData(string $data)
+    private static function parseDmarcData(array $data)
     {
+        $data = $data['data'];
+
         // Remove surrounding quotes if present
         if (strlen($data) >= 2 && $data[0] === '"' && substr($data, -1) === '"') {
             $data = substr($data, 1, -1);
@@ -669,46 +664,47 @@ class DnsRecordMetaService
             $replacement .= '.';
         }
 
-        return $order . ' ' . $preference . ' ' . $flags . ' ' . $service . ' ' . $regexp . ' ' . $replacement;
+        return [$order, $preference . ' ' . $flags . ' ' . $service . ' ' . $regexp . ' ' . $replacement];
     }
 
     /**
      * Parse NAPTR record data into meta fields
      *
-     * @param string $data The data field from the database
+     * @param array $data The attributes from the database
      * @return array The extracted meta fields
      */
-    private static function parseNaptrData(string $data)
+    private static function parseNaptrData(array $data)
     {
         // Split the data into components
-        $parts = preg_split('/\s+/', $data, 6);
+        // example data: 100 "s" "http+I2R" "" _http._tcp.foo.com.
+        // example data: 100 "s" "http+I2R" "[a-zA-Z]+\\.cz." .
+        $parts = preg_split('/\s+/', $data['data'], 5);
 
-        if (count($parts) < 6) {
+        if (count($parts) < 5) {
             return [];
         }
 
         // Remove quotes from service and regexp if present
-        $service = $parts[3];
+        $service = $parts[2];
         if (strlen($service) >= 2 && $service[0] === '"' && substr($service, -1) === '"') {
             $service = substr($service, 1, -1);
         }
 
-        $regexp = $parts[4];
+        $regexp = $parts[3];
         if (strlen($regexp) >= 2 && $regexp[0] === '"' && substr($regexp, -1) === '"') {
             $regexp = substr($regexp, 1, -1);
         }
 
         // Remove trailing dot from replacement if present
-        $replacement = $parts[5];
+        $replacement = $parts[4];
         if (!empty($replacement) && substr($replacement, -1) === '.') {
             $replacement = substr($replacement, 0, -1);
         }
 
         return [
-            'data' => $data,
-            'order' => (int)$parts[0],
-            'preference' => (int)$parts[1],
-            'naptr_flag' => $parts[2],
+            'order' => (int)$data['aux'],
+            'preference' => (int)$parts[0],
+            'naptr_flag' => $parts[1],
             'service' => $service,
             'regexp' => $regexp,
             'replacement' => $replacement
@@ -729,25 +725,24 @@ class DnsRecordMetaService
         $digestType = $data['digest_type'] ?? 0;
         $digest = $data['digest'] ?? '';
 
-        return $keyTag . ' ' . $algorithm . ' ' . $digestType . ' ' . $digest;
+        return ['', $keyTag . ' ' . $algorithm . ' ' . $digestType . ' ' . $digest];
     }
 
     /**
      * Parse DS record data into meta fields
      *
-     * @param string $data The data field from the database
+     * @param array $data The attributes from the database
      * @return array The extracted meta fields
      */
-    private static function parseDsData(string $data)
+    private static function parseDsData(array $data)
     {
-        $parts = preg_split('/\s+/', $data, 4);
+        $parts = preg_split('/\s+/', $data['data'], 4);
 
         if (count($parts) < 4) {
             return [];
         }
 
         return [
-            'data' => $data,
             'key_tag' => (int)$parts[0],
             'algorithm' => (int)$parts[1],
             'digest_type' => (int)$parts[2],
