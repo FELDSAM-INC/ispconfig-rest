@@ -648,14 +648,18 @@ class DnsRecordMetaService
         $flags = $data['naptr_flag'] ?? '';
         $service = $data['service'] ?? '';
         $regexp = $data['regexp'] ?? '';
-        $replacement = $data['replacement'] ?? '';
+        $replacement = $data['replacement'] ?? '.';
 
-        // Add quotes to service and regexp if needed
-        if (!empty($service) && $service[0] !== '"' && substr($service, -1) !== '"') {
+        // Add quotes to flags, service and regexp if needed
+        if ($flags[0] !== '"' && substr($flags, -1) !== '"') {
+            $flags = '"' . $flags . '"';
+        }
+
+        if ($service[0] !== '"' && substr($service, -1) !== '"') {
             $service = '"' . $service . '"';
         }
 
-        if (!empty($regexp) && $regexp[0] !== '"' && substr($regexp, -1) !== '"') {
+        if ($regexp[0] !== '"' && substr($regexp, -1) !== '"') {
             $regexp = '"' . $regexp . '"';
         }
 
@@ -684,7 +688,12 @@ class DnsRecordMetaService
             return [];
         }
 
-        // Remove quotes from service and regexp if present
+        // Remove quotes from flags, service and regexp if present
+        $flags = $parts[1];
+        if (strlen($flags) >= 2 && $flags[0] === '"' && substr($flags, -1) === '"') {
+            $flags = substr($flags, 1, -1);
+        }
+
         $service = $parts[2];
         if (strlen($service) >= 2 && $service[0] === '"' && substr($service, -1) === '"') {
             $service = substr($service, 1, -1);
@@ -694,6 +703,9 @@ class DnsRecordMetaService
         if (strlen($regexp) >= 2 && $regexp[0] === '"' && substr($regexp, -1) === '"') {
             $regexp = substr($regexp, 1, -1);
         }
+        // Replace double backslashes with single backslashes
+        $regexp = str_replace('\\\\', '\\', $regexp);
+
 
         // Remove trailing dot from replacement if present
         $replacement = $parts[4];
@@ -704,7 +716,7 @@ class DnsRecordMetaService
         return [
             'order' => (int)$data['aux'],
             'preference' => (int)$parts[0],
-            'naptr_flag' => $parts[1],
+            'naptr_flag' => $flags,
             'service' => $service,
             'regexp' => $regexp,
             'replacement' => $replacement
