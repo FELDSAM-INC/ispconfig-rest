@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\DnsRecord;
 use App\Models\DnsSoa;
+use App\Services\DnsRecordMetaService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -46,12 +47,12 @@ class DnsRecordController extends Controller
         // Apply sorting
         $sortField = $request->input('sort', 'name');
         $sortOrder = 'asc';
-        
+
         if (str_starts_with($sortField, '-')) {
             $sortField = substr($sortField, 1);
             $sortOrder = 'desc';
         }
-        
+
         $query->orderBy($sortField, $sortOrder);
 
         // Paginate results
@@ -77,8 +78,11 @@ class DnsRecordController extends Controller
      */
     public function store(Request $request)
     {
+        // All fields including meta fields are at the same level in the request
+        $requestData = $request->all();
+
         $validator = Validator::make(
-            $request->all(), 
+            $requestData,
             DnsRecord::getValidationRules($request->input('type'), null, false)
         );
 
@@ -101,7 +105,12 @@ class DnsRecordController extends Controller
         try {
             DB::beginTransaction();
 
-            $record = new DnsRecord($request->all());
+            // Create record with all data including meta fields
+            $record = new DnsRecord($requestData);
+
+            // Meta fields are already included in the request data
+            // The model's setMetaAttribute method will handle them
+
             $record->server_id = $zone->server_id; // Inherit server_id from zone
             $record->save();
 
@@ -111,7 +120,7 @@ class DnsRecordController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Failed to create DNS record: ' . $e->getMessage());
-            
+
             return response()->json([
                 'message' => 'Failed to create DNS record',
                 'error' => $e->getMessage()
@@ -155,10 +164,13 @@ class DnsRecordController extends Controller
             ], Response::HTTP_NOT_FOUND);
         }
 
+        // All fields including meta fields are at the same level in the request
+        $requestData = $request->all();
+
         $recordType = $request->input('type', $record->type);
-        
+
         $validator = Validator::make(
-            $request->all(),
+            $requestData,
             DnsRecord::getValidationRules($recordType, $id, true)
         );
 
@@ -183,13 +195,16 @@ class DnsRecordController extends Controller
         try {
             DB::beginTransaction();
 
-            $record->fill($request->all());
-            
+            $record->fill($requestData);
+
+        // Meta fields are already included in the request data
+        // The model's setMetaAttribute method will handle them
+
             // If zone changed, update server_id to match new zone
-            if ($request->has('zone') && $request->input('zone') != $record->zone) {
+            if ($request->has('zone') && $request->input('zone') != $record->getOriginal('zone')) {
                 $record->server_id = $zone->server_id;
             }
-            
+
             $record->save();
 
             DB::commit();
@@ -198,7 +213,7 @@ class DnsRecordController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Failed to update DNS record: ' . $e->getMessage());
-            
+
             return response()->json([
                 'message' => 'Failed to update DNS record',
                 'error' => $e->getMessage()
@@ -231,7 +246,7 @@ class DnsRecordController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Failed to delete DNS record: ' . $e->getMessage());
-            
+
             return response()->json([
                 'message' => 'Failed to delete DNS record',
                 'error' => $e->getMessage()

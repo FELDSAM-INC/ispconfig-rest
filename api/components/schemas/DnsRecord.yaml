@@ -3,7 +3,6 @@ x-db-table: dns_rr
 required:
   - zone
   - type
-  - data
   - name
 
 discriminator:
@@ -21,9 +20,7 @@ discriminator:
     SSHFP: '#/components/schemas/DnsRecordSSHFP'
     TLSA: '#/components/schemas/DnsRecordTLSA'
     DS: '#/components/schemas/DnsRecordDS'
-    SOA: '#/components/schemas/DnsRecordSOA'
     SPF: '#/components/schemas/DnsRecordSPF'
-    DKIM: '#/components/schemas/DnsRecordDKIM'
     DMARC: '#/components/schemas/DnsRecordDMARC'
     ALIAS: '#/components/schemas/DnsRecordALIAS'
     HINFO: '#/components/schemas/DnsRecordHINFO'
@@ -109,7 +106,7 @@ properties:
 
   type:
     type: string
-    enum: [A, AAAA, MX, CNAME, TXT, NS, PTR, SOA, SRV, NAPTR, CAA, SSHFP, TLSA, DS, DNSKEY, SPF, DKIM, DMARC, ALIAS, HINFO, RP, LOC]
+    enum: [A, AAAA, MX, CNAME, TXT, NS, PTR, SRV, NAPTR, CAA, SSHFP, TLSA, DS, DNSKEY, SPF, DMARC, ALIAS, HINFO, RP, LOC]
     description: |
       The DNS record type.
       Determines the format and validation of the data field.
@@ -132,9 +129,7 @@ properties:
       - SSHFP: Fingerprint (e.g., "2 1 1234567890abcdef...")
       - TLSA: Certificate association data (hex encoded)
       - DS: Digest (hex encoded)
-      - SOA: Primary nameserver (e.g., ns1.example.com. hostmaster.example.com. 2023010101 7200 3600 1209600 86400)
       - SPF: SPF record data (e.g., "v=spf1 -all")
-      - DKIM: DKIM public key
       - DMARC: DMARC policy (e.g., "v=DMARC1; p=none; rua=mailto:dmarc@example.com")
       - ALIAS: Target hostname (e.g., example.com.)
       - HINFO: Hardware and OS info (e.g., "PC-Intel-386\" "OS/2")
@@ -155,7 +150,6 @@ properties:
       - SSHFP: Algorithm number
       - TLSA: Certificate usage (0-255)
       - DS: Key tag (0-65535)
-      - SOA: Refresh interval (seconds)
       - NAPTR: Order (0-65535)
     x-db-field: aux
     example: 10
@@ -181,6 +175,50 @@ properties:
     example: 'y'
 
   # Additional fields for specific record types
+  priority:
+    type: integer
+    format: int32
+    minimum: 0
+    maximum: 65535
+    description: |
+      Priority for MX and SRV records
+    example: 10
+
+  ipv4_address:
+    type: string
+    description: |
+      The IPv4 address for SPF records
+      Multiple addresses can be separated by spaces
+    example: "2001:db8::1"
+
+  ipv6_address:
+    type: string
+    description: |
+      The IPv6 address for SPF records
+      Multiple addresses can be separated by spaces
+    example: "2001:db8::1"
+
+  hostname:
+    type: string
+    description: |
+      The hostname for MX, SRV, and SPF records
+      Multiple hostnames can be separated by spaces for SPF records
+    example: "example.com"
+
+  include:
+    type: string
+    description: |
+      The include for SPF records
+      Multiple includes can be separated by spaces
+    example: "example.com"
+
+  policy:
+    type: string
+    enum: [fail, softfail, neutral]
+    description: |
+      The policy for SPF records
+    example: "neutral"
+
   weight:
     type: integer
     format: int32
@@ -206,19 +244,52 @@ properties:
       CAA tag (CAA only)
     example: "issue"
 
+  caa_flag:
+    type: integer
+    format: int32
+    description: |
+      CAA flag (CAA only)
+    example: 0
+
+  naptr_flag:
+    type: string
+    maxLength: 1
+    enum: [U,S,A,P]
+    description: |
+      NAPTR flag (NAPTR only)
+    example: "U"
+
+  ca_issuer:
+    type: string
+    description: |
+      CAA issuer (CAA only)
+    example: "letsencrypt.org"
+
+  additional:
+    type: string
+    description: |
+      Additional CAA property value (CAA only when type is iodef)
+    example: "mailto:admin@example.com"
+
   algorithm:
     type: integer
     format: int32
     description: |
-      Algorithm number (SSHFP, DS, etc.)
+      Algorithm number (SSHFP and DS only)
     example: 2
 
   hash_type:
     type: integer
     format: int32
     description: |
-      Hash type number (SSHFP, etc.)
+      Hash type number (SSHFP only)
     example: 1
+
+  hash:
+    type: string
+    description: |
+      Hash (SSHFP and TLSA only)
+    example: "1234567890abcdef..."
 
   cert_usage:
     type: integer
@@ -262,6 +333,12 @@ properties:
     description: |
       Digest type number (DS only)
     example: 1
+
+  digest:
+    type: string
+    description: |
+      Digest (DS only)
+    example: "1234567890abcdef..."
 
   # Timestamps
   created_at:

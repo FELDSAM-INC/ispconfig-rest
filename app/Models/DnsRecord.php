@@ -2,11 +2,10 @@
 
 namespace App\Models;
 
+use App\Casts\YesNoBoolean;
+use App\Services\DnsRecordMetaService;
 use App\Services\DnsSerialService;
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 
 class DnsRecord extends BaseModel
 {
@@ -25,6 +24,39 @@ class DnsRecord extends BaseModel
      * @var string
      */
     protected $primaryKey = 'id';
+
+    /**
+     * Indicates if the model should be timestamped.
+     *
+     * @var bool
+     */
+    public $timestamps = false;
+
+    /**
+     * The date format for the model's date fields.
+     *
+     * @var string
+     */
+    protected $dateFormat = 'Y-m-d H:i:s';
+
+    /**
+     * Meta fields that are not stored directly in the database
+     * but are used in API requests/responses
+     */
+    protected $metaFields = [
+        'A' => ['ipaddress'],
+        'AAAA' => ['ipaddress'],
+        'MX' => ['priority', 'hostname'],
+        'SRV' => ['priority', 'weight', 'port', 'hostname'],
+        'TLSA' => ['cert_usage', 'selector', 'matching_type', 'hostname'],
+        'SSHFP' => ['algorithm', 'hash_type', 'hash'],
+        'CAA' => ['caa_flag', 'caa_type', 'ca_issuer', 'additional'],
+        'HINFO' => ['cpu', 'os'],
+        'SPF' => ['allow_mx', 'allow_a', 'ipv4_address', 'ipv6_address', 'hostname', 'include', 'policy'],
+        'DMARC' => ['policy', 'pct', 'rua', 'ruf', 'sp', 'adkim', 'aspf'],
+        'NAPTR' => ['order', 'pref', 'naptr_flag', 'service', 'regexp', 'replacement'],
+        'DS' => ['key_tag', 'algorithm', 'digest_type', 'digest']
+    ];
 
     /**
      * The attributes that are mass assignable.
@@ -50,33 +82,12 @@ class DnsRecord extends BaseModel
     ];
 
     /**
-     * The meta attributes to use for data field parsing.
-     */
-    protected $meta = [
-        'protected',
-        'priority',
-        'port',
-        'weight',
-        'protocol',
-        'algorithm',
-        'cert_type',
-        'cert_key_tag',
-        'cert_algorithm',
-        'cert_usage',
-        'cert_selector',
-        'cert_matching_type',
-        'cert_fingerprint',
-        'ordername',
-        'auth'
-    ];
-    /**
      * The attributes that should be cast.
      *
      * @var array
      */
     protected $casts = [
-        'active' => \App\Casts\YesNoBoolean::class,
-        'ttl' => 'integer',
+        'active' => YesNoBoolean::class,
         'stamp' => 'string',
         'serial' => 'integer',
         'server_id' => 'integer',
@@ -84,6 +95,13 @@ class DnsRecord extends BaseModel
         'sys_groupid' => 'integer',
         'sys_userid' => 'integer',
     ];
+
+    /**
+     * The attributes that should be appended to arrays.
+     *
+     * @var array
+     */
+    protected $appends = ['meta'];
 
     /**
      * Default values for attributes
@@ -106,7 +124,7 @@ class DnsRecord extends BaseModel
      */
     protected static $recordTypes = [
         'A', 'AAAA', 'MX', 'CNAME', 'TXT', 'NS', 'PTR', 'SOA', 'SRV', 'NAPTR',
-        'CAA', 'SSHFP', 'TLSA', 'DS', 'DNSKEY', 'SPF', 'DKIM', 'DMARC', 'ALIAS', 'HINFO', 'RP', 'LOC'
+        'CAA', 'SSHFP', 'TLSA', 'DS', 'SPF', 'DKIM', 'DMARC', 'ALIAS', 'HINFO', 'RP', 'LOC'
     ];
 
     /**
@@ -119,8 +137,8 @@ class DnsRecord extends BaseModel
     {
         $rules = [
             'zone' => 'integer|exists:dns_soa,id',
-            'name' => 'string|max:255',
-            'type' => 'string|max:10|in:A,AAAA,MX,CNAME,TXT,NS,PTR,SOA,SRV,NAPTR,CAA,SSHFP,TLSA,DS,DNSKEY,SPF,DKIM,DMARC,ALIAS,HINFO,RP,LOC',
+            'name' => 'string|max:255|regex:/^([a-z0-9\-]+\.)*[a-z0-9\-]+$/i',
+            'type' => 'string|max:10|in:A,AAAA,MX,CNAME,TXT,NS,PTR,SOA,SRV,NAPTR,CAA,SSHFP,TLSA,DS,SPF,DKIM,DMARC,ALIAS,HINFO,RP,LOC',
             'data' => 'string|max:65535',
             'ttl' => 'integer|min:0|max:2147483647',
             'priority' => 'integer|min:0|max:65535',
@@ -150,7 +168,6 @@ class DnsRecord extends BaseModel
             $rules['zone'] = 'required|' . $rules['zone'];
             $rules['name'] = 'required|' . $rules['name'];
             $rules['type'] = 'required|' . $rules['type'];
-            $rules['data'] = 'required|' . $rules['data'];
             $rules['sys_userid'] = 'required|' . $rules['sys_userid'];
             $rules['sys_groupid'] = 'required|' . $rules['sys_groupid'];
         }
@@ -196,14 +213,6 @@ class DnsRecord extends BaseModel
             }
         }
 
-        // For updates, add the current record ID to the unique constraints
-        if ($id) {
-            // No need to add 'sometimes' as all rules are optional for updates
-            // Just ensure the IDs exist if they're provided
-            $rules['zone'] = 'exists:dns_soa,id';
-            $rules['sys_groupid'] = 'exists:sys_group,groupid';
-        }
-
         return $rules;
     }
 
@@ -214,7 +223,6 @@ class DnsRecord extends BaseModel
     {
         return [
             'data' => 'required|ipv4',
-            'name' => 'required|string|max:255|regex:/^([a-z0-9\-]+\.)*[a-z0-9\-]+$/i',
         ];
     }
 
@@ -225,7 +233,6 @@ class DnsRecord extends BaseModel
     {
         return [
             'data' => 'required|ipv6',
-            'name' => 'required|string|max:255|regex:/^([a-z0-9\-]+\.)*[a-z0-9\-]+$/i',
         ];
     }
 
@@ -235,20 +242,7 @@ class DnsRecord extends BaseModel
     protected static function validateCNAMERecord()
     {
         return [
-            'data' => 'required|string|max:255|regex:/^([a-z0-9\-]+\.)*[a-z0-9\-]+\.?$/',
-            'name' => 'required|string|max:255|regex:/^([a-z0-9\-]+\.)*[a-z0-9\-]+$/i',
-        ];
-    }
-
-    /**
-     * Validation rules for MX records
-     */
-    protected static function validateMXRecord()
-    {
-        return [
-            'data' => 'required|string|max:255|regex:/^([a-z0-9\-]+\.)*[a-z0-9\-]+\.?$/',
-            'name' => 'sometimes|string|max:255|regex:/^([a-z0-9\-]+\.)*[a-z0-9\-]+$/i',
-            'priority' => 'required|integer|min:0|max:65535',
+            'data' => 'required|string|max:255|regex:/^([a-zA-Z0-9\.-]+\.)*[a-zA-Z0-9\.-]+\.?$/',
         ];
     }
 
@@ -259,7 +253,6 @@ class DnsRecord extends BaseModel
     {
         return [
             'data' => 'required|string|max:65535',
-            'name' => 'sometimes|string|max:255|regex:/^([a-z0-9\-]+\.)*[a-z0-9\-]+$/i',
         ];
     }
 
@@ -269,8 +262,140 @@ class DnsRecord extends BaseModel
     protected static function validateNSRecord()
     {
         return [
-            'data' => 'required|string|max:255|regex:/^([a-z0-9\-]+\.)*[a-z0-9\-]+\.?$/',
-            'name' => 'sometimes|string|max:255|regex:/^([a-z0-9\-]+\.)*[a-z0-9\-]+$/i',
+            'data' => 'required|string|max:255|regex:/^[a-zA-Z0-9\.-]+$/',
+        ];
+    }
+
+    /**
+     * Validation rules for MX records
+     */
+    protected static function validateMXRecord()
+    {
+        return [
+            'priority' => 'required|integer|min:0|max:65535',
+            'hostname' => 'required|string|max:255|regex:/^([a-zA-Z0-9\.-]+\.)*[a-zA-Z0-9\.-]+\.?$/',
+        ];
+    }
+
+    /**
+     * Validation rules for SRV records
+     */
+    protected static function validateSRVRecord()
+    {
+        return [
+            'priority' => 'required|integer|min:0|max:65535',
+            'weight' => 'required|integer|min:0|max:65535',
+            'port' => 'required|integer|min:0|max:65535',
+            'hostname' => 'required|string|max:255|regex:/^([a-zA-Z0-9\.-]+\.)*[a-zA-Z0-9\.-]+\.?$/',
+        ];
+    }
+
+    /**
+     * Validation rules for TLSA records
+     */
+    protected static function validateTLSARecord()
+    {
+        return [
+            'cert_usage' => 'required|integer|min:0|max:3',
+            'selector' => 'required|integer|min:0|max:1',
+            'matching_type' => 'required|integer|min:0|max:2',
+            'hash' => 'required|string|max:255',
+        ];
+    }
+
+    /**
+     * Validation rules for SSHFP records
+     */
+    protected static function validateSSHFPRecord()
+    {
+        return [
+            'algorithm' => 'required|integer|min:0|max:4',
+            'hash_type' => 'required|integer|min:0|max:2',
+            'hash' => 'required|string|max:255',
+        ];
+    }
+
+    /**
+     * Validation rules for CAA records
+     */
+    protected static function validateCAARecord()
+    {
+        return [
+            'caa_flag' => 'required|integer|min:0|max:255',
+            'caa_type' => 'required|string|in:issue,issuewild,iodef',
+            'ca_issuer' => 'required_if:caa_type,issue,issuewild|string|max:255',
+            'additional' => 'string|max:255|required_if:caa_type,iodef',
+        ];
+    }
+
+    /**
+     * Validation rules for HINFO records
+     */
+    protected static function validateHINFORecord()
+    {
+        return [
+            'cpu' => 'required|string|max:255|regex:/^[a-zA-Z0-9\.-_\s]+$/',
+            'os' => 'required|string|max:255|regex:/^[a-zA-Z0-9\.-_\s]+$/',
+        ];
+    }
+
+    /**
+     * Validation rules for SPF records
+     */
+    protected static function validateSPFRecord()
+    {
+        return [
+            'allow_mx' => 'boolean',
+            'allow_a' => 'boolean',
+            'ipv4_address' => 'string|regex:/^(((?:\d{1,3}\.){3}\d{1,3})(?:\/(?:\d{1,2}|3[0-2]))?(?:\s+((?:\d{1,3}\.){3}\d{1,3})(?:\/(?:\d{1,2}|3[0-2]))?)*$/',
+            'ipv6_address' => 'string|regex:/^(((?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4})(?:\/(?:\d{1,3}|1[0-9]{1,2}|2[0-4]\d|25[0-5]))?(?:\s+((?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4})(?:\/(?:\d{1,3}|1[0-9]{1,2}|2[0-4]\d|25[0-5]))?)*$/',
+            'hostname' => 'string|max:255|regex:/^([a-zA-Z0-9\.-]+\.)*[a-zA-Z0-9\.-]+\.?$/',
+            'include' => 'string|max:255|regex:/^([a-zA-Z0-9\.-]+\.)*[a-zA-Z0-9\.-]+\.?$/',
+            'policy' => 'required|string|in:fail,softfail,neutral',
+        ];
+    }
+
+    /**
+     * Validation rules for DMARC records
+     */
+    protected static function validateDMARCRecord()
+    {
+        return [
+            'policy' => 'required|string|in:none,quarantine,reject',
+            'pct' => 'required|integer|min:0|max:100',
+            'rua' => 'string|max:255',
+            'ruf' => 'string|max:255',
+            'sp' => 'required|string|in:none,quarantine,reject',
+            'adkim' => 'required|string|in:r,s',
+            'aspf' => 'required|string|in:r,s',
+        ];
+    }
+
+    /**
+     * Validation rules for NAPTR records
+     */
+    protected static function validateNAPTRRecord()
+    {
+        return [
+            'order' => 'required|integer|min:0|max:65535',
+            'pref' => 'required|integer|min:0|max:65535',
+            'naptr_flag' => 'string|max:1|in:U,S,A,P',
+            'service' => 'required|string|max:32',
+            'regexp' => 'required_without:replacement|string|max:255',
+            'replacement' => 'required_without:regexp|string|max:255',
+        ];
+    }
+
+    /**
+     * Validation rules for DS records
+     */
+    protected static function validateDSRecord()
+    {
+        return [
+            'key_tag' => 'required|integer|min:0|max:65535',
+            'algorithm' => 'required|integer|min:0|max:255',
+            'digest_type' => 'required|integer|min:0|max:255',
+            'digest' => 'required|string|max:255',
         ];
     }
 
@@ -312,11 +437,84 @@ class DnsRecord extends BaseModel
      */
     public function updateSerial()
     {
-        $currentSerial = $this->serial ?? 0;
-        $this->serial = DnsSerialService::getNextSerialNumber($currentSerial);
-        $this->save(['timestamps' => false]); // Prevent infinite loop
+        $this->stamp = DnsSerialService::getCurrentTimestamp();
+        $this->serial = DnsSerialService::getNextSerialNumber($this->serial);
+        $this->save();
 
         return $this->serial;
+    }
+
+    /**
+     * Process meta fields and update the data field accordingly
+     * This is called during model creation and updates
+     */
+    protected function processMetaFields()
+    {
+        // Only process if we have a type
+        if (!$this->type) {
+            return;
+        }
+
+        $type = strtoupper($this->type);
+        $attributes = $this->getAttributes();
+
+        // Check if we have any meta fields for this record type
+        if (!isset($this->metaFields[$type]) || empty($this->metaFields[$type])) {
+            return;
+        }
+
+        // Check if any meta fields are present in the attributes
+        $hasMetaFields = false;
+        foreach ($this->metaFields[$type] as $field) {
+            if (array_key_exists($field, $attributes)) {
+                $hasMetaFields = true;
+                break;
+            }
+        }
+
+        // If no meta fields are present, no need to process
+        if (!$hasMetaFields) {
+            return;
+        }
+
+        // Process meta fields into the data field
+        $this->data = DnsRecordMetaService::metaToData($attributes, $type);
+    }
+
+    /**
+     * Get meta attribute accessor
+     *
+     * @return array
+     */
+    public function getMetaAttribute()
+    {
+        if (!$this->type || !$this->data) {
+            return [];
+        }
+
+        $type = strtoupper($this->type);
+
+        // Extract meta fields from data
+        $metaData = DnsRecordMetaService::dataToMeta($this->data, $type);
+
+        return $metaData;
+    }
+
+    /**
+     * Set meta attribute mutator
+     *
+     * @param array $value
+     */
+    public function setMetaAttribute($value)
+    {
+        if (!is_array($value)) {
+            return;
+        }
+
+        // Set each meta field as a direct attribute
+        foreach ($value as $key => $val) {
+            $this->attributes[$key] = $val;
+        }
     }
 
     /**
@@ -328,25 +526,21 @@ class DnsRecord extends BaseModel
     {
         parent::boot();
 
-        // Set default values when creating a new model
         static::creating(function ($model) {
-            // Set default TTL from zone if not provided
-            if (empty($model->ttl) && $model->zone) {
-                $zone = DnsSoa::find($model->zone);
-                if ($zone) {
-                    $model->ttl = $zone->ttl;
-                }
-            }
+            // For new records, we don't update the serial or stamp
+            // They will be set by the DnsSoa model when the zone's serial is incremented
+
+            // Process meta fields if present
+            $model->processMetaFields();
         });
 
-        // When updating a record, update the stamp and serial
         static::updating(function ($model) {
-            // Update timestamp
             $model->stamp = DnsSerialService::getCurrentTimestamp();
-
-            // Always update the serial on record updates
             $currentSerial = $model->getOriginal('serial') ?? 0;
             $model->serial = DnsSerialService::getNextSerialNumber($currentSerial);
+
+            // Process meta fields if present
+            $model->processMetaFields();
         });
 
         // When a record is created, update the zone's serial
