@@ -107,9 +107,7 @@ class DnsRecordController extends Controller
 
             // Create record with all data including meta fields
             $record = new DnsRecord($requestData);
-
-            // Meta fields are already included in the request data
-            // The model's setMetaAttribute method will handle them
+            $record->processMetaFields($requestData);
 
             $record->server_id = $zone->server_id; // Inherit server_id from zone
             $record->save();
@@ -196,9 +194,7 @@ class DnsRecordController extends Controller
             DB::beginTransaction();
 
             $record->fill($requestData);
-
-        // Meta fields are already included in the request data
-        // The model's setMetaAttribute method will handle them
+            $record->processMetaFields($requestData);
 
             // If zone changed, update server_id to match new zone
             if ($request->has('zone') && $request->input('zone') != $record->getOriginal('zone')) {

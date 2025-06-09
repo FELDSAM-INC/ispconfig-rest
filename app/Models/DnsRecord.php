@@ -110,7 +110,6 @@ class DnsRecord extends BaseModel
      */
     protected $attributes = [
         'active' => true,
-        'auth' => true,
         'ttl' => 3600,
         'sys_perm_user' => 'riud',
         'sys_perm_group' => 'riud',
@@ -447,8 +446,10 @@ class DnsRecord extends BaseModel
     /**
      * Process meta fields and update the data field accordingly
      * This is called during model creation and updates
+     *
+     * @param array $attributes The attributes to process
      */
-    protected function processMetaFields()
+    public function processMetaFields(array $attributes)
     {
         // Only process if we have a type
         if (!$this->type) {
@@ -456,7 +457,6 @@ class DnsRecord extends BaseModel
         }
 
         $type = strtoupper($this->type);
-        $attributes = $this->getAttributes();
 
         // Check if we have any meta fields for this record type
         if (!isset($this->metaFields[$type]) || empty($this->metaFields[$type])) {
@@ -501,23 +501,6 @@ class DnsRecord extends BaseModel
     }
 
     /**
-     * Set meta attribute mutator
-     *
-     * @param array $value
-     */
-    public function setMetaAttribute($value)
-    {
-        if (!is_array($value)) {
-            return;
-        }
-
-        // Set each meta field as a direct attribute
-        foreach ($value as $key => $val) {
-            $this->attributes[$key] = $val;
-        }
-    }
-
-    /**
      * Boot the model.
      *
      * @return void
@@ -526,21 +509,10 @@ class DnsRecord extends BaseModel
     {
         parent::boot();
 
-        static::creating(function ($model) {
-            // For new records, we don't update the serial or stamp
-            // They will be set by the DnsSoa model when the zone's serial is incremented
-
-            // Process meta fields if present
-            $model->processMetaFields();
-        });
-
         static::updating(function ($model) {
             $model->stamp = DnsSerialService::getCurrentTimestamp();
             $currentSerial = $model->getOriginal('serial') ?? 0;
             $model->serial = DnsSerialService::getNextSerialNumber($currentSerial);
-
-            // Process meta fields if present
-            $model->processMetaFields();
         });
 
         // When a record is created, update the zone's serial
