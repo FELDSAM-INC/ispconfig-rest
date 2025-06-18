@@ -16,10 +16,6 @@ class ApiAuthMiddleware
      */
     public function handle($request, Closure $next)
     {
-        // For now, this is a placeholder for authentication
-        // In a real implementation, you would validate API keys or tokens
-        // against the ISPConfig database or use OAuth2
-        
         // Check for API key in header
         $apiKey = $request->header('X-API-Key');
         
@@ -27,6 +23,13 @@ class ApiAuthMiddleware
             return response()->json([
                 'error' => 'Unauthorized. API key is required.'
             ], Response::HTTP_UNAUTHORIZED);
+        }
+        
+        // Auto-authorize with dev-api-key in development environment
+        if (app()->environment('local', 'development') && $apiKey === 'dev-api-key') {
+            // Set admin user ID for development
+            $request->attributes->set('ispconfig_user_id', 1);
+            return $next($request);
         }
         
         // TODO: Implement actual authentication against ISPConfig database

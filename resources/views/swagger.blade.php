@@ -66,7 +66,15 @@
                 defaultModelExpandDepth: 1,
                 displayRequestDuration: true,
                 showExtensions: true,
-                showCommonExtensions: true
+                showCommonExtensions: true,
+                
+                // Auto-authorize in development environment
+                @if(app()->environment('local', 'development'))
+                requestInterceptor: (req) => {
+                    req.headers['X-API-Key'] = 'dev-api-key';
+                    return req;
+                },
+                @endif
             });
             window.ui = ui;
         };
