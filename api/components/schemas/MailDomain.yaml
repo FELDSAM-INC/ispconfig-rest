@@ -113,7 +113,6 @@ properties:
     enum: [y, n]
     default: "y"
 
-
   local_delivery:
     type: string
     description: |
@@ -153,20 +152,6 @@ properties:
     readOnly: true
     description: Other permissions for the record
     example: ""
-
-  created_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Creation timestamp
-    example: "2023-01-01T12:00:00Z"
-
-  updated_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Last update timestamp
-    example: "2023-01-01T12:00:00Z"
 
   # Response only fields (not for input)
   server_name:

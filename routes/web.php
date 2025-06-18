@@ -100,6 +100,13 @@ $router->group(['prefix' => $apiPrefix, 'middleware' => 'api.auth'], function ()
     $router->put('dns/records/{id}', 'Api\V1\DnsRecordController@update');
     $router->delete('dns/records/{id}', 'Api\V1\DnsRecordController@destroy');
 
+    // Mail Domain endpoints
+    $router->get('mail/domains', 'Api\V1\MailDomainController@index');
+    $router->post('mail/domains', 'Api\V1\MailDomainController@store');
+    $router->get('mail/domains/{id}', 'Api\V1\MailDomainController@show');
+    $router->put('mail/domains/{id}', 'Api\V1\MailDomainController@update');
+    $router->delete('mail/domains/{id}', 'Api\V1\MailDomainController@destroy');
+
     // Monitor - DataLog endpoints
     $router->get('monitor/data-logs', 'Api\V1\Monitor\DataLogController@index');
     $router->get('monitor/data-logs/{datalog_id}', 'Api\V1\Monitor\DataLogController@show');
