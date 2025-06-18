@@ -80,22 +80,28 @@ properties:
       The actual template content that will be used to generate DNS records.
       Use placeholders like {DOMAIN}, {IP}, etc. as defined in the fields.
     example: |
-      $ORIGIN {DOMAIN}.
-      $TTL 3600
-      @ IN SOA {NS1}. admin.{DOMAIN}. (
-        2023060101 ; serial
-        7200      ; refresh
-        3600      ; retry
-        1209600   ; expire
-        86400     ; minimum
-      )
-      @ IN NS {NS1}.
-      @ IN NS {NS2}.
-      @ IN A {IP}
-      www IN A {IP}
-      mail IN A {IP}
-      @ IN MX 10 mail.{DOMAIN}.
-      @ IN TXT "v=spf1 a mx -all"
+      [ZONE]
+      origin={DOMAIN}.
+      ns={NS1}.
+      mbox={EMAIL}.
+      refresh=7200
+      retry=540
+      expire=604800
+      minimum=3600
+      ttl=3600
+      xfer=
+      also_notify=
+      dnssec_wanted=N
+      dnssec_algo=ECDSAP256SHA256
+
+      [DNS_RECORDS]
+      A|{DOMAIN}.|{IP}|0|3600
+      A|www|{IP}|0|3600
+      A|mail|{IP}|0|3600
+      NS|{DOMAIN}.|{NS1}.|0|3600
+      NS|{DOMAIN}.|{NS2}.|0|3600
+      MX|{DOMAIN}.|mail.{DOMAIN}.|10|3600
+      TXT|{DOMAIN}.|v=spf1 mx a ~all|0|3600
 
   visible:
     type: string

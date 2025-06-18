@@ -86,6 +86,13 @@ $router->group(['prefix' => $apiPrefix, 'middleware' => 'api.auth'], function ()
     $router->put('dns/slaves/{id}', 'Api\V1\DnsSlaveController@update');
     $router->delete('dns/slaves/{id}', 'Api\V1\DnsSlaveController@destroy');
     
+    // DNS Template endpoints
+    $router->get('dns/templates', 'Api\V1\DnsTemplateController@index');
+    $router->post('dns/templates', 'Api\V1\DnsTemplateController@store');
+    $router->get('dns/templates/{id}', 'Api\V1\DnsTemplateController@show');
+    $router->put('dns/templates/{id}', 'Api\V1\DnsTemplateController@update');
+    $router->delete('dns/templates/{id}', 'Api\V1\DnsTemplateController@destroy');
+    
     // DNS Record endpoints
     $router->get('dns/records', 'Api\V1\DnsRecordController@index');
     $router->post('dns/records', 'Api\V1\DnsRecordController@store');
