@@ -127,12 +127,16 @@ class DnsSoa extends BaseModel
     {
         $rules = self::$rules;
         
-        // For updates, make origin unique except for the current record
+        // For updates, make all fields optional and handle unique constraint for origin
         if ($id) {
-            $rules['origin'] = 'required|string|max:255|regex:/^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/|unique:dns_soa,origin,' . $id . ',id';
-            $rules['server_id'] = 'sometimes|integer|exists:server,server_id';
-            $rules['sys_userid'] = 'sometimes|integer|exists:sys_user,userid';
-            $rules['sys_groupid'] = 'sometimes|integer|exists:sys_group,groupid';
+            // Make origin unique except for the current record
+            $rules['origin'] = str_replace('required', 'sometimes', $rules['origin']);
+            $rules['origin'] = str_replace('unique:dns_soa,origin', 'unique:dns_soa,origin,' . $id . ',id', $rules['origin']);
+            
+            // Make all required fields optional
+            foreach ($rules as $field => $rule) {
+                $rules[$field] = str_replace('required', 'sometimes', $rule);
+            }
         }
         
         return $rules;
