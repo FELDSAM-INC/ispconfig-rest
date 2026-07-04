@@ -267,10 +267,15 @@ class ScopingMailModuleTest extends TestCase
         $this->assertSame($datalogCount, DB::table('sys_datalog')->count());
 
         // Booked (-1 = unlimited): creates succeed and are stamped with the
-        // key's identity.
+        // key's identity. clientA is under reseller R, so R must book the
+        // feature too or its reseller cap (spec 012 checkResellerLimit) denies
+        // — R's default limit is 0 = not booked.
         $this->setClientLimit('clientA', 'limit_mailrouting', -1);
         $this->setClientLimit('clientA', 'limit_mail_wblist', -1);
         $this->setClientLimit('clientA', 'limit_spamfilter_wblist', -1);
+        $this->setClientLimit('reseller', 'limit_mailrouting', -1);
+        $this->setClientLimit('reseller', 'limit_mail_wblist', -1);
+        $this->setClientLimit('reseller', 'limit_spamfilter_wblist', -1);
 
         $this->postJson('/api/v1/mail/transports', [
             'server_id' => 1,

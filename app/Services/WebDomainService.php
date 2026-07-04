@@ -41,6 +41,7 @@ class WebDomainService
         protected DatalogService $datalog,
         protected SitesConfigService $config,
         protected IspContext $context,
+        protected ClientLimitService $limits,
     ) {}
 
     /**
@@ -119,6 +120,19 @@ class WebDomainService
         if (! $userProvidedChroot && ! empty($webConfig['php_fpm_default_chroot'])) {
             $record['php_fpm_chroot'] = $webConfig['php_fpm_default_chroot'];
         }
+
+        // Client resource-limit enforcement (spec 012). WebDomainService
+        // inserts web_domain via a raw query rather than BaseModel::save(), so
+        // the count (limit_web_domain / _subdomain / _aliasdomain by type) and
+        // quota-sum (limit_web_quota / _traffic_quota) chokepoint is invoked
+        // explicitly here, before the insert — a denial throws 403 and writes
+        // no datalog row. Admin scopes short-circuit inside the service.
+        $domain->setAttribute('type', $record['type']);
+        $domain->setAttribute('sys_groupid', $record['sys_groupid']);
+        $domain->setAttribute('hd_quota', $record['hd_quota'] ?? -1);
+        $domain->setAttribute('traffic_quota', $record['traffic_quota'] ?? -1);
+        $this->limits->checkCreate($domain);
+        $this->limits->checkQuotaSum($domain);
 
         $id = (int) DB::table('web_domain')->insertGetId($record, 'domain_id');
 
