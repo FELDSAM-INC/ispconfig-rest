@@ -1,14 +1,12 @@
+# Verified against source_code/install/sql/ispconfig3.sql (table spamfilter_policy)
+# and source_code/interface/web/mail/form/spamfilter_policy.tform.php.
+# The API exposes a subset of the ~50 policy columns; all unexposed columns
+# keep their database defaults. Y/N flags are stored uppercase — exact casing
+# is preserved (they are not booleans in the API).
 type: object
 x-db-table: spamfilter_policy
 required:
   - policy_name
-  - virus_lover
-  - spam_lover
-  - banned_files_lover
-  - bad_header_lover
-  - bypass_virus_checks
-  - bypass_banned_checks
-  - bypass_header_checks
 properties:
   id:
     type: integer
@@ -20,56 +18,63 @@ properties:
 
   policy_name:
     type: string
-    description: Name of the spamfilter policy
-    maxLength: 255
+    description: Name of the spamfilter policy (unique, application-level check)
+    maxLength: 64
     example: "Default Policy"
     x-db-field: policy_name
 
   virus_lover:
     type: string
-    description: Whether to allow viruses
+    description: Whether to deliver mail even when a virus is detected (stored uppercase)
     enum: [Y, N]
     default: "N"
     x-db-field: virus_lover
 
   spam_lover:
     type: string
-    description: Whether to allow spam
+    description: Whether to deliver mail even when it is classified as spam (stored uppercase)
     enum: [Y, N]
     default: "N"
     x-db-field: spam_lover
 
   banned_files_lover:
     type: string
-    description: Whether to allow banned file types
+    description: Whether to deliver mail containing banned file types (stored uppercase)
     enum: [Y, N]
     default: "N"
     x-db-field: banned_files_lover
 
   bad_header_lover:
     type: string
-    description: Whether to allow emails with bad headers
+    description: Whether to deliver mail with bad headers (stored uppercase)
     enum: [Y, N]
     default: "N"
     x-db-field: bad_header_lover
 
   bypass_virus_checks:
     type: string
-    description: Whether to bypass virus checks
+    description: Whether to bypass virus checks (stored uppercase)
     enum: [Y, N]
     default: "N"
     x-db-field: bypass_virus_checks
 
+  bypass_spam_checks:
+    type: string
+    description: Whether to bypass spam checks (stored uppercase)
+    enum: [Y, N]
+    default: "N"
+    x-db-field: bypass_spam_checks
+
   bypass_banned_checks:
     type: string
-    description: Whether to bypass banned file checks
+    description: Whether to bypass banned file checks (stored uppercase)
     enum: [Y, N]
     default: "N"
     x-db-field: bypass_banned_checks
 
   bypass_header_checks:
     type: string
-    description: Whether to bypass header checks
+    description: Whether to bypass header checks (stored uppercase)
     enum: [Y, N]
     default: "N"
     x-db-field: bypass_header_checks
@@ -124,12 +129,12 @@ properties:
     example: 1
     x-db-field: sys_groupid
 
-  sys_perm:
+  sys_perm_user:
     type: string
     readOnly: true
-    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    description: Owner permissions for the record (r=read, i=insert, u=update, d=delete)
     example: "riud"
-    x-db-field: sys_perm
+    x-db-field: sys_perm_user
 
   sys_perm_group:
     type: string
@@ -141,19 +146,18 @@ properties:
   sys_perm_other:
     type: string
     readOnly: true
-    description: Other permissions for the record
+    description: Other permissions for the record (spamfilter policies are readable by all panel users)
     example: "r"
     x-db-field: sys_perm_other
 
 description: |
-  Spamfilter policy defines how email messages should be processed by the spam filter.
-  It includes settings for handling viruses, spam, banned files, and more.
-  
-  ### Key Features
-  - Configure how different types of email content are handled
-  - Set up quarantine destinations for different message types
-  - Control which security checks to bypass
-  
-  ### Access Control
-  - Readable by all authenticated users
-  - Only admin users can create, update, or delete policies
+  Spamfilter (Amavis/Rspamd) policy — how messages are processed for the
+  addresses mapped to it via spamfilter users (table `spamfilter_policy`).
+
+  ### Notes
+  - The API exposes a subset of the policy columns (lovers, bypasses and
+    quarantine addresses); tag/kill levels, address extensions, admin
+    addresses and rspamd_* columns keep their database defaults
+  - The `spamfilter_policy` table has no `server_id` — policies are global
+  - Record permissions default to `sys_perm_other='r'` (unlike other mail
+    resources), so policies are readable by all users

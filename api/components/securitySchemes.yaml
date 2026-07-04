@@ -1,4 +1,11 @@
-basicAuth:
-  type: http
-  scheme: basic
-  description: Basic authentication using ISPConfig username and password
+# Canonical security schemes for the ISPConfig REST API.
+# apiKeyAuth is the ONLY supported scheme (Constitution v2.0.0, Principle V).
+# Basic auth was removed as part of the contract reboot.
+apiKeyAuth:
+  type: apiKey
+  in: header
+  name: X-API-Key
+  description: |
+    API key authentication. Send the key in the `X-API-Key` request header.
+    Keys are validated against ISPConfig's permission model (`can_use_api`)
+    and stored hashed at rest.

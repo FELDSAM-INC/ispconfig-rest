@@ -1,64 +1,60 @@
+# Server FastCGI Configuration Schema — the [fastcgi] section of the
+# server.config INI blob (server table, `config` column). Field inventory
+# mirrors the legacy `fastcgi` tab of server_config.tform.php.
+# All properties are optional on PUT: omitted text/select keys keep their
+# current value. Keys present in the stored blob but unknown to this schema
+# are preserved untouched.
 type: object
-x_db_table: server
-required:
-  - fastcgi_server
-  - fastcgi_socket
-  - fastcgi_port
-  - fastcgi_children
+x-db-table: server
+x-db-field: config
+x-ini-section: fastcgi
+additionalProperties: true
 properties:
-  fastcgi_server:
+  fastcgi_starter_path:
     type: string
-    enum: [y, n]
-    description: Whether FastCGI server is enabled
-    example: "y"
-  fastcgi_socket:
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/\[\]]{1,128}$'
+    description: >-
+      Absolute path of the FastCGI starter script directory; supports
+      placeholders like [system_user] (legacy NOTEMPTY + path regex).
+    example: "/var/www/php-fcgi-scripts/[system_user]/"
+  fastcgi_starter_script:
     type: string
-    description: Path to FastCGI socket
-    example: "/var/run/php/php-fpm.sock"
-  fastcgi_port:
-    type: integer
-    minimum: 1
-    maximum: 65535
-    description: Port for FastCGI service
-    example: 9000
+    maxLength: 255
+    pattern: '^[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: Filename of the FastCGI starter script (legacy NOTEMPTY + regex)
+    example: ".php-fcgi-starter"
+  fastcgi_alias:
+    type: string
+    maxLength: 255
+    pattern: '^[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: Apache alias used for FastCGI (legacy NOTEMPTY + regex)
+    example: "/php/"
+  fastcgi_phpini_path:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/\[\]]{1,128}$'
+    description: Absolute path of the php.ini directory used for FastCGI (legacy NOTEMPTY + path regex)
+    example: "/etc/php5/cgi/"
   fastcgi_children:
     type: integer
-    description: Number of FastCGI children
-    example: 5
+    minimum: 1
+    description: Number of FastCGI children to spawn (legacy ISPOSITIVE)
+    example: 8
   fastcgi_max_requests:
     type: integer
-    description: Maximum number of requests per FastCGI process
-    example: 500
-  fastcgi_idle_timeout:
-    type: integer
-    description: Idle timeout for FastCGI processes (seconds)
-    example: 30
-  fastcgi_process_manager:
+    minimum: 0
+    description: Maximum number of requests per FastCGI process (legacy ISINT + RANGE)
+    example: 5000
+  fastcgi_bin:
     type: string
-    enum: [static, dynamic, ondemand]
-    description: Process manager for FastCGI
-    example: "dynamic"
-  fastcgi_start_servers:
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/\[\]]{1,128}$'
+    description: Absolute path of the PHP CGI binary (legacy NOTEMPTY + path regex)
+    example: "/usr/bin/php-cgi"
+  fastcgi_config_syntax:
     type: integer
-    description: Number of FastCGI start servers
+    enum: [1, 2]
+    description: FastCGI configuration syntax — 1 = old (Apache 2.0), 2 = new (Apache 2.2+)
+    default: 2
     example: 2
-  fastcgi_min_spare_servers:
-    type: integer
-    description: Minimum number of FastCGI spare servers
-    example: 1
-  fastcgi_max_spare_servers:
-    type: integer
-    description: Maximum number of FastCGI spare servers
-    example: 3
-  fastcgi_pm_max_requests:
-    type: integer
-    description: Maximum number of requests per FastCGI server
-    example: 500
-  fastcgi_pm_status_path:
-    type: string
-    description: Path for FastCGI status page
-    example: "/status"
-  fastcgi_pm_ping_path:
-    type: string
-    description: Path for FastCGI ping page
-    example: "/ping"

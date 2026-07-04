@@ -1,37 +1,14 @@
-# Spamfilter Whitelist/Blacklist endpoints
+# Spamfilter Whitelist/Blacklist endpoints (table spamfilter_wblist)
 /mail/spamfilter/wblist:
   get:
     tags:
       - Mail Spamfilter
     summary: List all whitelist/blacklist entries
     description: |
-      Returns a paginated list of whitelist and blacklist entries.
-      Non-admin users can only see their own entries.
+      Returns a paginated list of spamfilter whitelist and blacklist entries.
 
-      ### Filtering
-      Filter results using query parameters in the format `field[op]=value`.
-
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-
-      Example: `email[ilike]=%example.com&wb[eq]=B&active[eq]=y`
-
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-
-      Example: `sort=email` or `sort=-priority`
-
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -39,7 +16,7 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: email
         in: query
-        description: Filter by email/pattern (supports wildcards with %)
+        description: Filter by email/pattern
         schema:
           type: string
       - name: wb
@@ -50,7 +27,7 @@
           enum: [W, B]
       - name: rid
         in: query
-        description: Filter by user ID (0 for global rules)
+        description: Filter by referenced spamfilter user ID
         schema:
           type: integer
           format: int64
@@ -58,8 +35,7 @@
         in: query
         description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
         description: A list of whitelist/blacklist entries
@@ -67,13 +43,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/SpamfilterWBList.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '500':
@@ -87,9 +66,12 @@
       Creates a new whitelist or blacklist entry.
 
       ### Validation Rules
-      - Email/pattern and type (wb) are required
-      - Non-admin users can only create entries for themselves (using their user ID as rid)
-      - Admin users can create global entries (rid=0) or for specific users
+      - `email` and `rid` are required; `wb` defaults to 'B'
+      - A non-zero `rid` must reference an existing spamfilter user
+        (404 otherwise)
+      - `rid=0` is accepted but has no effect on Rspamd systems — use
+        /mail/access-rules for global rules
+      - `server_id` must reference a mail server
     requestBody:
       required: true
       content:
@@ -110,9 +92,7 @@
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        description: Referenced user or server not found
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
+        $ref: '../../components/responses/NotFound.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -123,9 +103,7 @@
     tags:
       - Mail Spamfilter
     summary: Get whitelist/blacklist entry by ID
-    description: |
-      Returns a single whitelist/blacklist entry by its ID.
-      Non-admin users can only see their own entries.
+    description: Returns a single whitelist/blacklist entry by its ID
     parameters:
       - name: id
         in: path
@@ -158,8 +136,7 @@
       Updates an existing whitelist/blacklist entry.
 
       ### Notes
-      - Non-admin users can only update their own entries
-      - Email and rid cannot be changed after creation
+      - `email` and `rid` cannot be changed after creation
     parameters:
       - name: id
         in: path
@@ -198,11 +175,7 @@
     tags:
       - Mail Spamfilter
     summary: Delete whitelist/blacklist entry
-    description: |
-      Deletes a whitelist/blacklist entry by ID.
-
-      ### Notes
-      - Non-admin users can only delete their own entries
+    description: Deletes a whitelist/blacklist entry by ID
     parameters:
       - name: id
         in: path

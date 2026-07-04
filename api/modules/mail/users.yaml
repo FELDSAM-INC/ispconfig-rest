@@ -6,32 +6,9 @@
     summary: List all mail users
     description: |
       Returns a paginated list of mail users.
-      The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      You can filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `email[ilike]=%@example.com&active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=email` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -39,25 +16,24 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: email
         in: query
-        description: Filter by email address (supports wildcards with %)
+        description: Filter by email address
         schema:
           type: string
       - name: domain
         in: query
-        description: Filter by domain part of email (supports wildcards with %)
+        description: Filter by the domain part of the email address
         schema:
           type: string
       - name: login
         in: query
-        description: Filter by login username (supports wildcards with %)
+        description: Filter by login username
         schema:
           type: string
-      - name: active
+      - name: postfix
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by receiving-enabled status (mail_user.postfix)
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
         description: A list of mail users
@@ -65,13 +41,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/MailUser.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -86,20 +65,20 @@
       - Mail Users
     summary: Create a new mail user
     description: |
-      Creates a new mail user account.
-      
+      Creates a new mail user (mailbox). The write is recorded in `sys_datalog`
+      and provisioned asynchronously by the ISPConfig server.
+
       ### Validation Rules
-      - Email address must be valid and not already in use
-      - Login username must be unique
-      - Password is required and must meet complexity requirements
-      - Domain must exist and belong to the current user
-      - User must have permission to create mail users
-      - User must be within their allowed limits for mail users
-      
-      ### Notes
-      - The email domain must be managed by the current user
-      - The password will be encrypted before storage
-      - Quota is specified in bytes (use 0 for unlimited, -1 for domain default)
+      - Email address must be valid, unique, and must not collide with an
+        active forward/alias source
+      - The email's domain part must be an existing mail domain
+      - Login defaults to the email address and must be unique
+      - Password is required (minimum 5 characters, legacy interface policy)
+
+      ### Derived values (legacy parity)
+      - `server_id` and `sys_groupid` are taken from the mail domain
+      - `maildir`, `homedir`, `uid`, `gid` and `maildir_format` are derived
+        from the server mail configuration
     requestBody:
       required: true
       content:
@@ -115,23 +94,10 @@
               $ref: '../../components/schemas/MailUser.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid email format
-          - Email already in use
-          - Invalid login format
-          - Weak password
-          - Non-existent domain
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: |
-          Forbidden. Possible reasons:
-          - User has reached mailbox limit
-          - No permission to use the specified domain
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -173,13 +139,11 @@
     summary: Update mail user
     description: |
       Updates an existing mail user account.
-      
+
       ### Notes
-      - The email address cannot be changed after creation
-      - The login username cannot be changed after creation
-      - To update the password, provide the new password in the `password` field
-      - Quota can be updated at any time
-      - Set `active: n` to disable the account without deleting it
+      - `email` and `login` cannot be changed after creation
+      - The password is re-hashed only when a non-empty `password` is provided
+      - Set `postfix: false` to disable receiving without deleting the account
     parameters:
       - name: id
         in: path
@@ -209,8 +173,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -221,12 +183,12 @@
       - Mail Users
     summary: Delete mail user
     description: |
-      Deletes a mail user by ID.
-      
+      Deletes a mail user by ID (datalog delete; the mail server removes the
+      maildir asynchronously).
+
       ### Notes
-      - This will permanently delete the mail user account
-      - All emails in the mailbox will be deleted
-      - Any forwards or aliases will be removed
+      - Forwards or aliases pointing at the deleted address are NOT removed
+        (legacy parity)
       - This action cannot be undone
     parameters:
       - name: id
@@ -239,11 +201,6 @@
     responses:
       '204':
         description: Mail user deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Mail user is currently in use
-          - Insufficient permissions
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

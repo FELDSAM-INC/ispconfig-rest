@@ -13,22 +13,22 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: contact_name
         in: query
-        description: Filter by contact name (supports wildcards with %)
+        description: Filter by contact name (exact match)
         schema:
           type: string
       - name: company_name
         in: query
-        description: Filter by company name (supports wildcards with %)
+        description: Filter by company name (exact match)
         schema:
           type: string
       - name: email
         in: query
-        description: Filter by email address (supports wildcards with %)
+        description: Filter by email address (exact match)
         schema:
           type: string
       - name: customer_no
         in: query
-        description: Filter by customer number
+        description: Filter by customer number (exact match)
         schema:
           type: string
     responses:
@@ -38,13 +38,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/Client.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -79,8 +82,6 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -150,8 +151,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -173,10 +172,6 @@
     responses:
       '204':
         description: Client deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Client cannot be deleted because it has associated resources
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

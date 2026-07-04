@@ -13,13 +13,13 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: template_type
         in: query
-        description: Filter by template type (m = main, a = additional)
+        description: Filter by template type (m = master, a = additional)
         schema:
           type: string
           enum: [m, a]
       - name: template_name
         in: query
-        description: Filter by template name (supports wildcards with %)
+        description: Filter by template name (exact match)
         schema:
           type: string
     responses:
@@ -29,13 +29,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/ClientTemplate.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -70,8 +73,6 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -141,8 +142,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -167,15 +166,13 @@
     responses:
       '204':
         description: Client template deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Template cannot be deleted because it is assigned to one or more clients
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'

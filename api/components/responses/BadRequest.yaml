@@ -1,5 +1,10 @@
-description: Invalid request
+description: Bad request — the request is malformed (RFC 9457 problem details)
 content:
-  application/json:
+  application/problem+json:
     schema:
-      $ref: '../schemas/Error.yaml'
+      $ref: '../schemas/Problem.yaml'
+    example:
+      type: 'about:blank'
+      title: Bad Request
+      status: 400
+      detail: The request could not be understood by the server.

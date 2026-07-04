@@ -1,10 +1,10 @@
+# Verified against source_code/install/sql/ispconfig3.sql (table mail_domain)
+# and source_code/interface/web/mail/form/mail_domain.tform.php.
 type: object
 x-db-table: mail_domain
 required:
   - server_id
   - domain
-  - active
-  - local_delivery
 properties:
   id:
     type: integer
@@ -19,63 +19,63 @@ properties:
     format: int64
     description: Server ID where the mail domain is hosted
     example: 1
+    x-db-field: server_id
 
   domain:
     type: string
     description: |
       Mail domain name (e.g., example.com)
-      
-      ### Validation Rules:
       - Must be a valid domain name
-      - Must be unique across all mail domains
+      - Must be unique across all mail domains (application-level check,
+        mirroring the legacy UNIQUE validator; no database unique key exists)
       - Will be converted to lowercase on save
       - IDN domains are automatically converted to punycode
+      - Cannot be changed after creation
     example: "example.com"
     maxLength: 255
+    x-db-field: domain
 
   dkim:
-    type: string
-    description: |
-      Whether DKIM (DomainKeys Identified Mail) is enabled for this domain
-      - 'y': DKIM is enabled
-      - 'n': DKIM is disabled
-    enum: [y, n]
-    default: "n"
+    type: boolean
+    default: false
+    description: Whether DKIM (DomainKeys Identified Mail) signing is enabled for this domain
+    x-db-field: dkim
 
   dkim_private:
     type: string
     description: |
-      DKIM private key
-      - Required when dkim is set to 'y'
-      - Must be a valid private key
-    format: textarea
+      DKIM private key (PEM)
+      - Required when dkim is enabled
+      - Must be a parseable private key
     example: |
       -----BEGIN PRIVATE KEY-----
       MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQ...
       -----END PRIVATE KEY-----
+    x-db-field: dkim_private
 
   dkim_public:
     type: string
-    description: |
-      DKIM public key (read-only)
-      - Automatically generated from the private key
     readOnly: true
-    format: textarea
+    description: |
+      DKIM public key (PEM)
+      - Server-derived from the private key; never accepted as input
     example: |
       -----BEGIN PUBLIC KEY-----
       MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
       -----END PUBLIC KEY-----
+    x-db-field: dkim_public
 
   dkim_selector:
     type: string
     description: |
-      DKIM selector
-      - Used in the DNS record name (_selector._domainkey.example.com)
-      - Must be alphanumeric with dots and hyphens allowed
-      - Maximum length: 126 characters
+      DKIM selector, used in the DNS record name (selector._domainkey.example.com).
+      Database column is varchar(63); the legacy UI permits up to 126 characters,
+      a discrepancy ISPConfig itself ships with — the API enforces the DB limit.
     default: "default"
+    maxLength: 63
     pattern: '^[a-z0-9]{1,63}(?:\.[a-z0-9]{1,63})?$'
     example: "default"
+    x-db-field: dkim_selector
 
   relay_host:
     type: string
@@ -85,6 +85,7 @@ properties:
       - Format: hostname or IP address with optional port (host:port)
     maxLength: 255
     example: "smtp.example.com:587"
+    x-db-field: relay_host
 
   relay_user:
     type: string
@@ -93,34 +94,33 @@ properties:
       - Required if relay_host is set
     maxLength: 255
     example: "user@example.com"
+    x-db-field: relay_user
 
   relay_pass:
     type: string
+    format: password
     description: |
       Password for authenticating with the relay host
       - Required if relay_host and relay_user are set
-      - Write-only field (never returned in responses)
+      - Never returned in responses
     writeOnly: true
     maxLength: 255
     example: "your_password"
+    x-db-field: relay_pass
 
   active:
-    type: string
-    description: |
-      Whether the mail domain is active
-      - 'y': Domain is active
-      - 'n': Domain is inactive
-    enum: [y, n]
-    default: "y"
+    type: boolean
+    default: true
+    description: Whether the mail domain is active (legacy form default is active)
+    x-db-field: active
 
   local_delivery:
-    type: string
+    type: boolean
+    default: true
     description: |
       Whether to accept and deliver mail locally for this domain
-      - 'y': Accept and deliver mail locally
-      - 'n': Reject mail for this domain (useful for relay-only domains)
-    enum: [y, n]
-    default: "y"
+      (disable for relay-only domains)
+    x-db-field: local_delivery
 
   # System fields (readonly)
   sys_userid:
@@ -128,58 +128,48 @@ properties:
     readOnly: true
     description: System user ID who created the record
     example: 1
+    x-db-field: sys_userid
 
   sys_groupid:
     type: integer
     readOnly: true
     description: System group ID for the record
     example: 1
+    x-db-field: sys_groupid
 
-  sys_perm:
+  sys_perm_user:
     type: string
     readOnly: true
-    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    description: Owner permissions for the record (r=read, i=insert, u=update, d=delete)
     example: "riud"
+    x-db-field: sys_perm_user
 
   sys_perm_group:
     type: string
     readOnly: true
     description: Group permissions for the record
     example: "riud"
+    x-db-field: sys_perm_group
 
   sys_perm_other:
     type: string
     readOnly: true
     description: Other permissions for the record
     example: ""
-
-  # Response only fields (not for input)
-  server_name:
-    type: string
-    readOnly: true
-    description: Name of the server where the mail domain is hosted
-    example: "mail1.example.com"
+    x-db-field: sys_perm_other
 
 description: |
-  A mail domain represents an email domain that can send and receive email.
-  
-  ### Key Features
-  - Email routing and delivery configuration
-  - DKIM support for email authentication
-  - Relay host configuration for outbound email
-  - Local delivery control
-  
+  A mail domain represents an email domain that can send and receive email
+  (table `mail_domain`).
+
   ### DKIM Configuration
-  - Generate DKIM keys using the `dkim_genkey` tool
-  - Set `dkim: y` and provide the private key in `dkim_private`
-  - The public key will be automatically generated
-  - Add a DNS TXT record: `selector._domainkey IN TXT "v=DKIM1; k=rsa; p=PUBLIC_KEY"`
-  
+  - Set `dkim: true` and provide the private key in `dkim_private`
+  - The public key (`dkim_public`) is derived server-side from the private key
+  - Publish the DNS TXT record: `selector._domainkey IN TXT "v=DKIM1; k=rsa; p=PUBLIC_KEY"`
+
   ### Relay Configuration
   - Set `relay_host` to forward outbound email through another server
   - Provide `relay_user` and `relay_pass` if authentication is required
-  - Leave `relay_host` empty to use the default mail server
-  
+
   ### Local Delivery
-  - Set `local_delivery: y` to accept and deliver email locally
-  - Set `local_delivery: n` to reject email (useful for relay-only domains)
+  - `local_delivery: false` makes the domain relay-only

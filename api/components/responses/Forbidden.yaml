@@ -1,5 +1,10 @@
-description: Forbidden
+description: Forbidden — the API key is not permitted to perform this action (RFC 9457 problem details)
 content:
-  application/json:
+  application/problem+json:
     schema:
-      $ref: '../schemas/Error.yaml'
+      $ref: '../schemas/Problem.yaml'
+    example:
+      type: 'about:blank'
+      title: Forbidden
+      status: 403
+      detail: You do not have permission to access this resource.

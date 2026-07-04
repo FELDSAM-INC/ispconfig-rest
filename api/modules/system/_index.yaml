@@ -1,37 +1,37 @@
 # System module API paths
 
-# System configuration
-configs:
+# Global system configuration (sys_ini singleton, all sections)
+config:
   $ref: './system-config.yaml'
 
-# Sites configuration
-sites:
+# Sites configuration section
+sites-config:
   $ref: './sites-config.yaml'
 
-# Mail configuration
-mail:
+# Mail configuration section
+mail-config:
   $ref: './mail-config.yaml'
 
-# DNS configuration
-dns:
+# DNS configuration section
+dns-config:
   $ref: './dns-config.yaml'
 
-# Domains configuration
-domains:
+# Domains configuration section
+domains-config:
   $ref: './domains-config.yaml'
 
-# Miscellaneous configuration
-misc:
+# Miscellaneous configuration section
+misc-config:
   $ref: './misc-config.yaml'
 
-# DNS Certification Authorities
+# DNS Certification Authorities (CAA policy records)
 dns-cas:
-  $ref: './dns-cas-config.yaml'
+  $ref: './dns-cas.yaml'
+
+# Directive snippets
+directive-snippets:
+  $ref: './directive-snippets.yaml'
 
 # Service resynchronization
 resync:
   $ref: './resync.yaml'
-
-# Directive Snippets
-directive-snippets:
-  $ref: './directive-snippets.yaml'

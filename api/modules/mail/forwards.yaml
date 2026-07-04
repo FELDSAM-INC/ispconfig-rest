@@ -1,4 +1,5 @@
-# Mail Forwarding and Aliases endpoints
+# Mail Forwarding and Aliases endpoints (table mail_forwarding,
+# type IN (forward, catchall, alias); alias domains have their own resource)
 /mail/forwards:
   get:
     tags:
@@ -6,48 +7,14 @@
     summary: List all mail forwards, catchalls, and aliases
     description: |
       Returns a paginated list of mail forwards, catchalls, and aliases.
-      The results can be filtered, sorted, and paginated.
-      
-      ### Types of Forwards
-      - **Regular Forward**: Forwards emails from a specific address to one or more destinations
-        - Source: `user@example.com`
-        - Type: `forward`
-      - **Catchall Forward**: Forwards all emails for a domain to a specific address
-        - Source: `@example.com`
-        - Type: `catchall`
-      - **Alias**: Email alias that acts as an alternative email address
-        - Source: `alias@example.com`
-        - Type: `alias`
-      
-      ### Filtering
-      Filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Examples:
-      - List all catchalls: `type[eq]=catchall`
-      - List all aliases: `type[eq]=alias`
-      - Find forwards/aliases for a domain: `source[ilike]=%@example.com`
-      - Find active forwards/aliases: `active[eq]=y`
-      - Find by destination: `destination[ilike]=user@example.com`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=source` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match.
+
+      ### Types
+      - **forward**: forwards mail for a specific address (source `user@example.com`)
+      - **catchall**: forwards all mail of a domain (source `@example.com`)
+      - **alias**: alternative address for an existing mailbox
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -55,12 +22,12 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: source
         in: query
-        description: Filter by source email address (supports wildcards with %)
+        description: Filter by source email address
         schema:
           type: string
       - name: destination
         in: query
-        description: Filter by destination email address (supports wildcards with %)
+        description: Filter by destination email address
         schema:
           type: string
       - name: type
@@ -69,13 +36,11 @@
         schema:
           type: string
           enum: [forward, catchall, alias]
-          default: forward
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
         description: A list of mail forwards
@@ -83,13 +48,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/MailForwarding.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -102,31 +70,24 @@
   post:
     tags:
       - Mail Forwards
-    summary: Create a new mail forward or catchall
+    summary: Create a new mail forward, catchall, or alias
     description: |
-      Creates a new mail forward or catchall.
-      
-      ### Types of Forwards
-      
+      Creates a new mail forward, catchall, or alias.
+
       ### Validation Rules
-      - Source must be a valid email or catchall format
       - For forwards/aliases: source must be a full email address
-      - For catchalls: source must start with @ (e.g., @domain.tld)
-      - Destination must contain at least one valid email
-      - User must have permission to create the entry for the source domain
-      - User must be within their allowed limits for mail entries
-      - Source and destination combination must be unique
-      
-      ### Alias-Specific Notes
-      - Aliases are essentially forwards with `type: alias`
-      - The main difference is in the UI and how they're presented to users
-      - Aliases can have `allow_send_as` enabled to allow sending as the alias address
-      
-      ### Notes
-      - For catchalls, the source must be in the format @domain.tld
-      - The source domain must be managed by the current user
-      - Multiple destinations can be specified as a comma-separated list
-      - System administrators can create forwards/catchalls for any domain
+      - For catchalls: source must be in `@domain.tld` form
+      - The source domain must be an existing mail domain (`server_id` and
+        `sys_groupid` are inherited from it)
+      - The source must not equal an active mailbox address
+      - Destination must contain at least one valid email address; input may
+        be separated by commas, semicolons or whitespace and is stored
+        normalized as a ', '-joined list
+      - Source + type must be unique (application-level check)
+
+      ### Defaults (legacy parity)
+      - `active` true, `greylisting` false
+      - `allow_send_as`: true for aliases, false for forwards and catchalls
     requestBody:
       required: true
       content:
@@ -142,22 +103,10 @@
               $ref: '../../components/schemas/MailForwarding.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid email format
-          - No destination specified
-          - Invalid destination email
-          - Forward already exists
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: |
-          Forbidden. Possible reasons:
-          - User has reached forward limit
-          - No permission to use the source domain
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -169,9 +118,9 @@
       - Mail Forwards
     summary: Get mail forward or catchall by ID
     description: |
-      Returns a single mail forward or catchall by its ID.
-      
-      The response will include the `is_catchall` flag to easily identify catchall entries.
+      Returns a single mail forward, catchall, or alias by its ID.
+
+      The response includes the computed `is_catchall` flag.
     parameters:
       - name: id
         in: path
@@ -201,15 +150,11 @@
       - Mail Forwards
     summary: Update mail forward or catchall
     description: |
-      Updates an existing mail forward or catchall.
-      
+      Updates an existing mail forward, catchall, or alias.
+
       ### Notes
-      - The source address cannot be changed after creation
-      - The type (forward/catchall/alias) cannot be changed after creation
-      - For catchalls, only the domain part is considered when matching
-      - Only the destination, active status, allow_send_as, and greylisting can be updated
-      - The `is_catchall` flag is read-only and determined by the source format
-    
+      - `source` and `type` cannot be changed after creation
+      - Only `destination`, `active`, `allow_send_as` and `greylisting` can be updated
     parameters:
       - name: id
         in: path
@@ -239,8 +184,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -251,13 +194,9 @@
       - Mail Forwards
     summary: Delete mail forward or catchall
     description: |
-      Deletes a mail forward or catchall by ID.
-      
-      ### Notes
-      - The operation is permanent and cannot be undone
-      - User must have permission to modify the source domain
-      - System administrators can delete any forward/catchall
-    
+      Deletes a mail forward, catchall, or alias by ID.
+
+      The operation is permanent and cannot be undone.
     parameters:
       - name: id
         in: path
@@ -269,10 +208,6 @@
     responses:
       '204':
         description: Mail forward deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Forward is in use
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

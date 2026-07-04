@@ -1,89 +1,67 @@
+# Server DNS Configuration Schema — the [dns] section of the server.config
+# INI blob (server table, `config` column). Field inventory mirrors the
+# legacy `dns` tab of server_config.tform.php.
+# All properties are optional on PUT: omitted text/select keys keep their
+# current value; omitted checkbox keys are written with their unchecked
+# value ('n'), mirroring legacy form semantics. Keys present in the stored
+# blob but unknown to this schema are preserved untouched.
 type: object
-x_db_table: server
-required:
-  - dns_server
-  - dns_master
-  - dns_slave
-  - dns_ns1
-  - dns_ns2
+x-db-table: server
+x-db-field: config
+x-ini-section: dns
+additionalProperties: true
 properties:
-  dns_server:
+  bind_user:
     type: string
-    enum: [y, n]
-    description: Whether the DNS server is enabled
-    example: "y"
-  dns_master:
+    maxLength: 255
+    pattern: '^(?!ispconfig)([a-zA-Z0-9]{1,20})$'
+    description: System user BIND runs as (legacy NOTEMPTY + regex /^(?!ispconfig)([a-zA-Z0-9]{1,20})$/)
+    example: "root"
+  bind_group:
     type: string
-    enum: [y, n]
-    description: Whether this is a master DNS server
-    example: "y"
-  dns_slave:
+    maxLength: 255
+    pattern: '^(?!ispconfig)([a-zA-Z0-9]{1,20})$'
+    description: System group BIND runs as (legacy NOTEMPTY + regex /^(?!ispconfig)([a-zA-Z0-9]{1,20})$/)
+    example: "bind"
+  bind_zonefiles_dir:
     type: string
-    enum: [y, n]
-    description: Whether this is a slave DNS server
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: Absolute path of the BIND zone file directory (legacy NOTEMPTY + path regex)
+    example: "/etc/bind"
+  bind_keyfiles_dir:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: Absolute path of the BIND DNSSEC key file directory (legacy NOTEMPTY + path regex)
+    example: "/etc/bind"
+  bind_zonefiles_masterprefix:
+    type: string
+    maxLength: 255
+    pattern: '^[a-zA-Z0-9\.\-\_\/]{0,128}$'
+    description: Filename prefix for master zone files (may be empty)
+    example: "pri."
+  bind_zonefiles_slaveprefix:
+    type: string
+    maxLength: 255
+    pattern: '^[a-zA-Z0-9\.\-\_\/]{0,128}$'
+    description: Filename prefix for slave zone files (may be empty)
+    example: "slave/sec."
+  named_conf_path:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: Absolute path of named.conf (legacy NOTEMPTY + path regex)
+    example: "/etc/bind/named.conf"
+  named_conf_local_path:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: Absolute path of named.conf.local (legacy NOTEMPTY + path regex)
+    example: "/etc/bind/named.conf.local"
+  disable_bind_log:
+    type: string
+    enum: ["y", "n"]
+    description: Suppress BIND warning/error logging (checkbox)
+    default: "n"
     example: "n"
-  dns_ns1:
-    type: string
-    format: hostname
-    description: Primary nameserver hostname
-    example: "ns1.example.com"
-  dns_ns2:
-    type: string
-    format: hostname
-    description: Secondary nameserver hostname
-    example: "ns2.example.com"
-  dns_ns3:
-    type: string
-    format: hostname
-    description: Tertiary nameserver hostname
-    example: "ns3.example.com"
-  dns_ns4:
-    type: string
-    format: hostname
-    description: Quaternary nameserver hostname
-    example: "ns4.example.com"
-  dns_mx1:
-    type: string
-    format: hostname
-    description: Primary mail exchanger hostname
-    example: "mail.example.com"
-  dns_mx2:
-    type: string
-    format: hostname
-    description: Secondary mail exchanger hostname
-    example: "mail2.example.com"
-  dns_mx3:
-    type: string
-    format: hostname
-    description: Tertiary mail exchanger hostname
-    example: "mail3.example.com"
-  dns_mx4:
-    type: string
-    format: hostname
-    description: Quaternary mail exchanger hostname
-    example: "mail4.example.com"
-  dns_soa:
-    type: string
-    format: email
-    description: SOA email address (with @ replaced by .)
-    example: "hostmaster.example.com"
-  dns_ttl:
-    type: integer
-    description: Default TTL for DNS records
-    example: 86400
-  dns_refresh:
-    type: integer
-    description: Refresh interval for DNS zones
-    example: 10800
-  dns_retry:
-    type: integer
-    description: Retry interval for failed zone transfers
-    example: 3600
-  dns_expire:
-    type: integer
-    description: Expiry time for DNS zones
-    example: 604800
-  dns_minimum:
-    type: integer
-    description: Minimum TTL for negative caching
-    example: 3600

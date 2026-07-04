@@ -1,144 +1,27 @@
 # Server Firewall API Endpoints
+# Table: firewall (writes go through sys_datalog). Nested under a server:
+# `server_id` is always taken from the {id} path parameter and is immutable
+# (legacy firewall_edit.php::onBeforeUpdate).
+#
+# SINGLETON: the DB declares firewall.server_id UNIQUE (firewall.tform.php)
+# — a server has AT MOST ONE firewall record. The resource is therefore
+# modeled as a singleton: GET reads it (404 when absent), PUT upserts it
+# (201 on create, 200 on update), DELETE removes it.
 
 /servers/{id}/firewall:
   get:
     tags:
       - Server Firewall
-    summary: List all firewall rules
+    summary: Get the firewall record of a server
     description: |
-      Returns a paginated list of firewall rules.
-      
-      ### Filtering
-      - `server_id`: Filter by server ID
-      - `active`: Filter by active status (y/n)
-      - `tcp_port`: Filter by TCP port (partial match)
-      - `udp_port`: Filter by UDP port (partial match)
-      
-      ### Sorting
-      - `server_id`: Sort by server ID
-      - `firewall_id`: Sort by rule ID
-    operationId: listFirewallRules
-    parameters:
-      - $ref: '../../components/parameters/offset.yaml'
-      - $ref: '../../components/parameters/limit.yaml'
-      - $ref: '../../components/parameters/sort.yaml'
-      - $ref: '../../components/parameters/order.yaml'
-      - name: id
-        in: path
-        description: Server ID
-        required: true
-        schema:
-          type: integer
-          format: int64
-        example: 1
-      - name: active
-        in: query
-        description: Filter by active status (y/n)
-        schema:
-          type: string
-          enum: [y, n]
-      - name: tcp_port
-        in: query
-        description: Filter by TCP port (partial match)
-        schema:
-          type: string
-      - name: udp_port
-        in: query
-        description: Filter by UDP port (partial match)
-        schema:
-          type: string
-    responses:
-      '200':
-        description: A list of firewall rules
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                data:
-                  type: array
-                  items:
-                    $ref: '../../components/schemas/ServerFirewall.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
-      '400':
-        $ref: '../../components/responses/BadRequest.yaml'
-      '401':
-        $ref: '../../components/responses/Unauthorized.yaml'
-      '403':
-        $ref: '../../components/responses/Forbidden.yaml'
-      '500':
-        $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []
-
-  post:
-    tags:
-      - Server Firewall
-    summary: Create a new firewall rule
-    description: |
-      Creates a new firewall rule with the specified settings.
-      
-      ### Validation Rules
-      - `server_id` must be a valid server ID
-      - `tcp_port` must be a valid comma-separated list of ports or port ranges
-      - `udp_port` must be a valid comma-separated list of ports or port ranges
-      - `active` must be either 'y' or 'n'
-    operationId: createFirewallRule
+      Returns the firewall record of the server. A server has at most one
+      firewall record (UNIQUE on `firewall.server_id`); 404 is returned
+      when the server has none (or the server does not exist).
+    operationId: getServerFirewall
     parameters:
       - name: id
         in: path
         description: Server ID
-        required: true
-        schema:
-          type: integer
-          format: int64
-        example: 1
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../../components/schemas/ServerFirewall.yaml'
-    responses:
-      '201':
-        description: Firewall rule created successfully
-        content:
-          application/json:
-            schema:
-              $ref: '../../components/schemas/ServerFirewall.yaml'
-      '400':
-        $ref: '../../components/responses/BadRequest.yaml'
-      '401':
-        $ref: '../../components/responses/Unauthorized.yaml'
-      '403':
-        $ref: '../../components/responses/Forbidden.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
-      '500':
-        $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []
-
-/servers/{id}/firewall/{firewall_id}:
-  get:
-    tags:
-      - Server Firewall
-    summary: Get a firewall rule by ID
-    description: Returns detailed information about a specific firewall rule
-    operationId: getFirewallRule
-    parameters:
-      - name: id
-        in: path
-        description: Server ID
-        required: true
-        schema:
-          type: integer
-          format: int64
-        example: 1
-      - name: firewall_id
-        in: path
-        description: ID of the firewall rule
         required: true
         schema:
           type: integer
@@ -146,49 +29,42 @@
         example: 1
     responses:
       '200':
-        description: Firewall rule details
+        description: Firewall record details
         content:
           application/json:
             schema:
               $ref: '../../components/schemas/ServerFirewall.yaml'
-      '400':
-        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
-      '403':
-        $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []
 
   put:
     tags:
       - Server Firewall
-    summary: Update a firewall rule
+    summary: Create or replace the firewall record of a server
     description: |
-      Updates an existing firewall rule with new settings.
-      
-      ### Validation Rules
-      - `server_id` must be a valid server ID if provided
-      - `tcp_port` must be a valid comma-separated list of ports or port ranges if provided
-      - `udp_port` must be a valid comma-separated list of ports or port ranges if provided
-      - `active` must be either 'y' or 'n' if provided
-    operationId: updateFirewallRule
+      Upserts the firewall record of the server:
+      - if the server has no firewall record yet, one is created
+        (datalog insert on `firewall`) and **201** is returned;
+      - if a record exists, it is updated (datalog update on `firewall`)
+        and **200** is returned.
+
+      `server_id` is always taken from the path and is immutable (legacy
+      firewall_edit.php::onBeforeUpdate reverts any change); a request body
+      value that differs from the path is rejected with 422.
+
+      ### Validation Rules (legacy parity)
+      - `tcp_port` / `udp_port` must match
+        /^$|\d{1,5}(?::\d{1,5})?(?:,\d{1,5}(?::\d{1,5})?)*$/
+        (comma-separated ports and low:high ranges; empty string = no ports).
+    operationId: putServerFirewall
     parameters:
       - name: id
         in: path
         description: Server ID
-        required: true
-        schema:
-          type: integer
-          format: int64
-        example: 1
-      - name: firewall_id
-        in: path
-        description: ID of the firewall rule
         required: true
         schema:
           type: integer
@@ -202,7 +78,13 @@
             $ref: '../../components/schemas/ServerFirewall.yaml'
     responses:
       '200':
-        description: Firewall rule updated successfully
+        description: Existing firewall record updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ServerFirewall.yaml'
+      '201':
+        description: Firewall record created successfully
         content:
           application/json:
             schema:
@@ -211,35 +93,25 @@
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
-      '403':
-        $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []
 
   delete:
     tags:
       - Server Firewall
-    summary: Delete a firewall rule
-    description: Deletes a firewall rule configuration
-    operationId: deleteFirewallRule
+    summary: Delete the firewall record of a server
+    description: >-
+      Deletes the firewall record of the server (datalog delete on
+      `firewall`). Returns 404 when the server has no firewall record.
+    operationId: deleteServerFirewall
     parameters:
       - name: id
         in: path
         description: Server ID
-        required: true
-        schema:
-          type: integer
-          format: int64
-        example: 1
-      - name: firewall_id
-        in: path
-        description: ID of the firewall rule
         required: true
         schema:
           type: integer
@@ -247,16 +119,10 @@
         example: 1
     responses:
       '204':
-        description: Firewall rule deleted successfully
-      '400':
-        $ref: '../../components/responses/BadRequest.yaml'
+        description: Firewall record deleted successfully
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
-      '403':
-        $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []

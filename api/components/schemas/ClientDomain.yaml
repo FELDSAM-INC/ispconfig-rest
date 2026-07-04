@@ -1,58 +1,80 @@
+# Client domain resource — mirrors the `domain` table in ispconfig3.sql
+# (domain module). The table has no client_id column: ownership is expressed
+# through sys_groupid. The write-only `client_id` request field is resolved by
+# the API to the client's sys_group (sys_perm_group is set to 'ru'), mirroring
+# legacy domain_edit.php::onAfterInsert.
 type: object
 x-db-table: domain
-description: Represents a client domain in the system
+description: Represents a pre-registered domain (domain module) owned by a client
 required:
   - domain
+  - client_id
 properties:
   # System Fields
-  domain_id:
+  id:
     type: integer
-    format: int32
+    format: int64
     readOnly: true
     description: Unique identifier for the domain
     x-db-field: domain_id
     example: 1
-  
+
   # Domain Information
   domain:
     type: string
     maxLength: 255
-    description: The domain name
+    description: The domain name (unique)
     example: example.com
     x-db-field: domain
-  
-  # System Permissions
+
+  # Ownership (request input; not a database column)
+  client_id:
+    type: integer
+    format: int64
+    writeOnly: true
+    description: >-
+      ID of the client that owns the domain. Not stored as a column:
+      the API resolves it to the client's sys_group and stores the
+      resulting sys_groupid with sys_perm_group 'ru'.
+    example: 42
+
+  # System Permissions (server-managed)
   sys_userid:
     type: integer
-    format: int32
+    format: int64
+    readOnly: true
     description: System user ID that owns this domain
     x-db-field: sys_userid
     example: 1
-  
+
   sys_groupid:
     type: integer
-    format: int32
-    description: System group ID that owns this domain
+    format: int64
+    readOnly: true
+    description: System group ID that owns this domain (the owning client's group)
     x-db-field: sys_groupid
     example: 1
-  
+
   sys_perm_user:
     type: string
     maxLength: 5
+    readOnly: true
     description: User permissions (r = read, i = insert, u = update, d = delete)
     x-db-field: sys_perm_user
     example: "riud"
-  
+
   sys_perm_group:
     type: string
     maxLength: 5
+    readOnly: true
     description: Group permissions (r = read, i = insert, u = update, d = delete)
     x-db-field: sys_perm_group
-    example: "riud"
-  
+    example: "ru"
+
   sys_perm_other:
     type: string
     maxLength: 5
+    readOnly: true
     description: Other permissions (r = read, i = insert, u = update, d = delete)
     x-db-field: sys_perm_other
     example: ""

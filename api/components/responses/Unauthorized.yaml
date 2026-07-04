@@ -1,5 +1,10 @@
-description: Unauthorized
+description: Unauthorized — missing or invalid X-API-Key (RFC 9457 problem details)
 content:
-  application/json:
+  application/problem+json:
     schema:
-      $ref: '../schemas/Error.yaml'
+      $ref: '../schemas/Problem.yaml'
+    example:
+      type: 'about:blank'
+      title: Unauthorized
+      status: 401
+      detail: A valid X-API-Key header is required.

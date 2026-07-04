@@ -7,24 +7,23 @@
     description: |
       Returns a paginated list of client circles with filtering and sorting support.
     parameters:
+      - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/sort.yaml'
       - $ref: '../../components/parameters/order.yaml'
-      - $ref: '../../components/parameters/limit.yaml'
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
       - name: circle_name
         in: query
-        description: Filter by circle name (supports wildcards with %)
+        description: Filter by circle name (exact match)
         schema:
           type: string
       - name: description
         in: query
-        description: Filter by description (supports wildcards with %)
+        description: Filter by description (exact match)
         schema:
           type: string
     responses:
@@ -34,13 +33,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/ClientCircle.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -75,8 +77,6 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -146,8 +146,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -159,7 +157,7 @@
     summary: Delete client circle
     description: |
       Deletes a client circle by ID.
-      
+
       **Note:** The circle will be permanently removed from the system.
     parameters:
       - name: id
@@ -172,10 +170,6 @@
     responses:
       '204':
         description: Client circle deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Circle is in use and cannot be deleted
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

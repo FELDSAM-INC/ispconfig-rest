@@ -1,75 +1,276 @@
+# Server Mail Configuration Schema — the [mail] section of the server.config
+# INI blob (server table, `config` column). Field inventory mirrors the
+# legacy `mail` tab of server_config.tform.php (previously declared
+# mail_server_type/mail_server_port/mail_ssl_* properties were invented and
+# have been removed).
+#
+# PUT semantics (mirrors server_config_edit.php):
+#   - omitted text/select keys keep their current value; omitted checkbox
+#     keys are written with their unchecked value ('n');
+#   - `rspamd_available` is ALWAYS preserved from the stored blob — client
+#     input for it is ignored (readOnly);
+#   - a nonzero `mailbox_size_limit` smaller than `message_size_limit` is
+#     rejected with 422 (legacy onSubmit check);
+#   - switching `content_filter` to rspamd datalog-touches every
+#     spamfilter_users and spamfilter_wblist row of the server to trigger
+#     re-sync (legacy onAfterUpdate side effect).
+# Keys present in the stored blob but unknown to this schema (e.g.
+# sendmail_path written by the installer) are preserved untouched.
 type: object
-x_db_table: server
-required:
-  - mail_server_type
-  - mail_server_port
-  - mail_auth
-  - mail_ssl
+x-db-table: server
+x-db-field: config
+x-ini-section: mail
+additionalProperties: true
 properties:
-  mail_server_type:
+  module:
     type: string
-    enum: [dovecot, courier, cyrus, other]
-    description: Type of the mail server software
-    example: "dovecot"
-  mail_server_port:
-    type: integer
-    minimum: 1
-    maximum: 65535
-    description: Port for IMAP/POP3 service
-    example: 143
-  mail_auth:
+    enum: [postfix_mysql]
+    description: Mail server module (only postfix_mysql is supported by legacy)
+    default: postfix_mysql
+    example: postfix_mysql
+  maildir_path:
     type: string
-    enum: [y, n]
-    description: Whether mail authentication is enabled
-    example: "y"
-  mail_ssl:
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/\[\]]{5,128}$'
+    description: >-
+      Absolute maildir path template; supports the [domain] and [localpart]
+      placeholders (legacy NOTEMPTY + path regex).
+    example: "/var/vmail/[domain]/[localpart]"
+  maildir_format:
     type: string
-    enum: [y, n]
-    description: Whether SSL/TLS is enabled for mail services
-    example: "y"
-  mail_ssl_cert_file:
+    enum: [maildir, mdbox]
+    description: Mailbox storage format
+    default: maildir
+    example: maildir
+  homedir_path:
     type: string
-    description: Path to SSL certificate file for mail services
-    example: "/etc/ssl/certs/mail.crt"
-  mail_ssl_key_file:
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{5,128}$'
+    description: Absolute path of the vmail home directory (legacy NOTEMPTY + path regex)
+    example: "/var/vmail"
+  content_filter:
     type: string
-    description: Path to SSL private key file for mail services
-    example: "/etc/ssl/private/mail.key"
-  mail_ssl_ca_file:
+    enum: [amavisd, rspamd]
+    description: >-
+      Content filter engine. Switching to rspamd triggers a re-sync of all
+      spamfilter_users / spamfilter_wblist records of this server (datalog
+      updates, legacy onAfterUpdate). On installations without rspamd
+      support the legacy form forces amavisd.
+    default: rspamd
+    example: rspamd
+  rspamd_password:
     type: string
-    description: Path to SSL CA certificate file for mail services
-    example: "/etc/ssl/certs/mail-ca.crt"
-  mail_ssl_cert_trusted:
+    maxLength: 255
+    format: password
+    description: Password for the rspamd web interface (trimmed on save)
+    example: ""
+  rspamd_redis_servers:
     type: string
-    enum: [y, n]
-    description: Whether the SSL certificate is trusted
+    maxLength: 255
+    description: Redis server(s) used by rspamd (trimmed on save)
+    default: "127.0.0.1"
+    example: "127.0.0.1"
+  rspamd_redis_password:
+    type: string
+    maxLength: 255
+    format: password
+    description: Password for the rspamd Redis server(s) (trimmed on save)
+    example: ""
+  rspamd_redis_bayes_servers:
+    type: string
+    maxLength: 255
+    description: Redis server(s) used for the rspamd Bayes backend (trimmed on save)
+    default: "127.0.0.1"
+    example: "127.0.0.1"
+  rspamd_redis_bayes_password:
+    type: string
+    maxLength: 255
+    format: password
+    description: Password for the rspamd Bayes Redis server(s) (trimmed on save)
+    example: ""
+  rspamd_available:
+    type: string
+    enum: ["y", "n"]
+    description: >-
+      Whether rspamd is installed on the server. Read-only: legacy always
+      preserves the stored value and ignores client input
+      (server_config_edit.php::onUpdateSave).
+    readOnly: true
+    default: "n"
     example: "n"
-  mail_ssl_cert_country:
+  dkim_path:
     type: string
-    description: Country for SSL certificate
-    example: "US"
-  mail_ssl_cert_state:
+    maxLength: 255
+    description: Directory where DKIM keys are stored (tags/newlines stripped on save)
+    default: "/var/lib/amavis/dkim"
+    example: "/var/lib/amavis/dkim"
+  dkim_strength:
+    type: integer
+    enum: [1024, 2048, 4096]
+    description: DKIM key strength in bits (1024 = weak, 2048 = normal, 4096 = strong)
+    default: 2048
+    example: 2048
+  pop3_imap_daemon:
     type: string
-    description: State/Province for SSL certificate
-    example: "California"
-  mail_ssl_cert_locality:
+    enum: [courier, dovecot]
+    description: POP3/IMAP daemon
+    default: courier
+    example: dovecot
+  mail_filter_syntax:
     type: string
-    description: Locality for SSL certificate
-    example: "San Francisco"
-  mail_ssl_cert_organisation:
+    enum: [maildrop, sieve]
+    description: Mail filter syntax
+    default: maildrop
+    example: sieve
+  mailuser_uid:
+    type: integer
+    minimum: 1999
+    description: UID of the vmail user (legacy NOTEMPTY + RANGE >= 1999)
+    default: 5000
+    example: 5000
+  mailuser_gid:
+    type: integer
+    minimum: 1999
+    description: GID of the vmail group (legacy NOTEMPTY + RANGE >= 1999)
+    default: 5000
+    example: 5000
+  mailuser_name:
     type: string
-    description: Organization for SSL certificate
-    example: "Example Inc."
-  mail_ssl_cert_organisation_unit:
+    maxLength: 255
+    pattern: '^(?!ispconfig|root)([a-zA-Z0-9]{1,20})$'
+    description: Name of the vmail user (legacy NOTEMPTY + regex; ispconfig/root forbidden)
+    default: vmail
+    example: vmail
+  mailuser_group:
     type: string
-    description: Organizational unit for SSL certificate
-    example: "IT Department"
-  mail_ssl_cert_common_name:
+    maxLength: 255
+    pattern: '^(?!ispconfig|root)([a-zA-Z0-9]{1,20})$'
+    description: Name of the vmail group (legacy NOTEMPTY + regex; ispconfig/root forbidden)
+    default: vmail
+    example: vmail
+  mailbox_virtual_uidgid_maps:
     type: string
-    description: Common name for SSL certificate
-    example: "mail.example.com"
-  mail_ssl_cert_email:
+    enum: ["y", "n"]
+    description: >-
+      Use per-website UID/GID mapping for mailboxes (checkbox; legacy CUSTOM
+      validator restricts this to single-web-server setups with dovecot).
+    default: "n"
+    example: "n"
+  relayhost:
     type: string
-    format: email
-    description: Email for SSL certificate
-    example: "admin@example.com"
+    maxLength: 255
+    description: Outgoing relay host (tags/newlines stripped on save; empty = direct delivery)
+    default: ""
+    example: ""
+  relayhost_user:
+    type: string
+    maxLength: 255
+    description: Username for the relay host (tags/newlines stripped on save)
+    default: ""
+    example: ""
+  relayhost_password:
+    type: string
+    maxLength: 255
+    format: password
+    description: Password for the relay host
+    default: ""
+    example: ""
+  reject_sender_login_mismatch:
+    type: string
+    enum: ["y", "n"]
+    description: Reject mail when the sender address does not match the authenticated login (checkbox)
+    default: "n"
+    example: "n"
+  reject_unknown:
+    type: string
+    enum: [helo, client, client_helo, none]
+    description: Reject mail from unknown HELO hostnames and/or unknown clients
+    default: helo
+    example: helo
+  mailbox_size_limit:
+    type: integer
+    minimum: 0
+    description: >-
+      Mailbox size limit in MB (0 = unlimited). A nonzero value smaller than
+      message_size_limit is rejected with 422 (legacy onSubmit check).
+    default: 0
+    example: 0
+  message_size_limit:
+    type: integer
+    minimum: 0
+    description: Message size limit in MB (0 = unlimited)
+    default: 0
+    example: 0
+  realtime_blackhole_list:
+    type: string
+    maxLength: 255
+    description: >-
+      Comma-separated list of DNSBL zones (legacy regex validates each entry
+      as a hostname; empty = disabled).
+    default: ""
+    example: "zen.spamhaus.org,bl.spamcop.net"
+  stress_adaptive:
+    type: string
+    enum: ["y", "n"]
+    description: Enable postfix stress-adaptive behavior (checkbox)
+    default: "y"
+    example: "y"
+  mailbox_soft_delete:
+    type: string
+    enum: ["n", "0", "-1", "1", "7", "30", "90", "365"]
+    description: >-
+      Soft-delete retention for removed mailboxes: 0 = delete immediately,
+      -1 = keep indefinitely, 1/7/30/90/365 = keep N days. Legacy quirk: the
+      form default is 'n' (treated as disabled/delete immediately) even
+      though it is not among the select values.
+    default: "n"
+    example: "0"
+  mailbox_quota_stats:
+    type: string
+    enum: ["y", "n"]
+    description: Collect mailbox quota statistics (checkbox)
+    default: "y"
+    example: "y"
+  overquota_notify_threshold:
+    type: integer
+    minimum: 0
+    maximum: 100
+    description: Quota usage percentage that triggers over-quota notifications (legacy RANGE 0:100)
+    default: 90
+    example: 90
+  overquota_notify_admin:
+    type: string
+    enum: ["y", "n"]
+    description: Send over-quota notifications to the admin (checkbox)
+    default: "y"
+    example: "y"
+  overquota_notify_reseller:
+    type: string
+    enum: ["y", "n"]
+    description: Send over-quota notifications to the reseller (checkbox)
+    default: "y"
+    example: "y"
+  overquota_notify_client:
+    type: string
+    enum: ["y", "n"]
+    description: Send over-quota notifications to the client (checkbox)
+    default: "y"
+    example: "y"
+  overquota_notify_freq:
+    type: integer
+    minimum: 0
+    description: Days between repeated over-quota notifications (0 = notify once)
+    default: 7
+    example: 7
+  overquota_notify_onok:
+    type: string
+    enum: ["y", "n"]
+    description: Notify when quota usage returns below the threshold (checkbox)
+    default: "n"
+    example: "n"
+  rspamd_url:
+    type: string
+    maxLength: 255
+    description: URL of the rspamd web interface (IDN-normalized on save; empty = default)
+    default: ""
+    example: ""

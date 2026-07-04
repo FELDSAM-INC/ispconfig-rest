@@ -1,12 +1,11 @@
+# Verified against source_code/install/sql/ispconfig3.sql (table mail_user) and
+# source_code/interface/web/mail/form/mail_user.tform.php.
 type: object
 x-db-table: mail_user
 required:
   - email
-  - login
   - password
   - name
-  - quota
-  - active
 properties:
   id:
     type: integer
@@ -20,192 +19,162 @@ properties:
     type: integer
     format: int64
     readOnly: true
-    description: Server ID where the mail user is hosted
+    description: |
+      Server ID where the mail user is hosted.
+      Derived from the mail domain of the email address (legacy parity) — not writable.
     example: 1
+    x-db-field: server_id
 
   email:
     type: string
     format: email
     description: |
-      Full email address of the user
+      Full email address of the mailbox
       - Must be a valid email address
-      - Must be unique across all mail users
+      - Must be unique across all mail users and active forward sources
+      - The domain part must be an existing mail domain
       - Will be converted to lowercase on save
       - IDN domains are automatically converted to punycode
+      - Cannot be changed after creation
     example: "user@example.com"
     maxLength: 255
+    x-db-field: email
 
   login:
     type: string
     description: |
       Login username for the mail user
+      - Defaults to the email address when omitted
       - Must be unique across all mail users
-      - Can be the same as the local part of the email
-      - Must match pattern: ^[_a-z0-9][\w\.\-_+@]{1,63}$
+      - Must match pattern: ^[_a-z0-9][\w\.\-\+@]{1,63}$
       - Will be converted to lowercase on save
-    example: "user"
+      - Cannot be changed after creation
+    example: "user@example.com"
     maxLength: 255
     pattern: '^[_a-z0-9][\w\.\-\+@]{1,63}$'
+    x-db-field: login
 
   password:
     type: string
     format: password
     description: |
       Password for the mail user
-      - Required when creating a new user
-      - Must be at least 5 characters long
-      - For stronger security, use a mix of:
-        - Uppercase and lowercase letters
-        - Numbers
-        - Special characters
-      - Will be encrypted before storage
+      - Required when creating a new user; on update the password is only
+        changed when a non-empty value is provided
+      - Minimum length 5 characters (legacy ISPConfig interface policy:
+        `min_password_length` default 5, admin/form/system_config.tform.php)
+      - Stored as a SHA-512 crypt hash (`$6$rounds=5000$...`, legacy CRYPTMAIL)
+      - Never returned in responses
     example: "SecurePassword123!"
     writeOnly: true
     minLength: 5
     maxLength: 255
+    x-db-field: password
 
   name:
     type: string
-    description: |
-      Display name of the mail user
-      - Used in "From" field when sending emails
+    description: Display name of the mail user (used as real name for the mailbox)
     example: "John Doe"
     maxLength: 255
+    x-db-field: name
+
+  uid:
+    type: integer
+    readOnly: true
+    description: |
+      System UID owning the maildir. Derived from the server mail config
+      (`mailuser_uid`, or -1 with virtual uid/gid mapping) — not writable.
+    example: 5000
+    x-db-field: uid
+
+  gid:
+    type: integer
+    readOnly: true
+    description: |
+      System GID owning the maildir. Derived from the server mail config
+      (`mailuser_gid`, or -1 with virtual uid/gid mapping) — not writable.
+    example: 5000
+    x-db-field: gid
+
+  maildir:
+    type: string
+    readOnly: true
+    description: |
+      Path to the maildir directory. Generated from the server mail config
+      `maildir_path` pattern with `[domain]`/`[localpart]` substituted.
+    example: "/var/vmail/example.com/user"
+    maxLength: 255
+    x-db-field: maildir
+
+  maildir_format:
+    type: string
+    readOnly: true
+    description: Mailbox storage format, taken from the server mail config on create and preserved on update
+    example: "maildir"
+    maxLength: 255
+    x-db-field: maildir_format
+
+  homedir:
+    type: string
+    readOnly: true
+    description: Mail user home directory, taken from the server mail config `homedir_path`
+    example: "/var/vmail"
+    maxLength: 255
+    x-db-field: homedir
 
   quota:
     type: integer
     format: int64
     description: |
       Mailbox quota in bytes
-      - Set to 0 for unlimited quota
-      - Set to -1 to use domain default
-      - Minimum value: -1
+      - 0 = unlimited (legacy semantics; there is no "domain default" value)
+      - Negative values are rejected
     example: 1073741824  # 1GB
-    minimum: -1
+    minimum: 0
+    default: 0
+    x-db-field: quota
 
   cc:
     type: string
     description: |
-      Comma-separated list of email addresses to CC all incoming mail to
+      Comma-separated list of email addresses to send a copy of all incoming mail to
       - Each address must be a valid email
       - Will be converted to lowercase on save
+      - May be empty
     example: "notify@example.com,archive@example.com"
-    maxLength: 65535
+    x-db-field: cc
 
   forward_in_lda:
-    type: string
+    type: boolean
     description: |
-      Whether to deliver incoming mail to this mailbox when forwarding is set
-      - 'y': Keep a copy in the mailbox
-      - 'n': Only forward, don't store
-    enum: [y, n]
-    default: "n"
+      Whether the copy to the `cc` addresses is delivered by the LDA
+      (in addition to keeping the message in the mailbox)
+    default: false
+    x-db-field: forward_in_lda
 
   sender_cc:
     type: string
     description: |
-      Comma-separated list of email addresses to BCC all outgoing mail from this user to
-      - Each address must be a valid email
+      Single email address that receives a copy (BCC) of all outgoing mail from this mailbox
+      - Must be a valid email address (legacy allows exactly one)
       - Will be converted to lowercase on save
     example: "backup@example.com"
-    maxLength: 65535
-
-  sender_bcc:
-    type: string
-    description: |
-      Comma-separated list of email addresses to BCC all outgoing mail from this user to
-      - Each address must be a valid email
-      - Will be converted to lowercase on save
-    example: "backup@example.com"
-    maxLength: 65535
-
-  maildir:
-    type: string
-    readOnly: true
-    description: |
-      Path to the maildir directory
-      - Automatically generated based on the email address
-    example: "/var/vmail/example.com/user/"
     maxLength: 255
+    x-db-field: sender_cc
 
-  quota_used:
-    type: integer
-    format: int64
-    readOnly: true
-    description: Current disk usage in bytes
-    example: 1048576  # 1MB
-
-  percent_in_use:
-    type: number
-    format: float
-    readOnly: true
-    description: Percentage of quota used (0-100)
-    example: 50.5
-    minimum: 0
-    maximum: 100
-
-  spam_hits:
-    type: integer
-    readOnly: true
-    description: Number of spam messages caught
-    example: 5
-
-  spam_moves:
-    type: integer
-    readOnly: true
-    description: Number of spam messages moved to spam folder
-    example: 3
-
-  spam_tag_level:
-    type: number
-    format: float
-    description: Spam score level for tagging messages as spam
-    example: 5.0
-
-  spam_kill_level:
-    type: number
-    format: float
-    description: Spam score level for rejecting messages
-    example: 20.0
-
-  spam_tag2_level:
-    type: number
-    format: float
-    description: Secondary spam score level for tagging
-    example: 10.0
-
-  spam_tag3_level:
-    type: number
-    format: float
-    description: Tertiary spam score level for tagging
-    example: 15.0
-
-  spam_subject_tag:
-    type: string
-    description: Prefix to add to subject of spam messages
-    example: "[SPAM] "
-    maxLength: 255
-
-  spam_allow_tell:
-    type: string
-    description: Whether to report spam statistics
-    enum: [y, n]
-    default: "y"
-
-  autosearch:
-    type: string
-    description: Whether to enable email search indexing
-    enum: [y, n]
-    default: "y"
-
-  active:
-    type: string
+  postfix:
+    type: boolean
     description: |
-      Whether the mail user is active
-      - 'y': Account is active
-      - 'n': Account is disabled
-    enum: [y, n]
-    default: "y"
+      Whether receiving of email is enabled for this mailbox
+      (legacy "Enable receiving" checkbox; column `postfix`)
+    default: true
+    x-db-field: postfix
+
+  greylisting:
+    type: boolean
+    description: Whether greylisting is enabled for this mailbox
+    default: false
+    x-db-field: greylisting
 
   # System fields (readonly)
   sys_userid:
@@ -213,69 +182,51 @@ properties:
     readOnly: true
     description: System user ID who created the record
     example: 1
+    x-db-field: sys_userid
 
   sys_groupid:
     type: integer
     readOnly: true
-    description: System group ID for the record
+    description: System group ID for the record (forced to the mail domain's group)
     example: 1
+    x-db-field: sys_groupid
 
-  sys_perm:
+  sys_perm_user:
     type: string
     readOnly: true
-    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    description: Owner permissions for the record (r=read, i=insert, u=update, d=delete)
     example: "riud"
+    x-db-field: sys_perm_user
 
   sys_perm_group:
     type: string
     readOnly: true
     description: Group permissions for the record
     example: "riud"
+    x-db-field: sys_perm_group
 
   sys_perm_other:
     type: string
     readOnly: true
     description: Other permissions for the record
     example: ""
-
-  created_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Creation timestamp
-    example: "2023-01-01T12:00:00Z"
-
-  updated_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Last update timestamp
-    example: "2023-01-01T12:00:00Z"
+    x-db-field: sys_perm_other
 
 description: |
-  A mail user represents an email account that can send and receive email.
-  
-  ### Key Features
-  - Email account with mailbox storage
-  - Spam filtering and scoring
-  - Email forwarding and aliases
-  - Quota management
-  - Activity monitoring
-  
+  A mail user represents an email account (mailbox) that can send and receive email.
+
   ### Password Requirements
-  - Minimum length: 5 characters
-  - Recommended: At least 8 characters with a mix of:
-    - Uppercase and lowercase letters
-    - Numbers
-    - Special characters
-  
-  ### Quota Management
-  - Set to 0 for unlimited storage
-  - Set to -1 to use domain default
-  - Check `quota_used` and `percent_in_use` for current usage
-  
-  ### Spam Filtering
-  - Messages are scored for spam likelihood
-  - Multiple threshold levels for different actions
-  - Customizable subject tagging
-  - Per-user spam statistics
+  - Minimum length: 5 characters (legacy interface default `min_password_length`)
+  - Stored as SHA-512 crypt hash; never returned by the API
+
+  ### Quota
+  - Bytes; 0 = unlimited
+
+  ### Related sub-resources
+  Autoresponder, CC/forwarding, password, spam filter settings and sieve filter
+  rules are managed through the nested `/mail/users/{id}/...` endpoints.
+
+  ### Server-managed columns
+  The `access` and `disable*` (imap/pop3/smtp/deliver/...) columns, backup
+  settings and usage counters exist in the `mail_user` table but are not
+  exposed through this API; they keep their database defaults.

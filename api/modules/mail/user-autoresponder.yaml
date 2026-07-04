@@ -1,7 +1,8 @@
 ---
-# Mail User Autoresponder endpoints
+# Mail User Autoresponder endpoints (singleton sub-resource of a mailbox;
+# view over the autoresponder columns of the mail_user row)
 
-/mail/users/{id}/autoresponder:  
+/mail/users/{id}/autoresponder:
   get:
     tags:
       - Mail Users
@@ -21,12 +22,7 @@
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                data:
-                  $ref: '../../components/schemas/MailUserAutoresponder.yaml'
-      '400':
-        $ref: '../../components/responses/BadRequest.yaml'
+              $ref: '../../components/schemas/MailUserAutoresponder.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -35,12 +31,19 @@
         $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-  
+
   put:
     tags:
       - Mail Users
     summary: Update autoresponder configuration for a mail user
-    description: Update the autoresponder settings for a specific mail user
+    description: |
+      Update the autoresponder settings for a specific mail user
+      (datalog update on the `mail_user` row).
+
+      ### Validation Rules
+      - `autoresponder_end_date` must be later than `autoresponder_start_date`
+        when both are set
+      - Disabling the autoresponder clears both dates (legacy parity)
     parameters:
       - name: id
         in: path
@@ -61,13 +64,7 @@
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                data:
-                  $ref: '../../components/schemas/MailUserAutoresponder.yaml'
-                message:
-                  type: string
-                  example: Autoresponder updated successfully
+              $ref: '../../components/schemas/MailUserAutoresponder.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -76,14 +73,19 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-  
+
   delete:
     tags:
       - Mail Users
     summary: Disable autoresponder for a mail user
-    description: Disable the autoresponder for a specific mail user
+    description: |
+      Disables the autoresponder for a specific mail user. This is NOT a row
+      delete: it sets `autoresponder` to disabled and clears both dates
+      (datalog update on the `mail_user` row, legacy parity).
     parameters:
       - name: id
         in: path
@@ -95,8 +97,6 @@
     responses:
       '204':
         description: Autoresponder disabled successfully
-      '400':
-        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

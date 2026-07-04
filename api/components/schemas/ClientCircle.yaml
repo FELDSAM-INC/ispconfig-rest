@@ -1,17 +1,19 @@
+# Client circle resource — mirrors the `client_circle` table in ispconfig3.sql.
+# The ENUM('n','y') `active` column is exposed as a boolean (YesNoBoolean cast).
 type: object
 x-db-table: client_circle
 description: Client Circle defines a group of clients that can be managed together
 required:
   - circle_name
   - client_ids
-  - active
 properties:
-  circle_id:
+  id:
     type: integer
     format: int64
     readOnly: true
     description: Unique identifier for the circle
     example: 1
+    x-db-field: circle_id
 
   sys_userid:
     type: integer
@@ -65,15 +67,14 @@ properties:
     example: "Resellers from Eastern Europe region"
 
   active:
-    type: string
-    enum: [y, n]
+    type: boolean
     description: Whether the circle is active
-    default: "y"
-    example: "y"
+    default: true
+    example: true
 
 example:
-  circle_id: 1
+  id: 1
   circle_name: "Reseller Group A"
   client_ids: "1,5,12,25"
   description: "Resellers from Eastern Europe region"
-  active: "y"
+  active: true

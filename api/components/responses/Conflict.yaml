@@ -1,5 +1,10 @@
-description: Conflict
+description: Conflict — the request conflicts with the current state of the resource (RFC 9457 problem details)
 content:
-  application/json:
+  application/problem+json:
     schema:
-      $ref: '../schemas/Error.yaml'
+      $ref: '../schemas/Problem.yaml'
+    example:
+      type: 'about:blank'
+      title: Conflict
+      status: 409
+      detail: The resource already exists or is in a conflicting state.

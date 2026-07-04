@@ -5,32 +5,12 @@
       - FTP Users
     summary: List all FTP users
     description: |
-      Returns a paginated list of FTP users. The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      You can filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `username[ilike]=%user%&active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=username` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+      Returns a paginated list of FTP users.
+
+      ### Query options
+      - Pagination: `limit` (default 25, max 100) and `offset`
+      - Sorting: `sort` (field name) and `order` (`asc`/`desc`)
+      - Filtering: `search` matches against the `username` column
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -38,7 +18,7 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: search
         in: query
-        description: Search term to filter FTP users
+        description: Search term matched against the username
         schema:
           type: string
     responses:
@@ -48,13 +28,18 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/FtpUser.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -66,7 +51,15 @@
     tags:
       - FTP Users
     summary: Create a new FTP user
-    description: Creates a new FTP user with the specified configuration
+    description: |
+      Creates a new FTP user for a web domain.
+
+      ### Server-side behavior (legacy parity)
+      - The username is prefixed with the resolved `ftpuser_prefix`; a
+        duplicate full username is rejected with 422
+      - `server_id`, `dir`, `uid`, `gid` and `sys_groupid` are derived from
+        the parent web domain
+      - The password is stored as a SHA-512 crypt hash
     requestBody:
       required: true
       content:
@@ -86,8 +79,6 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -128,16 +119,13 @@
       - FTP Users
     summary: Update FTP user
     description: |
-      Updates an existing FTP user configuration.
-      
-      ### Partial Updates
-      Only include the fields you want to update. Omitted fields will remain unchanged.
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../../components/schemas/FtpUser.yaml'
+      Updates an existing FTP user. Only include the fields you want to
+      change; omitted fields remain unchanged.
+
+      ### Server-side behavior (legacy parity)
+      - The stored username keeps its original prefix
+      - When `parent_domain_id` changes, `server_id`, `dir`, `uid`, `gid`
+        and `sys_groupid` are re-derived from the new parent domain
     parameters:
       - name: id
         in: path
@@ -146,6 +134,12 @@
         schema:
           type: integer
           format: int64
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/FtpUser.yaml'
     responses:
       '200':
         description: FTP user updated successfully
@@ -161,8 +155,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -172,7 +164,7 @@
     tags:
       - FTP Users
     summary: Delete FTP user
-    description: Deletes an FTP user by ID
+    description: Deletes an FTP user by ID. This action cannot be undone.
     parameters:
       - name: id
         in: path
@@ -184,10 +176,6 @@
     responses:
       '204':
         description: FTP user deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - FTP user cannot be deleted because it's in use
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

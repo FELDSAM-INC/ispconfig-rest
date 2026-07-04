@@ -1,13 +1,13 @@
-# Monitor module API paths
+# Monitor module API paths (all read-only)
 
-# Data logs
+# Data logs (sys_datalog journal)
 data-logs:
   $ref: './data-logs.yaml'
 
-# System logs
-system-logs:
-  $ref: './system-logs.yaml'
-
-# Server status
+# Server status (computed from monitor_data)
 server-status:
   $ref: './server-status.yaml'
+
+# System logs (sys_log)
+system-logs:
+  $ref: './system-logs.yaml'

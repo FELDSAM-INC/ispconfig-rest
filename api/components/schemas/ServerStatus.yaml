@@ -1,71 +1,168 @@
 # ServerStatus Schema
-# Represents the status of a server in the system
+# Computed aggregate — NOT a database table row. Assembled from the `server`
+# table (identity) and the NEWEST `monitor_data` row per monitor type
+# (PHP-serialized blobs written by ISPConfig's 100-monitor_* server cronjobs;
+# rows older than ~4 minutes are pruned by the collectors, so only the latest
+# row per type is meaningful). Fields derived from a missing or corrupt blob
+# are null — a server with no monitor data at all still appears, with
+# status "unknown" and all metric fields null.
 
 type: object
+description: Aggregated health status of one ISPConfig server
 properties:
   server_id:
     type: integer
     format: int64
-    description: Unique identifier of the server
+    description: Unique identifier of the server (`server.server_id`)
     example: 1
   server_name:
     type: string
-    description: Hostname of the server
+    description: Hostname of the server (`server.server_name`)
     example: "server1.example.com"
   status:
     type: string
-    enum: ["ok", "warning", "error", "unknown"]
-    description: Overall status of the server
+    enum: [ok, warning, error, unknown]
+    description: |
+      Overall server state: the highest-severity `monitor_data.state` across the
+      newest row of every monitor type for this server (the `openvz_beancounter`
+      type is skipped, as in legacy ISPConfig), mapped from the database's
+      7-value enum onto this 4-value enum:
+      `ok` → `ok`, `info` → `ok`, `warning` → `warning`, `critical` → `error`,
+      `error` → `error`, `unknown` → `unknown`, `no_state` → `unknown`.
+      Servers without any monitor data report `unknown`.
     example: "ok"
-  cpu_usage:
-    type: number
-    format: float
-    description: CPU usage percentage
-    example: 45.7
-  memory_usage:
-    type: number
-    format: float
-    description: Memory usage percentage
-    example: 67.3
-  disk_usage:
-    type: number
-    format: float
-    description: Disk usage percentage
-    example: 23.5
   load_average:
     type: array
+    nullable: true
     items:
       type: number
       format: float
-    description: System load averages (1min, 5min, 15min)
+    minItems: 3
+    maxItems: 3
+    description: |
+      System load averages over 1, 5 and 15 minutes, from the newest
+      `server_load` monitor blob (`load_1`, `load_5`, `load_15`).
+      Null when no `server_load` data exists.
     example: [1.2, 0.8, 0.5]
   uptime:
     type: integer
     format: int64
-    description: System uptime in seconds
-    example: 1234567
-  last_updated:
-    type: string
-    format: date-time
-    description: When the status was last updated
-    example: "2025-06-01T21:05:46+02:00"
-  services:
+    nullable: true
+    description: |
+      System uptime in seconds. Derived field: computed from the `server_load`
+      blob's `up_days`/`up_hours`/`up_minutes` as
+      `days*86400 + hours*3600 + minutes*60` — minute resolution, since the
+      collector stores no raw seconds counter. Null when no `server_load`
+      data exists.
+    example: 1234560
+  memory_usage:
+    type: number
+    format: float
+    nullable: true
+    description: |
+      Memory usage percentage (0-100). Derived field: computed from the newest
+      `mem_usage` monitor blob (a `/proc/meminfo` map with values in bytes) as
+      `(MemTotal - MemAvailable) / MemTotal * 100`. Null when no `mem_usage`
+      data exists.
+    example: 67.3
+  disk_usage:
     type: array
+    nullable: true
+    description: |
+      Per-filesystem disk usage from the newest `disk_usage` monitor blob
+      (one entry per real filesystem, as reported by `df -PhT`).
+      Null when no `disk_usage` data exists.
     items:
       type: object
       properties:
-        name:
+        fs:
           type: string
-          description: Name of the service
-          example: "apache2"
-        status:
+          description: Filesystem device
+          example: "/dev/sda1"
+        type:
           type: string
-          enum: ["running", "stopped", "error", "unknown"]
-          description: Status of the service
-          example: "running"
-        uptime:
-          type: integer
-          format: int64
-          description: Uptime of the service in seconds
-          example: 3600
-    description: Status of system services
+          description: Filesystem type
+          example: "ext4"
+        size:
+          type: string
+          description: Total size (human-readable df value)
+          example: "20G"
+        used:
+          type: string
+          description: Used space (human-readable df value)
+          example: "4.7G"
+        available:
+          type: string
+          description: Available space (human-readable df value)
+          example: "15G"
+        percent:
+          type: number
+          format: float
+          description: Used percentage (0-100), parsed from df's percent column (e.g. "24%")
+          example: 24
+        mounted:
+          type: string
+          description: Mount point
+          example: "/"
+  services:
+    type: object
+    nullable: true
+    description: |
+      Per-service up/down flags from the newest `services` monitor blob.
+      Each flag is `true` (running), `false` (down) or `null` (not monitored
+      on this server — the collector stores -1). The whole object is null when
+      no `services` data exists. Legacy stores no per-service uptime, so none
+      is exposed.
+    properties:
+      webserver:
+        type: boolean
+        nullable: true
+        description: Web server (HTTP) status
+        example: true
+      ftpserver:
+        type: boolean
+        nullable: true
+        description: FTP server status
+        example: true
+      smtpserver:
+        type: boolean
+        nullable: true
+        description: SMTP server status
+        example: true
+      pop3server:
+        type: boolean
+        nullable: true
+        description: POP3 server status
+        example: true
+      imapserver:
+        type: boolean
+        nullable: true
+        description: IMAP server status
+        example: true
+      bindserver:
+        type: boolean
+        nullable: true
+        description: DNS (BIND) server status
+        example: null
+      mysqlserver:
+        type: boolean
+        nullable: true
+        description: MySQL/MariaDB server status
+        example: true
+      mongodbserver:
+        type: boolean
+        nullable: true
+        description: MongoDB server status
+        example: null
+  last_updated:
+    type: string
+    format: date-time
+    nullable: true
+    description: |
+      When monitor data for this server was last collected — ISO 8601 date-time
+      derived from `MAX(monitor_data.created)`. Null when no monitor data exists.
+    example: "2025-06-01T21:05:46+02:00"
+required:
+  - server_id
+  - server_name
+  - status

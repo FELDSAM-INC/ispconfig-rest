@@ -1,10 +1,16 @@
 # Directive Snippet Schema
-# This schema defines the structure of a directive snippet in ISPConfig
+# Reusable web-server configuration snippet (table `directive_snippets`,
+# verified against source_code/install/sql/ispconfig3.sql). Referenced by
+# `web_domain.directive_snippets_id`; php snippets are composable via
+# `required_php_snippets`. The (`name`, `type`) pair must be unique —
+# enforced by the application mirroring the legacy
+# `validate_server_directive_snippets` validator (no DB UNIQUE constraint).
+# `master_directive_snippets_id` is intentionally unexposed.
 
 type: object
 x-db-table: directive_snippets
 properties:
-  directive_snippets_id:
+  id:
     type: integer
     format: int32
     description: Unique identifier for the directive snippet
@@ -46,7 +52,9 @@ properties:
   name:
     type: string
     maxLength: 255
-    description: Name of the directive snippet
+    description: >
+      Name of the directive snippet (required, non-empty; must be unique
+      per snippet type — duplicates are rejected with 409)
     example: "Custom PHP Settings"
     x-db-field: name
   type:
@@ -61,25 +69,38 @@ properties:
     example: "php_admin_value memory_limit 256M"
     x-db-field: snippet
   customer_viewable:
-    type: string
-    enum: [y, n]
-    description: Whether the snippet is visible to customers (y = yes, n = no)
-    example: "y"
+    type: boolean
+    default: false
+    description: >
+      Whether the snippet is visible to customers.
+      Disabling it is rejected with 409 while the snippet is in use.
+    example: true
     x-db-field: customer_viewable
+    x-db-format: "y/n"
   active:
-    type: string
-    enum: [y, n]
-    description: Whether the snippet is active (y = yes, n = no)
-    example: "y"
+    type: boolean
+    default: true
+    description: >
+      Whether the snippet is active.
+      Disabling it is rejected with 409 while the snippet is in use.
+    example: true
     x-db-field: active
+    x-db-format: "y/n"
   update_sites:
-    type: string
-    enum: [y, n]
-    description: Whether to update sites using this snippet (y = yes, n = no)
-    example: "y"
+    type: boolean
+    default: false
+    description: >
+      Side-effect trigger — when an update is saved with update_sites=true
+      and active=true, every web_domain using this snippet is re-emitted to
+      sys_datalog as a forced full-record update so the web servers rewrite
+      their vhosts
+    example: true
     x-db-field: update_sites
+    x-db-format: "y/n"
   required_php_snippets:
     type: string
-    description: Comma-separated list of required PHP snippet IDs
+    description: >
+      Comma-separated list of required PHP snippet IDs; each ID must
+      reference an active snippet of type php
     example: "1,2,3"
     x-db-field: required_php_snippets

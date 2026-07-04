@@ -1,4 +1,4 @@
-# Mail Transports endpoints
+# Mail Transports endpoints (table mail_transport)
 /mail/transports:
   get:
     tags:
@@ -6,34 +6,9 @@
     summary: List all mail transports
     description: |
       Returns a paginated list of mail transports.
-      The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      Filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Examples:
-      - Find by domain: `domain[eq]=example.com`
-      - Find active transports: `active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=domain` or `sort=-sort_order`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -51,10 +26,9 @@
           type: string
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
         description: A list of mail transports
@@ -62,13 +36,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/MailTransport.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -84,17 +61,14 @@
     summary: Create a new mail transport
     description: |
       Creates a new mail transport.
-      
+
       ### Validation Rules
       - Domain must be a valid domain name
-      - Transport must be a valid Postfix transport definition
-      - User must have permissions for the server
-      - Sort order must be a non-negative integer
-      
-      ### Notes
-      - System administrators can create transports on any server
-      - Regular users can only create transports on their servers
-      - The domain must not be used by another transport or mail domain
+      - Domain must be unique per server (database unique key) — duplicates
+        yield 409
+      - Domain must not be an existing local mail domain
+      - Transport is a raw Postfix transport string
+      - `server_id` must reference a mail server
     requestBody:
       required: true
       content:
@@ -110,18 +84,10 @@
               $ref: '../../components/schemas/MailTransport.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid domain format
-          - Invalid transport definition
-          - Domain already in use
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: |
-          Forbidden. Possible reasons:
-          - No permission to use the server
       '409':
         $ref: '../../components/responses/Conflict.yaml'
       '422':
@@ -165,10 +131,11 @@
     summary: Update mail transport
     description: |
       Updates an existing mail transport.
-      
+
       ### Notes
-      - The domain and server_id cannot be changed after creation
-      - Only the transport, sort_order, and active status can be updated
+      - `domain` and `server_id` cannot be changed after creation (legacy
+        reverts server_id changes)
+      - Only `transport`, `sort_order` and `active` can be updated
     parameters:
       - name: id
         in: path
@@ -198,8 +165,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -211,10 +176,8 @@
     summary: Delete mail transport
     description: |
       Deletes a mail transport by ID.
-      
-      ### Notes
-      - The operation is permanent and cannot be undone
-      - User must have permission to modify the server
+
+      The operation is permanent and cannot be undone.
     parameters:
       - name: id
         in: path
@@ -226,10 +189,6 @@
     responses:
       '204':
         description: Mail transport deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Transport is in use
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

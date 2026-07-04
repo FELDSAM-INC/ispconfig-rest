@@ -1,4 +1,4 @@
-# Domain resource endpoints
+# Client domain (domain module) endpoints
 
 # Get all domains
 /clients/domains:
@@ -6,12 +6,18 @@
     tags:
       - Client Domains
     summary: List all domains
-    description: Returns a list of all domains accessible to the current user
+    description: Returns a paginated list of domains registered in the domain module
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/sort.yaml'
       - $ref: '../../components/parameters/order.yaml'
+      - name: client_id
+        in: query
+        description: Filter by owning client (resolved through the client's sys_group)
+        schema:
+          type: integer
+          format: int64
     responses:
       '200':
         description: A list of domains
@@ -19,17 +25,22 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
-                total:
-                  type: integer
-                  description: Total number of domains
-                  example: 1
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/ClientDomain.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
@@ -37,7 +48,10 @@
     tags:
       - Client Domains
     summary: Create a new domain
-    description: Creates a new domain with the specified details
+    description: |
+      Creates a new domain owned by the given client. The domain row is stored
+      with the client's sys_group and sys_perm_group 'ru'. Domain names are
+      unique; creating a duplicate is rejected with 409.
     requestBody:
       required: true
       content:
@@ -59,18 +73,20 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '409':
         $ref: '../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
 # Get a specific domain
-/clients/domains/{domainId}:
+/clients/domains/{id}:
   get:
     tags:
       - Client Domains
     summary: Get a domain by ID
     description: Returns a single domain by its ID
     parameters:
-      - name: domain_id
+      - name: id
         in: path
         description: Domain ID
         required: true
@@ -86,6 +102,8 @@
               $ref: '../../components/schemas/ClientDomain.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
       '500':
@@ -95,15 +113,17 @@
     tags:
       - Client Domains
     summary: Update a domain
-    description: Updates an existing domain's details
+    description: |
+      Updates an existing domain's details. Renaming to a domain name that
+      already exists is rejected with 409.
     parameters:
-    - name: domain_id
-      in: path
-      description: Domain ID
-      required: true
-      schema:
-        type: integer
-        format: int64
+      - name: id
+        in: path
+        description: Domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -125,6 +145,10 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
@@ -134,13 +158,13 @@
     summary: Delete a domain
     description: Deletes a domain by its ID
     parameters:
-    - name: domain_id
-      in: path
-      description: Domain ID
-      required: true
-      schema:
-        type: integer
-        format: int64
+      - name: id
+        in: path
+        description: Domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
     responses:
       '204':
         description: Domain deleted successfully

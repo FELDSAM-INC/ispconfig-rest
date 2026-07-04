@@ -6,32 +6,11 @@
     summary: List all WebDAV users
     description: |
       Returns a paginated list of WebDAV users.
-      The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      You can filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `username[ilike]=%user%&active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=id` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+
+      ### Query options
+      - Pagination: `limit` (default 25, max 100) and `offset`
+      - Sorting: `sort` (field name) and `order` (`asc`/`desc`)
+      - Filtering: `parent_domain_id` and `active` parameters below
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -45,10 +24,9 @@
           format: int64
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
         description: A list of WebDAV users
@@ -56,13 +34,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/WebdavUser.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -77,14 +58,15 @@
       - WebDAV Users
     summary: Create a new WebDAV user
     description: |
-      Creates a new WebDAV user for accessing a specific directory.
-      
-      ### Validation Rules
-      - Username must be unique across all WebDAV users
-      - Parent domain must exist and be accessible
-      - Directory path must be valid and accessible
-      - User must have permission to create WebDAV users
-      - User must be within their allowed limits for WebDAV users
+      Creates a new WebDAV user for a web domain directory.
+
+      ### Server-side behavior (legacy parity)
+      - The username is prefixed with the resolved `webdavuser_prefix`; a
+        duplicate full username is rejected with 422
+      - `server_id` and `sys_groupid` are derived from the parent web domain
+      - `dir` must not contain `..` or `./`
+      - The password is stored as the digest hash
+        `md5(username:dir:password)`
     requestBody:
       required: true
       content:
@@ -100,18 +82,10 @@
               $ref: '../../components/schemas/WebdavUser.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid username format
-          - Username already exists
-          - Parent domain not found or inaccessible
-          - Invalid directory path
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -152,11 +126,20 @@
       - WebDAV Users
     summary: Update WebDAV user
     description: |
-      Updates an existing WebDAV user configuration.
-      
+      Updates an existing WebDAV user.
+
       ### Notes
-      - Username and directory path cannot be changed after creation
-      - Only the password and active status can be updated
+      Only `password` and `active` can be updated; `username` and `dir` are
+      immutable after creation (legacy restores the stored values). A changed
+      password is re-digested with the stored username and dir.
+    parameters:
+      - name: id
+        in: path
+        description: ID of the WebDAV user
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -166,21 +149,14 @@
             properties:
               password:
                 type: string
-                description: New password for the WebDAV user
-                minLength: 6
+                format: password
+                writeOnly: true
                 maxLength: 255
+                description: New password (stored as `md5(username:dir:password)` digest, never returned)
               active:
-                type: string
-                enum: [y, n]
+                type: boolean
                 description: Whether the WebDAV user is active
-    parameters:
-      - name: id
-        in: path
-        description: ID of the WebDAV user
-        required: true
-        schema:
-          type: integer
-          format: int64
+                x-db-format: "y/n"
     responses:
       '200':
         description: WebDAV user updated successfully
@@ -196,6 +172,8 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
@@ -204,11 +182,8 @@
       - WebDAV Users
     summary: Delete WebDAV user
     description: |
-      Deletes a WebDAV user by ID.
-      
-      ### Notes
-      - This will revoke the user's access immediately
-      - This action cannot be undone
+      Deletes a WebDAV user by ID. Access is revoked when the ISPConfig
+      daemons process the change. This action cannot be undone.
     parameters:
       - name: id
         in: path
@@ -220,11 +195,6 @@
     responses:
       '204':
         description: WebDAV user deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - WebDAV user is currently in use
-          - Insufficient permissions
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

@@ -1,25 +1,40 @@
 type: object
 x-db-table: web_folder_user
+description: |
+  An HTTP-auth credential for a protected web folder — table
+  `web_folder_user` (primary key `web_folder_user_id`).
+
+  ### Server-derived fields
+  `server_id` and `sys_groupid` are always derived from the web folder
+  (and its parent web domain).
+
+  ### Constraints
+  - The (`web_folder_id`, `username`) pair must be unique (legacy duplicate
+    check)
+  - Only `password` and `active` can be changed after creation (contract
+    restriction; stricter than legacy)
+
+  ### Password storage
+  `password` is write-only and stored as a SHA-512 crypt hash (legacy
+  `CRYPT` encryption). Plaintext is never stored or returned.
 required:
-  - server_id
   - web_folder_id
   - username
   - password
-  - active
 properties:
   id:
     type: integer
     format: int64
     readOnly: true
-    description: Unique identifier for the web folder user
+    description: Unique identifier for the web folder user (database column `web_folder_user_id`)
     example: 123
-    x-db-field: id
+    x-db-field: web_folder_user_id
 
   server_id:
     type: integer
     format: int64
     readOnly: true
-    description: Server ID where the web folder is located
+    description: Server ID — always derived from the web folder
     example: 1
 
   web_folder_id:
@@ -30,113 +45,86 @@ properties:
 
   username:
     type: string
-    description: |
-      Username for HTTP authentication
-      
-      ### Validation Rules:
-      - Must be unique within the web folder
-      - Can only contain alphanumeric characters, dots, and hyphens
-      - Maximum length: 64 characters
+    minLength: 1
     maxLength: 64
     pattern: '^[\w\.\-]{1,64}$'
+    description: |
+      Username for HTTP authentication. Legacy regex `/^[\w\.\-]{0,64}$/`.
+      Must be unique within the web folder.
     example: "user123"
 
   password:
     type: string
+    format: password
     writeOnly: true
-    description: |
-      Password for HTTP authentication
-      
-      ### Validation Rules:
-      - Must meet password strength requirements
-      - Will be hashed before storage
-    minLength: 6
     maxLength: 255
+    description: |
+      Password for HTTP authentication. Write-only — never returned in
+      responses. Stored as a SHA-512 crypt hash (legacy `CRYPT` encryption).
     example: "securePassword123"
 
   active:
-    type: string
+    type: boolean
+    default: true
     description: Whether the web folder user is active
-    enum: [y, n]
-    default: "y"
+    example: true
+    x-db-format: "y/n"
 
-  # System fields (readonly)
+  # System fields
   sys_userid:
     type: integer
     readOnly: true
-    description: System user ID who created the record
+    description: System user ID that owns the record
     example: 1
 
   sys_groupid:
     type: integer
     readOnly: true
-    description: System group ID for the record
-    example: 1
+    description: System group ID — always synced from the web folder's parent domain
+    example: 10
 
-  sys_perm:
+  sys_perm_user:
     type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
-    example: "riud"
+    default: riud
+    description: Owner permissions (r=read, i=insert, u=update, d=delete)
+    example: riud
 
   sys_perm_group:
     type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: Group permissions for the record
-    example: "riud"
+    default: riud
+    description: Group permissions (r=read, i=insert, u=update, d=delete)
+    example: riud
 
   sys_perm_other:
     type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: Other permissions for the record
+    default: ""
+    description: Other permissions (r=read, i=insert, u=update, d=delete)
     example: ""
 
-  created_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Creation timestamp
-    example: "2023-01-01T12:00:00Z"
-
-  updated_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Last update timestamp
-    example: "2023-01-01T12:00:00Z"
-
-  # Response only fields (not for input)
+  # Response-only convenience fields
   server_name:
     type: string
     readOnly: true
-    description: Name of the server where the web folder is located
-    example: "server1.example.com"
+    description: Name of the server hosting the folder
+    example: "web1.example.com"
 
   web_folder_path:
     type: string
     readOnly: true
     description: Path of the web folder this user can access
-    example: "/protected-files"
+    example: "/protected"
 
   parent_domain:
     type: string
     readOnly: true
     description: Name of the parent domain
     example: "example.com"
-
-description: |
-  A web folder user represents a username and password that can be used to access a protected web folder via HTTP authentication.
-  
-  ### Key Features
-  - Provides HTTP Basic Authentication for web folders
-  - Passwords are securely hashed before storage
-  - Can be enabled or disabled
-  
-  ### Usage
-  - Used in conjunction with web folders to create password-protected directories
-  - Browsers will prompt for username/password when accessing protected directories
-  
-  ### Security Notes
-  - Always use HTTPS when protecting directories with HTTP authentication
-  - Consider using .htaccess rules for additional security
-  - Passwords must meet minimum strength requirements

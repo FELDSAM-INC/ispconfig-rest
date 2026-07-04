@@ -1,0 +1,21 @@
+# Canonical pagination metadata for list responses (Constitution v2.0.0, Principle V).
+# Every list endpoint returns: { "data": [...], "meta": { "total", "limit", "offset" } }
+type: object
+description: Pagination metadata for list responses
+properties:
+  total:
+    type: integer
+    description: Total number of items matching the query, across all pages
+    example: 100
+  limit:
+    type: integer
+    description: Maximum number of items returned in this response (the applied `limit` query parameter)
+    example: 25
+  offset:
+    type: integer
+    description: Number of items skipped before this page (the applied `offset` query parameter)
+    example: 0
+required:
+  - total
+  - limit
+  - offset

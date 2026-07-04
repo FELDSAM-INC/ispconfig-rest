@@ -6,32 +6,11 @@
     summary: List all web folder users
     description: |
       Returns a paginated list of web folder users.
-      The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      You can filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `username[ilike]=%user%&active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=id` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+
+      ### Query options
+      - Pagination: `limit` (default 25, max 100) and `offset`
+      - Sorting: `sort` (field name) and `order` (`asc`/`desc`)
+      - Filtering: `web_folder_id` and `active` parameters below
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -45,10 +24,9 @@
           format: int64
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
         description: A list of web folder users
@@ -56,13 +34,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/WebFolderUser.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -78,12 +59,12 @@
     summary: Create a new web folder user
     description: |
       Creates a new user for accessing a protected web folder.
-      
-      ### Validation Rules
-      - Username must be unique within the web folder
-      - Web folder must exist and be accessible
-      - Password must meet strength requirements
-      - User must have permission to create web folder users
+
+      ### Server-side behavior (legacy parity)
+      - `server_id` and `sys_groupid` are derived from the web folder and
+        its parent web domain
+      - A duplicate (`web_folder_id`, `username`) pair is rejected with 422
+      - The password is stored as a SHA-512 crypt hash
     requestBody:
       required: true
       content:
@@ -99,18 +80,10 @@
               $ref: '../../components/schemas/WebFolderUser.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid username format
-          - Username already exists in this web folder
-          - Web folder not found or inaccessible
-          - Weak password
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -151,11 +124,20 @@
       - Web Folder Users
     summary: Update web folder user
     description: |
-      Updates an existing web folder user configuration.
-      
+      Updates an existing web folder user.
+
       ### Notes
-      - Username cannot be changed after creation
-      - Only password and active status can be updated
+      Only `password` and `active` can be updated; `username` and
+      `web_folder_id` are immutable after creation (contract restriction,
+      stricter than legacy).
+    parameters:
+      - name: id
+        in: path
+        description: ID of the web folder user
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -165,21 +147,14 @@
             properties:
               password:
                 type: string
-                description: New password for the web folder user
-                minLength: 6
+                format: password
+                writeOnly: true
                 maxLength: 255
+                description: New password (stored as a SHA-512 crypt hash, never returned)
               active:
-                type: string
-                enum: [y, n]
+                type: boolean
                 description: Whether the web folder user is active
-    parameters:
-      - name: id
-        in: path
-        description: ID of the web folder user
-        required: true
-        schema:
-          type: integer
-          format: int64
+                x-db-format: "y/n"
     responses:
       '200':
         description: Web folder user updated successfully
@@ -195,6 +170,8 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
@@ -203,11 +180,8 @@
       - Web Folder Users
     summary: Delete web folder user
     description: |
-      Deletes a web folder user by ID.
-      
-      ### Notes
-      - This will revoke the user's access immediately
-      - This action cannot be undone
+      Deletes a web folder user by ID. Access is revoked when the ISPConfig
+      daemons process the change. This action cannot be undone.
     parameters:
       - name: id
         in: path
@@ -219,11 +193,6 @@
     responses:
       '204':
         description: Web folder user deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - User is currently logged in
-          - Insufficient permissions
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

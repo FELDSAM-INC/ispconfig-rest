@@ -1,5 +1,9 @@
+# [dns] section of the global system configuration (sys_ini INI blob).
+# Field set verified against legacy source_code/interface/web/admin/form/system_config.tform.php
+# (matches the legacy key set exactly). Unexposed legacy keys of other sections
+# are preserved untouched by PUT (read-merge-write).
 type: object
-description: System configuration for DNS in ISPConfig
+description: DNS-related global system configuration (the `[dns]` section of the `sys_ini` blob)
 properties:
   default_dnsserver:
     type: integer

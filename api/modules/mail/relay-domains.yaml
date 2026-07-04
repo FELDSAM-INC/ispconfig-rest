@@ -1,4 +1,4 @@
-# Mail Relay Domains endpoints
+# Mail Relay Domains endpoints (table mail_relay_domain)
 /mail/relay-domains:
   get:
     tags:
@@ -6,34 +6,9 @@
     summary: List all mail relay domains
     description: |
       Returns a paginated list of mail relay domains.
-      The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      Filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Examples:
-      - Find by domain: `domain[eq]=example.com`
-      - Find active domains: `active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=domain` or `sort=-created`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -46,10 +21,9 @@
           type: string
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
         description: A list of mail relay domains
@@ -57,13 +31,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/MailRelayDomain.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -79,15 +56,13 @@
     summary: Create a new mail relay domain
     description: |
       Creates a new mail relay domain.
-      
+
       ### Validation Rules
       - Domain must be a valid domain name
-      - Domain must not be used by another relay or mail domain
-      - User must have permissions for the server
-      
-      ### Notes
-      - System administrators can create relay domains on any server
-      - Regular users can only create relay domains on their servers
+      - Domain must be unique per server (database unique key) — duplicates
+        yield 409
+      - `server_id` must reference a mail server
+      - `access` defaults to 'OK' (legacy parity)
     requestBody:
       required: true
       content:
@@ -103,17 +78,10 @@
               $ref: '../../components/schemas/MailRelayDomain.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid domain format
-          - Domain already in use
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: |
-          Forbidden. Possible reasons:
-          - No permission to use the server
       '409':
         $ref: '../../components/responses/Conflict.yaml'
       '422':
@@ -157,10 +125,10 @@
     summary: Update mail relay domain
     description: |
       Updates an existing mail relay domain.
-      
+
       ### Notes
-      - The domain name cannot be changed after creation
-      - Only the active status can be updated
+      - `domain` cannot be changed after creation
+      - Only `access` and `active` can be updated
     parameters:
       - name: id
         in: path
@@ -190,8 +158,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -203,10 +169,8 @@
     summary: Delete mail relay domain
     description: |
       Deletes a mail relay domain by ID.
-      
-      ### Notes
-      - The operation is permanent and cannot be undone
-      - User must have permission to modify the server
+
+      The operation is permanent and cannot be undone.
     parameters:
       - name: id
         in: path
@@ -218,10 +182,6 @@
     responses:
       '204':
         description: Mail relay domain deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Relay domain is in use
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

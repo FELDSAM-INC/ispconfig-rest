@@ -1,4 +1,4 @@
-# Mail Relay Recipients endpoints
+# Mail Relay Recipients endpoints (table mail_relay_recipient)
 /mail/relay-recipients:
   get:
     tags:
@@ -6,29 +6,9 @@
     summary: List all mail relay recipients
     description: |
       Returns a paginated list of mail relay recipients.
-      The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      Filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      
-      Examples:
-      - Find by source: `source[eq]=user@example.com`
-      - Find by access: `access[eq]=OK`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=source` or `sort=-created`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -51,13 +31,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/MailRelayRecipient.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -73,15 +56,11 @@
     summary: Create a new mail relay recipient
     description: |
       Creates a new mail relay recipient.
-      
+
       ### Validation Rules
-      - Source must be a valid email, domain, or IP pattern
-      - Access must be a valid Postfix access control value
-      - User must have permissions for the server
-      
-      ### Notes
-      - System administrators can create relay recipients on any server
-      - Regular users can only create relay recipients on their servers
+      - Source must be a valid email, domain (@domain.tld) or pattern
+      - `server_id` must reference a mail server
+      - `access` defaults to 'OK' (legacy parity)
     requestBody:
       required: true
       content:
@@ -97,19 +76,10 @@
               $ref: '../../components/schemas/MailRelayRecipient.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid source format
-          - Invalid access value
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: |
-          Forbidden. Possible reasons:
-          - No permission to use the server
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -151,10 +121,10 @@
     summary: Update mail relay recipient
     description: |
       Updates an existing mail relay recipient.
-      
+
       ### Notes
-      - The source and server_id cannot be changed after creation
-      - Only the access value can be updated
+      - `source` and `server_id` cannot be changed after creation
+      - Only `access` and `active` can be updated
     parameters:
       - name: id
         in: path
@@ -184,8 +154,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -197,10 +165,8 @@
     summary: Delete mail relay recipient
     description: |
       Deletes a mail relay recipient by ID.
-      
-      ### Notes
-      - The operation is permanent and cannot be undone
-      - User must have permission to modify the server
+
+      The operation is permanent and cannot be undone.
     parameters:
       - name: id
         in: path
@@ -212,10 +178,6 @@
     responses:
       '204':
         description: Mail relay recipient deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Recipient is in use
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

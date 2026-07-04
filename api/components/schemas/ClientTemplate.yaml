@@ -1,17 +1,20 @@
+# Client template resource — mirrors the `client_template` table in ispconfig3.sql.
+# ENUM('n','y') columns are exposed as booleans (the API layer casts).
 type: object
 x-db-table: client_template
 description: Client template defines a set of resource limits and settings that can be applied to clients
 required:
   - template_name
-  - template_type
 properties:
-  template_id:
+  id:
     type: integer
     format: int64
     readOnly: true
     description: Unique identifier for the template
     example: 1
+    x-db-field: template_id
 
+  # System Fields (server-managed)
   sys_userid:
     type: integer
     format: int64
@@ -45,69 +48,63 @@ properties:
     maxLength: 5
     readOnly: true
     description: Other permissions
-    example: "r"
+    example: ""
+
+  template_name:
+    type: string
+    maxLength: 64
+    description: Name of the template
+    example: "Reseller Basic"
 
   template_type:
     type: string
     enum: [m, a]
+    default: m
     description: |
       Type of template:
-      - m = Main template (defines all limits)
-      - a = Additional template (adds to main template limits)
+      - m = Master template (defines a client's base limits)
+      - a = Additional template (adds to the master template limits)
     example: "m"
 
-  template_name:
-    type: string
-    maxLength: 255
-    description: Name of the template
-    example: "Reseller Basic"
-
-  # Mail Server Settings
+  # Mail
   mail_servers:
     type: string
-    description: Comma-separated list of allowed mail server IDs
+    description: Available mail servers (comma-separated IDs)
     example: "1,2,3"
-
-  # Limits
-  limit_client:
-    type: integer
-    description: Maximum number of clients that can be created (-1 for unlimited, 0 for none)
-    default: 0
-    example: 10
 
   limit_maildomain:
     type: integer
-    description: Maximum number of mail domains (-1 for unlimited, 0 for none)
-    default: 0
+    description: Maximum number of mail domains (-1 for unlimited)
+    default: -1
     example: 5
 
   limit_mailbox:
     type: integer
-    description: Maximum number of mailboxes (-1 for unlimited, 0 for none)
-    default: 0
+    description: Maximum number of mailboxes (-1 for unlimited)
+    default: -1
     example: 100
 
   limit_mailalias:
     type: integer
-    description: Maximum number of mail aliases (-1 for unlimited, 0 for none)
-    default: 0
+    description: Maximum number of mail aliases (-1 for unlimited)
+    default: -1
     example: 50
 
   limit_mailaliasdomain:
     type: integer
-    description: Maximum number of mail alias domains (-1 for unlimited, 0 for none)
+    description: Maximum number of mail alias domains (-1 for unlimited)
     default: -1
     example: 5
 
   limit_mailforward:
     type: integer
-    description: Maximum number of mail forwards (-1 for unlimited, 0 for none)
-    default: 0
+    description: Maximum number of mail forwards (-1 for unlimited)
+    default: -1
     example: 50
 
   limit_mailcatchall:
     type: integer
-    description: Maximum number of catch-all addresses (-1 for unlimited, 0 for none)
+    description: Maximum number of catch-all addresses (-1 for unlimited)
     default: -1
     example: 1
 
@@ -125,19 +122,19 @@ properties:
 
   limit_mailfilter:
     type: integer
-    description: Maximum number of mail filters (-1 for unlimited, 0 for none)
+    description: Maximum number of mail filters (-1 for unlimited)
     default: -1
     example: 50
 
   limit_fetchmail:
     type: integer
-    description: Maximum number of fetchmail entries (-1 for unlimited, 0 for none)
+    description: Maximum number of fetchmail entries (-1 for unlimited)
     default: -1
     example: 5
 
   limit_mailquota:
     type: integer
-    description: Mailbox quota in MB (-1 for unlimited, 0 for default)
+    description: Mailbox quota in MB (-1 for unlimited)
     default: -1
     example: 1024
 
@@ -159,81 +156,212 @@ properties:
     default: 0
     example: 0
 
-  # Web Limits
+  limit_mail_backup:
+    type: boolean
+    description: Mail backup allowed
+    default: true
+    example: true
+
+  limit_relayhost:
+    type: boolean
+    description: Mail relay host allowed
+    default: false
+    example: false
+
+  limit_mailmailinglist:
+    type: integer
+    description: Maximum number of mailing lists (-1 for unlimited)
+    default: -1
+    example: 5
+
+  # XMPP
+  default_xmppserver:
+    type: integer
+    format: int64
+    description: Default XMPP server ID
+    default: 1
+    example: 1
+
+  xmpp_servers:
+    type: string
+    description: Available XMPP servers (comma-separated IDs)
+    example: "1"
+
+  limit_xmpp_domain:
+    type: integer
+    description: Maximum number of XMPP domains (-1 for unlimited)
+    default: -1
+    example: 3
+
+  limit_xmpp_user:
+    type: integer
+    description: Maximum number of XMPP users (-1 for unlimited)
+    default: -1
+    example: 50
+
+  limit_xmpp_muc:
+    type: boolean
+    description: Multi-user chat allowed
+    default: false
+    example: false
+
+  limit_xmpp_anon:
+    type: boolean
+    description: Anonymous XMPP access allowed
+    default: false
+    example: false
+
+  limit_xmpp_vjud:
+    type: boolean
+    description: XMPP user directory allowed
+    default: false
+    example: false
+
+  limit_xmpp_proxy:
+    type: boolean
+    description: XMPP proxy access allowed
+    default: false
+    example: false
+
+  limit_xmpp_status:
+    type: boolean
+    description: XMPP status module allowed
+    default: false
+    example: false
+
+  limit_xmpp_pastebin:
+    type: boolean
+    description: XMPP pastebin allowed
+    default: false
+    example: false
+
+  limit_xmpp_httparchive:
+    type: boolean
+    description: XMPP HTTP archive allowed
+    default: false
+    example: false
+
+  # Web
+  web_servers:
+    type: string
+    description: Available web servers (comma-separated IDs)
+    example: "1,2"
+
+  limit_web_ip:
+    type: string
+    description: Allowed web IP addresses (comma-separated)
+    example: "*"
+
   limit_web_domain:
     type: integer
-    description: Maximum number of web domains (-1 for unlimited, 0 for none)
-    default: 0
+    description: Maximum number of web domains (-1 for unlimited)
+    default: -1
     example: 5
 
   limit_web_quota:
     type: integer
-    description: Web space quota in MB (-1 for unlimited, 0 for default)
+    description: Web space quota in MB (-1 for unlimited)
     default: -1
     example: 1024
 
+  web_php_options:
+    type: string
+    maxLength: 255
+    description: Available PHP execution options
+    default: ""
+    example: "no,fast-cgi,php-fpm"
+
+  limit_cgi:
+    type: boolean
+    description: CGI script execution allowed
+    default: false
+    example: false
+
+  limit_ssi:
+    type: boolean
+    description: Server Side Includes allowed
+    default: false
+    example: false
+
+  limit_perl:
+    type: boolean
+    description: Perl script execution allowed
+    default: false
+    example: false
+
+  limit_ruby:
+    type: boolean
+    description: Ruby script execution allowed
+    default: false
+    example: false
+
+  limit_python:
+    type: boolean
+    description: Python script execution allowed
+    default: false
+    example: false
+
+  force_suexec:
+    type: boolean
+    description: Force SuEXEC for better security
+    default: true
+    example: true
+
+  limit_hterror:
+    type: boolean
+    description: Custom error pages allowed
+    default: false
+    example: false
+
+  limit_wildcard:
+    type: boolean
+    description: Wildcard subdomains allowed
+    default: false
+    example: false
+
+  limit_ssl:
+    type: boolean
+    description: SSL certificates allowed
+    default: false
+    example: true
+
+  limit_ssl_letsencrypt:
+    type: boolean
+    description: Let's Encrypt SSL certificates allowed
+    default: false
+    example: true
+
   limit_web_subdomain:
     type: integer
-    description: Maximum number of subdomains (-1 for unlimited, 0 for none)
+    description: Maximum number of subdomains (-1 for unlimited)
     default: -1
     example: 10
 
   limit_web_aliasdomain:
     type: integer
-    description: Maximum number of alias domains (-1 for unlimited, 0 for none)
+    description: Maximum number of alias domains (-1 for unlimited)
     default: -1
     example: 5
 
   limit_ftp_user:
     type: integer
-    description: Maximum number of FTP users (-1 for unlimited, 0 for none)
-    default: 0
-    example: 10
-
-  # Database Limits
-  limit_database:
-    type: integer
-    description: Maximum number of databases (-1 for unlimited, 0 for none)
-    default: 0
-    example: 5
-
-  limit_database_quota:
-    type: integer
-    description: Database quota in MB (-1 for unlimited, 0 for default)
-    default: -1
-    example: 1024
-
-  limit_database_user:
-    type: integer
-    description: Maximum number of database users (-1 for unlimited, 0 for none)
+    description: Maximum number of FTP users (-1 for unlimited)
     default: -1
     example: 10
 
-  # DNS Limits
-  limit_dns_zone:
-    type: integer
-    description: Maximum number of DNS zones (-1 for unlimited, 0 for none)
-    default: 0
-    example: 5
-
-  limit_dns_record:
-    type: integer
-    description: Maximum number of DNS records per zone (-1 for unlimited, 0 for none)
-    default: -1
-    example: 100
-
-  limit_dns_slave_zone:
-    type: integer
-    description: Maximum number of DNS slave zones (-1 for unlimited, 0 for none)
-    default: -1
-    example: 5
-
-  # Other Limits
+  # Shell
   limit_shell_user:
     type: integer
     description: Maximum number of shell users (0 for none)
     default: 0
     example: 0
+
+  ssh_chroot:
+    type: string
+    maxLength: 255
+    description: SSH chroot options
+    default: ""
+    example: "no,jailkit"
 
   limit_webdav_user:
     type: integer
@@ -241,6 +369,86 @@ properties:
     default: 0
     example: 0
 
+  limit_backup:
+    type: boolean
+    description: Backup service allowed
+    default: true
+    example: true
+
+  limit_directive_snippets:
+    type: boolean
+    description: Directive snippets allowed
+    default: false
+    example: false
+
+  limit_aps:
+    type: integer
+    description: Maximum number of application installer packages (-1 for unlimited)
+    default: -1
+    example: 10
+
+  # DNS
+  dns_servers:
+    type: string
+    description: Available DNS servers (comma-separated IDs)
+    example: "1,2"
+
+  limit_dns_zone:
+    type: integer
+    description: Maximum number of DNS zones (-1 for unlimited)
+    default: -1
+    example: 5
+
+  default_slave_dnsserver:
+    type: integer
+    format: int64
+    description: Default slave DNS server ID
+    default: 0
+    example: 1
+
+  limit_dns_slave_zone:
+    type: integer
+    description: Maximum number of DNS slave zones (-1 for unlimited)
+    default: -1
+    example: 5
+
+  limit_dns_record:
+    type: integer
+    description: Maximum number of DNS records per zone (-1 for unlimited)
+    default: -1
+    example: 100
+
+  # Database
+  db_servers:
+    type: string
+    description: Available database servers (comma-separated IDs)
+    example: "1,2"
+
+  limit_database:
+    type: integer
+    description: Maximum number of databases (-1 for unlimited)
+    default: -1
+    example: 5
+
+  limit_database_postgresql:
+    type: integer
+    description: Maximum number of PostgreSQL databases (-1 for unlimited)
+    default: -1
+    example: 3
+
+  limit_database_user:
+    type: integer
+    description: Maximum number of database users (-1 for unlimited)
+    default: -1
+    example: 10
+
+  limit_database_quota:
+    type: integer
+    description: Database quota in MB (-1 for unlimited)
+    default: -1
+    example: 1024
+
+  # Cron
   limit_cron:
     type: integer
     description: Maximum number of cron jobs (0 for none)
@@ -262,12 +470,37 @@ properties:
 
   limit_traffic_quota:
     type: integer
-    description: Monthly traffic quota in MB (-1 for unlimited, 0 for default)
+    description: Monthly traffic quota in MB (-1 for unlimited)
     default: -1
     example: 10240
 
+  # Other Limits
+  limit_client:
+    type: integer
+    description: Maximum number of clients that can be created (-1 for unlimited, 0 for none)
+    default: 0
+    example: 10
+
+  limit_domainmodule:
+    type: integer
+    description: Domain module access limit
+    default: 0
+    example: 0
+
+  limit_openvz_vm:
+    type: integer
+    description: Maximum number of OpenVZ VMs
+    default: 0
+    example: 0
+
+  limit_openvz_vm_template_id:
+    type: integer
+    description: OpenVZ VM template ID limit
+    default: 0
+    example: 0
+
 example:
-  template_id: 1
+  id: 1
   template_type: "m"
   template_name: "Reseller Basic"
   mail_servers: "1,2,3"
@@ -284,3 +517,4 @@ example:
   limit_dns_record: 100
   limit_cron: 10
   limit_traffic_quota: 10240
+  limit_ssl: true

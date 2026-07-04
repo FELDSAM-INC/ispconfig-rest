@@ -1,42 +1,42 @@
 # Main index file for Sites module paths
 # This file combines all the individual path files
 
-# Include web domains paths
+# Web domains (vhosts) — parent resource of everything below
 web-domains:
   $ref: './web-domains.yaml'
 
-# Include database paths
-databases:
-  $ref: './databases.yaml'
-
-# Include database users paths
-database-users:
-  $ref: './database-users.yaml'
-
-# Include FTP users paths
-ftp-users:
-  $ref: './ftp-users.yaml'
-
-# Include shell users paths
-shell-users:
-  $ref: './shell-users.yaml'
-
-# Include cron jobs paths
-cron-jobs:
-  $ref: './cron-jobs.yaml'
-
-# Include web child domains paths
+# Subdomains and alias domains
 web-child-domains:
   $ref: './web-child-domains.yaml'
 
-# Include WebDAV users paths
-webdav-users:
-  $ref: './webdav-users.yaml'
+# FTP users
+ftp-users:
+  $ref: './ftp-users.yaml'
 
-# Include web folders paths
+# Shell users
+shell-users:
+  $ref: './shell-users.yaml'
+
+# Databases
+databases:
+  $ref: './databases.yaml'
+
+# Database users
+database-users:
+  $ref: './database-users.yaml'
+
+# Cron jobs
+cron-jobs:
+  $ref: './cron-jobs.yaml'
+
+# Protected web folders
 web-folders:
   $ref: './web-folders.yaml'
 
-# Include web folder users paths
+# Web folder users
 web-folder-users:
   $ref: './web-folder-users.yaml'
+
+# WebDAV users
+webdav-users:
+  $ref: './webdav-users.yaml'

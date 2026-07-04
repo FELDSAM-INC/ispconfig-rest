@@ -1,11 +1,12 @@
+# Verified against source_code/install/sql/ispconfig3.sql (table mail_relay_recipient)
+# and source_code/interface/web/mail/form/mail_relay_recipient.tform.php.
 type: object
 x-db-table: mail_relay_recipient
 required:
   - server_id
   - source
-  - access
 properties:
-  relay_recipient_id:
+  id:
     type: integer
     format: int64
     readOnly: true
@@ -16,37 +17,35 @@ properties:
   server_id:
     type: integer
     format: int64
-    description: Server ID where the relay recipient is configured
+    description: |
+      Server ID where the relay recipient is configured
+      - Must reference a mail server (server.mail_server=1, mirror_server_id=0)
+      - Cannot be changed after creation
     example: 1
     x-db-field: server_id
 
   source:
     type: string
-    description: Source email address or pattern for relay access
+    description: Recipient email address, domain (@domain.tld) or pattern allowed to relay
     example: user@example.com
+    maxLength: 255
     x-db-field: source
     pattern: '^[^@]+@[^@]+\.[^@]+$|^@[^@]+\.[^@]+$|^[^@]+$'
 
   access:
     type: string
-    description: Access control setting (typically 'OK' for allowed)
+    description: Postfix access(5) action for the recipient (legacy default 'OK')
     example: OK
     default: OK
+    maxLength: 255
     x-db-field: access
 
+  active:
+    type: boolean
+    default: true
+    description: Whether the relay recipient entry is active
+    x-db-field: active
+
 description: |
-  Email relay recipient configuration.
-  
-  ### Features
-  - Controls which email addresses can relay through the server
-  - Supports wildcard patterns
-  - Can be used for SMTP authentication
-  
-  ### Validation Rules
-  - Source must be a valid email, domain, or IP pattern
-  - Access must be a valid Postfix access control value
-  - User must have permissions for the server
-  
-  ### Notes
-  - System administrators can manage all relay recipients
-  - Regular users can only view/modify recipients on their servers
+  Email relay recipient configuration (table `mail_relay_recipient`) —
+  controls which recipient addresses the server accepts mail for relaying.

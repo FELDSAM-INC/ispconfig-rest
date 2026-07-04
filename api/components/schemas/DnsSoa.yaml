@@ -1,24 +1,20 @@
 type: object
 x-db-table: dns_soa
+description: |
+  An authoritative DNS zone (SOA). Maps 1:1 to ISPConfig's `dns_soa` table.
+  The `origin` is unique across all zones. The SOA `serial` and all DNSSEC
+  state fields are managed by the server and are read-only for API consumers.
 required:
   - server_id
   - origin
   - ns
   - mbox
-  - serial
-  - refresh
-  - retry
-  - expire
-  - minimum
-  - ttl
-  - active
-  - sys_groupid
 
 properties:
   # System Fields
   id:
     type: integer
-    format: int32
+    format: int64
     x-db-field: id
     minimum: 1
     readOnly: true
@@ -30,14 +26,14 @@ properties:
     format: int32
     minimum: 1
     readOnly: true
-    description: ID of the system user who created this DNS zone
+    description: ID of the system user who created this DNS zone (derived from the API key)
     example: 1
 
   sys_groupid:
     type: integer
     format: int32
     minimum: 1
-    description: System group ID that owns this DNS zone
+    description: System group ID that owns this DNS zone (defaults to the API user's group when omitted)
     example: 10
 
   sys_perm_user:
@@ -75,105 +71,121 @@ properties:
   origin:
     type: string
     maxLength: 255
-    pattern: '^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$'
+    pattern: '^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}\.?$'
     description: |
       The domain name for which this zone is authoritative.
-      Must be a valid domain name in lowercase.
-    example: "example.com"
+      Must be a valid lowercase domain name. Unique across all zones.
+      Following legacy ISPConfig, origins are stored dot-terminated
+      (`example.com.`); a trailing dot is appended by the server if missing.
+    example: "example.com."
 
   ns:
     type: string
     maxLength: 255
     description: |
       The primary nameserver for this zone.
-      Should be a fully qualified domain name.
-    example: "ns1.example.com"
+      Must be a fully qualified domain name; stored dot-terminated per legacy
+      ISPConfig conventions.
+    example: "ns1.example.com."
 
   mbox:
     type: string
     maxLength: 255
     description: |
-      The email address of the administrator for this zone.
-      The '@' should be replaced with a dot (e.g., admin.example.com)
-    example: "admin.example.com"
+      The email address of the zone administrator with the '@' replaced by a
+      dot (e.g. `admin.example.com.`). Stored dot-terminated per legacy
+      ISPConfig conventions; a trailing dot is appended by the server if
+      missing.
+    example: "admin.example.com."
 
   serial:
     type: integer
-    format: int32
+    format: int64
     minimum: 1
     maximum: 4294967295
+    readOnly: true
     description: |
-      The serial number of the zone.
-      Should be incremented each time the zone is modified.
-    example: 2023060101
+      The SOA serial number in `YYYYMMDDnn` format. Server-managed
+      (legacy parity): it is bumped automatically on every zone update and on
+      every insert/update/delete of a record in the zone. Values supplied by
+      the client are ignored.
+    example: 2026070401
 
   refresh:
     type: integer
-    format: int32
+    format: int64
     minimum: 60
+    maximum: 4294967295
+    default: 28800
     description: |
       The time in seconds that secondary DNS servers should wait before
       refreshing the zone from the primary server.
-    example: 7200
+    example: 28800
 
   retry:
     type: integer
-    format: int32
+    format: int64
     minimum: 60
+    maximum: 4294967295
+    default: 7200
     description: |
       The time in seconds that secondary servers should wait before
       retrying a failed zone transfer.
-    example: 3600
+    example: 7200
 
   expire:
     type: integer
-    format: int32
+    format: int64
     minimum: 60
+    maximum: 4294967295
+    default: 604800
     description: |
       The time in seconds that a secondary server should continue to respond
       with the zone data if it cannot refresh the zone.
-    example: 1209600
+    example: 604800
 
   minimum:
     type: integer
-    format: int32
-    minimum: 0
+    format: int64
+    minimum: 60
+    maximum: 4294967295
+    default: 3600
     description: |
-      The minimum TTL that should be exported with any RR from this zone.
-    example: 86400
+      The negative-caching TTL (SOA MINIMUM) exported with any RR from this zone.
+    example: 3600
 
   ttl:
     type: integer
-    format: int32
-    minimum: 0
+    format: int64
+    minimum: 60
+    maximum: 4294967295
+    default: 3600
     description: |
       The default TTL for records in this zone.
     example: 3600
 
   active:
-    type: string
-    enum: [y, n]
-    default: 'y'
+    type: boolean
+    default: true
     description: Whether the DNS zone is active
-    example: 'y'
+    example: true
+    x-db-format: "Y/N"
 
   xfer:
     type: string
-    maxLength: 255
     nullable: true
     description: |
-      List of IP addresses or networks allowed to perform zone transfers.
-      Separate multiple entries with semicolons.
-    example: "192.168.1.1; 10.0.0.0/8"
+      Comma-separated list of IP addresses allowed to perform zone transfers
+      (AXFR). Leave empty to disallow transfers.
+    example: "192.168.1.1,10.0.0.2"
 
   also_notify:
     type: string
-    maxLength: 255
     nullable: true
     description: |
-      List of IP addresses to also notify when the zone changes.
-      Separate multiple entries with semicolons.
-    example: "192.168.1.2; 192.168.1.3"
+      Comma-separated list of IP addresses to also notify when the zone
+      changes.
+    example: "192.168.1.2,192.168.1.3"
 
   update_acl:
     type: string
@@ -185,19 +197,19 @@ properties:
     example: "192.168.1.0/24"
 
   dnssec_initialized:
-    type: string
-    enum: [y, n]
-    default: 'n'
+    type: boolean
+    default: false
     readOnly: true
-    description: Whether DNSSEC is initialized for this zone
-    example: 'n'
+    description: Whether DNSSEC is initialized for this zone (server-managed)
+    example: false
+    x-db-format: "Y/N"
 
   dnssec_wanted:
-    type: string
-    enum: [y, n]
-    default: 'n'
-    description: Whether DNSSEC is wanted for this zone
-    example: 'n'
+    type: boolean
+    default: false
+    description: Whether DNSSEC signing is wanted for this zone
+    example: false
+    x-db-format: "Y/N"
 
   dnssec_algo:
     type: string
@@ -210,19 +222,19 @@ properties:
     type: integer
     format: int64
     readOnly: true
-    description: Timestamp when the zone was last signed
+    description: Unix timestamp when the zone was last signed (server-managed)
     example: 1654051200
 
   dnssec_info:
     type: string
-    format: text
+    nullable: true
     readOnly: true
-    description: DNSSEC key information (JSON)
+    description: DNSSEC key information published by the DNS server (server-managed)
     example: "{...}"
 
   rendered_zone:
     type: string
-    format: text
+    nullable: true
     readOnly: true
-    description: The rendered zone file content
-    example: "$ORIGIN example.com.\n$TTL 3600\n@ IN SOA ns1.example.com. admin.example.com. (\n  2023060101 ; serial\n  7200      ; refresh\n  3600      ; retry\n  1209600   ; expire\n  86400     ; minimum\n)"
+    description: The rendered zone file content (server-managed)
+    example: "$ORIGIN example.com.\n$TTL 3600\n@ IN SOA ns1.example.com. admin.example.com. (\n  2026070401 ; serial\n  28800     ; refresh\n  7200      ; retry\n  604800    ; expire\n  3600      ; minimum\n)"

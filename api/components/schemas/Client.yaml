@@ -1,24 +1,29 @@
+# Client resource — mirrors the `client` table in ispconfig3.sql.
+# ENUM('n','y') columns are exposed as booleans (the API layer casts, e.g. YesNoBoolean).
+# Intentionally not exposed: `tmp_data` (internal blob), `id_rsa` (private key material).
 type: object
 x-db-table: client
 description: Client represents a customer or reseller in the system
 required:
+  - company_name
   - contact_name
   - email
   - username
   - password
-  - language
 properties:
-  client_id:
+  id:
     type: integer
     format: int64
     readOnly: true
     description: Unique identifier for the client
     example: 42
+    x-db-field: client_id
 
   parent_client_id:
     type: integer
     format: int64
-    description: ID of the parent client (reseller)
+    description: ID of the parent client (reseller); 0 when the client belongs to the admin
+    default: 0
     example: 2
 
   # Contact Information
@@ -27,118 +32,118 @@ properties:
     maxLength: 64
     description: Full name of the contact person
     example: John Doe
-  
+
   contact_firstname:
     type: string
     maxLength: 64
     description: First name of the contact person
     example: John
-  
+
   gender:
     type: string
     enum: ['', 'm', 'f']
     description: Gender of the contact person
     default: ''
     example: m
-  
+
   email:
     type: string
     format: email
     maxLength: 255
     description: Primary email address
     example: john.doe@example.com
-  
+
   telephone:
     type: string
     maxLength: 32
     description: Phone number
     example: "+1-555-123-4567"
-  
+
   mobile:
     type: string
     maxLength: 32
     description: Mobile phone number
     example: "+1-555-987-6543"
-  
+
   fax:
     type: string
     maxLength: 32
     description: Fax number
     example: "+1-555-456-7890"
-  
+
   internet:
     type: string
     maxLength: 255
     description: Website URL
     example: "https://www.example.com"
-  
+
   icq:
     type: string
     maxLength: 16
     description: ICQ number
     example: "123456789"
-  
+
   notes:
     type: string
     description: Free-form notes about the client
     example: "VIP customer, requires priority support"
-  
+
   # Company Information
   company_name:
     type: string
     maxLength: 64
     description: Company name
     example: Acme Inc.
-  
+
   company_id:
     type: string
     maxLength: 255
     description: Company registration number
     example: "123456789"
-  
+
   vat_id:
     type: string
     maxLength: 64
     description: VAT identification number
     example: "DE123456789"
-  
+
   customer_no:
     type: string
     maxLength: 64
     description: Customer number
     example: "CUST-001"
-  
+
   # Address
   street:
     type: string
     maxLength: 255
     description: Street address
     example: 123 Main St
-  
+
   zip:
     type: string
     maxLength: 32
     description: ZIP/Postal code
     example: "12345"
-  
+
   city:
     type: string
     maxLength: 64
     description: City
     example: New York
-  
+
   state:
     type: string
     maxLength: 32
     description: State/Province
     example: NY
-  
+
   country:
     type: string
     maxLength: 2
     description: 2-letter country code (ISO 3166-1 alpha-2)
     example: US
-  
+
   # Authentication
   username:
     type: string
@@ -146,58 +151,58 @@ properties:
     maxLength: 64
     description: Username for login
     example: johndoe
-  
+
   password:
     type: string
     minLength: 8
     writeOnly: true
     description: Password (write-only, never returned in responses)
     example: "s3cr3tP@ssw0rd"
-  
+
   # Bank Information
   bank_account_owner:
     type: string
     maxLength: 255
     description: Bank account owner name
     example: John Doe
-  
+
   bank_account_number:
     type: string
     maxLength: 255
     description: Bank account number
     example: "1234567890"
-  
+
   bank_code:
     type: string
     maxLength: 255
     description: Bank code
     example: "12345678"
-  
+
   bank_name:
     type: string
     maxLength: 255
     description: Bank name
     example: "Bank of America"
-  
+
   bank_account_iban:
     type: string
     maxLength: 255
     description: IBAN
     example: "DE89370400440532013000"
-  
+
   bank_account_swift:
     type: string
     maxLength: 255
     description: SWIFT/BIC code
     example: "BOFAUS3N"
-  
+
   paypal_email:
     type: string
     format: email
     maxLength: 255
     description: PayPal email address
     example: paypal@example.com
-  
+
   # Server Configuration
   default_mailserver:
     type: integer
@@ -205,67 +210,67 @@ properties:
     description: Default mail server ID
     default: 1
     example: 1
-  
+
   default_webserver:
     type: integer
     format: int64
     description: Default web server ID
     default: 1
     example: 1
-  
+
   default_dnsserver:
     type: integer
     format: int64
     description: Default DNS server ID
     default: 1
     example: 1
-  
+
   default_slave_dnsserver:
     type: integer
     format: int64
     description: Default slave DNS server ID
     default: 1
     example: 1
-  
+
   default_dbserver:
     type: integer
     format: int64
     description: Default database server ID
     default: 1
     example: 1
-  
+
   default_xmppserver:
     type: integer
     format: int64
     description: Default XMPP server ID
     default: 1
     example: 1
-  
+
   mail_servers:
     type: string
     description: Available mail servers (comma-separated IDs)
     example: "1,2,3"
-  
+
   web_servers:
     type: string
     description: Available web servers (comma-separated IDs)
     example: "1,2"
-  
+
   dns_servers:
     type: string
     description: Available DNS servers (comma-separated IDs)
     example: "1,2"
-  
+
   db_servers:
     type: string
     description: Available database servers (comma-separated IDs)
     example: "1,2"
-  
+
   xmpp_servers:
     type: string
     description: Available XMPP servers (comma-separated IDs)
     example: "1"
-  
+
   # Settings
   language:
     type: string
@@ -273,554 +278,520 @@ properties:
     description: 2-letter language code (ISO 639-1)
     default: en
     example: en
-  
+
   usertheme:
     type: string
     maxLength: 32
     description: Theme for the user interface
+    default: default
     example: default
-  
+
   template_master:
     type: integer
     format: int64
-    description: ID of the template to use for this client
+    description: ID of the master client template applied to this client (0 = none)
+    default: 0
     example: 1
-  
+
   template_additional:
     type: string
-    description: Additional template settings (JSON)
-    example: "{ \"features\": { \"dark_mode\": true } }"
-  
+    readOnly: true
+    description: >-
+      Bookkeeping list of additional (addon) template assignments.
+      Managed by the server via the template assignment endpoints
+      (/clients/{client_id}/templates); not writable directly.
+    example: "3:2,4:5"
+
   # Limits
   limit_client:
     type: integer
-    description: Maximum number of clients this client can create (-1 for unlimited)
-    default: -1
-    example: -1
-  
-  limit_domain:
-    type: integer
-    description: Maximum number of domains (-1 for unlimited)
-    default: -1
-    example: 10
-  
+    description: Maximum number of clients this client can create (-1 for unlimited, 0 for none; > 0 or -1 makes the client a reseller)
+    default: 0
+    example: 0
+
   limit_maildomain:
     type: integer
     description: Maximum number of mail domains (-1 for unlimited)
     default: -1
     example: 5
-  
+
   limit_mailbox:
     type: integer
     description: Maximum number of mailboxes (-1 for unlimited)
     default: -1
     example: 100
-  
-  limit_web_domain:
-    type: integer
-    description: Maximum number of web domains (-1 for unlimited)
-    default: -1
-    example: 5
-  
-  limit_web_quota:
-    type: integer
-    description: Web space quota in MB (-1 for unlimited)
-    default: -1
-    example: 1024
-  
-  limit_database:
-    type: integer
-    description: Maximum number of databases (-1 for unlimited)
-    default: -1
-    example: 5
-  
-  limit_database_quota:
-    type: integer
-    description: Database quota in MB (-1 for unlimited)
-    default: -1
-    example: 1024
-  
-  limit_database_postgresql:
-    type: integer
-    description: Maximum number of PostgreSQL databases (-1 for unlimited)
-    default: -1
-    example: 3
-  
-  limit_database_user:
-    type: integer
-    description: Maximum number of database users (-1 for unlimited)
-    default: -1
-    example: 10
-  
-  limit_ftp_user:
-    type: integer
-    description: Maximum number of FTP users (-1 for unlimited)
-    default: -1
-    example: 10
-  
-  limit_shell_user:
-    type: integer
-    description: Maximum number of shell users (0 for none)
-    default: 0
-    example: 0
-  
-  limit_webdav_user:
-    type: integer
-    description: Maximum number of WebDAV users (0 for none)
-    default: 0
-    example: 0
-  
-  # Web-specific Limits & Options
-  limit_web_ip:
-    type: string
-    description: Allowed web IP addresses (comma-separated)
-    example: "*"
-  
-  limit_web_subdomain:
-    type: integer
-    description: Maximum number of subdomains (-1 for unlimited)
-    default: -1
-    example: 10
-  
-  limit_web_aliasdomain:
-    type: integer
-    description: Maximum number of alias domains (-1 for unlimited)
-    default: -1
-    example: 5
-  
-  web_php_options:
-    type: string
-    description: Available PHP execution options
-    default: "no,fast-cgi,cgi,mod,suphp,php-fpm,hhvm"
-    example: "no,fast-cgi,php-fpm"
-  
-  limit_cgi:
-    type: string
-    enum: [n, y]
-    description: CGI script execution allowed
-    default: n
-    example: n
-  
-  limit_ssi:
-    type: string
-    enum: [n, y]
-    description: Server Side Includes allowed
-    default: n
-    example: n
-  
-  limit_perl:
-    type: string
-    enum: [n, y]
-    description: Perl script execution allowed
-    default: n
-    example: n
-  
-  limit_ruby:
-    type: string
-    enum: [n, y]
-    description: Ruby script execution allowed
-    default: n
-    example: n
-  
-  limit_python:
-    type: string
-    enum: [n, y]
-    description: Python script execution allowed
-    default: n
-    example: n
-  
-  force_suexec:
-    type: string
-    enum: [n, y]
-    description: Force SuEXEC for better security
-    default: y
-    example: y
-  
-  limit_hterror:
-    type: string
-    enum: [n, y]
-    description: Custom error pages allowed
-    default: n
-    example: n
-  
-  limit_wildcard:
-    type: string
-    enum: [n, y]
-    description: Wildcard subdomains allowed
-    default: n
-    example: n
-  
-  limit_ssl:
-    type: string
-    enum: [n, y]
-    description: SSL certificates allowed
-    default: n
-    example: y
-  
-  limit_ssl_letsencrypt:
-    type: string
-    enum: [n, y]
-    description: Let's Encrypt SSL certificates allowed
-    default: n
-    example: y
-  
-  # Shell Configuration
-  ssh_chroot:
-    type: string
-    description: SSH chroot options
-    default: "no,jailkit,ssh-chroot"
-    example: "no,jailkit"
-  
-  limit_cron:
-    type: integer
-    description: Maximum number of cron jobs (0 for none)
-    default: 0
-    example: 10
-  
-  limit_cron_type:
-    type: string
-    enum: [url, chrooted, full]
-    description: Type of cron access
-    default: url
-    example: url
-  
-  limit_cron_frequency:
-    type: integer
-    description: Minimum minutes between cron job executions
-    default: 5
-    example: 5
-  
-  limit_traffic_quota:
-    type: integer
-    description: Monthly traffic quota in MB (-1 for unlimited)
-    default: -1
-    example: 10240
-  
-  # Mail Limits
-  limit_mailquota:
-    type: integer
-    description: Mailbox quota in MB (-1 for unlimited)
-    default: -1
-    example: 1024
-  
-  limit_mail_alias:
+
+  limit_mailalias:
     type: integer
     description: Maximum number of mail aliases (-1 for unlimited)
     default: -1
     example: 50
-  
-  limit_mail_alias_domain:
+
+  limit_mailaliasdomain:
     type: integer
     description: Maximum number of mail alias domains (-1 for unlimited)
     default: -1
     example: 5
-  
-  limit_mail_forward:
+
+  limit_mailforward:
     type: integer
     description: Maximum number of mail forwards (-1 for unlimited)
     default: -1
     example: 50
-  
-  limit_mail_catchall:
+
+  limit_mailcatchall:
     type: integer
     description: Maximum number of catch-all addresses (-1 for unlimited)
     default: -1
     example: 5
-  
-  limit_mail_routing:
+
+  limit_mailrouting:
     type: integer
     description: Maximum number of mail routings (0 for none)
     default: 0
     example: 0
-  
-  limit_mail_backup:
-    type: string
-    enum: [n, y]
-    description: Mail backup allowed
-    default: y
-    example: y
-  
-  limit_relayhost:
-    type: string
-    enum: [n, y]
-    description: Mail relay host allowed
-    default: n
-    example: n
-  
-  limit_mailmailinglist:
-    type: integer
-    description: Maximum number of mailing lists (-1 for unlimited)
-    default: -1
-    example: 5
-  
+
   limit_mail_wblist:
     type: integer
     description: Maximum number of mail whitelist/blacklist entries (0 for none)
     default: 0
     example: 0
-  
+
   limit_mailfilter:
     type: integer
     description: Maximum number of mail filters (-1 for unlimited)
     default: -1
     example: 50
-  
+
   limit_fetchmail:
     type: integer
     description: Maximum number of fetchmail entries (-1 for unlimited)
     default: -1
     example: 5
-  
+
+  limit_mailquota:
+    type: integer
+    description: Mailbox quota in MB (-1 for unlimited)
+    default: -1
+    example: 1024
+
   limit_spamfilter_wblist:
     type: integer
     description: Maximum number of spam filter whitelist/blacklist entries (0 for none)
     default: 0
     example: 0
-  
+
   limit_spamfilter_user:
     type: integer
     description: Maximum number of spam filter users (0 for none)
     default: 0
     example: 0
-  
+
   limit_spamfilter_policy:
     type: integer
     description: Maximum number of spam filter policies (0 for none)
     default: 0
     example: 0
-  
+
+  limit_mail_backup:
+    type: boolean
+    description: Mail backup allowed
+    default: true
+    example: true
+
+  limit_relayhost:
+    type: boolean
+    description: Mail relay host allowed
+    default: false
+    example: false
+
+  limit_mailmailinglist:
+    type: integer
+    description: Maximum number of mailing lists (-1 for unlimited)
+    default: -1
+    example: 5
+
   # XMPP/Chat Limits
   limit_xmpp_domain:
     type: integer
     description: Maximum number of XMPP domains (-1 for unlimited)
     default: -1
     example: 3
-  
+
   limit_xmpp_user:
     type: integer
     description: Maximum number of XMPP users (-1 for unlimited)
     default: -1
     example: 50
-  
+
   limit_xmpp_muc:
-    type: string
-    enum: [n, y]
+    type: boolean
     description: Multi-user chat allowed
-    default: n
-    example: n
-  
+    default: false
+    example: false
+
   limit_xmpp_anon:
-    type: string
-    enum: [n, y]
+    type: boolean
     description: Anonymous XMPP access allowed
-    default: n
-    example: n
-  
+    default: false
+    example: false
+
   limit_xmpp_auth_options:
     type: string
+    maxLength: 255
     description: Available XMPP authentication methods
     default: "plain,hashed,isp"
     example: "plain,hashed"
-  
+
   limit_xmpp_vjud:
-    type: string
-    enum: [n, y]
+    type: boolean
     description: XMPP user directory allowed
-    default: n
-    example: n
-  
+    default: false
+    example: false
+
   limit_xmpp_proxy:
-    type: string
-    enum: [n, y]
+    type: boolean
     description: XMPP proxy access allowed
-    default: n
-    example: n
-  
+    default: false
+    example: false
+
   limit_xmpp_status:
-    type: string
-    enum: [n, y]
+    type: boolean
     description: XMPP status module allowed
-    default: n
-    example: n
-  
+    default: false
+    example: false
+
   limit_xmpp_pastebin:
-    type: string
-    enum: [n, y]
+    type: boolean
     description: XMPP pastebin allowed
-    default: n
-    example: n
-  
+    default: false
+    example: false
+
   limit_xmpp_httparchive:
-    type: string
-    enum: [n, y]
+    type: boolean
     description: XMPP HTTP archive allowed
-    default: n
-    example: n
-  
+    default: false
+    example: false
+
+  # Web Limits & Options
+  limit_web_ip:
+    type: string
+    description: Allowed web IP addresses (comma-separated)
+    example: "*"
+
+  limit_web_domain:
+    type: integer
+    description: Maximum number of web domains (-1 for unlimited)
+    default: -1
+    example: 5
+
+  limit_web_quota:
+    type: integer
+    description: Web space quota in MB (-1 for unlimited)
+    default: -1
+    example: 1024
+
+  limit_web_subdomain:
+    type: integer
+    description: Maximum number of subdomains (-1 for unlimited)
+    default: -1
+    example: 10
+
+  limit_web_aliasdomain:
+    type: integer
+    description: Maximum number of alias domains (-1 for unlimited)
+    default: -1
+    example: 5
+
+  web_php_options:
+    type: string
+    maxLength: 255
+    description: Available PHP execution options
+    default: "no,fast-cgi,cgi,mod,suphp,php-fpm,hhvm"
+    example: "no,fast-cgi,php-fpm"
+
+  limit_cgi:
+    type: boolean
+    description: CGI script execution allowed
+    default: false
+    example: false
+
+  limit_ssi:
+    type: boolean
+    description: Server Side Includes allowed
+    default: false
+    example: false
+
+  limit_perl:
+    type: boolean
+    description: Perl script execution allowed
+    default: false
+    example: false
+
+  limit_ruby:
+    type: boolean
+    description: Ruby script execution allowed
+    default: false
+    example: false
+
+  limit_python:
+    type: boolean
+    description: Python script execution allowed
+    default: false
+    example: false
+
+  force_suexec:
+    type: boolean
+    description: Force SuEXEC for better security
+    default: true
+    example: true
+
+  limit_hterror:
+    type: boolean
+    description: Custom error pages allowed
+    default: false
+    example: false
+
+  limit_wildcard:
+    type: boolean
+    description: Wildcard subdomains allowed
+    default: false
+    example: false
+
+  limit_ssl:
+    type: boolean
+    description: SSL certificates allowed
+    default: false
+    example: true
+
+  limit_ssl_letsencrypt:
+    type: boolean
+    description: Let's Encrypt SSL certificates allowed
+    default: false
+    example: true
+
+  limit_ftp_user:
+    type: integer
+    description: Maximum number of FTP users (-1 for unlimited)
+    default: -1
+    example: 10
+
+  # Shell Configuration
+  limit_shell_user:
+    type: integer
+    description: Maximum number of shell users (0 for none)
+    default: 0
+    example: 0
+
+  ssh_chroot:
+    type: string
+    maxLength: 255
+    description: SSH chroot options
+    default: "no,jailkit,ssh-chroot"
+    example: "no,jailkit"
+
+  limit_webdav_user:
+    type: integer
+    description: Maximum number of WebDAV users (0 for none)
+    default: 0
+    example: 0
+
+  limit_backup:
+    type: boolean
+    description: Backup service allowed
+    default: true
+    example: true
+
+  limit_directive_snippets:
+    type: boolean
+    description: Directive snippets allowed
+    default: false
+    example: false
+
+  limit_aps:
+    type: integer
+    description: Maximum number of application installer packages (-1 for unlimited)
+    default: -1
+    example: 10
+
+  # Cron Limits
+  limit_cron:
+    type: integer
+    description: Maximum number of cron jobs (0 for none)
+    default: 0
+    example: 10
+
+  limit_cron_type:
+    type: string
+    enum: [url, chrooted, full]
+    description: Type of cron access
+    default: url
+    example: url
+
+  limit_cron_frequency:
+    type: integer
+    description: Minimum minutes between cron job executions
+    default: 5
+    example: 5
+
+  limit_traffic_quota:
+    type: integer
+    description: Monthly traffic quota in MB (-1 for unlimited)
+    default: -1
+    example: 10240
+
   # DNS Limits
   limit_dns_zone:
     type: integer
     description: Maximum number of DNS zones (-1 for unlimited)
     default: -1
     example: 5
-  
+
   limit_dns_record:
     type: integer
     description: Maximum number of DNS records per zone (-1 for unlimited)
     default: -1
     example: 100
-  
+
   limit_dns_slave_zone:
     type: integer
     description: Maximum number of DNS slave zones (-1 for unlimited)
     default: -1
     example: 5
-  
+
+  # Database Limits
+  limit_database:
+    type: integer
+    description: Maximum number of databases (-1 for unlimited)
+    default: -1
+    example: 5
+
+  limit_database_quota:
+    type: integer
+    description: Database quota in MB (-1 for unlimited)
+    default: -1
+    example: 1024
+
+  limit_database_postgresql:
+    type: integer
+    description: Maximum number of PostgreSQL databases (-1 for unlimited)
+    default: -1
+    example: 3
+
+  limit_database_user:
+    type: integer
+    description: Maximum number of database users (-1 for unlimited)
+    default: -1
+    example: 10
+
   # Additional Service Limits
   limit_domainmodule:
     type: integer
     description: Domain module access limit
     default: 0
     example: 0
-  
+
   limit_openvz_vm:
     type: integer
     description: Maximum number of OpenVZ VMs
     default: 0
     example: 0
-  
+
   limit_openvz_vm_template_id:
     type: integer
     description: OpenVZ VM template ID limit
     default: 0
     example: 0
-  
-  limit_backup:
-    type: string
-    enum: [n, y]
-    description: Backup service allowed
-    default: y
-    example: y
-  
-  limit_directive_snippets:
-    type: string
-    enum: [n, y]
-    description: Directive snippets allowed
-    default: n
-    example: n
-  
-  limit_aps:
-    type: integer
-    description: Maximum number of application installer packages (-1 for unlimited)
-    default: -1
-    example: 10
-  
-  # System Fields
+
+  # System Fields (server-managed)
   sys_userid:
     type: integer
     format: int64
     readOnly: true
     description: System user ID who created the record
-  
+
   sys_groupid:
     type: integer
     format: int64
     readOnly: true
     description: System group ID
-  
+
   sys_perm_user:
     type: string
     maxLength: 5
     readOnly: true
     description: User permissions (r=read, i=insert, u=update, d=delete)
-  
+
   sys_perm_group:
     type: string
     maxLength: 5
     readOnly: true
     description: Group permissions
-  
+
   sys_perm_other:
     type: string
     maxLength: 5
     readOnly: true
     description: Other permissions
-  
-  # Timestamps
+
   created_at:
     type: string
     format: date-time
     readOnly: true
-    description: Creation timestamp
-  
-  updated_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Last update timestamp
+    description: Creation timestamp (stored as a Unix timestamp in the database, returned as ISO 8601)
 
-  # Status
-  active:
-    type: string
-    enum: [y, n]
-    description: Whether the client account is active
-    default: y
-    example: y
-  
   # Account Management
   can_use_api:
-    type: string
-    enum: [n, y]
+    type: boolean
     description: API access allowed
-    default: n
-    example: y
-  
+    default: false
+    example: true
+
   locked:
-    type: string
-    enum: [n, y]
+    type: boolean
     description: Account locked status
-    default: n
-    example: n
-  
+    default: false
+    example: false
+
   canceled:
-    type: string
-    enum: [n, y]
+    type: boolean
     description: Account canceled status
-    default: n
-    example: n
-  
+    default: false
+    example: false
+
   added_date:
     type: string
     format: date
     description: Date when account was added
     example: "2024-01-15"
-  
+
   added_by:
     type: string
     maxLength: 255
     description: User who added this account
     example: "admin"
-  
+
   validation_status:
     type: string
     enum: [accept, review, reject]
     description: Account validation status
     default: accept
     example: accept
-  
+
   risk_score:
     type: integer
     format: int32
+    minimum: 0
     description: Risk assessment score
     default: 0
     example: 0
-  
+
   activation_code:
     type: string
     maxLength: 10
     description: Account activation code
     example: "ABC123"
-  
+
   # Customer Number Management
   customer_no_template:
     type: string
@@ -828,31 +799,20 @@ properties:
     description: Customer number template
     default: "R[CLIENTID]C[CUSTOMER_NO]"
     example: "R[CLIENTID]C[CUSTOMER_NO]"
-  
+
   customer_no_start:
     type: integer
     description: Starting customer number
     default: 1
     example: 1
-  
+
   customer_no_counter:
     type: integer
     description: Current customer number counter
     default: 0
     example: 5
-  
+
   # Technical Fields
-  tmp_data:
-    type: string
-    format: byte
-    description: Temporary data storage
-    writeOnly: true
-  
-  id_rsa:
-    type: string
-    description: RSA private key
-    writeOnly: true
-  
   ssh_rsa:
     type: string
     maxLength: 600
@@ -860,7 +820,7 @@ properties:
     example: "ssh-rsa AAAAB3NzaC1yc2E..."
 
 example:
-  client_id: 42
+  id: 42
   contact_name: John Doe
   contact_firstname: John
   email: john.doe@example.com
@@ -877,9 +837,11 @@ example:
   username: johndoe
   language: en
   usertheme: default
-  limit_domain: 10
   limit_maildomain: 5
   limit_mailbox: 100
+  limit_mailalias: 50
+  limit_mailforward: 50
+  limit_mailfilter: 50
   limit_web_domain: 5
   limit_web_quota: 1024
   limit_database: 5
@@ -887,9 +849,8 @@ example:
   limit_ftp_user: 10
   limit_traffic_quota: 10240
   limit_mailquota: 1024
-  limit_mail_alias: 50
-  limit_mail_forward: 50
-  limit_mailfilter: 50
   limit_dns_zone: 5
   limit_dns_record: 100
-  active: y
+  limit_ssl: true
+  can_use_api: true
+  locked: false

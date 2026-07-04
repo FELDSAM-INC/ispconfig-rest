@@ -1,12 +1,13 @@
+# Verified against source_code/install/sql/ispconfig3.sql (table mail_transport)
+# and source_code/interface/web/mail/form/mail_transport.tform.php.
 type: object
 x-db-table: mail_transport
 required:
   - server_id
   - domain
   - transport
-  - active
 properties:
-  transport_id:
+  id:
     type: integer
     format: int64
     readOnly: true
@@ -17,64 +18,51 @@ properties:
   server_id:
     type: integer
     format: int64
-    description: Server ID where the transport is configured
+    description: |
+      Server ID where the transport is configured
+      - Must reference a mail server (server.mail_server=1, mirror_server_id=0)
+      - Cannot be changed after creation (legacy reverts server_id changes)
     example: 1
     x-db-field: server_id
 
   domain:
     type: string
-    description: Domain name for the transport
+    description: |
+      Domain name for the transport
+      - Unique per server (database unique key server_id + domain)
+      - Must not be an existing local mail domain (legacy validate_isnot_maildomain)
+      - Lowercased and IDN-encoded on save; cannot be changed after creation
     example: example.com
     x-db-field: domain
     pattern: '^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$'
 
   transport:
     type: string
-    description: Transport definition (e.g., 'smtp:[mail.example.com]:587')
+    description: Raw Postfix transport definition (e.g., 'smtp:[mail.example.com]:587')
     example: smtp:[mail.example.com]:587
+    maxLength: 255
     x-db-field: transport
 
   sort_order:
     type: integer
     format: int32
-    description: Sort order for transport rules
-    default: 0
+    description: Sort order for transport rules (legacy select 1-10; DB default 5)
+    minimum: 0
+    maximum: 10
+    default: 5
     x-db-field: sort_order
 
   active:
-    type: string
-    enum: [y, n]
-    default: y
-    description: Whether the transport is active
+    type: boolean
+    default: true
+    description: Whether the transport is active (legacy form default is active)
     x-db-field: active
 
-  created:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Creation timestamp
-    x-db-field: created
-
-  modified:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Last modification timestamp
-    x-db-field: modified
-
 description: |
-  Email transport configuration.
-  
-  ### Features
-  - Defines how emails for specific domains should be routed
-  - Supports various transport methods (SMTP, LMTP, etc.)
-  - Can be enabled/disabled
-  
+  Postfix transport-map entry (table `mail_transport`).
+
   ### Validation Rules
-  - Domain must be a valid domain name
-  - Transport must be a valid Postfix transport definition
-  - User must have permissions for the server
-  
-  ### Notes
-  - System administrators can manage all transports
-  - Regular users can only view/modify transports on their servers
+  - Domain must be a valid domain name, unique per server, and must not be a
+    local mail domain
+  - Transport is taken as a raw Postfix transport string (the legacy UI's
+    type/destination/MX composition is not reproduced by the API)

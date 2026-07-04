@@ -1,32 +1,33 @@
 # Server Schema
-# This schema defines the structure of a server in ISPConfig
-
+# Mirrors the `server` table (source_code/install/sql/ispconfig3.sql).
+# Note: the server's hostname and primary IP address are NOT columns of this
+# table — they live in the `[server]` section of the `server.config` INI blob
+# and are exposed via GET/PUT /servers/{id}/configs (ServerConfig schema).
+# The `config` column itself is intentionally not exposed here; it is managed
+# exclusively through the /servers/{id}/configs* endpoints.
 type: object
 x-db-table: server
 required:
   - server_name
-  - ip_address
-  - hostname
-  - active
 properties:
-  server_id:
+  id:
     type: integer
-    format: int32
+    format: int64
     description: Unique identifier for the server
     readOnly: true
     example: 1
     x-db-field: server_id
   sys_userid:
     type: integer
-    format: int32
-    description: System user ID who created the record
+    format: int64
+    description: System user ID who created the record (legacy auth preset uses the caller's user)
     readOnly: true
     example: 1
     x-db-field: sys_userid
   sys_groupid:
     type: integer
-    format: int32
-    description: System group ID
+    format: int64
+    description: System group ID (legacy auth preset for servers is group 1/admin)
     readOnly: true
     example: 1
     x-db-field: sys_groupid
@@ -34,89 +35,131 @@ properties:
     type: string
     maxLength: 5
     description: User permissions (r = read, i = insert, u = update, d = delete)
+    default: "riud"
     example: "riud"
     x-db-field: sys_perm_user
   sys_perm_group:
     type: string
     maxLength: 5
     description: Group permissions (r = read, i = insert, u = update, d = delete)
+    default: "riud"
     example: "riud"
     x-db-field: sys_perm_group
   sys_perm_other:
     type: string
     maxLength: 5
     description: Other permissions (r = read, i = insert, u = update, d = delete)
+    default: ""
     example: ""
     x-db-field: sys_perm_other
   server_name:
     type: string
     maxLength: 255
-    description: Name of the server
+    description: >-
+      Name of the server. HTML tags and newlines are stripped on save
+      (legacy STRIPTAGS/STRIPNL filters).
     example: "web01"
     x-db-field: server_name
-  ip_address:
-    type: string
-    format: ipv4
-    description: Primary IP address of the server
-    example: "192.168.1.100"
-    x-db-field: ip_address
-  hostname:
-    type: string
-    maxLength: 255
-    description: Fully qualified domain name of the server
-    example: "web01.example.com"
-    x-db-field: hostname
   mail_server:
     type: integer
     description: Whether this server is a mail server (0 = no, 1 = yes)
     enum: [0, 1]
+    default: 0
     example: 1
     x-db-field: mail_server
   web_server:
     type: integer
     description: Whether this server is a web server (0 = no, 1 = yes)
     enum: [0, 1]
+    default: 0
     example: 1
     x-db-field: web_server
   dns_server:
     type: integer
     description: Whether this server is a DNS server (0 = no, 1 = yes)
     enum: [0, 1]
+    default: 0
     example: 0
     x-db-field: dns_server
   file_server:
     type: integer
     description: Whether this server is a file server (0 = no, 1 = yes)
     enum: [0, 1]
+    default: 0
     example: 0
     x-db-field: file_server
   db_server:
     type: integer
     description: Whether this server is a database server (0 = no, 1 = yes)
     enum: [0, 1]
+    default: 0
     example: 0
     x-db-field: db_server
   vserver_server:
     type: integer
-    description: Whether this server is a virtual server (0 = no, 1 = yes)
+    description: Whether this server is a virtualization (vserver) host (0 = no, 1 = yes)
     enum: [0, 1]
+    default: 0
     example: 0
     x-db-field: vserver_server
+  proxy_server:
+    type: integer
+    description: >-
+      Whether this server is a proxy server (0 = no, 1 = yes). Real column on
+      the `server` table; not editable in the legacy UI form (set by the
+      installer), exposed here for completeness.
+    enum: [0, 1]
+    default: 0
+    example: 0
+    x-db-field: proxy_server
+  firewall_server:
+    type: integer
+    description: >-
+      Whether this server is a firewall server (0 = no, 1 = yes). Real column
+      on the `server` table; not editable in the legacy UI form (set by the
+      installer), exposed here for completeness.
+    enum: [0, 1]
+    default: 0
+    example: 0
+    x-db-field: firewall_server
   xmpp_server:
     type: integer
     description: Whether this server is an XMPP server (0 = no, 1 = yes)
     enum: [0, 1]
+    default: 0
     example: 0
     x-db-field: xmpp_server
   mirror_server_id:
     type: integer
-    format: int32
-    description: ID of the mirror server (if any)
+    format: int64
+    description: >-
+      ID of the server this server mirrors (0 = no mirror). Legacy semantics
+      (server_edit.php::onSubmit): the value is silently forced to 0 when it
+      equals the record's own ID (a server cannot mirror itself) or
+      when the record being edited is server 1.
+    default: 0
     example: 2
     x-db-field: mirror_server_id
+  updated:
+    type: integer
+    format: int64
+    description: >-
+      ID of the last processed sys_datalog entry for this server
+      (system-managed replication cursor). Read-only.
+    readOnly: true
+    example: 1342
+    x-db-field: updated
+  dbversion:
+    type: integer
+    format: int64
+    description: Database schema version of this server (system-managed). Read-only.
+    readOnly: true
+    example: 1
+    x-db-field: dbversion
   active:
     type: integer
     description: Whether the server is active (0 = inactive, 1 = active)
     enum: [0, 1]
+    default: 1
     example: 1
     x-db-field: active

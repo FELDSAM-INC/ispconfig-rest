@@ -1,158 +1,131 @@
 type: object
 x-db-table: web_domain
+description: |
+  A web domain (vhost) hosted by ISPConfig — table `web_domain`.
+
+  This resource covers the vhost types managed by the legacy "Website" form
+  (`vhost`, `vhostsubdomain`, `vhostalias`). Subdomains and alias domains of
+  type `subdomain` / `alias` are managed via the web child domain resource
+  (same table, different form).
+
+  ### Server-generated provisioning fields
+  On create, ISPConfig derives `document_root` (from the server web config
+  `website_path` template), `system_user` (`web{domain_id}`), `system_group`
+  (`client{client_id}`), `allow_override` and `php_open_basedir` defaults,
+  `added_date`/`added_by` and `log_retention`. These fields are read-only.
+  For `vhostsubdomain`/`vhostalias` they are copied from the parent domain and
+  `hd_quota` is forced to 0.
+
+  ### SSL certificate material
+  Certificate columns (`ssl_cert`, `ssl_key`, `ssl_bundle`, `ssl_request`,
+  `ssl_action`) are managed via the `/sites/web-domains/{id}/ssl` subresource,
+  not through this schema. When `ssl=y` and `ssl_letsencrypt=y` on create, the
+  record is first datalogged with both flags `n` and immediately followed by a
+  datalog update enabling them (legacy Let's Encrypt two-step create).
+
+  ### Immutability
+  `server_id` cannot be changed after creation. `system_user`, `system_group`
+  and `web_folder` are preserved server-side on update.
 required:
-  - domain_id
-  - domain
   - server_id
-  - sys_groupid
-  - sys_userid
-  - sys_perm_user
-  - sys_perm_group
-  - sys_perm_other
-  - type
-  - document_root
-  - system_user
-  - system_group
-  - php
-  - ssl
-  - ssl_letsencrypt
-  - ssl_redirect
-  - backup_interval
-  - stats_type
-  - http2
-  - hsts
-  - cgi
-  - ssi
-  - proxy_domain
-  - proxy_paths
-  - proxy_http_version
-  - proxy_connect_timeout
-  - proxy_read_timeout
-  - proxy_send_timeout
-
+  - domain
 properties:
-  # System Fields
-  domain_id:
+  id:
     type: integer
-    format: int32
-    x-db-field: domain_id
-    minimum: 1
+    format: int64
     readOnly: true
-    description: Unique identifier for the web domain
+    description: Unique identifier for the web domain (database column `domain_id`)
     example: 42
+    x-db-field: domain_id
 
-  sys_userid:
-    type: integer
-    format: int32
-    minimum: 1
-    description: ID of the system user who created this web domain
-    example: 1
-
-  sys_groupid:
-    type: integer
-    format: int32
-    minimum: 1
-    description: System group ID that owns this web domain
-    example: 10
-
-  sys_perm_user:
-    type: string
-    maxLength: 5
-    pattern: '^[riud]*$'
-    default: 'riud'
-    description: User permissions (r=read, i=insert, u=update, d=delete)
-    example: "riud"
-
-  sys_perm_group:
-    type: string
-    maxLength: 5
-    pattern: '^[riud]*$'
-    default: 'riud'
-    description: Group permissions (r=read, i=insert, u=update, d=delete)
-    example: "riud"
-
-  sys_perm_other:
-    type: string
-    maxLength: 5
-    pattern: '^[riud]*$'
-    default: ''
-    description: Other permissions (r=read, i=insert, u=update, d=delete)
-    example: ""
-
-  # Domain Information
   server_id:
     type: integer
-    format: int32
-    minimum: 1
-    description: ID of the server where the web domain is hosted
+    format: int64
+    description: |
+      ID of the web server hosting the domain. Must reference a server with
+      the web role. Immutable after creation.
     example: 1
 
   ip_address:
     type: string
-    format: ipv4
     maxLength: 39
     nullable: true
     description: |
-      IPv4 address for the web domain.
-      Use '*' to bind to all available IP addresses (if allowed by server configuration).
+      IPv4 address the vhost binds to, or `*` to bind to all addresses.
+      Subject to the server's SNI configuration: when SNI is disabled, only
+      one SSL-enabled domain is allowed per IP address.
     example: "192.168.1.1"
 
   ipv6_address:
     type: string
     maxLength: 255
     nullable: true
-    description: |
-      IPv6 address for the web domain.
-      Use '::' to bind to all available IPv6 addresses (if allowed by server configuration).
-    example: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+    description: IPv6 address the vhost binds to (empty for none)
+    example: "2001:db8::1"
 
   domain:
     type: string
     maxLength: 255
-    pattern: '^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$'
     description: |
-      Domain name (lowercase, no spaces, must be a valid domain format).
-      For subdomains, only include the subdomain part (e.g., 'sub' for 'sub.example.com').
-      The full domain will be constructed by appending the parent domain.
-    example: "example.com"
+      Fully qualified domain name.
 
-  active:
-    type: string
-    enum: [y, n]
-    default: 'y'
-    description: Whether the web domain is active
-    example: 'y'
+      ### Validation Rules
+      - Lower-cased on save; IDN names are converted to punycode (legacy
+        `TOLOWER` + `IDNTOASCII` filters)
+      - Must pass the legacy `validate_domain` check for the domain type
+      - Unique per (`server_id`, `ip_address`, `domain`) — database unique key
+    example: "example.com"
 
   type:
     type: string
-    enum: [vhost, vhostsubdomain, vhostalias, alias]
+    enum: [vhost, vhostsubdomain, vhostalias]
+    default: vhost
     description: |
-      Type of the web domain:
-      - vhost: Regular virtual host (main domain)
-      - vhostsubdomain: Subdomain of a vhost
-      - vhostalias: Alias domain
-      - alias: Domain alias (deprecated, use vhostalias)
-    example: 'vhost'
+      Vhost type:
+      - `vhost`: regular website (main domain)
+      - `vhostsubdomain`: subdomain with its own vhost configuration
+      - `vhostalias`: alias domain with its own vhost configuration
+
+      For `vhostsubdomain`/`vhostalias` a valid `parent_domain_id` is required.
+    example: vhost
 
   parent_domain_id:
     type: integer
-    format: int32
-    minimum: 1
+    format: int64
+    default: 0
+    description: |
+      ID of the parent web domain. Required (non-zero) when `type` is
+      `vhostsubdomain` or `vhostalias`; 0 for regular vhosts.
+    example: 0
+
+  vhost_type:
+    type: string
+    enum: [name, ip]
+    default: name
+    description: Name-based or IP-based virtual host
+    example: name
+
+  web_folder:
+    type: string
+    maxLength: 100
     nullable: true
     description: |
-      Required if type is vhostsubdomain or vhostalias.
-      ID of the parent domain this subdomain/alias belongs to.
-    example: 42
+      Web folder below the parent domain's document root (only for
+      `vhostsubdomain`/`vhostalias`). Must not contain `..`, `./` or `//`
+      (legacy regex `@^((?!(.*\.\.)|(.*\./)|(.*//))[^/][\w/_\.\-]{1,100})?$@`).
+      Preserved server-side on update.
+    example: "blog"
 
-  # Quotas
   hd_quota:
     type: integer
     format: int64
-    minimum: 1
-    default: 1000
+    minimum: -1
+    default: -1
     description: |
-      Disk quota in MB. Must be at least 1MB for vhost domains.
-      For vhostsubdomain and vhostalias, this is inherited from the parent domain.
+      Disk quota in MB. `-1` = unlimited, otherwise a positive integer
+      (legacy regex `/^(\-1|[0-9]{1,10})$/`). `0` is rejected for `type=vhost`;
+      for `vhostsubdomain`/`vhostalias` the value is forced to 0 (quota is
+      accounted on the parent domain).
     example: 1024
 
   traffic_quota:
@@ -160,227 +133,276 @@ properties:
     format: int64
     minimum: -1
     default: -1
-    description: Traffic quota in MB (-1 for unlimited)
+    description: |
+      Monthly traffic quota in MB. `-1` = unlimited, otherwise a positive
+      integer (legacy regex `/^(\-1|[0-9]{1,10})$/`).
     example: 10240
 
-  # System User/Group
+  document_root:
+    type: string
+    maxLength: 255
+    readOnly: true
+    description: |
+      Absolute path to the site root. Server-generated on create from the
+      server web config `website_path` template (placeholders
+      `[website_id]`, `[client_id]`, id-hash variants).
+    example: "/var/www/clients/client1/web42"
+
   system_user:
     type: string
-    maxLength: 32
-    pattern: '^[a-z][a-z0-9_]{0,31}$'
-    description: |
-      System user that owns the web domain files.
-      Must start with a letter, followed by letters, numbers, or underscores.
-      Maximum 32 characters.
+    maxLength: 255
+    readOnly: true
+    description: System user owning the site files. Server-generated as `web{domain_id}`.
     example: "web42"
 
   system_group:
     type: string
-    maxLength: 32
-    pattern: '^[a-z][a-z0-9_]{0,31}$'
-    description: |
-      System group that owns the web domain files.
-      Typically follows the pattern 'clientX' where X is the client ID.
-      Must start with a letter, followed by letters, numbers, or underscores.
-      Maximum 32 characters.
-    example: "client10"
-
-  # Document Root
-  document_root:
-    type: string
     maxLength: 255
-    pattern: '^/([a-zA-Z0-9_\-\./]+)?$'
-    description: |
-      Absolute path to the document root directory.
-      For vhost domains, this is typically auto-generated based on the domain name.
-      For subdomains, this is relative to the parent domain's document root.
-      Must be a valid filesystem path.
-    example: "/var/www/example.com/htdocs"
+    readOnly: true
+    description: System group owning the site files. Server-generated as `client{client_id}`.
+    example: "client1"
 
-  # PHP Configuration
+  cgi:
+    type: boolean
+    default: false
+    description: Enable CGI script execution
+    example: false
+    x-db-format: "y/n"
+
+  ssi:
+    type: boolean
+    default: false
+    description: Enable Server Side Includes
+    example: false
+    x-db-format: "y/n"
+
+  suexec:
+    type: boolean
+    default: true
+    description: Run CGI/FastCGI processes under the site's system user (Apache SuEXEC)
+    example: true
+    x-db-format: "y/n"
+
+  errordocs:
+    type: integer
+    enum: [0, 1]
+    default: 1
+    description: Use ISPConfig's own error documents (1) or the server defaults (0)
+    example: 1
+
+  subdomain:
+    type: string
+    enum: [none, www, "*"]
+    default: www
+    description: |
+      Automatic subdomain for the vhost:
+      - `none`: no auto subdomain
+      - `www`: also serve www.{domain}
+      - `*`: wildcard subdomain (only when wildcards are enabled on the server)
+    example: www
+
   php:
     type: string
-    enum: [y, n, fast-cgi, fpm, php-fpm, hhvm, phpX.Y]  # X.Y represents version numbers like 7.4, 8.0, etc.
-    default: 'y'
+    enum: ['no', fast-cgi, cgi, mod, suphp, php-fpm, hhvm]
+    default: fast-cgi
     description: |
-      PHP processing mode and version:
-      - y: PHP as Apache module (mod_php)
-      - n: No PHP processing
-      - fast-cgi: PHP as FastCGI
-      - php-fpm: PHP-FPM (recommended for Nginx)
-      - hhvm: HipHop VM (legacy)
-      - phpX.Y: Specific PHP version (e.g., php7.4, php8.0)
-    example: 'php-fpm'
+      PHP handler mode (legacy value set):
+      - `no`: PHP disabled
+      - `fast-cgi`: PHP as FastCGI
+      - `cgi`: PHP as CGI
+      - `mod`: Apache mod_php
+      - `suphp`: SuPHP
+      - `php-fpm`: PHP-FPM
+      - `hhvm`: HipHop VM (legacy)
 
-  php_fastcgi_binary:
+      A custom PHP version (`server_php_id`) is only honoured for `php-fpm`
+      and `fast-cgi`; otherwise it is reset to 0.
+    example: php-fpm
+
+  server_php_id:
+    type: integer
+    format: int64
+    default: 0
+    description: |
+      ID of an additional PHP version (`server_php` record) to use.
+      0 = the server's default PHP. Only honoured when `php` is `php-fpm`
+      or `fast-cgi`.
+    example: 0
+
+  perl:
+    type: boolean
+    default: false
+    description: Enable Perl script execution
+    example: false
+    x-db-format: "y/n"
+
+  ruby:
+    type: boolean
+    default: false
+    description: Enable Ruby script execution
+    example: false
+    x-db-format: "y/n"
+
+  python:
+    type: boolean
+    default: false
+    description: Enable Python script execution
+    example: false
+    x-db-format: "y/n"
+
+  enable_pagespeed:
+    type: boolean
+    default: false
+    description: Enable Google PageSpeed module (nginx)
+    example: false
+    x-db-format: "y/n"
+
+  active:
+    type: boolean
+    default: true
+    description: Whether the web domain is active
+    example: true
+    x-db-format: "y/n"
+
+  directive_snippets_id:
+    type: integer
+    format: int64
+    default: 0
+    description: ID of the directive snippet applied to the vhost (0 = none)
+    example: 0
+
+  # Redirects
+  redirect_type:
+    type: string
+    enum: ["", 'no', R, L, "R,L", "R=301,L", last, break, redirect, permanent, proxy]
+    default: ""
+    description: |
+      Redirect flag / type (Apache rewrite flags or nginx directives):
+      `""` = no redirect; `no`, `R`, `L`, `R,L`, `R=301,L` (Apache);
+      `last`, `break`, `redirect`, `permanent` (nginx); `proxy`.
+      `proxy` requires a URL (not a path) in `redirect_path`.
+    example: "R=301,L"
+
+  redirect_path:
     type: string
     maxLength: 255
-    nullable: true
-    description: Path to the PHP FastCGI binary
-    example: "/usr/bin/php-cgi"
-
-  php_fpm_ini_dir:
-    type: string
-    maxLength: 255
-    nullable: true
-    description: Directory containing PHP-FPM pool configuration files
-    example: "/etc/php/7.4/fpm/pool.d"
-
-  php_fpm_pool_dir:
-    type: string
-    maxLength: 255
-    nullable: true
-    description: Directory containing PHP-FPM socket files
-    example: "/var/run/php"
-
-  php_open_basedir:
-    type: string
-    maxLength: 4096
     nullable: true
     description: |
-      PHP open_basedir restrictions.
-      Limits which files can be accessed by PHP to the specified directories.
-      Multiple directories can be separated by colons (:).
-      Should include at least the document root and temporary directories.
-    example: "/var/www/example.com/htdocs/:/tmp/"
+      Redirect target: a URL (`http://`, `https://`, `ftp://`) or an absolute
+      path ending in `/` without `..` (legacy redirect regex).
+    example: "https://www.example.com/"
 
-  allow_override:
+  seo_redirect:
     type: string
-    maxLength: 255
+    enum: ["", non_www_to_www, www_to_non_www, "*_domain_tld_to_domain_tld", "*_domain_tld_to_www_domain_tld", "*_to_domain_tld", "*_to_www_domain_tld"]
+    default: ""
+    description: |
+      SEO canonicalisation redirect:
+      - `""`: none
+      - `non_www_to_www`: domain.tld => www.domain.tld
+      - `www_to_non_www`: www.domain.tld => domain.tld
+      - `*_domain_tld_to_domain_tld`: *.domain.tld => domain.tld
+      - `*_domain_tld_to_www_domain_tld`: *.domain.tld => www.domain.tld
+      - `*_to_domain_tld`: * => domain.tld
+      - `*_to_www_domain_tld`: * => www.domain.tld
+    example: ""
+
+  rewrite_rules:
+    type: string
     nullable: true
     description: |
-      Apache AllowOverride directive.
-      Controls which directives can be placed in .htaccess files.
-      Common values: None, All, or a combination of AuthConfig, FileInfo, Indexes, Limit, Options
-    example: "All"
+      Custom nginx rewrite rules. Validated line-by-line against the legacy
+      whitelist (`if`, `rewrite`, `set`, `return`, `break` directives and
+      block braces).
+    example: |
+      if (!-e $request_filename) {
+        rewrite ^/(.*)$ /index.php?q=$1 last;
+      }
 
-  # SSL/TLS Configuration
+  rewrite_to_https:
+    type: boolean
+    default: false
+    description: Redirect all HTTP requests to HTTPS
+    example: true
+    x-db-format: "y/n"
+
+  # SSL
   ssl:
-    type: string
-    enum: [y, n]
-    default: 'n'
+    type: boolean
+    default: false
     description: |
-      Whether SSL is enabled.
-      Note: When SNI is disabled on the server, only one SSL certificate can be used per IP address.
-    example: 'y'
+      Enable SSL for the vhost. When the server web config has SNI disabled,
+      only one SSL-enabled domain is allowed per IP address.
+    example: true
+    x-db-format: "y/n"
 
   ssl_letsencrypt:
-    type: string
-    enum: [y, n]
-    default: 'n'
+    type: boolean
+    default: false
     description: |
-      Whether to use Let's Encrypt for SSL certificate.
-      Note: Can only be enabled after the domain exists and DNS is properly configured.
-    example: 'y'
+      Obtain and renew the certificate via Let's Encrypt. When enabled
+      together with `ssl=true` on create, ISPConfig performs the legacy
+      two-step create (insert with both flags disabled, then a datalog
+      update enabling them).
+    example: true
+    x-db-format: "y/n"
 
-  ssl_redirect:
-    type: string
-    enum: [y, n]
-    default: 'n'
-    description: Whether to redirect HTTP to HTTPS
-    example: 'y'
+  ssl_letsencrypt_exclude:
+    type: boolean
+    default: false
+    description: Exclude this domain from the Let's Encrypt certificate
+    example: false
+    x-db-format: "y/n"
 
   ssl_state:
     type: string
     maxLength: 255
     nullable: true
-    description: State/province for SSL certificate
-    example: "New York"
+    description: State/province for the SSL certificate subject (CSR)
+    example: "Bavaria"
 
   ssl_locality:
     type: string
     maxLength: 255
     nullable: true
-    description: City/locality for SSL certificate
-    example: "New York"
+    description: City/locality for the SSL certificate subject (CSR)
+    example: "Munich"
 
   ssl_organisation:
     type: string
     maxLength: 255
     nullable: true
-    description: Organization name for SSL certificate
+    description: Organisation for the SSL certificate subject (CSR)
     example: "Example Inc."
 
-  ssl_organisational_unit:
+  ssl_organisation_unit:
     type: string
     maxLength: 255
     nullable: true
-    description: Organizational unit for SSL certificate
-    example: "IT Department"
+    description: Organisational unit for the SSL certificate subject (CSR)
+    example: "IT"
 
   ssl_country:
     type: string
-    minLength: 2
-    maxLength: 2
-    pattern: '^[A-Z]{2}$'
+    maxLength: 255
     nullable: true
-    description: |
-      Two-letter country code for SSL certificate (ISO 3166-1 alpha-2).
-      Required when SSL is enabled.
-    example: "US"
+    description: ISO 3166-1 alpha-2 country code for the SSL certificate subject (CSR)
+    example: "DE"
 
-  ssl_dn_commonname:
+  ssl_domain:
     type: string
     maxLength: 255
     nullable: true
-    description: Common Name for SSL certificate (usually the domain name)
+    description: Common Name (domain) the SSL certificate is issued for
     example: "example.com"
-
-  ssl_dn_email:
-    type: string
-    format: email
-    maxLength: 255
-    nullable: true
-    description: Email address for SSL certificate
-    example: "admin@example.com"
-
-  # Backup Configuration
-  backup_interval:
-    type: string
-    enum: [daily, weekly, monthly, none]
-    default: 'none'
-    description: Backup interval for the web domain
-    example: 'weekly'
-
-  backup_copies:
-    type: integer
-    format: int32
-    minimum: 1
-    maximum: 365
-    default: 7
-    description: Number of backup copies to keep
-    example: 7
-
-  backup_excludes:
-    type: string
-    maxLength: 4096
-    nullable: true
-    description: |
-      Files or directories to exclude from backups, one per line.
-      Supports wildcards (e.g., '*.log', 'cache/*').
-    example: "tmp\ncache\n*.log"
 
   # Statistics
   stats_type:
     type: string
-    enum: [webalizer, awstats, none]
-    default: 'none'
-    description: Type of web statistics to enable
-    example: 'awstats'
-
-  stats_auth:
-    type: string
-    enum: [y, n]
-    default: 'y'
-    description: Whether to password-protect statistics
-    example: 'y'
-
-  stats_user:
-    type: string
-    maxLength: 64
-    nullable: true
-    description: Username for statistics access
-    example: 'statsuser'
+    enum: [awstats, goaccess, webalizer, ""]
+    default: awstats
+    description: Web statistics engine (`""` = statistics disabled)
+    example: awstats
 
   stats_password:
     type: string
@@ -388,212 +410,277 @@ properties:
     writeOnly: true
     maxLength: 255
     nullable: true
-    description: Password for statistics access (write-only)
-    example: 'securepassword123'
+    description: |
+      Password protecting the /stats directory. Write-only — never returned.
+      Stored as a SHA-512 crypt hash (legacy `CRYPT` encryption).
+    example: "securepassword123"
 
-  stats_allow_ip:
+  # Backup
+  backup_interval:
     type: string
-    maxLength: 4096
-    nullable: true
-    description: IP addresses allowed to access statistics (one per line)
-    example: "192.168.1.0/24\n10.0.0.1"
+    enum: [none, daily, weekly, monthly]
+    default: none
+    description: Backup interval for the web domain
+    example: weekly
 
-  # HTTP/2 and Security Headers
-  http2:
-    type: string
-    enum: [y, n]
-    default: 'y'
-    description: Whether to enable HTTP/2
-    example: 'y'
-
-  hsts:
-    type: string
-    enum: [y, n]
-    default: 'n'
-    description: Whether to enable HTTP Strict Transport Security (HSTS)
-    example: 'y'
-
-  hsts_max_age:
+  backup_copies:
     type: integer
-    format: int32
-    minimum: 0
-    default: 31536000
-    description: HSTS max-age in seconds (1 year by default)
-    example: 31536000
+    minimum: 1
+    maximum: 30
+    default: 1
+    description: Number of backup copies to keep (legacy options 1-10, 15, 20, 30)
+    example: 7
 
-  hsts_include_subdomains:
+  backup_excludes:
     type: string
-    enum: [y, n]
-    default: 'n'
-    description: Whether to include subdomains in HSTS
-    example: 'y'
+    nullable: true
+    description: |
+      Comma-separated files/directories to exclude from backups. Must match
+      the legacy regex `@^(?!.*\.\.)[-a-zA-Z0-9_/.~,*]*$@` (no `..`).
+    example: "tmp/*,cache/*"
 
-  hsts_preload:
-    type: string
-    enum: [y, n]
-    default: 'n'
-    description: Whether to allow preloading of HSTS
-    example: 'n'
-
-  # Scripting and Features
-  cgi:
-    type: string
-    enum: [y, n]
-    default: 'n'
-    description: Whether to enable CGI execution
-    example: 'n'
-
-  ssi:
-    type: string
-    enum: [y, n]
-    default: 'n'
-    description: Whether to enable Server Side Includes (SSI)
-    example: 'n'
-
-  # Proxy Configuration
-  proxy_domain:
+  # Advanced options (legacy admin/reseller "Options" tab)
+  allow_override:
     type: string
     maxLength: 255
-    nullable: true
-    description: Domain to proxy requests to
-    example: 'backend.example.com'
+    default: All
+    description: |
+      Apache AllowOverride directive for the site. Default derives from the
+      server web config `htaccess_allow_override` on create.
+    example: All
 
-  proxy_paths:
+  proxy_protocol:
+    type: boolean
+    default: false
+    description: Enable the PROXY protocol on the vhost
+    example: false
+    x-db-format: "y/n"
+
+  php_fpm_use_socket:
+    type: boolean
+    default: true
+    description: Use a Unix socket instead of TCP for PHP-FPM
+    example: true
+    x-db-format: "y/n"
+
+  php_fpm_chroot:
+    type: boolean
+    default: false
+    description: Run the PHP-FPM pool chrooted
+    example: false
+    x-db-format: "y/n"
+
+  pm:
     type: string
-    maxLength: 4096
+    enum: [static, dynamic, ondemand]
+    default: ondemand
+    description: |
+      PHP-FPM process manager mode. With `dynamic`, the pool sizes must
+      satisfy `pm_max_children >= pm_max_spare_servers >= pm_start_servers
+      >= pm_min_spare_servers > 0`.
+    example: ondemand
+
+  pm_max_children:
+    type: integer
+    minimum: 1
+    default: 10
+    description: PHP-FPM pm.max_children
+    example: 10
+
+  pm_start_servers:
+    type: integer
+    minimum: 1
+    default: 2
+    description: PHP-FPM pm.start_servers
+    example: 2
+
+  pm_min_spare_servers:
+    type: integer
+    minimum: 1
+    default: 1
+    description: PHP-FPM pm.min_spare_servers
+    example: 1
+
+  pm_max_spare_servers:
+    type: integer
+    minimum: 1
+    default: 5
+    description: PHP-FPM pm.max_spare_servers
+    example: 5
+
+  pm_process_idle_timeout:
+    type: integer
+    minimum: 1
+    default: 10
+    description: PHP-FPM pm.process_idle_timeout in seconds (ondemand mode)
+    example: 10
+
+  pm_max_requests:
+    type: integer
+    minimum: 0
+    default: 0
+    description: PHP-FPM pm.max_requests (0 = unlimited)
+    example: 0
+
+  disable_symlinknotowner:
+    type: boolean
+    default: false
+    description: Disable the SymlinksIfOwnerMatch protection for this site
+    example: false
+    x-db-format: "y/n"
+
+  php_open_basedir:
+    type: string
     nullable: true
     description: |
-      Paths to proxy, one per line in format '/path|http://target'.
-      Example:
-      /api|http://api.example.com
-      /static|http://static.example.com
-    example: "/api|http://api.example.com\n/static|http://static.example.com"
+      PHP open_basedir restriction (colon-separated paths). Default is
+      generated on create from the server web config template
+      (`[website_path]`, `[website_domain]` placeholders).
+    example: "/var/www/clients/client1/web42/web:/tmp"
 
-  proxy_http_version:
+  custom_php_ini:
     type: string
-    enum: [1.0, 1.1]
-    default: '1.1'
-    description: HTTP version to use for proxying
-    example: '1.1'
-
-  proxy_connect_timeout:
-    type: integer
-    format: int32
-    minimum: 1
-    default: 300
-    description: Proxy connection timeout in seconds
-    example: 300
-
-  proxy_read_timeout:
-    type: integer
-    format: int32
-    minimum: 1
-    default: 1200
-    description: Proxy read timeout in seconds
-    example: 1200
-
-  proxy_send_timeout:
-    type: integer
-    format: int32
-    minimum: 1
-    default: 300
-    description: Proxy send timeout in seconds
-    example: 300
-
-  # Advanced Settings
-  custom_config:
-    type: string
-    maxLength: 65535
     nullable: true
     description: |
-      Custom Apache/Nginx configuration directives.
-      These will be included in the server block/virtual host.
+      Custom php.ini directives, one `key = value` per line (comments start
+      with `;`). Validated line-by-line like the legacy interface.
     example: |
-      # Custom configuration
+      upload_max_filesize = 64M
+      post_max_size = 64M
+
+  apache_directives:
+    type: string
+    nullable: true
+    description: |
+      Custom Apache directives added to the vhost. Validated against the
+      legacy blocked-directive list (`validate_domain::web_apache_directives`).
+    example: |
       <IfModule mod_headers.c>
         Header set X-Content-Type-Options nosniff
       </IfModule>
 
-  rewrite_rules:
+  nginx_directives:
     type: string
-    maxLength: 65535
     nullable: true
     description: |
-      Custom rewrite rules in Apache or Nginx format, depending on server configuration.
-      For Nginx, ensure rules are properly formatted and valid.
+      Custom nginx directives added to the server block. Validated against the
+      legacy blocked-directive list (`validate_domain::web_nginx_directives`).
     example: |
-      # Apache example
-      RewriteEngine On
-      RewriteCond %{HTTPS} off
-      RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-      
-      # Nginx example
-      # if (!-e $request_filename) {
-      #   rewrite ^/(.*)$ /index.php?q=$1 last;
-      # }
+      add_header X-Content-Type-Options nosniff;
 
-
-  custom_php_ini:
+  proxy_directives:
     type: string
-    maxLength: 65535
     nullable: true
-    description: |
-      Custom PHP settings in php.ini format.
-      Each line must be a valid PHP configuration directive.
-      Example formats:
-      - key = value
-      - key = "value"
-      - key = 'value'
-      Comments start with ';'.
+    description: Custom proxy directives (used when `redirect_type=proxy`)
     example: |
-      ; Increase file upload limits
-      upload_max_filesize = 64M
-      post_max_size = 64M
-      memory_limit = 256M
-      
-      ; Custom error reporting
-      error_reporting = E_ALL & ~E_NOTICE & ~E_STRICT & ~E_DEPRECATED
-      display_errors = Off
-      log_errors = On
-      error_log = /var/log/php_errors.log
+      ProxyPreserveHost On
 
-  php_fpm_settings:
+  http_port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    default: 80
+    description: HTTP port of the vhost
+    example: 80
+
+  https_port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    default: 443
+    description: HTTPS port of the vhost
+    example: 443
+
+  log_retention:
+    type: integer
+    minimum: 0
+    maximum: 9999
+    description: |
+      Days to keep access logs. Default derives from the server config on
+      create (fallback 10).
+    example: 30
+
+  jailkit_chroot_app_sections:
     type: string
-    maxLength: 65535
     nullable: true
-    description: |
-      Custom PHP-FPM pool settings.
-      When using dynamic process manager, the following conditions must be met:
-      pm.max_children >= pm.max_spare_servers >= pm.start_servers >= pm.min_spare_servers > 0
-    example: |
-      pm = dynamic
-      pm.max_children = 50
-      pm.start_servers = 5
-      pm.min_spare_servers = 5
-      pm.max_spare_servers = 35
+    description: Jailkit chroot application sections (space-separated, legacy regex `/^[a-zA-Z0-9\-\_\ ]*$/`)
+    example: "basicshell editors"
 
-  # Deprecated Fields (kept for backward compatibility)
-  alias:
+  jailkit_chroot_app_programs:
+    type: string
+    nullable: true
+    description: Additional programs available in the jail (space-separated paths, legacy regex `/^[a-zA-Z0-9\.\-\_\/\ ]*$/`)
+    example: "/usr/bin/git"
+
+  delete_unused_jailkit:
+    type: boolean
+    default: false
+    description: Delete the jail when it is no longer used
+    example: false
+    x-db-format: "y/n"
+
+  added_date:
+    type: string
+    format: date
+    readOnly: true
+    nullable: true
+    description: Date the domain was created (server-generated)
+    example: "2026-07-04"
+
+  added_by:
     type: string
     maxLength: 255
+    readOnly: true
     nullable: true
-    deprecated: true
+    description: User who created the domain (server-generated)
+    example: "admin"
+
+  # System fields
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID that owns the record
+    example: 1
+
+  sys_groupid:
+    type: integer
     description: |
-      Deprecated. Use type='vhostalias' and parent_domain_id instead.
-      Domain alias (e.g., 'example.org' for 'example.com')
-    example: "example.org"
+      System group ID (client group) that owns the web domain. Defaults to
+      the admin group; supply a client group to assign the site to a client.
+      Child resources (FTP/shell/cron/WebDAV users, folders, databases)
+      inherit this group.
+    example: 10
 
-  # Timestamps
-  created_at:
+  sys_perm_user:
     type: string
-    format: date-time
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: When the web domain was created
-    example: "2023-01-01T12:00:00Z"
+    default: riud
+    description: Owner permissions (r=read, i=insert, u=update, d=delete)
+    example: riud
 
-  updated_at:
+  sys_perm_group:
     type: string
-    format: date-time
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: When the web domain was last updated
-    example: "2023-01-01T12:00:00Z"
+    default: riud
+    description: Group permissions (r=read, i=insert, u=update, d=delete)
+    example: riud
+
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
+    readOnly: true
+    default: ""
+    description: Other permissions (r=read, i=insert, u=update, d=delete)
+    example: ""
+
+  # Response-only convenience fields
+  server_name:
+    type: string
+    readOnly: true
+    description: Name of the server hosting the web domain
+    example: "web1.example.com"

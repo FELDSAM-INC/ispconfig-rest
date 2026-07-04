@@ -1,7 +1,10 @@
+# This resource has NO dedicated table. It is a view over the [server] and
+# [mail] INI sections of the serialized `server.config` column of the `server`
+# table (legacy spamfilter_config.tform.php declares db_table=server and
+# spamfilter_config_edit.php reads/writes the INI sections via ini_parser).
 type: object
 x-db-table: server
 required:
-  - server_id
   - ip_address
   - netmask
   - gateway
@@ -19,138 +22,96 @@ properties:
     type: integer
     format: int64
     readOnly: true
-    description: Server ID where the spamfilter is configured
+    description: ID of the server row whose config is exposed (primary key of the `server` table)
     example: 1
     x-db-field: server_id
 
-  # Server Configuration
+  # [server] INI section of server.config
   ip_address:
     type: string
     format: ipv4
-    description: IP address of the server
+    description: IP address of the server (INI section [server])
     example: 192.168.0.105
-    x-db-field: ip_address
 
   netmask:
     type: string
     format: ipv4
-    description: Network mask
+    description: Network mask (INI section [server])
     example: 255.255.255.0
-    x-db-field: netmask
 
   gateway:
     type: string
     format: ipv4
-    description: Default gateway
+    description: Default gateway (INI section [server])
     example: 192.168.0.1
-    x-db-field: gateway
 
   hostname:
     type: string
-    description: Server hostname
+    description: Server hostname (INI section [server])
     example: server1.domain.tld
-    x-db-field: hostname
 
   nameservers:
     type: string
-    description: Comma-separated list of nameservers
+    description: Comma-separated list of nameservers (INI section [server])
     example: 192.168.0.1,192.168.0.2
-    x-db-field: nameservers
 
-  # Mail Configuration
+  # [mail] INI section of server.config
   module:
     type: string
-    description: Mail server module
+    description: Mail server module (INI section [mail])
     enum: [postfix_mysql]
     default: postfix_mysql
-    x-db-field: module
 
   maildir_path:
     type: string
-    description: Path pattern for mail directories
-    default: /home/vmail/[domain]/[localpart]/
-    example: /home/vmail/example.com/user/
-    x-db-field: maildir_path
+    description: Path pattern for mail directories, with [domain]/[localpart] placeholders (INI section [mail])
+    default: /var/vmail/[domain]/[localpart]
+    example: /var/vmail/[domain]/[localpart]
 
   homedir_path:
     type: string
-    description: Base path for mail user home directories
-    default: /home/vmail/
-    example: /home/vmail/
-    x-db-field: homedir_path
+    description: Base path for mail user home directories (INI section [mail])
+    default: /var/vmail
+    example: /var/vmail
 
   mailuser_uid:
     type: integer
-    description: UID for mail user
+    description: UID of the mail system user (INI section [mail])
     default: 5000
     example: 5000
-    x-db-field: mailuser_uid
 
   mailuser_gid:
     type: integer
-    description: GID for mail user
+    description: GID of the mail system group (INI section [mail])
     default: 5000
     example: 5000
-    x-db-field: mailuser_gid
 
   mailuser_name:
     type: string
-    description: Username for mail system user
+    description: Username of the mail system user (INI section [mail])
     default: vmail
     example: vmail
-    x-db-field: mailuser_name
 
   mailuser_group:
     type: string
-    description: Group name for mail system user
+    description: Group name of the mail system group (INI section [mail])
     default: vmail
     example: vmail
-    x-db-field: mailuser_group
-
-  # System fields (readonly)
-  sys_userid:
-    type: integer
-    readOnly: true
-    description: System user ID who created the record
-    example: 1
-    x-db-field: sys_userid
-
-  sys_groupid:
-    type: integer
-    readOnly: true
-    description: System group ID for the record
-    example: 1
-    x-db-field: sys_groupid
-
-  sys_perm:
-    type: string
-    readOnly: true
-    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
-    example: "riud"
-    x-db-field: sys_perm
-
-  sys_perm_group:
-    type: string
-    readOnly: true
-    description: Group permissions for the record
-    example: "riud"
-    x-db-field: sys_perm_group
-
-  sys_perm_other:
-    type: string
-    readOnly: true
-    description: Other permissions for the record
-    example: ""
-    x-db-field: sys_perm_other
 
 description: |
-  Spamfilter server and mail configuration.
-  
-  ### Key Features
-  - Server network configuration (IP, netmask, gateway, hostname, nameservers)
-  - Mail system user and directory configuration
-  - Mail server module settings
-  
-  ### Access Control
-  - Only accessible by admin users
-  - Server ID cannot be changed after creation
+  Per-server spamfilter/mail configuration.
+
+  ### Storage
+  These fields are NOT columns of a dedicated table: they are keys of the
+  `[server]` and `[mail]` INI sections inside the serialized `server.config`
+  column of the `server` table (the legacy spamfilter config form). Updates
+  perform a read-merge-write of the config blob: the stored INI is parsed,
+  only the keys of these two sections are replaced, all other sections are
+  preserved, and the blob is written back. Legacy ISPConfig updates this
+  column directly without a datalog entry (documented Constitution II
+  exception).
+
+  ### Semantics
+  - One config exists per mail server row — configs are never created or
+    deleted through the API (no POST/DELETE endpoints)
+  - All fields are required on update (legacy NOTEMPTY validators)

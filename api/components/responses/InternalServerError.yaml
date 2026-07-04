@@ -1,5 +1,10 @@
-description: Internal server error
+description: Internal server error (RFC 9457 problem details)
 content:
-  application/json:
+  application/problem+json:
     schema:
-      $ref: '../schemas/Error.yaml'
+      $ref: '../schemas/Problem.yaml'
+    example:
+      type: 'about:blank'
+      title: Internal Server Error
+      status: 500
+      detail: An unexpected error occurred.

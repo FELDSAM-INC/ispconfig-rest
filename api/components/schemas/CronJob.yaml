@@ -1,7 +1,33 @@
 type: object
-x-db-table: web_cron
+x-db-table: cron
+description: |
+  A scheduled cron job for a website — table `cron` (primary key `id`).
+
+  ### Job types
+  - `url`: the command is fetched over HTTP(S)
+  - `full`: full shell command executed as the site's system user
+  - `chrooted`: shell command executed in the site's jail
+
+  `type` is derived server-side: commands starting with `http://`/`https://`
+  are always stored as `url`; otherwise the owning client's `limit_cron_type`
+  applies (`full` for admin-owned sites).
+
+  ### Time fields (legacy `validate_cron` rules)
+  Allowed characters are `0-9`, `,`, `-`, `/` and `*`; the separators `,`,
+  `-`, `/` must never be adjacent. Each entry must match
+  `((\d+)(-(\d+))?|\*)(/[1-9]\d*)?` and stay within the field range:
+  run_min 0-59, run_hour 0-23, run_mday 1-31, run_month 1-12, run_wday 0-7.
+  `@reboot` is accepted only in `run_month` (run the job at server startup).
+
+  ### Command rules (legacy `command_format`)
+  URL commands must parse with scheme http/https and a valid hostname; the
+  `{DOMAIN}` placeholder is substituted with the parent domain before
+  validation. Commands containing backslashes, newlines, carriage returns or
+  null bytes are rejected.
+
+  ### Server-derived fields
+  `server_id` and `sys_groupid` are always copied from the parent web domain.
 required:
-  - server_id
   - parent_domain_id
   - run_min
   - run_hour
@@ -9,14 +35,12 @@ required:
   - run_month
   - run_wday
   - command
-  - type
-  - active
 properties:
   id:
     type: integer
     format: int64
     readOnly: true
-    description: Unique identifier for the cron job
+    description: Unique identifier for the cron job (database column `id`)
     example: 123
     x-db-field: id
 
@@ -24,180 +48,141 @@ properties:
     type: integer
     format: int64
     readOnly: true
-    description: Server ID where the cron job will run
+    description: Server ID — always derived from the parent web domain
     example: 1
 
   parent_domain_id:
     type: integer
     format: int64
-    description: ID of the parent web domain this cron job is associated with
+    description: ID of the parent web domain this cron job belongs to
     example: 42
 
   run_min:
     type: string
-    description: |
-      Minutes when the cron job should run (0-59)
-      
-      Format examples:
-      - "*" - every minute
-      - "5" - at minute 5
-      - "5,15,25" - at minutes 5, 15, and 25
-      - "5-10" - minutes 5 through 10
-      - "*/5" - every 5 minutes
-      - "5-10/2" - every 2 minutes between minutes 5 and 10
+    maxLength: 100
     pattern: '^[0-9\-\*\/,]+$'
-    example: "0"
+    description: |
+      Minutes (0-59). Standard cron syntax: `*`, `x`, `x,y,z`, `x-y`, `*/x`,
+      `x-y/z`. Legacy `run_time_format` validation applies.
+    example: "*/5"
 
   run_hour:
     type: string
-    description: |
-      Hours when the cron job should run (0-23)
-      
-      Same format as run_min
+    maxLength: 100
     pattern: '^[0-9\-\*\/,]+$'
+    description: Hours (0-23). Same syntax and validation as `run_min`.
     example: "2"
 
   run_mday:
     type: string
-    description: |
-      Days of the month when the cron job should run (1-31)
-      
-      Same format as run_min
+    maxLength: 100
     pattern: '^[0-9\-\*\/,]+$'
+    description: Days of the month (1-31). Same syntax and validation as `run_min`.
     example: "*"
 
   run_month:
     type: string
-    description: |
-      Months when the cron job should run (1-12)
-      
-      Same format as run_min or use "@reboot" to run at server startup
+    maxLength: 100
     pattern: '^([0-9\-\*\/,]+|@reboot)$'
+    description: |
+      Months (1-12). Same syntax and validation as `run_min`, plus the
+      special value `@reboot` (run at server startup) — legacy
+      `run_month_format` validation.
     example: "*"
 
   run_wday:
     type: string
-    description: |
-      Days of the week when the cron job should run (0-7, where both 0 and 7 are Sunday)
-      
-      Same format as run_min
+    maxLength: 100
     pattern: '^[0-9\-\*\/,]+$'
+    description: Days of the week (0-7, both 0 and 7 are Sunday). Same syntax and validation as `run_min`.
     example: "*"
 
   command:
     type: string
     description: |
-      Command to execute. Can be:
-      - A URL starting with http:// or https:// for web requests
-      - A shell command for full or chrooted execution
-      - May contain {DOMAIN} placeholder which will be replaced with the parent domain
-    maxLength: 255
-    example: "/usr/bin/php /var/www/example.com/web/cron.php"
+      Command to execute:
+      - a URL starting with `http://` or `https://` (job becomes type `url`)
+      - a shell command for `full`/`chrooted` execution
+      - may contain the `{DOMAIN}` placeholder (replaced with the parent
+        domain)
+
+      Backslashes, CR/LF and null bytes are rejected (legacy
+      `command_format` validation).
+    example: "https://example.com/cron.php"
 
   type:
     type: string
-    description: |
-      Type of cron job:
-      - `url`: For web requests (http/https)
-      - `full`: Full shell command execution
-      - `chrooted`: Chrooted shell command execution (limited to website's document root)
     enum: [url, full, chrooted]
-    default: "url"
+    default: url
+    readOnly: true
+    description: |
+      Job type — derived server-side: `url` for http(s) commands, otherwise
+      the owning client's `limit_cron_type` (`full` for admin-owned sites).
+    example: url
 
   log:
-    type: string
+    type: boolean
+    default: false
     description: Whether to log the cron job output
-    enum: [y, n]
-    default: "n"
+    example: false
+    x-db-format: "y/n"
 
   active:
-    type: string
+    type: boolean
+    default: true
     description: Whether the cron job is active
-    enum: [y, n]
-    default: "y"
+    example: true
+    x-db-format: "y/n"
 
-  # System fields (readonly)
+  # System fields
   sys_userid:
     type: integer
     readOnly: true
-    description: System user ID who created the record
+    description: System user ID that owns the record
     example: 1
 
   sys_groupid:
     type: integer
     readOnly: true
-    description: System group ID for the record
-    example: 1
+    description: System group ID — always synced from the parent web domain
+    example: 10
 
-  sys_perm:
+  sys_perm_user:
     type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
-    example: "riud"
+    default: riud
+    description: Owner permissions (r=read, i=insert, u=update, d=delete)
+    example: riud
 
   sys_perm_group:
     type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: Group permissions for the record
-    example: "riud"
+    default: riud
+    description: Group permissions (r=read, i=insert, u=update, d=delete)
+    example: riud
 
   sys_perm_other:
     type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: Other permissions for the record
+    default: ""
+    description: Other permissions (r=read, i=insert, u=update, d=delete)
     example: ""
 
-  created_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Creation timestamp
-    example: "2023-01-01T12:00:00Z"
-
-  updated_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Last update timestamp
-    example: "2023-01-01T12:00:00Z"
-
-  # Response only fields (not for input)
+  # Response-only convenience fields
   server_name:
     type: string
     readOnly: true
-    description: Name of the server where the cron job will run
-    example: "server1.example.com"
+    description: Name of the server the cron job runs on
+    example: "web1.example.com"
 
   parent_domain:
     type: string
     readOnly: true
     description: Name of the parent domain
     example: "example.com"
-
-description: |
-  ## Represents a scheduled cron job
-  
-  A cron job allows scheduling commands to run periodically at fixed times, dates, or intervals.
-
-  ### Cron Job Types
-  - **url**: For web requests (http/https)
-  - **full**: Full shell command execution with full system access
-  - **chrooted**: Chrooted shell command execution (limited to website's document root)
-  
-  ### Time Format
-  The time fields (run_min, run_hour, etc.) use standard cron format with the following rules:
-  - `*` - Match all values
-  - `x-y` - Range of values (inclusive)
-  - `x,y,z` - List of values
-  - `*/x` - Step values (every x units)
-  - `@reboot` - Special value to run at server startup (only for run_month)
-  
-  ### Command Execution
-  - For `url` type, the command must be a valid URL starting with http:// or https://
-  - For `full` and `chrooted` types, the command will be executed in a shell
-  - The `{DOMAIN}` placeholder in commands will be replaced with the parent domain name
-  
-  ### Security
-  - Cron jobs run with the permissions of the system user associated with the parent domain
-  - Chrooted jobs are limited to the website's document root
-  - URL-based jobs are subject to web server security restrictions

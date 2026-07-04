@@ -1,11 +1,12 @@
+# Verified against source_code/install/sql/ispconfig3.sql (table mail_relay_domain)
+# and source_code/interface/web/mail/form/mail_relay_domain.tform.php.
 type: object
 x-db-table: mail_relay_domain
 required:
   - server_id
   - domain
-  - active
 properties:
-  relay_domain_id:
+  id:
     type: integer
     format: int64
     readOnly: true
@@ -16,50 +17,38 @@ properties:
   server_id:
     type: integer
     format: int64
-    description: Server ID where the relay domain is configured
+    description: |
+      Server ID where the relay domain is configured
+      - Must reference a mail server (server.mail_server=1, mirror_server_id=0)
     example: 1
     x-db-field: server_id
 
   domain:
     type: string
-    description: Domain name for email relay
+    description: |
+      Domain name for email relay
+      - Unique per server (database unique key domain + server_id)
+      - Lowercased and IDN-encoded on save; cannot be changed after creation
     example: example.com
     x-db-field: domain
     pattern: '^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$'
 
-  active:
+  access:
     type: string
-    enum: [y, n]
-    default: y
+    description: Postfix access(5) action for the relay domain (legacy default 'OK')
+    default: "OK"
+    example: "OK"
+    maxLength: 255
+    x-db-field: access
+
+  active:
+    type: boolean
+    default: true
     description: Whether the relay domain is active
     x-db-field: active
 
-  created:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Creation timestamp
-    x-db-field: created
-
-  modified:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Last modification timestamp
-    x-db-field: modified
-
 description: |
-  Email relay domain configuration.
-  
-  ### Features
-  - Relays emails for the specified domain to another mail server
-  - Can be enabled/disabled
-  
+  Email relay domain configuration (table `mail_relay_domain`).
+
   ### Validation Rules
-  - Domain must be a valid domain name
-  - Domain must not be used by another relay or mail domain
-  - User must have permissions for the server
-  
-  ### Notes
-  - System administrators can manage all relay domains
-  - Regular users can only view/modify domains on their servers
+  - Domain must be a valid domain name and unique per server

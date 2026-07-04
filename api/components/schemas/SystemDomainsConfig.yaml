@@ -1,10 +1,17 @@
+# [domains] section of the global system configuration (sys_ini INI blob).
+# Field set verified against legacy source_code/interface/web/admin/form/system_config.tform.php
+# (matches the legacy key set exactly).
 type: object
-description: System configuration for domains in ISPConfig
+description: Domains-related global system configuration (the `[domains]` section of the `sys_ini` blob)
 properties:
   use_domain_module:
     type: string
     enum: [y, n]
-    description: Whether to use the domain module
+    description: >
+      Whether to use the domain module. Legacy ISPConfig seeds the `domain`
+      table from existing mail/web/DNS domains the first time this is turned on;
+      the API's handling of that side effect is defined at implementation time
+      (see specs/008-system-module).
     example: "y"
   new_domain_html:
     type: string

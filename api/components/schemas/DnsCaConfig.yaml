@@ -1,28 +1,78 @@
+# DNS Certification Authority — CAA policy record.
+# Backed by table `dns_ssl_ca` (verified against source_code/install/sql/ispconfig3.sql):
+#   id (PK), sys_*, active enum('N','Y'), ca_name varchar(255),
+#   ca_issue varchar(255) UNIQUE, ca_wildcard enum('Y','N'),
+#   ca_iodef text, ca_critical tinyint(1).
+# This table stores CAA *policy data* consumed by ISPConfig interface plugins to
+# auto-create CAA DNS records (e.g. for Let's Encrypt via the
+# `le_caa_autocreate_options` sites setting) — it does NOT store certificate
+# material (no keys, no PEM uploads).
+# Datalog note: legacy ISPConfig maintains this table with direct SQL and no
+# sys_datalog journaling (its INSERT statement is even broken in 3.2); the
+# table is interface-only — no server daemon consumes it. The API defines the
+# datalog behavior explicitly: writes are journaled through sys_datalog for
+# auditability, a deliberate superset of legacy behavior.
+# Flag storage note: `active`/`ca_wildcard` are stored as UPPERCASE 'Y'/'N'
+# enums and `ca_critical` as tinyint(1); the API represents all three as booleans.
 type: object
-description: DNS Certification Authority configuration
+x-db-table: dns_ssl_ca
+description: >
+  DNS Certification Authority (CAA policy record) from the `dns_ssl_ca` table.
+  Defines which CA may issue certificates for zones managed by ISPConfig and
+  is used to auto-create CAA DNS records.
+required:
+  - ca_name
+  - ca_issue
 properties:
   id:
     type: integer
     format: int64
-    description: Unique identifier for the CA
+    description: Unique identifier of the CAA policy record
     readOnly: true
-  name:
+    example: 1
+    x-db-field: id
+  ca_name:
     type: string
-    description: Name of the CA
+    maxLength: 255
+    description: Display name of the certification authority
     example: "Let's Encrypt"
-  private_key:
+    x-db-field: ca_name
+  ca_issue:
     type: string
-    format: binary
-    description: CA private key (PEM format)
-  certificate:
+    maxLength: 255
+    description: >
+      CAA `issue` property value — the CA domain authorized to issue
+      certificates (unique across all records; DB UNIQUE KEY on `ca_issue`).
+    example: "letsencrypt.org"
+    x-db-field: ca_issue
+  ca_wildcard:
+    type: boolean
+    description: >
+      Whether the CA is authorized to issue wildcard certificates
+      (CAA `issuewild`). Stored as enum 'Y'/'N', default 'N'.
+    default: false
+    example: true
+    x-db-field: ca_wildcard
+  ca_iodef:
     type: string
-    format: binary
-    description: CA certificate (PEM format)
-  intermediates:
-    type: string
-    format: binary
-    description: Intermediate certificates (PEM format)
+    description: >
+      CAA `iodef` property — URL (mailto: or https:) for reporting
+      certificate-issue policy violations. Empty string when unset.
+    example: "mailto:security@example.com"
+    x-db-field: ca_iodef
+  ca_critical:
+    type: boolean
+    description: >
+      Whether the CAA record's critical flag is set.
+      Stored as tinyint(1), default 0.
+    default: false
+    example: false
+    x-db-field: ca_critical
   active:
     type: boolean
-    description: Whether this CA is active
-    default: true
+    description: >
+      Whether this CA is active (inactive CAs are ignored when CAA records
+      are auto-created). Stored as enum 'N'/'Y', default 'N'.
+    default: false
+    example: true
+    x-db-field: active

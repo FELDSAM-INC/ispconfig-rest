@@ -1,24 +1,29 @@
 # Server IP Address Schema
+# Mirrors the `server_ip` table (source_code/install/sql/ispconfig3.sql).
+# Note: the table has NO `active` column — a previously declared `active`
+# property was a phantom and has been removed.
 type: object
 x-db-table: server_ip
+required:
+  - ip_address
 properties:
-  server_ip_id:
+  id:
     type: integer
-    format: int32
+    format: int64
     description: Unique identifier for the server IP address
     readOnly: true
     example: 1
     x-db-field: server_ip_id
   sys_userid:
     type: integer
-    format: int32
+    format: int64
     description: System user ID who created the record
     readOnly: true
     example: 1
     x-db-field: sys_userid
   sys_groupid:
     type: integer
-    format: int32
+    format: int64
     description: System group ID
     readOnly: true
     example: 1
@@ -27,31 +32,43 @@ properties:
     type: string
     maxLength: 5
     description: User permissions (r = read, i = insert, u = update, d = delete)
+    default: "riud"
     example: "riud"
     x-db-field: sys_perm_user
   sys_perm_group:
     type: string
     maxLength: 5
     description: Group permissions (r = read, i = insert, u = update, d = delete)
+    default: "riud"
     example: "riud"
     x-db-field: sys_perm_group
   sys_perm_other:
     type: string
     maxLength: 5
     description: Other permissions (r = read, i = insert, u = update, d = delete)
+    default: ""
     example: ""
     x-db-field: sys_perm_other
   server_id:
     type: integer
-    format: int32
-    description: ID of the server this IP address is associated with
+    format: int64
+    description: >-
+      ID of the server this IP address belongs to. Read-only in the API: it is
+      always taken from the URL path (/servers/{id}/ip-addresses) on create,
+      and it is immutable on update — legacy ISPConfig rejects moving an IP
+      between servers (server_ip_edit.php::onBeforeUpdate). A request body
+      value that differs from the current record is rejected with 422.
+      (OpenAPI cannot express "writable on create via path only"; this
+      description is normative.)
+    readOnly: true
     example: 1
     x-db-field: server_id
   client_id:
     type: integer
-    format: int32
-    description: ID of the client who owns this IP address
-    example: 1
+    format: int64
+    description: ID of the client this IP address is assigned to (0 = unassigned). Must reference an existing client when nonzero.
+    default: 0
+    example: 0
     x-db-field: client_id
   ip_type:
     type: string
@@ -62,32 +79,30 @@ properties:
     x-db-field: ip_type
   ip_address:
     type: string
-    format: ipv4
-    description: The IP address
+    maxLength: 39
+    description: >-
+      The IP address. Validated against the declared ip_type — an IPv4 address
+      is required when ip_type=IPv4 and an IPv6 address when ip_type=IPv6
+      (legacy validate_server::check_server_ip, PHP FILTER_VALIDATE_IP with
+      the matching flag); a mismatch is rejected with 422. The address must
+      be UNIQUE across all servers (legacy UNIQUE validator); a duplicate is
+      rejected with 409.
     example: "192.168.1.1"
     x-db-field: ip_address
   virtualhost:
-    type: string
-    enum: ["y", "n"]
+    type: boolean
     description: Whether this IP is used for virtual hosting
-    default: "y"
-    example: "y"
+    default: true
+    example: true
     x-db-field: virtualhost
+    x-db-format: "y/n"
   virtualhost_port:
     type: string
+    maxLength: 255
     pattern: '^([0-9]{1,5}\,{0,1}){1,}$'
-    description: Comma-separated list of ports for virtual hosting
+    description: >-
+      Comma-separated list of ports for virtual hosting (legacy regex
+      /^([0-9]{1,5}\,{0,1}){1,}$/i).
     default: "80,443"
     example: "80,443"
     x-db-field: virtualhost_port
-  active:
-    type: string
-    enum: ["y", "n"]
-    description: Whether this IP address is active
-    default: "y"
-    example: "y"
-    x-db-field: active
-required:
-  - server_id
-  - ip_type
-  - ip_address

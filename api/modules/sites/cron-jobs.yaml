@@ -5,32 +5,12 @@
       - Cron Jobs
     summary: List all cron jobs
     description: |
-      Returns a paginated list of cron jobs. The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      You can filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `command[ilike]=%backup%&active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=id` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+      Returns a paginated list of cron jobs.
+
+      ### Query options
+      - Pagination: `limit` (default 25, max 100) and `offset`
+      - Sorting: `sort` (field name) and `order` (`asc`/`desc`)
+      - Filtering: `search` matches against the `command` column
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -38,7 +18,7 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: search
         in: query
-        description: Search term to filter cron jobs
+        description: Search term matched against the command
         schema:
           type: string
     responses:
@@ -48,13 +28,18 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/CronJob.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -67,20 +52,17 @@
       - Cron Jobs
     summary: Create a new cron job
     description: |
-      Creates a new cron job with the specified configuration.
-      
-      ### Cron Job Types
-      - **url**: For web requests (http/https)
-      - **full**: Full shell command execution with full system access
-      - **chrooted**: Chrooted shell command execution (limited to website's document root)
-      
-      ### Time Format
-      The time fields (run_min, run_hour, etc.) use standard cron format with the following rules:
-      - `*` - Match all values
-      - `x-y` - Range of values (inclusive)
-      - `x,y,z` - List of values
-      - `*/x` - Step values (every x units)
-      - `@reboot` - Special value to run at server startup (only for run_month)
+      Creates a new cron job for a web domain.
+
+      ### Server-side behavior (legacy parity)
+      - `type` is derived server-side: http(s) commands become `url`,
+        otherwise the owning client's `limit_cron_type` applies (`full` for
+        admin-owned sites)
+      - `server_id` and `sys_groupid` are copied from the parent web domain
+      - Time fields are validated with the legacy `validate_cron` rules
+        (see the CronJob schema); `@reboot` is accepted only in `run_month`
+      - Commands are validated with the legacy `command_format` rules
+        (URL parsing, `{DOMAIN}` substitution, no `\`/CR/LF/NUL)
     requestBody:
       required: true
       content:
@@ -96,18 +78,10 @@
               $ref: '../../components/schemas/CronJob.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid cron time format
-          - Command format doesn't match the specified type
-          - Missing required fields
-          - Cron job frequency is too high for user's plan
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -148,21 +122,12 @@
       - Cron Jobs
     summary: Update cron job
     description: |
-      Updates an existing cron job configuration.
-      
-      ### Partial Updates
-      Only include the fields you want to update. Omitted fields will remain unchanged.
-      
-      ### Validation
-      - Time fields must follow the standard cron format
-      - Command format must match the specified type (url, full, chrooted)
-      - User must have permission to modify the cron job
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../../components/schemas/CronJob.yaml'
+      Updates an existing cron job. Only include the fields you want to
+      change; omitted fields remain unchanged.
+
+      ### Validation (legacy parity)
+      - Time fields follow the legacy `validate_cron` rules
+      - `type` remains server-derived from the command and client limits
     parameters:
       - name: id
         in: path
@@ -171,6 +136,12 @@
         schema:
           type: integer
           format: int64
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/CronJob.yaml'
     responses:
       '200':
         description: Cron job updated successfully
@@ -186,8 +157,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -197,7 +166,7 @@
     tags:
       - Cron Jobs
     summary: Delete cron job
-    description: Deletes a cron job by ID
+    description: Deletes a cron job by ID. This action cannot be undone.
     parameters:
       - name: id
         in: path
@@ -209,10 +178,6 @@
     responses:
       '204':
         description: Cron job deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Cron job is currently running
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

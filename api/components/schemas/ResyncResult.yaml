@@ -1,0 +1,38 @@
+# Resync Result — response body for POST /system/resync (200).
+# Summarizes the forced sys_datalog re-emission performed by the request.
+# The datalog entries are written synchronously in the request; ISPConfig
+# server daemons process them asynchronously — a 200 confirms the datalog
+# emission, not the applied change (Constitution Principle II semantics).
+type: object
+description: >
+  Result summary of a resync run — the number of `sys_datalog` entries
+  emitted per table, in processing order. A table with zero matching
+  records reports 0 entries (nothing to queue is still a success).
+required:
+  - total_datalog_entries
+  - resynced_tables
+properties:
+  total_datalog_entries:
+    type: integer
+    description: Total number of `sys_datalog` entries emitted by this resync run
+    example: 42
+  resynced_tables:
+    type: array
+    description: Per-table datalog emission counts, in processing order
+    items:
+      type: object
+      required:
+        - table
+        - datalog_entries
+      properties:
+        table:
+          type: string
+          description: >
+            Database table whose records were re-emitted (for DNS resync,
+            `dns_rr`/`dns_soa` entries are serial-bump updates, not
+            full-record re-emissions)
+          example: web_domain
+        datalog_entries:
+          type: integer
+          description: Number of `sys_datalog` update entries emitted for this table
+          example: 12

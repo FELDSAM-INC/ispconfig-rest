@@ -1,5 +1,8 @@
+# [misc] section of the global system configuration (sys_ini INI blob).
+# Field set verified against legacy source_code/interface/web/admin/form/system_config.tform.php
+# (matches the legacy key set exactly).
 type: object
-description: Miscellaneous system configuration in ISPConfig
+description: Miscellaneous global system configuration (the `[misc]` section of the `sys_ini` blob)
 properties:
   company_name:
     type: string
@@ -107,8 +110,8 @@ properties:
     example: 1050
   session_timeout:
     type: integer
-    description: Session timeout in seconds
-    example: 1800
+    description: Interface session timeout in minutes (0 or empty = default)
+    example: 30
   session_allow_endless:
     type: string
     enum: [y, n]

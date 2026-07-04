@@ -1,24 +1,40 @@
 type: object
 x-db-table: web_folder
+description: |
+  An HTTP-auth protected directory of a website — table `web_folder`
+  (primary key `web_folder_id`).
+
+  ### Usage
+  Used together with web folder users to password-protect a directory.
+  The path is relative to the website's document root.
+
+  ### Server-derived fields
+  `server_id` and `sys_groupid` are always derived from the parent web
+  domain.
+
+  ### Constraints
+  - The (`parent_domain_id`, `path`) pair must be unique (legacy duplicate
+    check)
+  - Only `active` can be changed after creation (contract restriction;
+    stricter than legacy)
+  - Deleting a folder also deletes all of its web folder users (cascade)
 required:
-  - server_id
   - parent_domain_id
   - path
-  - active
 properties:
   id:
     type: integer
     format: int64
     readOnly: true
-    description: Unique identifier for the web folder
+    description: Unique identifier for the web folder (database column `web_folder_id`)
     example: 123
-    x-db-field: id
+    x-db-field: web_folder_id
 
   server_id:
     type: integer
     format: int64
     readOnly: true
-    description: Server ID where the web folder is located
+    description: Server ID — always derived from the parent web domain
     example: 1
 
   parent_domain_id:
@@ -29,95 +45,71 @@ properties:
 
   path:
     type: string
-    description: |
-      Path to the web folder relative to the website's document root
-      
-      ### Validation Rules:
-      - Must be a valid path
-      - Can only contain alphanumeric characters, dots, hyphens, underscores, and forward slashes
-      - Must start with a forward slash (/)
-      - Maximum length: 255 characters
+    maxLength: 255
+    pattern: '^[\w\.\-\/]{1,255}$'
     default: "/"
-    pattern: '^[\w\.\-\_\/]{1,255}$'
-    example: "/uploads"
+    description: |
+      Path of the protected folder relative to the website's document root.
+      Legacy regex `/^[\w\.\-\_\/]{0,255}$/` (letters, digits, underscore,
+      dot, hyphen, slash). Must be unique per parent domain.
+    example: "/protected"
 
   active:
-    type: string
-    description: Whether the web folder is active
-    enum: [y, n]
-    default: "y"
+    type: boolean
+    default: true
+    description: Whether the folder protection is active
+    example: true
+    x-db-format: "y/n"
 
-
-  # System fields (readonly)
+  # System fields
   sys_userid:
     type: integer
     readOnly: true
-    description: System user ID who created the record
+    description: System user ID that owns the record
     example: 1
 
   sys_groupid:
     type: integer
     readOnly: true
-    description: System group ID for the record
-    example: 1
+    description: System group ID — always synced from the parent web domain
+    example: 10
 
-  sys_perm:
+  sys_perm_user:
     type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
-    example: "riud"
+    default: riud
+    description: Owner permissions (r=read, i=insert, u=update, d=delete)
+    example: riud
 
   sys_perm_group:
     type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: Group permissions for the record
-    example: "riud"
+    default: riud
+    description: Group permissions (r=read, i=insert, u=update, d=delete)
+    example: riud
 
   sys_perm_other:
     type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: Other permissions for the record
+    default: ""
+    description: Other permissions (r=read, i=insert, u=update, d=delete)
     example: ""
 
-  created_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Creation timestamp
-    example: "2023-01-01T12:00:00Z"
-
-  updated_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Last update timestamp
-    example: "2023-01-01T12:00:00Z"
-
-  # Response only fields (not for input)
+  # Response-only convenience fields
   server_name:
     type: string
     readOnly: true
-    description: Name of the server where the web folder is located
-    example: "server1.example.com"
+    description: Name of the server hosting the folder
+    example: "web1.example.com"
 
   parent_domain:
     type: string
     readOnly: true
     description: Name of the parent domain
     example: "example.com"
-
-description: |
-  A web folder represents a directory within a website that can be protected with HTTP authentication.
-  
-  ### Key Features
-  - Defines a directory path within a website
-  - Can be protected with HTTP authentication
-  - Can be enabled or disabled
-  
-  ### Usage
-  - Used in conjunction with web folder users to create protected directories
-  - The path is relative to the website's document root
-  
-  ### Security Notes
-  - Only active folders are protected
-  - Actual file permissions on the server must also be set correctly

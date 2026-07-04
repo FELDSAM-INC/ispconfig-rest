@@ -1,47 +1,20 @@
+# Server Vlogger Configuration Schema — the [vlogger] section of the
+# server.config INI blob (server table, `config` column). Field inventory
+# mirrors the legacy `vlogger` tab of server_config.tform.php (a single
+# field; previously declared vlogger_* properties were invented and have
+# been removed).
+# All properties are optional on PUT: omitted keys keep their current value.
+# Keys present in the stored blob but unknown to this schema are preserved
+# untouched.
 type: object
-x_db_table: server
-required:
-  - vlogger_enabled
-  - vlogger_interval
-  - vlogger_log_dir
-  - vlogger_retention
+x-db-table: server
+x-db-field: config
+x-ini-section: vlogger
+additionalProperties: true
 properties:
-  vlogger_enabled:
+  config_dir:
     type: string
-    enum: [y, n]
-    description: Whether Vlogger is enabled
-    example: "y"
-  vlogger_interval:
-    type: integer
-    description: Logging interval in minutes
-    example: 5
-  vlogger_log_dir:
-    type: string
-    description: Directory for Vlogger logs
-    example: "/var/log/vlogger"
-  vlogger_retention:
-    type: integer
-    description: Number of days to retain logs
-    example: 30
-  vlogger_compress:
-    type: string
-    enum: [y, n]
-    description: Whether to compress old logs
-    example: "y"
-  vlogger_compress_cmd:
-    type: string
-    description: Command to use for compression
-    example: "gzip -9"
-  vlogger_compress_ext:
-    type: string
-    description: File extension for compressed logs
-    example: ".gz"
-  vlogger_postrotate:
-    type: string
-    description: Command to run after log rotation
-    example: "/etc/init.d/rsyslog restart"
-  vlogger_dateext:
-    type: string
-    enum: [y, n]
-    description: Whether to use date extensions for rotated logs
-    example: "y"
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: Absolute path of the directory containing vlogger-dbi.conf (legacy NOTEMPTY + path regex)
+    example: "/etc"

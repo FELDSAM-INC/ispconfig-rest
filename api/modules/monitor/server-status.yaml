@@ -1,13 +1,20 @@
-# Server Status API
+# Server Status endpoints (computed from monitor_data, read-only)
+
 /monitor/servers/status:
   get:
     tags:
       - Monitor
     summary: List all servers status
     description: |
-      Retrieves status information for all servers.
-    security:
-      - basicAuth: []
+      Retrieves aggregated status information for all servers — one
+      `ServerStatus` object per row of the `server` table, assembled from the
+      newest `monitor_data` row per monitor type. Servers without monitor data
+      still appear, with `status: unknown` and null metrics.
+
+      Results are ordered by `server_name` ascending.
+    parameters:
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/limit.yaml'
     responses:
       '200':
         description: List of servers status
@@ -15,11 +22,18 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/ServerStatus.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '500':
@@ -31,9 +45,9 @@
       - Monitor
     summary: Get server status
     description: |
-      Retrieves detailed status information for a specific server.
-    security:
-      - basicAuth: []
+      Retrieves detailed aggregated status information for a specific server.
+      Returns 404 only when the server itself does not exist; a server without
+      monitor data returns 200 with `status: unknown` and null metrics.
     parameters:
       - name: id
         in: path
@@ -52,6 +66,6 @@
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '404':
-        description: Server not found
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'

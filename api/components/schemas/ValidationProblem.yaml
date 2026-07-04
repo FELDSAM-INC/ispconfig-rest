@@ -1,0 +1,19 @@
+# RFC 9457 problem details extended with a field-level `errors` map.
+# Canonical body for 422 validation failures (Constitution v2.0.0, Principle V).
+description: RFC 9457 problem details for validation failures (422), extended with a field-level `errors` map
+allOf:
+  - $ref: './Problem.yaml'
+  - type: object
+    properties:
+      errors:
+        type: object
+        description: Map of field name to the list of validation error messages for that field
+        additionalProperties:
+          type: array
+          items:
+            type: string
+        example:
+          domain:
+            - The domain field is required.
+          server_id:
+            - The selected server_id is invalid.

@@ -1,5 +1,9 @@
 type: object
 x-db-table: dns_slave
+description: |
+  A secondary (slave) DNS zone transferred from an external master server.
+  Maps 1:1 to ISPConfig's `dns_slave` table. The combination of `origin` and
+  `server_id` is unique.
 required:
   - server_id
   - origin
@@ -8,7 +12,7 @@ properties:
   # System Fields
   id:
     type: integer
-    format: int32
+    format: int64
     x-db-field: id
     minimum: 1
     readOnly: true
@@ -20,14 +24,14 @@ properties:
     format: int32
     minimum: 1
     readOnly: true
-    description: ID of the system user who created this slave zone
+    description: ID of the system user who created this slave zone (derived from the API key)
     example: 1
 
   sys_groupid:
     type: integer
     format: int32
     minimum: 1
-    description: System group ID that owns this slave zone
+    description: System group ID that owns this slave zone (defaults to the API user's group when omitted)
     example: 10
 
   sys_perm_user:
@@ -59,16 +63,19 @@ properties:
     type: integer
     format: int32
     minimum: 1
-    description: ID of the DNS server where this slave zone is hosted
+    description: ID of the DNS server that acts as secondary for this zone
     x-db-field: server_id
     example: 1
 
   origin:
     type: string
     maxLength: 255
+    pattern: '^[a-zA-Z0-9./-]{1,255}\.[a-zA-Z0-9-]{2,63}\.?$'
     description: |
-      The domain name for this slave zone.
-      Must be a valid domain name format.
+      The domain name of the slave zone. Validated with the legacy ISPConfig
+      pattern, which allows a trailing dot and `/` (for classless reverse
+      zones, e.g. `0/25.2.0.192.in-addr.arpa`).
+      Unique per DNS server (`origin` + `server_id`).
     x-db-field: origin
     example: "example.com"
 
@@ -76,42 +83,24 @@ properties:
     type: string
     maxLength: 255
     description: |
-      Comma-separated list of nameserver IP addresses.
-      Used as NS records for the zone.
+      The master (primary) DNS server to transfer this zone from —
+      an IP address or hostname.
     x-db-field: ns
-    example: "203.0.113.1, 2001:db8::1"
+    example: "203.0.113.1"
 
   active:
-    type: string
-    enum: [y, n]
-    default: 'y'
-    description: |
-      Whether the slave zone is active.
-      - y: Zone is active
-      - n: Zone is inactive
+    type: boolean
+    default: true
+    description: Whether the slave zone is active
     x-db-field: active
-    example: 'y'
+    x-db-format: "Y/N"
+    example: true
 
   xfer:
     type: string
-    maxLength: 255
+    nullable: true
     description: |
-      Comma-separated list of IP addresses allowed to perform zone transfers.
-      Leave empty to disable zone transfers.
+      Comma-separated list of IP addresses allowed to perform zone transfers
+      from this secondary. Leave empty to disable zone transfers.
     x-db-field: xfer
-    example: "192.0.2.1, 192.0.2.2"
-
-  # Timestamps
-  created_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Timestamp when the slave zone was created
-    example: "2023-01-01T12:00:00Z"
-
-  updated_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Timestamp when the slave zone was last updated
-    example: "2023-01-01T12:00:00Z"
+    example: "192.0.2.1,192.0.2.2"

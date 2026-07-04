@@ -5,33 +5,13 @@
       - Web Child Domains
     summary: List all web child domains
     description: |
-      Returns a paginated list of web child domains (subdomains and alias domains).
-      The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      You can filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `domain[ilike]=%example%&type[eq]=subdomain&active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=id` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+      Returns a paginated list of web child domains (subdomains and alias
+      domains).
+
+      ### Query options
+      - Pagination: `limit` (default 25, max 100) and `offset`
+      - Sorting: `sort` (field name) and `order` (`asc`/`desc`)
+      - Filtering: `type` and `parent_domain_id` parameters below
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -56,13 +36,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/WebChildDomain.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -78,18 +61,15 @@
     summary: Create a new web child domain
     description: |
       Creates a new web child domain (subdomain or alias domain).
-      
-      ### Validation Rules
-      - Domain name must be unique within the parent domain for subdomains
-      - Domain name must be globally unique for alias domains
-      - Parent domain must exist and be accessible
-      - User must have permission to create child domains
-      - User must be within their allowed limits for child domains
-      
-      ### Notes
-      - For subdomains, the `domain` field should not include the parent domain
-      - The full domain will be constructed as `{domain}.{parent_domain}`
-      - For alias domains, the `domain` field should be the full domain name
+
+      ### Server-side behavior (legacy parity)
+      - For subdomains, submit only the label in `domain`; the stored domain
+        is composed as `{domain}.{parent domain}` and lower-cased
+      - For alias domains, submit the full domain name
+      - `server_id` and `sys_groupid` are copied from the parent web domain
+      - `redirect_type=proxy` requires a URL (not a path) in `redirect_path`
+      - A 409 is returned when the resulting domain already exists on the
+        server (database unique key on `server_id`, `ip_address`, `domain`)
     requestBody:
       required: true
       content:
@@ -105,12 +85,6 @@
               $ref: '../../components/schemas/WebChildDomain.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid domain format
-          - Domain already exists
-          - Parent domain not found or inaccessible
-          - Invalid redirect configuration
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -135,7 +109,7 @@
         required: true
         schema:
           type: integer
-          format: int64 
+          format: int64
     responses:
       '200':
         description: Web child domain details
@@ -157,20 +131,14 @@
       - Web Child Domains
     summary: Update web child domain
     description: |
-      Updates an existing web child domain configuration.
-      
-      ### Partial Updates
-      Only include the fields you want to update. Omitted fields will remain unchanged.
-      
-      ### Notes
-      - Changing the domain name or type may affect DNS and web server configuration
-      - Some changes may require a web server reload
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../../components/schemas/WebChildDomain.yaml'
+      Updates an existing web child domain. Only include the fields you want
+      to change; omitted fields remain unchanged.
+
+      ### Server-side behavior (legacy parity)
+      - Changing `parent_domain_id` re-syncs `sys_groupid` to the new
+        parent's group and triggers a vhost-config regeneration for the old
+        parent domain
+      - `type` and `server_id` remain server-controlled
     parameters:
       - name: id
         in: path
@@ -179,6 +147,12 @@
         schema:
           type: integer
           format: int64
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/WebChildDomain.yaml'
     responses:
       '200':
         description: Web child domain updated successfully
@@ -206,12 +180,8 @@
       - Web Child Domains
     summary: Delete web child domain
     description: |
-      Deletes a web child domain by ID.
-      
-      ### Notes
-      - This will remove the web configuration and any associated files
-      - DNS records will be updated if managed by ISPConfig
-      - This action cannot be undone
+      Deletes a web child domain by ID. The web server configuration is
+      updated asynchronously. This action cannot be undone.
     parameters:
       - name: id
         in: path
@@ -223,11 +193,6 @@
     responses:
       '204':
         description: Web child domain deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Child domain is currently in use
-          - Insufficient permissions
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

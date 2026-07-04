@@ -1,15 +1,20 @@
+# [mail] section of the global system configuration (sys_ini INI blob).
+# Field set verified against legacy source_code/interface/web/admin/form/system_config.tform.php.
+# This schema is a deliberate subset of the legacy key set: the SMTP block
+# (admin_mail, admin_name, smtp_enabled/host/port/user/pass/crypt) is not exposed.
+# Unexposed legacy keys are preserved untouched by PUT (read-merge-write).
 type: object
-description: System configuration for mail in ISPConfig
+description: Mail-related global system configuration (the `[mail]` section of the `sys_ini` blob)
 properties:
   enable_custom_login:
     type: string
     enum: [y, n]
-    description: Whether to enable custom login for mail
+    description: Whether mail users may set a custom login name
     example: "n"
   enable_welcome_mail:
     type: string
     enum: [y, n]
-    description: Whether to send welcome emails
+    description: Whether to send welcome emails when a mailbox is created
     example: "y"
   show_per_domain_relay_options:
     type: string
@@ -19,32 +24,27 @@ properties:
   mailbox_show_autoresponder_tab:
     type: string
     enum: [y, n]
-    description: Whether to show autoresponder tab for mailboxes
+    description: Whether to show the autoresponder tab for mailboxes
     example: "y"
-  mailbox_show_quota_tab:
+  mailbox_show_mail_filter_tab:
     type: string
     enum: [y, n]
-    description: Whether to show quota tab for mailboxes
+    description: Whether to show the mail filter tab for mailboxes
     example: "y"
-  mailbox_show_forwarding_tab:
+  mailbox_show_custom_rules_tab:
     type: string
     enum: [y, n]
-    description: Whether to show forwarding tab for mailboxes
-    example: "y"
-  mailbox_show_filter_tab:
-    type: string
-    enum: [y, n]
-    description: Whether to show filter tab for mailboxes
+    description: Whether to show the custom mailfilter rules tab for mailboxes
     example: "y"
   mailbox_show_last_access:
     type: string
     enum: [y, n]
-    description: Whether to show last access time for mailboxes
+    description: Whether to show the last access time for mailboxes
     example: "n"
   mailboxlist_webmail_link:
     type: string
     enum: [y, n]
-    description: Whether to show webmail link in mailbox list
+    description: Whether to link the mailbox list to webmail
     example: "n"
   webmail_url:
     type: string
@@ -55,7 +55,7 @@ properties:
   mailmailinglist_link:
     type: string
     enum: [y, n]
-    description: Whether to show mailing list link
+    description: Whether to link the mailing list to the mailing list admin URL
     example: "n"
   mailmailinglist_url:
     type: string

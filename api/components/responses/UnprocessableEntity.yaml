@@ -1,5 +1,13 @@
-description: Unprocessable entity
+description: Validation failed (RFC 9457 problem details with field-level errors map)
 content:
-  application/json:
+  application/problem+json:
     schema:
-      $ref: '../schemas/Error.yaml'
+      $ref: '../schemas/ValidationProblem.yaml'
+    example:
+      type: 'about:blank'
+      title: Unprocessable Entity
+      status: 422
+      detail: The given data was invalid.
+      errors:
+        domain:
+          - The domain field is required.

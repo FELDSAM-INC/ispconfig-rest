@@ -1,14 +1,14 @@
+# Verified against source_code/install/sql/ispconfig3.sql (table spamfilter_wblist)
+# and source_code/interface/web/mail/form/spamfilter_blacklist.tform.php /
+# spamfilter_whitelist.tform.php.
 type: object
 x-db-table: spamfilter_wblist
 required:
   - server_id
-  - wb
-  - rid
   - email
-  - priority
-  - active
+  - rid
 properties:
-  wblist_id:
+  id:
     type: integer
     format: int64
     readOnly: true
@@ -19,13 +19,15 @@ properties:
   server_id:
     type: integer
     format: int64
-    description: Server ID where the spamfilter is configured
+    description: |
+      Server ID where the spamfilter is configured
+      - Must reference a mail server (server.mail_server=1, mirror_server_id=0)
     example: 1
     x-db-field: server_id
 
   wb:
     type: string
-    description: Type of list entry
+    description: Type of list entry (stored uppercase, exact casing preserved)
     enum: [W, B]
     default: "B"
     x-db-field: wb
@@ -36,21 +38,32 @@ properties:
   rid:
     type: integer
     format: int64
-    description: Reference to spamfilter user ID (0 for global rules)
+    description: |
+      Recipient reference — the spamfilter user ID the entry applies to
+      - Must reference an existing spamfilter user
+      - `rid=0` is accepted but has NO effect on Rspamd systems (the server
+        plugin skips entries whose rid does not resolve); use
+        /mail/access-rules for global rules
+      - Cannot be changed after creation
     default: 0
     example: 1
     x-db-field: rid
 
   email:
     type: string
-    description: Email address or pattern to match
+    description: |
+      Sender email address or pattern to white/blacklist
+      - Lowercased and IDN-encoded on save
+      - Cannot be changed after creation
     maxLength: 255
     example: "spammer@example.com"
     x-db-field: email
 
   priority:
     type: integer
-    description: Priority of the rule (1-10)
+    description: |
+      Priority of the rule (1-10; legacy form default 5).
+      Note: the database column default is 0.
     minimum: 1
     maximum: 10
     default: 5
@@ -58,10 +71,9 @@ properties:
     x-db-field: priority
 
   active:
-    type: string
+    type: boolean
+    default: true
     description: Whether the rule is active
-    enum: [y, n]
-    default: "y"
     x-db-field: active
 
   # System fields (readonly)
@@ -79,12 +91,12 @@ properties:
     example: 1
     x-db-field: sys_groupid
 
-  sys_perm:
+  sys_perm_user:
     type: string
     readOnly: true
-    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    description: Owner permissions for the record (r=read, i=insert, u=update, d=delete)
     example: "riud"
-    x-db-field: sys_perm
+    x-db-field: sys_perm_user
 
   sys_perm_group:
     type: string
@@ -101,14 +113,11 @@ properties:
     x-db-field: sys_perm_other
 
 description: |
-  Whitelist/Blacklist entries for the spamfilter.
-  
-  ### Key Features
-  - Whitelist trusted senders (W)
-  - Blacklist known spammers (B)
-  - Set priority for rule matching
-  - Enable/disable rules as needed
-  
-  ### Access Control
-  - Users can manage their own whitelist/blacklist entries
-  - Admin users can manage all entries
+  Per-recipient whitelist/blacklist entry for the spamfilter
+  (table `spamfilter_wblist`).
+
+  ### Server side effects
+  On Rspamd systems each entry becomes a per-user file
+  (`spamfilter_wblist_<id>.conf`); the recipient is resolved via `rid` against
+  the spamfilter users table. Entries with an unresolvable `rid` (including
+  rid=0) are skipped — global filtering belongs in /mail/access-rules.

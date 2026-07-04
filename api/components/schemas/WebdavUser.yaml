@@ -1,26 +1,45 @@
 type: object
 x-db-table: webdav_user
+description: |
+  A WebDAV account for a website directory — table `webdav_user`
+  (primary key `webdav_user_id`).
+
+  ### Username prefixing
+  The submitted `username` is prepended with the resolved ISPConfig
+  `webdavuser_prefix`; the applied prefix is stored in `username_prefix`.
+  The full (prefixed) username must be unique across all WebDAV users.
+
+  ### Server-derived fields
+  `server_id` and `sys_groupid` are always derived from the parent web
+  domain.
+
+  ### Immutability
+  `username` and `dir` cannot be changed after creation (legacy restores the
+  stored values); only `password` and `active` are updatable.
+
+  ### Password storage
+  `password` is write-only and stored as an Apache digest-auth hash:
+  `md5(username:dir:password)` computed with the stored username and dir
+  (legacy `webdav_user_edit.php`). Plaintext is never stored or returned.
 required:
-  - server_id
   - parent_domain_id
   - username
   - password
   - dir
-  - active
 properties:
   id:
     type: integer
     format: int64
     readOnly: true
-    description: Unique identifier for the WebDAV user
+    description: Unique identifier for the WebDAV user (database column `webdav_user_id`)
     example: 123
-    x-db-field: id
+    x-db-field: webdav_user_id
 
   server_id:
     type: integer
     format: int64
     readOnly: true
-    description: Server ID where the WebDAV user is hosted
+    description: Server ID — always derived from the parent web domain
     example: 1
 
   parent_domain_id:
@@ -31,130 +50,97 @@ properties:
 
   username:
     type: string
-    description: |
-      WebDAV username
-      
-      ### Validation Rules:
-      - Must be unique across all WebDAV users
-      - Can only contain alphanumeric characters, dots, hyphens, and @
-      - Maximum length: 64 characters
-      - Will be prefixed with the domain's WebDAV user prefix on creation
+    minLength: 1
     maxLength: 64
     pattern: '^[\w\.\-@]{1,64}$'
+    description: |
+      WebDAV username (without prefix). Legacy regex `/^[\w\.\-@]{0,64}$/`.
+      The full (prefixed) username must be unique across all WebDAV users.
+      Immutable after creation.
     example: "user123"
 
   username_prefix:
     type: string
     readOnly: true
-    description: |
-      Prefix automatically added to the username
-      - Set by the system based on domain configuration
-    maxLength: 25
-    example: "example.com_"
+    maxLength: 50
+    description: Prefix applied to the username (resolved from the ISPConfig `webdavuser_prefix` setting)
+    example: "web42_"
 
   password:
     type: string
+    format: password
     writeOnly: true
-    description: |
-      WebDAV user password
-      
-      ### Validation Rules:
-      - Must meet password strength requirements
-      - Will be hashed before storage
-    minLength: 6
     maxLength: 255
+    description: |
+      WebDAV password. Write-only — never returned in responses. Stored as
+      the digest hash `md5(username:dir:password)`; password changes are
+      re-digested with the stored username and dir.
     example: "securePassword123"
-
-  active:
-    type: string
-    description: Whether the WebDAV user is active
-    enum: [y, n]
-    default: "y"
 
   dir:
     type: string
-    description: |
-      Directory path that the WebDAV user can access
-      
-      ### Validation Rules:
-      - Must be a valid directory path
-      - Cannot contain '..' or './'
-      - Must not be empty
     maxLength: 255
-    example: "/var/www/example.com/htdocs/webdav"
+    description: |
+      Directory the WebDAV user can access (relative to the website's web
+      root). Must not contain `..` or `./`. Immutable after creation.
+    example: "webdav"
 
-  # System fields (readonly)
+  active:
+    type: boolean
+    default: true
+    description: Whether the WebDAV user is active
+    example: true
+    x-db-format: "y/n"
+
+  # System fields
   sys_userid:
     type: integer
     readOnly: true
-    description: System user ID who created the record
+    description: System user ID that owns the record
     example: 1
 
   sys_groupid:
     type: integer
     readOnly: true
-    description: System group ID for the record
-    example: 1
+    description: System group ID — always synced from the parent web domain
+    example: 10
 
-  sys_perm:
+  sys_perm_user:
     type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
-    example: "riud"
+    default: riud
+    description: Owner permissions (r=read, i=insert, u=update, d=delete)
+    example: riud
 
   sys_perm_group:
     type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: Group permissions for the record
-    example: "riud"
+    default: riud
+    description: Group permissions (r=read, i=insert, u=update, d=delete)
+    example: riud
 
   sys_perm_other:
     type: string
+    maxLength: 5
+    pattern: '^[riud]*$'
     readOnly: true
-    description: Other permissions for the record
+    default: ""
+    description: Other permissions (r=read, i=insert, u=update, d=delete)
     example: ""
 
-  created_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Creation timestamp
-    example: "2023-01-01T12:00:00Z"
-
-  updated_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Last update timestamp
-    example: "2023-01-01T12:00:00Z"
-
-  # Response only fields (not for input)
+  # Response-only convenience fields
   server_name:
     type: string
     readOnly: true
-    description: Name of the server where the WebDAV user is hosted
-    example: "server1.example.com"
+    description: Name of the server hosting the WebDAV user
+    example: "web1.example.com"
 
   parent_domain:
     type: string
     readOnly: true
     description: Name of the parent domain
     example: "example.com"
-
-description: |
-  A WebDAV user allows access to a specific directory via the WebDAV protocol.
-  
-  ### Key Features
-  - Secure access to web directories via WebDAV protocol
-  - Password-protected access
-  - Tied to a specific web domain
-  - Active/inactive status control
-  
-  ### Security Notes
-  - Passwords are stored as hashes
-  - Usernames are prefixed with the domain name to ensure uniqueness
-  - Access is restricted to the specified directory
-  
-  ### Usage
-  - WebDAV clients can connect using the full username (including prefix) and password
-  - The connection URL is typically `https://domain.tld/webdav`

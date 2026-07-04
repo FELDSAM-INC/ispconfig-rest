@@ -1,43 +1,15 @@
-# Mail User Filters endpoints
+# Mail User Filters endpoints (nested under a mailbox; table mail_user_filter)
 /mail/users/{id}/filters:
   get:
     tags:
       - Mail Users
     summary: List all mail user filters
     description: |
-      Returns a paginated list of mail user filters.
-      The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      Filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Examples:
-      - Find active filters: `active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=rulename` or `sort=-filter_id`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+      Returns a paginated list of the filter rules of a mailbox.
+
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match.
     parameters:
-      - $ref: '../../components/parameters/limit.yaml'
-      - $ref: '../../components/parameters/offset.yaml'
-      - $ref: '../../components/parameters/sort.yaml'
-      - $ref: '../../components/parameters/order.yaml'
       - name: id
         in: path
         description: Mail user ID
@@ -45,18 +17,21 @@
         schema:
           type: integer
           format: int64
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
       - name: source
         in: query
-        description: Filter by source field
+        description: Filter by matched message attribute (stored values)
         schema:
           type: string
-          enum: [subject_txt, from_txt, to_txt, list_id_txt, header_txt, size_over_txt]
+          enum: [Subject, From, To, List-Id, Header, Size]
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
         description: A list of mail user filters
@@ -64,19 +39,24 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/MailUserFilter.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
@@ -85,18 +65,12 @@
       - Mail Users
     summary: Create a new mail user filter
     description: |
-      Creates a new mail user filter rule.
-      
-      ### Validation Rules
-      - Rule name is required
-      - Valid source field must be selected
-      - Valid operation must be selected
-      - Search term is required
-      - Valid action must be selected
-      
-      ### Notes
-      - System administrators can create filters for any user
-      - Regular users can only create filters for themselves
+      Creates a new filter rule for the mailbox.
+
+      ### Side effects (legacy parity)
+      The owning mailbox's `custom_mailfilter` is regenerated (a
+      `### BEGIN FILTER_ID:<id> ... ### END FILTER_ID:<id>` block is added)
+      and a companion `mail_user` datalog update is emitted.
     parameters:
       - name: id
         in: path
@@ -120,19 +94,12 @@
               $ref: '../../components/schemas/MailUserFilter.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Missing required fields
-          - Invalid source or operation
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: |
-          Forbidden. Possible reasons:
-          - No permission to create filters for this user
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -143,7 +110,9 @@
     tags:
       - Mail Users
     summary: Get mail user filter by ID
-    description: Returns a single mail user filter by its ID
+    description: |
+      Returns a single mail user filter by its ID. A filter that belongs to a
+      different mailbox than `{id}` yields 404.
     parameters:
       - name: id
         in: path
@@ -181,10 +150,11 @@
     summary: Update mail user filter
     description: |
       Updates an existing mail user filter.
-      
+
       ### Notes
-      - The mailuser_id cannot be changed after creation
-      - All fields except password are updated if provided
+      - The filter cannot be moved to another mailbox
+      - The mailbox's `custom_mailfilter` block for this filter is regenerated
+        (companion `mail_user` datalog update)
     parameters:
       - name: id
         in: path
@@ -221,8 +191,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -234,10 +202,11 @@
     summary: Delete mail user filter
     description: |
       Deletes a mail user filter by ID.
-      
+
       ### Notes
+      - The filter's block is removed from the mailbox's `custom_mailfilter`
+        (companion `mail_user` datalog update)
       - The operation is permanent and cannot be undone
-      - User must have permission to modify the filter
     parameters:
       - name: id
         in: path
@@ -256,10 +225,6 @@
     responses:
       '204':
         description: Mail user filter deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Filter is in use
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

@@ -1,39 +1,14 @@
-# Mail Get endpoints
-/mail/get:
+# Mail fetchmail endpoints (table mail_get)
+/mail/fetchmail:
   get:
     tags:
-      - Mail
-    summary: List all mail get configurations
+      - Mail Fetchmail
+    summary: List all fetchmail configurations
     description: |
-      Returns a paginated list of mail get configurations.
-      The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      Filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Examples:
-      - Find by type: `type[eq]=pop3`
-      - Find active configs: `active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=source_server` or `sort=-created`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+      Returns a paginated list of fetchmail configurations (stored in the `mail_get` table).
+
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -41,7 +16,7 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: type
         in: query
-        description: Filter by protocol type (pop3, imap, pop3ssl, imapssl)
+        description: Filter by protocol type
         schema:
           type: string
           enum: [pop3, imap, pop3ssl, imapssl]
@@ -52,24 +27,26 @@
           type: string
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
-        description: A list of mail get configurations
+        description: A list of fetchmail configurations
         content:
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/MailGet.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -81,19 +58,16 @@
 
   post:
     tags:
-      - Mail
-    summary: Create a new mail get configuration
+      - Mail Fetchmail
+    summary: Create a new fetchmail configuration
     description: |
-      Creates a new mail get configuration.
-      
+      Creates a new fetchmail configuration (stored in the `mail_get` table).
+
       ### Validation Rules
-      - Source server must be a valid hostname or IP
-      - Authentication credentials are required
-      - Local destination must be a valid local user
-      
-      ### Notes
-      - System administrators can create entries for any server
-      - Regular users can only create entries for their servers
+      - Source server must be a valid hostname or IPv4 address
+      - Source username and password are required
+      - `destination` must be the email address of an existing mailbox
+      - `server_id` must reference a mail server
     requestBody:
       required: true
       content:
@@ -102,48 +76,39 @@
             $ref: '../../components/schemas/MailGet.yaml'
     responses:
       '201':
-        description: Mail get configuration created successfully
+        description: Fetchmail configuration created successfully
         content:
           application/json:
             schema:
               $ref: '../../components/schemas/MailGet.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid source server format
-          - Missing required fields
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: |
-          Forbidden. Possible reasons:
-          - No permission to use the server
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
-/mail/get/{id}:
+/mail/fetchmail/{id}:
   get:
     tags:
-      - Mail
-    summary: Get mail get configuration by ID
-    description: Returns a single mail get configuration by its ID
+      - Mail Fetchmail
+    summary: Get fetchmail configuration by ID
+    description: Returns a single fetchmail configuration by its ID
     parameters:
       - name: id
         in: path
-        description: Mail get configuration ID
+        description: Fetchmail configuration ID
         required: true
         schema:
           type: integer
           format: int64
     responses:
       '200':
-        description: Mail get configuration details
+        description: Fetchmail configuration details
         content:
           application/json:
             schema:
@@ -159,19 +124,18 @@
 
   put:
     tags:
-      - Mail
-    summary: Update mail get configuration
+      - Mail Fetchmail
+    summary: Update fetchmail configuration
     description: |
-      Updates an existing mail get configuration.
-      
+      Updates an existing fetchmail configuration.
+
       ### Notes
-      - The server_id cannot be changed after creation
-      - Password is only updated if provided
-    
+      - `server_id` cannot be changed after creation
+      - `source_password` is only updated when a non-empty value is provided
     parameters:
       - name: id
         in: path
-        description: Mail get configuration ID
+        description: Fetchmail configuration ID
         required: true
         schema:
           type: integer
@@ -184,7 +148,7 @@
             $ref: '../../components/schemas/MailGet.yaml'
     responses:
       '200':
-        description: Mail get configuration updated successfully
+        description: Fetchmail configuration updated successfully
         content:
           application/json:
             schema:
@@ -197,8 +161,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -206,30 +168,23 @@
 
   delete:
     tags:
-      - Mail
-    summary: Delete mail get configuration
+      - Mail Fetchmail
+    summary: Delete fetchmail configuration
     description: |
-      Deletes a mail get configuration by ID.
-      
-      ### Notes
-      - The operation is permanent and cannot be undone
-      - User must have permission to modify the configuration
-    
+      Deletes a fetchmail configuration by ID.
+
+      The operation is permanent and cannot be undone.
     parameters:
       - name: id
         in: path
-        description: Mail get configuration ID
+        description: Fetchmail configuration ID
         required: true
         schema:
           type: integer
           format: int64
     responses:
       '204':
-        description: Mail get configuration deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Configuration is in use
+        description: Fetchmail configuration deleted successfully
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

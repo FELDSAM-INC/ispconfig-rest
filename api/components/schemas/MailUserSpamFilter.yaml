@@ -1,16 +1,14 @@
+# Sub-resource view of the mail_user table (spam handling columns only).
+# Verified against source_code/install/sql/ispconfig3.sql and
+# source_code/interface/web/mail/form/mail_user.tform.php (Mail Filter tab).
 type: object
 x-db-table: mail_user
-required:
-  - mailuser_id
-  - move_junk
-  - purge_trash_days
-  - purge_junk_days
-  - custom_mailfilter
 properties:
-  mailuser_id:
+  id:
     type: integer
     format: int64
-    description: ID of the mail user
+    readOnly: true
+    description: ID of the mail user (taken from the URL path)
     example: 1
     x-db-field: mailuser_id
 
@@ -19,10 +17,11 @@ properties:
     enum: [y, a, n]
     default: y
     description: |
-      Whether to move spam to Junk folder
+      Whether to move detected spam to the Junk folder (3-state flag stored
+      exactly as legacy does):
       - y: Move spam to Junk folder
-      - a: Move spam to Junk folder and mark as read
-      - n: Don't move spam to Junk folder
+      - a: Move spam to Junk folder and mark it as read
+      - n: Do not move spam to the Junk folder
     example: "y"
     x-db-field: move_junk
 
@@ -32,9 +31,8 @@ properties:
     minimum: 0
     default: 0
     description: |
-      Number of days after which to automatically delete emails in Trash
+      Number of days after which emails in Trash are automatically deleted
       - 0: Disable automatic purging
-      - >0: Number of days to keep emails in Trash
     example: 30
     x-db-field: purge_trash_days
 
@@ -44,16 +42,19 @@ properties:
     minimum: 0
     default: 0
     description: |
-      Number of days after which to automatically delete emails in Junk
+      Number of days after which emails in Junk are automatically deleted
       - 0: Disable automatic purging
-      - >0: Number of days to keep emails in Junk
     example: 14
     x-db-field: purge_junk_days
 
   custom_mailfilter:
     type: string
     nullable: true
-    description: Custom mail filter rules in Sieve format
+    description: |
+      Custom mail filter rules (sieve or maildrop syntax, depending on the
+      server's `mail_filter_syntax` setting). Note: the blocks between
+      `### BEGIN FILTER_ID:<id>` and `### END FILTER_ID:<id>` are generated
+      from the `/mail/users/{id}/filters` rules and are rewritten automatically.
     example: |
       if header :contains "X-Spam-Flag" "YES" {
         fileinto "Junk";
@@ -64,16 +65,6 @@ properties:
 description: |
   ## Mail user spam filter settings
 
-  Spam filter settings for a mail user.
-  
-  ### Features
-  - Control spam filtering behavior
-  - Automatic purging of old emails in Trash and Junk folders
-  - Custom mail filter rules in Sieve format
-  
-  ### Notes
-  - When move_junk is enabled, spam emails are moved to the Junk folder
-  - Automatic purging helps manage mailbox size
-  - Custom mail filters provide advanced filtering capabilities
-  - System administrators can manage all settings
-  - Regular users can only manage their own settings
+  Per-mailbox spam handling. This is a view over the `move_junk`,
+  `purge_trash_days`, `purge_junk_days` and `custom_mailfilter` columns of the
+  `mail_user` row — updates produce a `mail_user` datalog update.

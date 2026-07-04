@@ -1,17 +1,20 @@
 type: object
 x-db-table: dns_template
+description: |
+  A DNS zone template used by ISPConfig's zone wizard. Maps 1:1 to the
+  `dns_template` table (primary key `template_id`). The API stores templates
+  only; expanding a template into a zone (the legacy wizard) has no REST
+  counterpart.
 required:
   - name
   - fields
   - template
-  - visible
-  - sys_groupid
 
 properties:
   # System Fields
-  template_id:
+  id:
     type: integer
-    format: int32
+    format: int64
     x-db-field: template_id
     minimum: 1
     readOnly: true
@@ -23,14 +26,14 @@ properties:
     format: int32
     minimum: 1
     readOnly: true
-    description: ID of the system user who created this template
+    description: ID of the system user who created this template (derived from the API key)
     example: 1
 
   sys_groupid:
     type: integer
     format: int32
     minimum: 1
-    description: System group ID that owns this template
+    description: System group ID that owns this template (defaults to the API user's group when omitted)
     example: 10
 
   sys_perm_user:
@@ -68,14 +71,15 @@ properties:
 
   fields:
     type: string
+    maxLength: 255
     description: |
-      Comma-separated list of fields used in the template.
-      Common values: DOMAIN, IP, IPV6, NS1, NS2, EMAIL, DKIM, DNSSEC
+      Comma-separated list of placeholder fields used in the template.
+      Each token is validated against the allowed set:
+      DOMAIN, IP, IPV6, NS1, NS2, EMAIL, DKIM, DNSSEC.
     example: "DOMAIN,IP,NS1,NS2,EMAIL"
 
   template:
     type: string
-    format: text
     description: |
       The actual template content that will be used to generate DNS records.
       Use placeholders like {DOMAIN}, {IP}, etc. as defined in the fields.
@@ -104,11 +108,8 @@ properties:
       TXT|{DOMAIN}.|v=spf1 mx a ~all|0|3600
 
   visible:
-    type: string
-    enum: [y, n]
-    default: 'y'
-    description: |
-      Whether the template is visible in the UI.
-      - y: Template is visible
-      - n: Template is hidden
-    example: 'y'
+    type: boolean
+    default: true
+    description: Whether the template is visible in the UI
+    example: true
+    x-db-format: "Y/N"

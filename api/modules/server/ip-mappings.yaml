@@ -1,15 +1,17 @@
-# Server IP Mappings API Endpoints
+# Server IP Mappings API Endpoints (NAT source -> destination rewrites)
+# Table: server_ip_map (writes go through sys_datalog). Nested under a
+# server: `server_id` is always taken from the {id} path parameter.
 
 /servers/{id}/ip-mappings:
   get:
     tags:
       - Server IPs
-    summary: List all server IP mappings
-    description: Returns a list of all configured server IP mappings
+    summary: List all IP mappings of a server
+    description: Returns a paginated list of the NAT IP mappings configured on the server
     operationId: listServerIpMappings
     parameters:
-      - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/sort.yaml'
       - $ref: '../../components/parameters/order.yaml'
       - name: id
@@ -22,32 +24,43 @@
         example: 1
     responses:
       '200':
-        description: A list of server IP mappings
+        description: A paginated list of server IP mappings
         content:
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/ServerIpMap.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []
 
   post:
     tags:
       - Server IPs
     summary: Create a new server IP mapping
-    description: Creates a new server IP mapping with the specified settings
+    description: |
+      Creates a new NAT IP mapping on the server (datalog insert on
+      `server_ip_map`; `server_id` is taken from the path).
+
+      ### Validation Rules (legacy parity)
+      - `source_ip` is required and non-empty (legacy NOTEMPTY).
+      - `destination_ip` is required and must be a valid IPv4 address
+        (legacy ISIPV4 — IPv6 destinations return 422).
+      - `active` defaults to 'y'.
     operationId: createServerIpMapping
     parameters:
       - name: id
@@ -75,19 +88,21 @@
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
-      '403':
-        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []
 
 /servers/{id}/ip-mappings/{mapping_id}:
   get:
     tags:
       - Server IPs
     summary: Get a server IP mapping by ID
-    description: Returns detailed information about a specific server IP mapping
+    description: >-
+      Returns detailed information about a specific server IP mapping.
+      Returns 404 when the record exists but belongs to a different server.
     operationId: getServerIpMapping
     parameters:
       - name: id
@@ -104,7 +119,7 @@
         required: true
         schema:
           type: integer
-          format: int32
+          format: int64
         example: 1
     responses:
       '200':
@@ -113,22 +128,21 @@
           application/json:
             schema:
               $ref: '../../components/schemas/ServerIpMap.yaml'
-      '400':
-        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []
 
   put:
     tags:
       - Server IPs
     summary: Update a server IP mapping
-    description: Updates an existing server IP mapping with new settings
+    description: |
+      Updates an existing server IP mapping (datalog update on
+      `server_ip_map`). The same validation rules as on create apply;
+      `server_id` is taken from the path and cannot be changed.
     operationId: updateServerIpMapping
     parameters:
       - name: id
@@ -145,7 +159,7 @@
         required: true
         schema:
           type: integer
-          format: int32
+          format: int64
         example: 1
     requestBody:
       required: true
@@ -164,20 +178,18 @@
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
-      '403':
-        $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []
 
   delete:
     tags:
       - Server IPs
     summary: Delete a server IP mapping
-    description: Deletes a server IP mapping configuration
+    description: Deletes a server IP mapping (datalog delete on `server_ip_map`)
     operationId: deleteServerIpMapping
     parameters:
       - name: id
@@ -194,20 +206,14 @@
         required: true
         schema:
           type: integer
-          format: int32
+          format: int64
         example: 1
     responses:
       '204':
         description: Server IP mapping deleted successfully
-      '400':
-        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
-      '403':
-        $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []

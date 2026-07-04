@@ -1,105 +1,115 @@
 type: object
 x-db-table: web_database_user
+description: |
+  A database credential set shared by website databases — table
+  `web_database_user`. Databases reference these records via
+  `database_user_id` / `database_ro_user_id`.
+
+  ### Username prefixing
+  The submitted `database_user` is prepended with the resolved ISPConfig
+  `dbuser_prefix` (e.g. `c1`); the applied prefix is stored in
+  `database_user_prefix`. The prefixed name must not exceed 32 characters
+  and must not be blacklisted (the ISPConfig control-panel DB user, `mysql`,
+  `root`).
+
+  ### Server assignment
+  `server_id` is always forced to 0 — database users are provisioned on
+  every server that hosts one of their databases (legacy behavior).
+
+  ### Password storage
+  `database_password` is write-only. From the submitted plaintext the server
+  populates three hash columns (legacy encryption types):
+  - `database_password` — MySQL `PASSWORD()`-style hash (`*SHA1(SHA1(...))`)
+  - `database_password_sha2` — SHA2-256 hash (MySQL 8 caching_sha2_password)
+  - `database_password_postgres` — PostgreSQL SHA-256 hash
+
+  Plaintext is never stored; no password field is ever returned.
 required:
-  - database_user_id
   - database_user
   - database_password
-  - server_id
-  - sys_groupid
-  - sys_userid
-  - sys_perm_user
-  - sys_perm_group
-  - sys_perm_other
 properties:
-  database_user_id:
+  id:
     type: integer
-    format: int32
-    minimum: 1
+    format: int64
     readOnly: true
-    description: Unique identifier for the database user
+    description: Unique identifier for the database user (database column `database_user_id`)
     example: 42
     x-db-field: database_user_id
-  sys_userid:
-    type: integer
-    format: int32
-    minimum: 0
-    default: 0
-    description: ID of the system user who created this database user
-    example: 1
-  sys_groupid:
-    type: integer
-    format: int32
-    minimum: 0
-    default: 0
-    description: System group ID that owns this database user
-    example: 10
-  sys_perm_user:
-    type: string
-    maxLength: 5
-    nullable: true
-    description: User permissions (r=read, i=insert, u=update, d=delete)
-    example: "riud"
-  sys_perm_group:
-    type: string
-    maxLength: 5
-    nullable: true
-    description: Group permissions (r=read, i=insert, u=update, d=delete)
-    example: "riud"
-  sys_perm_other:
-    type: string
-    maxLength: 5
-    nullable: true
-    description: Other permissions (r=read, i=insert, u=update, d=delete)
-    example: ""
+
   server_id:
     type: integer
-    format: int32
-    minimum: 0
-    default: 0
-    description: ID of the server where the database user is created
-    example: 1
+    format: int64
+    readOnly: true
+    description: Always 0 — database users are provisioned on all relevant servers
+    example: 0
+
   database_user:
     type: string
+    minLength: 2
     maxLength: 64
-    nullable: true
-    description: Username for the database user (2-64 alphanumeric + underscore characters)
-    pattern: '^[a-zA-Z0-9_]+$'
-    example: "dbuser123"
+    pattern: '^[a-zA-Z0-9_]{2,64}$'
+    description: |
+      Database username (without prefix). Legacy regex
+      `/^[a-zA-Z0-9_]{2,64}$/`. The prefixed name must not exceed 32
+      characters and must not be blacklisted.
+    example: "appuser"
+
   database_user_prefix:
     type: string
+    readOnly: true
     maxLength: 50
-    default: ""
-    description: Prefix for the database username
-    example: "user_"
+    description: Prefix applied to the username (resolved from the ISPConfig `dbuser_prefix` setting)
+    example: "c1"
+
   database_password:
     type: string
     format: password
     writeOnly: true
     maxLength: 64
-    nullable: true
-    description: Password for the database user (MySQL)
+    description: |
+      Database password (plaintext in the request only). Write-only — never
+      returned. The server derives and stores the MySQL, SHA2 and PostgreSQL
+      hash columns from this value.
     example: "securepassword123"
-  database_password_sha2:
+
+  # System fields
+  sys_userid:
+    type: integer
+    readOnly: true
+    description: System user ID that owns the record
+    example: 1
+
+  sys_groupid:
+    type: integer
+    readOnly: true
+    description: |
+      System group ID. Kept in sync with the parent web domain's group of
+      the databases that use this user.
+    example: 10
+
+  sys_perm_user:
     type: string
-    format: password
-    writeOnly: true
-    maxLength: 70
-    nullable: true
-    description: SHA2 hashed password for the database user (MySQL 8.0+)
-    example: "*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19"
-  database_password_mongo:
+    maxLength: 5
+    pattern: '^[riud]*$'
+    readOnly: true
+    default: riud
+    description: Owner permissions (r=read, i=insert, u=update, d=delete)
+    example: riud
+
+  sys_perm_group:
     type: string
-    format: password
-    writeOnly: true
-    maxLength: 32
-    nullable: true
-    description: Password for MongoDB user
-    example: "mongo_secure_password"
-  database_password_postgres:
+    maxLength: 5
+    pattern: '^[riud]*$'
+    readOnly: true
+    default: riud
+    description: Group permissions (r=read, i=insert, u=update, d=delete)
+    example: riud
+
+  sys_perm_other:
     type: string
-    format: password
-    writeOnly: true
-    maxLength: 255
-    nullable: true
-    description: Hashed password for PostgreSQL database user
-    example: "md5a8f5f5c423659176e8f5d5e5e8f5d5e"
+    maxLength: 5
+    pattern: '^[riud]*$'
+    readOnly: true
+    default: ""
+    description: Other permissions (r=read, i=insert, u=update, d=delete)
+    example: ""

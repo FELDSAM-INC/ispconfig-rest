@@ -5,32 +5,12 @@
       - Database Users
     summary: List all database users
     description: |
-      Returns a paginated list of database users. The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      You can filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `username[ilike]=%user%&active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=username` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+      Returns a paginated list of database users.
+
+      ### Query options
+      - Pagination: `limit` (default 25, max 100) and `offset`
+      - Sorting: `sort` (field name) and `order` (`asc`/`desc`)
+      - Filtering: `search` matches against the `database_user` column
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -38,7 +18,7 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: search
         in: query
-        description: Search term to filter database users
+        description: Search term matched against the database username
         schema:
           type: string
     responses:
@@ -48,13 +28,18 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/DatabaseUser.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -66,7 +51,17 @@
     tags:
       - Database Users
     summary: Create a new database user
-    description: Creates a new database user with the specified configuration
+    description: |
+      Creates a new database user (credential set referenced by databases).
+
+      ### Server-side behavior (legacy parity)
+      - The username is prefixed with the resolved `dbuser_prefix`; the
+        prefixed name must not exceed 32 characters and must not be
+        blacklisted (`root`, `mysql`, the control-panel DB user) —
+        violations are rejected with 422
+      - `server_id` is forced to 0 (provisioned on all relevant servers)
+      - The plaintext password populates the MySQL, SHA2 and PostgreSQL
+        hash columns; plaintext is never stored
     requestBody:
       required: true
       content:
@@ -86,8 +81,6 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -128,16 +121,12 @@
       - Database Users
     summary: Update database user
     description: |
-      Updates an existing database user configuration.
-      
-      ### Partial Updates
-      Only include the fields you want to update. Omitted fields will remain unchanged.
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../../components/schemas/DatabaseUser.yaml'
+      Updates an existing database user. Only include the fields you want to
+      change; omitted fields remain unchanged.
+
+      ### Server-side behavior (legacy parity)
+      - The stored username keeps its original prefix
+      - A changed password re-populates all hash columns
     parameters:
       - name: id
         in: path
@@ -146,6 +135,12 @@
         schema:
           type: integer
           format: int64
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/DatabaseUser.yaml'
     responses:
       '200':
         description: Database user updated successfully
@@ -161,8 +156,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -172,7 +165,10 @@
     tags:
       - Database Users
     summary: Delete database user
-    description: Deletes a database user by ID
+    description: |
+      Deletes a database user by ID. Databases still referencing this user
+      lose their credentials — reassign them first. This action cannot be
+      undone.
     parameters:
       - name: id
         in: path
@@ -184,10 +180,6 @@
     responses:
       '204':
         description: Database user deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Database user cannot be deleted because it's in use
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

@@ -2,14 +2,19 @@ openapi: 3.0.0
 info:
   title: ISPConfig REST API
   description: |
-    REST API for ISPConfig 3.2+
-    
-    This API provides programmatic access to ISPConfig functionality.
+    A modern, industry-standard REST API for ISPConfig 3.2+, exposing its entities
+    (clients, DNS, mail, sites, servers, monitoring, system config) over versioned
+    HTTP endpoints.
+
+    ## Conventions
+
+    - **Authentication**: `X-API-Key` header (`apiKeyAuth` security scheme) on every request.
+    - **List responses**: `{ "data": [...], "meta": { "total", "limit", "offset" } }`
+      with `limit` / `offset` / `sort` / `order` query parameters.
+    - **Errors**: RFC 9457 `application/problem+json` (`type`, `title`, `status`, `detail`,
+      plus an `errors` map on 422 validation failures).
+    - **Status codes**: 200 read/update, 201 create, 204 delete.
   version: 1.0.0
-  contact:
-    name: ISPConfig API Support
-    url: https://www.ispconfig.org/
-    email: support@ispconfig.org
 
 servers:
   - url: http://{hostname}:8000/api/v1
@@ -19,20 +24,17 @@ servers:
         default: localhost
         description: Hostname or IP address of the ISPConfig server
 
-# Security scheme (API Key)
+# Default security applied to every operation (API key in X-API-Key header)
 security:
   - apiKeyAuth: []
 
 # Include all components and paths
 components:
-  # Security schemes
+  # Security schemes (canonical definitions live in components/securitySchemes.yaml)
   securitySchemes:
     apiKeyAuth:
-      type: apiKey
-      in: header
-      name: X-API-Key
-      description: API key for authentication
-  
+      $ref: './components/securitySchemes.yaml#/apiKeyAuth'
+
   # Reusable schemas (data models)
   schemas:
     Client:
@@ -43,14 +45,22 @@ components:
       $ref: './components/schemas/ClientTemplateAssigned.yaml'
     ClientCircle:
       $ref: './components/schemas/ClientCircle.yaml'
+    ClientDomain:
+      $ref: './components/schemas/ClientDomain.yaml'
+    ClientReseller:
+      $ref: './components/schemas/ClientReseller.yaml'
     CronJob:
       $ref: './components/schemas/CronJob.yaml'
     Database:
       $ref: './components/schemas/Database.yaml'
     DatabaseUser:
       $ref: './components/schemas/DatabaseUser.yaml'
+    DataLog:
+      $ref: './components/schemas/DataLog.yaml'
     DirectiveSnippet:
       $ref: './components/schemas/DirectiveSnippet.yaml'
+    DnsCaConfig:
+      $ref: './components/schemas/DnsCaConfig.yaml'
     DnsRecord:
       $ref: './components/schemas/DnsRecord.yaml'
     DnsSoa:
@@ -59,18 +69,20 @@ components:
       $ref: './components/schemas/DnsSlave.yaml'
     DnsTemplate:
       $ref: './components/schemas/DnsTemplate.yaml'
-    Error:
-      $ref: './components/schemas/Error.yaml'
     FtpUser:
       $ref: './components/schemas/FtpUser.yaml'
     MailAccess:
       $ref: './components/schemas/MailAccess.yaml'
     MailAliasDomain:
       $ref: './components/schemas/MailAliasDomain.yaml'
+    MailContentFilter:
+      $ref: './components/schemas/MailContentFilter.yaml'
     MailDomain:
       $ref: './components/schemas/MailDomain.yaml'
     MailForwarding:
       $ref: './components/schemas/MailForwarding.yaml'
+    MailGet:
+      $ref: './components/schemas/MailGet.yaml'
     MailRelayDomain:
       $ref: './components/schemas/MailRelayDomain.yaml'
     MailRelayRecipient:
@@ -85,12 +97,34 @@ components:
       $ref: './components/schemas/MailUserCC.yaml'
     MailUserFilter:
       $ref: './components/schemas/MailUserFilter.yaml'
+    MailUserPassword:
+      $ref: './components/schemas/MailUserPassword.yaml'
     MailUserSpamFilter:
       $ref: './components/schemas/MailUserSpamFilter.yaml'
-    Pagination:
-      $ref: './components/schemas/Pagination.yaml'
+    Meta:
+      $ref: './components/schemas/Meta.yaml'
+    Problem:
+      $ref: './components/schemas/Problem.yaml'
+    ValidationProblem:
+      $ref: './components/schemas/ValidationProblem.yaml'
+    ResyncRequest:
+      $ref: './components/schemas/ResyncRequest.yaml'
+    ResyncResult:
+      $ref: './components/schemas/ResyncResult.yaml'
+    Server:
+      $ref: './components/schemas/Server.yaml'
     ServerConfig:
       $ref: './components/schemas/ServerConfig.yaml'
+    ServerServerConfig:
+      $ref: './components/schemas/ServerServerConfig.yaml'
+    ServerGetmailConfig:
+      $ref: './components/schemas/ServerGetmailConfig.yaml'
+    ServerDnsConfig:
+      $ref: './components/schemas/ServerDnsConfig.yaml'
+    ServerFastCgiConfig:
+      $ref: './components/schemas/ServerFastCgiConfig.yaml'
+    ServerStatus:
+      $ref: './components/schemas/ServerStatus.yaml'
     ServerFirewall:
       $ref: './components/schemas/ServerFirewall.yaml'
     ServerIp:
@@ -109,24 +143,38 @@ components:
       $ref: './components/schemas/ServerVloggerConfig.yaml'
     ServerCronConfig:
       $ref: './components/schemas/ServerCronConfig.yaml'
-    ServerUfwConfig:
-      $ref: './components/schemas/ServerUfwConfig.yaml' 
     ServerWebConfig:
       $ref: './components/schemas/ServerWebConfig.yaml'
     ServerXmppConfig:
       $ref: './components/schemas/ServerXmppConfig.yaml'
     ShellUser:
       $ref: './components/schemas/ShellUser.yaml'
+    SpamfilterConfig:
+      $ref: './components/schemas/SpamfilterConfig.yaml'
     SpamfilterPolicy:
       $ref: './components/schemas/SpamfilterPolicy.yaml'
     SpamfilterUser:
       $ref: './components/schemas/SpamfilterUser.yaml'
     SpamfilterWblist:
-      $ref: './components/schemas/SpamfilterWblist.yaml'
+      $ref: './components/schemas/SpamfilterWBList.yaml'
+    SystemConfig:
+      $ref: './components/schemas/SystemConfig.yaml'
+    SystemDnsConfig:
+      $ref: './components/schemas/SystemDnsConfig.yaml'
+    SystemDomainsConfig:
+      $ref: './components/schemas/SystemDomainsConfig.yaml'
+    SystemLog:
+      $ref: './components/schemas/SystemLog.yaml'
+    SystemMailConfig:
+      $ref: './components/schemas/SystemMailConfig.yaml'
+    SystemMiscConfig:
+      $ref: './components/schemas/SystemMiscConfig.yaml'
+    SystemSitesConfig:
+      $ref: './components/schemas/SystemSitesConfig.yaml'
     WebChildDomain:
       $ref: './components/schemas/WebChildDomain.yaml'
     WebDavUser:
-      $ref: './components/schemas/WebDavUser.yaml'
+      $ref: './components/schemas/WebdavUser.yaml'
     WebDomain:
       $ref: './components/schemas/WebDomain.yaml'
     WebFolder:
@@ -181,6 +229,10 @@ paths:
     $ref: './modules/client/circles.yaml#/~1clients~1circles'
   /clients/circles/{id}:
     $ref: './modules/client/circles.yaml#/~1clients~1circles~1{id}'
+  /clients/domains:
+    $ref: './modules/client/domains.yaml#/~1clients~1domains'
+  /clients/domains/{id}:
+    $ref: './modules/client/domains.yaml#/~1clients~1domains~1{id}'
   /resellers:
     $ref: './modules/client/resellers.yaml#/~1resellers'
   /resellers/{id}:
@@ -225,6 +277,10 @@ paths:
     $ref: './modules/mail/user-filters.yaml#/~1mail~1users~1{id}~1filters'
   /mail/users/{id}/filters/{filter_id}:
     $ref: './modules/mail/user-filters.yaml#/~1mail~1users~1{id}~1filters~1{filter_id}'
+  /mail/fetchmail:
+    $ref: './modules/mail/fetchmail.yaml#/~1mail~1fetchmail'
+  /mail/fetchmail/{id}:
+    $ref: './modules/mail/fetchmail.yaml#/~1mail~1fetchmail~1{id}'
   /mail/forwards:
     $ref: './modules/mail/forwards.yaml#/~1mail~1forwards'
   /mail/forwards/{id}:
@@ -251,6 +307,8 @@ paths:
     $ref: './modules/mail/content-filters.yaml#/~1mail~1content-filters~1{id}'
   /mail/spamfilter/config:
     $ref: './modules/mail/spamfilter-config.yaml#/~1mail~1spamfilter~1config'
+  /mail/spamfilter/config/{server_id}:
+    $ref: './modules/mail/spamfilter-config.yaml#/~1mail~1spamfilter~1config~1{server_id}'
   /mail/spamfilter/policies:
     $ref: './modules/mail/spamfilter-policies.yaml#/~1mail~1spamfilter~1policies'
   /mail/spamfilter/policies/{id}:
@@ -273,16 +331,24 @@ paths:
     $ref: './modules/server/servers.yaml#/~1servers'
   /servers/{id}:
     $ref: './modules/server/servers.yaml#/~1servers~1{id}'
-  /servers/configs:
-    $ref: './modules/server/server-config.yaml#/~1servers~1configs'
   /servers/{id}/configs:
     $ref: './modules/server/server-config.yaml#/~1servers~1{id}~1configs'
+  /servers/{id}/configs/server:
+    $ref: './modules/server/server-config.yaml#/~1servers~1{id}~1configs~1server'
+  /servers/{id}/configs/getmail:
+    $ref: './modules/server/server-config.yaml#/~1servers~1{id}~1configs~1getmail'
   /servers/{id}/configs/mail:
     $ref: './modules/server/server-config.yaml#/~1servers~1{id}~1configs~1mail'
+  /servers/{id}/configs/web:
+    $ref: './modules/server/server-config.yaml#/~1servers~1{id}~1configs~1web'
+  /servers/{id}/configs/dns:
+    $ref: './modules/server/server-config.yaml#/~1servers~1{id}~1configs~1dns'
+  /servers/{id}/configs/fastcgi:
+    $ref: './modules/server/server-config.yaml#/~1servers~1{id}~1configs~1fastcgi'
+  /servers/{id}/configs/xmpp:
+    $ref: './modules/server/server-config.yaml#/~1servers~1{id}~1configs~1xmpp'
   /servers/{id}/configs/jailkit:
     $ref: './modules/server/server-config.yaml#/~1servers~1{id}~1configs~1jailkit'
-  /servers/{id}/configs/ufw:
-    $ref: './modules/server/server-config.yaml#/~1servers~1{id}~1configs~1ufw'
   /servers/{id}/configs/vlogger:
     $ref: './modules/server/server-config.yaml#/~1servers~1{id}~1configs~1vlogger'
   /servers/{id}/configs/cron:
@@ -291,8 +357,6 @@ paths:
     $ref: './modules/server/server-config.yaml#/~1servers~1{id}~1configs~1rescue'
   /servers/{id}/firewall:
     $ref: './modules/server/firewall.yaml#/~1servers~1{id}~1firewall'
-  /servers/{id}/firewall/{firewall_id}:
-    $ref: './modules/server/firewall.yaml#/~1servers~1{id}~1firewall~1{firewall_id}'
   /servers/{id}/ip-addresses:
     $ref: './modules/server/ip-addresses.yaml#/~1servers~1{id}~1ip-addresses'
   /servers/{id}/ip-addresses/{ip_address_id}:
@@ -311,8 +375,6 @@ paths:
     $ref: './modules/system/system-config.yaml#/~1system~1config'
   /system/config/dns:
     $ref: './modules/system/dns-config.yaml#/~1system~1config~1dns'
-  /system/config/dns-cas:
-    $ref: './modules/system/dns-cas-config.yaml#/~1system~1config~1dns-cas'
   /system/config/mail:
     $ref: './modules/system/mail-config.yaml#/~1system~1config~1mail'
   /system/config/sites:
@@ -321,18 +383,28 @@ paths:
     $ref: './modules/system/domains-config.yaml#/~1system~1config~1domains'
   /system/config/misc:
     $ref: './modules/system/misc-config.yaml#/~1system~1config~1misc'
+  /system/dns-cas:
+    $ref: './modules/system/dns-cas.yaml#/~1system~1dns-cas'
+  /system/dns-cas/{id}:
+    $ref: './modules/system/dns-cas.yaml#/~1system~1dns-cas~1{id}'
   /system/directive-snippets:
     $ref: './modules/system/directive-snippets.yaml#/~1system~1directive-snippets'
   /system/directive-snippets/{id}:
     $ref: './modules/system/directive-snippets.yaml#/~1system~1directive-snippets~1{id}'
   /system/resync:
     $ref: './modules/system/resync.yaml#/~1system~1resync'
-    
+  /system/resync/servers:
+    $ref: './modules/system/resync.yaml#/~1system~1resync~1servers'
+
   # Sites module paths
   /sites/web-domains:
     $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains'
   /sites/web-domains/{id}:
     $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains~1{id}'
+  /sites/web-domains/{id}/ssl:
+    $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains~1{id}~1ssl'
+  /sites/web-domains/{id}/ssl/renew:
+    $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains~1{id}~1ssl~1renew'
   /sites/web-child-domains:
     $ref: './modules/sites/web-child-domains.yaml#/~1sites~1web-child-domains'
   /sites/web-child-domains/{id}:
@@ -379,3 +451,5 @@ paths:
     $ref: './modules/monitor/system-logs.yaml#/~1monitor~1system-logs'
   /monitor/data-logs:
     $ref: './modules/monitor/data-logs.yaml#/~1monitor~1data-logs'
+  /monitor/data-logs/{id}:
+    $ref: './modules/monitor/data-logs.yaml#/~1monitor~1data-logs~1{id}'

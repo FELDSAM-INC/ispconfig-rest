@@ -1,38 +1,31 @@
+# Server Cron Configuration Schema — the [cron] section of the server.config
+# INI blob (server table, `config` column). Field inventory mirrors the
+# legacy `cron` tab of server_config.tform.php (previously declared cron_*
+# properties were invented and have been removed).
+# All properties are optional on PUT: omitted keys keep their current value.
+# Keys present in the stored blob but unknown to this schema are preserved
+# untouched.
 type: object
-x_db_table: server
-required:
-  - cron_enabled
-  - cron_mailto
-  - cron_path
-  - cron_shell
+x-db-table: server
+x-db-field: config
+x-ini-section: cron
+additionalProperties: true
 properties:
-  cron_enabled:
+  init_script:
     type: string
-    enum: [y, n]
-    description: Whether cron is enabled
-    example: "y"
-  cron_mailto:
+    maxLength: 255
+    pattern: '^[a-zA-Z0-9\-\_]{1,30}$'
+    description: Name of the cron daemon init script / service (legacy NOTEMPTY + regex /^[a-zA-Z0-9\-\_]{1,30}$/)
+    example: "cron"
+  crontab_dir:
     type: string
-    format: email
-    description: Email address for cron output
-    example: "admin@example.com"
-  cron_path:
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: Absolute path of the crontab drop-in directory (legacy NOTEMPTY + path regex)
+    example: "/etc/cron.d"
+  wget:
     type: string
-    description: Default PATH for cron jobs
-    example: "/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin"
-  cron_shell:
-    type: string
-    description: Default shell for cron jobs
-    example: "/bin/sh"
-  cron_home:
-    type: string
-    description: Default HOME directory for cron jobs
-    example: "/var/www"
-  cron_rand_delay:
-    type: integer
-    description: Maximum random delay in seconds
-    example: 60
-  cron_umask:
-    type: string
-    description: Default umask for cron jobs
-    example: "0022"
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: Absolute path of the wget binary used for URL cron jobs (legacy NOTEMPTY + path regex)
+    example: "/usr/bin/wget"

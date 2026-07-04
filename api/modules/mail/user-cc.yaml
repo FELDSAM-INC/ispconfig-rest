@@ -1,5 +1,6 @@
 ---
-# Mail User CC API Endpoints
+# Mail User CC endpoints (singleton sub-resource of a mailbox;
+# view over the cc / forward_in_lda columns of the mail_user row)
 
 /mail/users/{id}/cc:
   get:
@@ -23,8 +24,6 @@
           application/json:
             schema:
               $ref: '../../components/schemas/MailUserCC.yaml'
-      '400':
-        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -33,14 +32,17 @@
         $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []
 
   put:
     tags:
       - Mail Users
     summary: Update CC settings for a mail user
-    description: Update the CC and forward settings for a specific mail user
+    description: |
+      Update the CC and forward settings for a specific mail user
+      (datalog update on the `mail_user` row).
+
+      ### Validation Rules
+      - `cc` must be empty or a comma-separated list of valid email addresses
     operationId: updateMailUserCC
     parameters:
       - name: id
@@ -71,7 +73,7 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []

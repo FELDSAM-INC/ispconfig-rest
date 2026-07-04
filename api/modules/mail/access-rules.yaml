@@ -1,4 +1,4 @@
-# Mail Access Rules (Blacklist/Whitelist) endpoints
+# Mail Access Rules (Blacklist/Whitelist) endpoints (table mail_access)
 /mail/access-rules:
   get:
     tags:
@@ -6,32 +6,9 @@
     summary: List all mail access rules
     description: |
       Returns a paginated list of mail access rules (blacklist/whitelist).
-      The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      Filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `source[ilike]=%example.com&type[eq]=sender`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=source` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -39,12 +16,12 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: source
         in: query
-        description: Filter by source pattern (supports wildcards with %)
+        description: Filter by source pattern
         schema:
           type: string
       - name: type
         in: query
-        description: Filter by rule type (recipient/sender/client)
+        description: Filter by rule type
         schema:
           type: string
           enum: [recipient, sender, client]
@@ -55,10 +32,9 @@
           type: string
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
         description: A list of mail access rules
@@ -66,13 +42,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/MailAccess.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -88,18 +67,13 @@
     summary: Create a new mail access rule
     description: |
       Creates a new mail access rule (blacklist/whitelist).
-      
+
       ### Validation Rules
-      - Source must be a valid email, domain, or IP address
-      - Non-admin users can only create rules for their own domains
-      - Non-admin users can only use 'recipient' or 'sender' types
-      - User must be within their allowed limits for access rules
-      - Source and type combination must be unique per server
-      
-      ### Notes
-      - The source domain must be managed by the current user (for non-admins)
-      - System administrators can create any type of rule
-      - Client type rules are restricted to admin users only
+      - Source must be a valid email, domain, or IP address/network
+      - Source + type must be unique per server (database unique key) —
+        duplicates yield 409
+      - `server_id` must reference a mail server
+      - `access` defaults to 'REJECT' (blacklist); use 'OK' for whitelist rules
     requestBody:
       required: true
       content:
@@ -115,21 +89,10 @@
               $ref: '../../components/schemas/MailAccess.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid source format
-          - Invalid rule type for user role
-          - Rule already exists
-          - Invalid domain (for non-admin users)
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: |
-          Forbidden. Possible reasons:
-          - User has reached access rule limit
-          - No permission to create rules for the specified domain
-          - Client type rules are admin-only
       '409':
         $ref: '../../components/responses/Conflict.yaml'
       '422':
@@ -173,12 +136,11 @@
     summary: Update mail access rule
     description: |
       Updates an existing mail access rule.
-      
+
       ### Notes
-      - The server_id cannot be changed after creation
-      - Non-admin users can only update rules for their own domains
-      - Non-admin users cannot change the rule type to 'client'
-      - The source and type combination must remain unique per server
+      - `server_id` cannot be changed after creation
+      - The source + type combination must remain unique per server —
+        conflicts yield 409
     parameters:
       - name: id
         in: path
@@ -221,11 +183,8 @@
     summary: Delete mail access rule
     description: |
       Deletes a mail access rule by ID.
-      
-      ### Notes
-      - This will permanently delete the access rule
-      - This action cannot be undone
-      - Non-admin users can only delete their own rules
+
+      The operation is permanent and cannot be undone.
     parameters:
       - name: id
         in: path
@@ -237,11 +196,6 @@
     responses:
       '204':
         description: Mail access rule deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Rule is currently in use
-          - Insufficient permissions
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

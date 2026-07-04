@@ -1,79 +1,58 @@
+# Server XMPP Configuration Schema — the [xmpp] section of the server.config
+# INI blob (server table, `config` column). Field inventory mirrors the
+# legacy `xmpp` tab of server_config.tform.php.
+# All properties are optional on PUT: omitted text/select keys keep their
+# current value; omitted checkbox keys are written with their unchecked
+# value ('n'), mirroring legacy form semantics. Keys present in the stored
+# blob but unknown to this schema are preserved untouched.
 type: object
-x_db_table: server
-required:
-  - xmpp_server
-  - xmpp_http_bind
-  - xmpp_vhost
-  - xmpp_s2s
+x-db-table: server
+x-db-field: config
+x-ini-section: xmpp
+additionalProperties: true
 properties:
-  xmpp_server:
+  xmpp_use_ipv6:
     type: string
-    enum: [y, n]
-    description: Whether XMPP server is enabled
-    example: "y"
-  xmpp_http_bind:
-    type: string
-    enum: [y, n]
-    description: Whether HTTP binding is enabled for XMPP
-    example: "y"
-  xmpp_vhost:
-    type: string
-    format: hostname
-    description: XMPP virtual host
-    example: "xmpp.example.com"
-  xmpp_s2s:
-    type: string
-    enum: [y, n]
-    description: Whether server-to-server (S2S) communication is enabled
-    example: "y"
-  xmpp_port:
-    type: integer
-    minimum: 1
-    maximum: 65535
-    description: Port for XMPP client connections
-    example: 5222
-  xmpp_ssl_port:
-    type: integer
-    minimum: 1
-    maximum: 65535
-    description: Port for XMPP SSL/TLS connections
-    example: 5223
-  xmpp_http_bind_port:
-    type: integer
-    minimum: 1
-    maximum: 65535
-    description: Port for XMPP HTTP binding
-    example: 5280
-  xmpp_http_bind_ssl_port:
-    type: integer
-    minimum: 1
-    maximum: 65535
-    description: Port for XMPP HTTP binding with SSL/TLS
-    example: 5281
-  xmpp_s2s_port:
-    type: integer
-    minimum: 1
-    maximum: 65535
-    description: Port for XMPP server-to-server (S2S) connections
-    example: 5269
-  xmpp_ssl_cert_file:
-    type: string
-    description: Path to SSL certificate file for XMPP
-    example: "/etc/ssl/certs/xmpp.crt"
-  xmpp_ssl_key_file:
-    type: string
-    description: Path to SSL private key file for XMPP
-    example: "/etc/ssl/private/xmpp.key"
-  xmpp_ssl_ca_file:
-    type: string
-    description: Path to SSL CA certificate file for XMPP
-    example: "/etc/ssl/certs/xmpp-ca.crt"
-  xmpp_ssl_dhparam_file:
-    type: string
-    description: Path to DH parameters file for XMPP
-    example: "/etc/ssl/dhparam.pem"
-  xmpp_ssl_cert_trusted:
-    type: string
-    enum: [y, n]
-    description: Whether the SSL certificate is trusted
+    enum: ["y", "n"]
+    description: >-
+      Whether the XMPP server listens on IPv6 (checkbox). Note: the installer
+      template (server.ini.master) writes this key with a historic typo as
+      `xmpp_use_ispv6`; the legacy form and the xmpp server plugin both use
+      `xmpp_use_ipv6`.
+    default: "n"
     example: "n"
+  xmpp_bosh_max_inactivity:
+    type: integer
+    minimum: 15
+    maximum: 360
+    description: BOSH maximum inactivity timeout in seconds (legacy ISINT + RANGE 15:360)
+    default: 30
+    example: 30
+  xmpp_server_admins:
+    type: string
+    description: Comma-separated list of XMPP admin JIDs (tags/newlines stripped on save)
+    example: "admin@service.com, superuser@service.com"
+  xmpp_modules_enabled:
+    type: string
+    description: Comma-separated list of enabled Prosody/Metronome modules (tags/newlines stripped on save)
+    example: "saslauth, tls, dialback, disco, discoitems, version, uptime, time, ping, admin_adhoc, admin_telnet, bosh, posix, announce, offline, webpresence, mam, stream_management, message_carbons"
+  xmpp_port_http:
+    type: integer
+    description: HTTP port of the XMPP server (legacy ISINT)
+    default: 5290
+    example: 5290
+  xmpp_port_https:
+    type: integer
+    description: HTTPS port of the XMPP server (legacy ISINT)
+    default: 5291
+    example: 5291
+  xmpp_port_pastebin:
+    type: integer
+    description: Pastebin service port of the XMPP server (legacy ISINT)
+    default: 5292
+    example: 5292
+  xmpp_port_bosh:
+    type: integer
+    description: BOSH (HTTP binding) port of the XMPP server (legacy ISINT)
+    default: 5280
+    example: 5280

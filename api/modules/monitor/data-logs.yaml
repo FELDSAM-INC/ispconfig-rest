@@ -1,8 +1,4 @@
-# Data Logs endpoints
-
-tags:
-  - name: Monitor
-    description: System monitoring and logging
+# Data Logs endpoints (read-only sys_datalog journal)
 
 /monitor/data-logs:
   get:
@@ -10,19 +6,35 @@ tags:
       - Monitor
     summary: List data logs
     description: |
-      Retrieves a list of data change logs.
+      Retrieves a list of data change journal entries (`sys_datalog`).
 
-      You can filter logs by server, table, action, status, and date range.
-    security:
-      - basicAuth: []
+      Every write in this API is journaled to `sys_datalog` and applied
+      asynchronously by ISPConfig's server daemons — use this endpoint to
+      inspect the journal and, with `unprocessed_only`, to check whether a
+      server has already processed a given change.
+
+      You can filter entries by server, table, action, status, and date range.
+      Default ordering is newest first (`sort=id`, `order=desc`).
     parameters:
       - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/limit.yaml'
-      - $ref: '../../components/parameters/order.yaml'
-      - $ref: '../../components/parameters/sort.yaml'
+      - name: sort
+        in: query
+        description: Field name to sort by (defaults to `id` for newest-first ordering)
+        schema:
+          type: string
+          enum: [id, server_id, dbtable, dbidx, action, tstamp, user, status]
+          default: id
+      - name: order
+        in: query
+        description: Sort order (defaults to `desc` — newest entries first)
+        schema:
+          type: string
+          enum: [asc, desc]
+          default: desc
       - name: server_id
         in: query
-        description: Filter by server ID
+        description: Filter by server ID. Required when `unprocessed_only=true`.
         schema:
           type: integer
           format: int64
@@ -33,34 +45,41 @@ tags:
           type: string
       - name: action
         in: query
-        description: Filter by action type (I=Insert, U=Update, D=Delete)
+        description: Filter by action type (i=insert, u=update, d=delete — stored lowercase)
         schema:
           type: string
-          enum: [I, U, D]
+          enum: [i, u, d]
       - name: status
         in: query
-        description: Filter by status
+        description: |
+          Filter by entry status. Note that "processed vs pending" is tracked by
+          the per-server datalog-ID watermark (`unprocessed_only`), not by this field.
         schema:
           type: string
           enum: [pending, ok, warning, error]
       - name: start_date
         in: query
-        description: Filter by start date (UNIX timestamp)
+        description: Only entries with `tstamp` >= this UNIX timestamp (inclusive)
         schema:
           type: integer
           format: int64
       - name: end_date
         in: query
-        description: Filter by end date (UNIX timestamp)
+        description: Only entries with `tstamp` <= this UNIX timestamp (inclusive)
         schema:
           type: integer
           format: int64
       - name: unprocessed_only
         in: query
         description: |
-          If true, returns only logs that haven't been processed by the server yet.
-          This is determined by comparing the log's timestamp with the server's 'updated' timestamp.
-          Only logs with a timestamp newer than the server's 'updated' timestamp are considered unprocessed.
+          If true, returns only entries not yet processed by the given server's
+          ISPConfig daemon. ISPConfig tracks processing progress as a datalog-ID
+          watermark: `server.updated` holds the ID of the last journal entry the
+          server has processed, so unprocessed entries are those with
+          `id > server.updated` for that server.
+
+          Requires `server_id`; `unprocessed_only=true` without `server_id`
+          is rejected with 400.
         schema:
           type: boolean
           default: false
@@ -71,13 +90,16 @@ tags:
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/DataLog.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -85,16 +107,16 @@ tags:
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
-/monitor/data-logs/{datalog_id}:
+/monitor/data-logs/{id}:
   get:
     tags:
       - Monitor
     summary: Get data log details
-    description: Retrieves detailed information about a specific data log entry.
-    security:
-      - basicAuth: []
+    description: |
+      Retrieves a single data change journal entry, including the deserialized
+      change payload (`data` as a `{new, old}` diff object).
     parameters:
-      - name: datalog_id
+      - name: id
         in: path
         required: true
         description: ID of the data log entry
@@ -111,6 +133,6 @@ tags:
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '404':
-        description: Data log not found
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'

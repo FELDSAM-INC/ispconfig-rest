@@ -1,10 +1,14 @@
+# [misc] section of the global system configuration — GET/PUT only
+# (singleton section of the sys_ini blob; no create, delete or list).
 /system/config/misc:
   get:
     tags: [System]
     summary: Get miscellaneous configuration
-    description: Retrieve miscellaneous system configuration
-    security:
-      - basicAuth: []
+    description: |
+      Retrieve the `[misc]` section of the global system configuration,
+      parsed from the INI-formatted `config` blob of the `sys_ini` singleton
+      (row `sysini_id = 1`). Keys absent from the blob are returned with
+      their ISPConfig defaults.
     responses:
       '200':
         description: Miscellaneous configuration retrieved successfully
@@ -20,9 +24,22 @@
   put:
     tags: [System]
     summary: Update miscellaneous configuration
-    description: Update miscellaneous system configuration
-    security:
-      - basicAuth: []
+    description: |
+      Partially update the `[misc]` section of the global system configuration.
+
+      Update semantics — read-merge-write on the `sys_ini` INI blob:
+      - The current blob (singleton row `sysini_id = 1`) is read, the submitted
+        keys are merged into the `[misc]` section, and the whole blob is
+        re-serialized and written back in one operation.
+      - Keys absent from the request are left unchanged (absent key =
+        "leave unchanged", not "unset").
+      - All other sections and any legacy keys not exposed by this schema
+        are preserved untouched.
+      - The write is persisted through a single `sys_datalog` update entry
+        (`dbtable=sys_ini`, `action=u`) per ISPConfig's change-management
+        system — never a direct, unjournaled table write.
+
+      Returns the updated section.
     requestBody:
       required: true
       content:
@@ -42,5 +59,7 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'

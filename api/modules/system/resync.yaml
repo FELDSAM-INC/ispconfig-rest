@@ -1,16 +1,37 @@
-# Resync API
+# Resync API — action endpoint (not CRUD). Re-emits configuration to the
+# ISPConfig server daemons after a migration, restore or mirror change.
 /system/resync:
   post:
     tags:
       - Resync
     summary: Trigger resync operation
     description: |
-      Triggers resync operations for the specified services across servers.
+      Triggers a resync of the selected services. This is an action endpoint,
+      not CRUD: it stores nothing of its own — for every matching record of
+      each selected service it inserts a *forced* update entry into
+      `sys_datalog` (an entry is emitted even though no column changed), so
+      the server daemons re-apply the configuration.
 
-      When resync_all=1 is specified, all services will be resynced for the specified server.
-      Individual services can also be resynced by setting their respective flags to 1.
-    security:
-      - basicAuth: []
+      ### Behavior
+      - `resync_all=1` enables every service flag and propagates
+        `all_server_id` to every per-service server ID.
+      - `*_server_id = 0` targets all active servers of that type
+        (`active = 1 AND mirror_server_id = 0`); a `*_server_id` that does
+        not reference an existing server is rejected with 400.
+      - Per-flag table sets, active-only vs all-rows filters and emission
+        order mirror the legacy resync tool — see the `ResyncRequest` schema.
+      - **DNS exception**: `resync_dns` does not re-emit records; it
+        increases and datalogs the serial of every active `dns_rr` per
+        matching active zone, then the zone's `dns_soa.serial`.
+      - **Documented deviation**: `resync_client` performs the datalog
+        re-emission only; the legacy interface-plugin event
+        `client:client:on_after_update` cannot be raised by this API.
+      - A selected service with no matching records is still a success
+        (0 entries reported for its tables).
+
+      All datalog entries are written synchronously within the request
+      (all-or-nothing); ISPConfig processes them asynchronously — the 200
+      result summary confirms the datalog emission, not the applied changes.
     requestBody:
       required: true
       content:
@@ -18,12 +39,20 @@
           schema:
             $ref: '../../components/schemas/ResyncRequest.yaml'
     responses:
-      '204':
-        description: Resync operations have been queued
+      '200':
+        description: >
+          Resync completed — all datalog entries were written. The body
+          summarizes the emission per table.
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ResyncResult.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
@@ -32,14 +61,15 @@
     tags:
       - Resync
     summary: Get available servers for resync
-    description: Returns a list of servers available for resync operations
-    security:
-      - basicAuth: []
+    description: |
+      Returns a paginated list of servers eligible for resync operations.
+      Defaults to the legacy candidate rule: `active = 1 AND
+      mirror_server_id = 0`, optionally narrowed to servers of one type.
     parameters:
-      - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/limit.yaml'
-      - $ref: '../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
       - name: server_type
         in: query
         description: Filter servers by type (web, mail, dns, db, file, vserver)
@@ -48,7 +78,7 @@
           enum: [web, mail, dns, db, file, vserver]
       - name: active
         in: query
-        description: Filter by active status
+        description: Filter by active status (defaults to active servers only)
         schema:
           type: boolean
     responses:
@@ -58,13 +88,18 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/Server.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '500':

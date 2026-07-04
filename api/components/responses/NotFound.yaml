@@ -1,5 +1,10 @@
-description: Resource not found
+description: Resource not found (RFC 9457 problem details)
 content:
-  application/json:
+  application/problem+json:
     schema:
-      $ref: '../schemas/Error.yaml'
+      $ref: '../schemas/Problem.yaml'
+    example:
+      type: 'about:blank'
+      title: Not Found
+      status: 404
+      detail: The requested resource does not exist.

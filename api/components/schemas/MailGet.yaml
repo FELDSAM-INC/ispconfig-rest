@@ -1,3 +1,5 @@
+# Verified against source_code/install/sql/ispconfig3.sql (table mail_get)
+# and source_code/interface/web/mail/form/mail_get.tform.php.
 type: object
 x-db-table: mail_get
 required:
@@ -6,34 +8,36 @@ required:
   - source_server
   - source_username
   - source_password
-  - destination_username
-  - active
+  - destination
 properties:
-  mailget_id:
+  id:
     type: integer
     format: int64
     readOnly: true
-    description: Unique identifier for the mail get entry
+    description: Unique identifier for the fetchmail entry
     example: 1
     x-db-field: mailget_id
 
   server_id:
     type: integer
     format: int64
-    description: Server ID where the mail get is configured
+    description: |
+      Server ID where the fetchmail job runs
+      - Must reference a mail server (server.mail_server=1, mirror_server_id=0)
+      - Cannot be changed after creation
     example: 1
     x-db-field: server_id
 
   type:
     type: string
-    description: Protocol type for fetching emails
+    description: Protocol used for fetching emails from the source server
     enum: [pop3, imap, pop3ssl, imapssl]
     example: pop3
     x-db-field: type
 
   source_server:
     type: string
-    description: Hostname or IP address of the source mail server
+    description: Hostname or IPv4 address of the source mail server (lowercased and IDN-encoded on save)
     example: mail.example.com
     pattern: '^([\w\.\-]{2,64}\.[a-zA-Z\-]{2,10}|(?:[0-9]{1,3}\.){3}[0-9]{1,3})$'
     x-db-field: source_server
@@ -42,48 +46,56 @@ properties:
     type: string
     description: Username for authenticating with the source mail server
     example: user@example.com
+    maxLength: 255
     x-db-field: source_username
 
   source_password:
     type: string
     format: password
-    description: Password for authenticating with the source mail server
+    description: |
+      Password for authenticating with the source mail server
+      - Required on create; on update it is only changed when a non-empty
+        value is provided
+      - Never returned in API responses
     writeOnly: true
+    maxLength: 64
     x-db-field: source_password
 
   source_delete:
-    type: string
-    enum: [y, n]
-    default: n
-    description: Whether to delete messages from the source server after fetching
+    type: boolean
+    default: false
+    description: |
+      Whether to delete messages from the source server after fetching
+      (legacy form default: disabled; note the DB column default is 'y')
     x-db-field: source_delete
 
-  destination_username:
+  source_read_all:
+    type: boolean
+    default: true
+    description: Whether to fetch all messages (including already-read ones) from the source server
+    x-db-field: source_read_all
+
+  destination:
     type: string
-    description: Local username where emails will be delivered
-    example: localuser
-    x-db-field: destination_username
+    format: email
+    description: |
+      Delivery mailbox — the email address of an existing mail user
+      (mail_user.email) on this system
+    example: user@example.com
+    maxLength: 255
+    x-db-field: destination
 
   active:
-    type: string
-    enum: [y, n]
-    default: y
-    description: Whether the mail get entry is active
+    type: boolean
+    default: true
+    description: Whether the fetchmail entry is active
     x-db-field: active
 
 description: |
-  Mail Get configuration for fetching emails from external mail servers.
-  
-  ### Features
-  - Supports multiple protocols (POP3, IMAP, with/without SSL)
-  - Can delete messages from source after fetching
-  - Can be enabled/disabled
-  
+  Fetchmail configuration for retrieving email from external mail
+  servers into a local mailbox (table `mail_get`).
+
   ### Validation Rules
-  - Source server must be a valid hostname or IP address
-  - Authentication credentials are required
-  - Local destination must be a valid local user
-  
-  ### Notes
-  - System administrators can manage all mail get entries
-  - Regular users can only manage entries on their servers
+  - Source server must be a valid hostname or IPv4 address
+  - Source username and password are required
+  - `destination` must be the email address of an existing mailbox

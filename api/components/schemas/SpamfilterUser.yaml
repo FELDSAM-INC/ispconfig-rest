@@ -1,3 +1,5 @@
+# Verified against source_code/install/sql/ispconfig3.sql (table spamfilter_users)
+# and source_code/interface/web/mail/form/spamfilter_users.tform.php.
 type: object
 x-db-table: spamfilter_users
 required:
@@ -5,7 +7,6 @@ required:
   - policy_id
   - email
   - fullname
-  - local
 properties:
   id:
     type: integer
@@ -18,20 +19,26 @@ properties:
   server_id:
     type: integer
     format: int64
-    description: Server ID where the spamfilter is configured
+    description: |
+      Server ID where the spamfilter is configured
+      - Must reference a mail server (server.mail_server=1, mirror_server_id=0)
+      - Cannot be changed after creation
     example: 1
     x-db-field: server_id
 
   policy_id:
     type: integer
     format: int64
-    description: ID of the spamfilter policy to apply
+    description: ID of the spamfilter policy to apply (0 = inherit from a lower-priority match)
     example: 1
     x-db-field: policy_id
 
   priority:
     type: integer
-    description: Priority of the rule (1-10)
+    description: |
+      Priority of the mapping (1-10; legacy form default 5).
+      Note: the database column default is 7 — the value used by the
+      automatic mapping created for every mailbox.
     minimum: 1
     maximum: 10
     default: 5
@@ -40,7 +47,11 @@ properties:
 
   email:
     type: string
-    description: Email address to apply the policy to
+    description: |
+      Email address the policy applies to
+      - Unique (database unique key on email)
+      - Lowercased and IDN-encoded on save
+      - Cannot be changed after creation
     format: email
     maxLength: 255
     example: "user@example.com"
@@ -48,14 +59,14 @@ properties:
 
   fullname:
     type: string
-    description: Full name of the user
-    maxLength: 255
+    description: Full name / label for the mapping
+    maxLength: 64
     example: "John Doe"
     x-db-field: fullname
 
   local:
     type: string
-    description: Whether this is a local user
+    description: Whether this is a local address (stored uppercase, exact casing preserved)
     enum: [Y, N]
     default: "Y"
     x-db-field: local
@@ -75,12 +86,12 @@ properties:
     example: 1
     x-db-field: sys_groupid
 
-  sys_perm:
+  sys_perm_user:
     type: string
     readOnly: true
-    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    description: Owner permissions for the record (r=read, i=insert, u=update, d=delete)
     example: "riud"
-    x-db-field: sys_perm
+    x-db-field: sys_perm_user
 
   sys_perm_group:
     type: string
@@ -97,13 +108,10 @@ properties:
     x-db-field: sys_perm_other
 
 description: |
-  Spamfilter user maps an email address to a spamfilter policy.
-  
-  ### Key Features
-  - Assign spamfilter policies to specific email addresses
-  - Set priority for rule matching
-  - Support for both local and non-local users
-  
-  ### Access Control
-  - Users can only see and manage their own spamfilter settings
-  - Admin users can manage all spamfilter users
+  Spamfilter user — maps an email address to a spamfilter policy
+  (table `spamfilter_users`).
+
+  ### Notes
+  - Creating/updating a mailbox automatically maintains a companion
+    spamfilter user for its address (priority 7, local 'Y')
+  - `email` is globally unique; duplicates are rejected with 409

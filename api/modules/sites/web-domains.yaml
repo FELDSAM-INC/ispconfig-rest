@@ -5,32 +5,12 @@
       - Web Domains
     summary: List web domains
     description: |
-      Returns a paginated list of web domains. The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      You can filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `domain[ilike]=%example%&active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=domain` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+      Returns a paginated list of web domains (vhosts).
+
+      ### Query options
+      - Pagination: `limit` (default 25, max 100) and `offset`
+      - Sorting: `sort` (field name) and `order` (`asc`/`desc`)
+      - Filtering: `search` matches against the `domain` column
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -38,7 +18,7 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: search
         in: query
-        description: Search term to filter web domains
+        description: Search term matched against the domain name
         schema:
           type: string
     responses:
@@ -48,13 +28,18 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/WebDomain.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -66,7 +51,23 @@
     tags:
       - Web Domains
     summary: Create a new web domain
-    description: Creates a new web domain with the specified configuration
+    description: |
+      Creates a new web domain (vhost). The success response confirms the
+      `sys_datalog` entry; ISPConfig provisions the site asynchronously.
+
+      ### Server-side behavior (legacy parity)
+      - `domain` is lower-cased and IDN-encoded before validation
+      - `document_root`, `system_user`, `system_group`, `allow_override`,
+        `php_open_basedir`, `added_date`/`added_by` and `log_retention` are
+        generated server-side
+      - `hd_quota=0` is rejected for `type=vhost`; for
+        `vhostsubdomain`/`vhostalias` the quota is forced to 0 and the
+        provisioning fields are copied from the parent domain
+      - With `ssl=y` and `ssl_letsencrypt=y` the Let's Encrypt two-step
+        create is performed (insert with `n`/`n`, then a datalog update
+        enabling both)
+      - A 409 is returned when the (`server_id`, `ip_address`, `domain`)
+        combination already exists (database unique key)
     requestBody:
       required: true
       content:
@@ -106,7 +107,7 @@
         required: true
         schema:
           type: integer
-          format: int64 
+          format: int64
     responses:
       '200':
         description: Web domain details
@@ -128,10 +129,23 @@
       - Web Domains
     summary: Update web domain
     description: |
-      Updates an existing web domain configuration.
-      
-      ### Partial Updates
-      Only include the fields you want to update. Omitted fields will remain unchanged.
+      Updates an existing web domain. Only include the fields you want to
+      change; omitted fields remain unchanged.
+
+      ### Immutable fields (legacy parity)
+      - `server_id` cannot be changed
+      - `system_user`, `system_group` and `web_folder` are preserved
+        server-side
+      - A 409 is returned when a `domain`/`ip_address` change collides with
+        the (`server_id`, `ip_address`, `domain`) database unique key
+    parameters:
+      - name: id
+        in: path
+        description: ID of the web domain
+        required: true
+        schema:
+          type: integer
+          format: int64
     requestBody:
       required: true
       content:
@@ -164,7 +178,21 @@
     tags:
       - Web Domains
     summary: Delete web domain
-    description: Deletes a web domain by ID
+    description: |
+      Deletes a web domain by ID.
+
+      ### Cascade (legacy parity)
+      Deleting a vhost cascades exactly like legacy ISPConfig:
+      - child domains (subdomains/aliases and vhost subdomains/aliases) are
+        deleted
+      - FTP users, shell users, cron jobs, WebDAV users and backup records
+        of the site are deleted
+      - protected folders and their folder users are deleted
+      - databases are **detached** (their `parent_domain_id` is set to 0),
+        not deleted
+
+      All cascade steps are written through the datalog; ISPConfig removes
+      the resources asynchronously. This action cannot be undone.
     parameters:
       - name: id
         in: path
@@ -175,13 +203,7 @@
           format: int64
     responses:
       '204':
-        description: Web domain deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Domain cannot be deleted because it has child domains
-          - Domain cannot be deleted because it has databases
-          - Domain cannot be deleted because it has FTP users
+        description: Web domain deletion queued successfully (including the cascade described above)
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -191,13 +213,16 @@
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
-# SSL Certificate endpoints
+# SSL Certificate subresource (maps to the ssl_* columns of web_domain)
 /sites/web-domains/{id}/ssl:
   get:
     tags:
       - Web Domains
     summary: Get SSL certificate
-    description: Returns the SSL certificate details for a web domain
+    description: |
+      Returns the SSL certificate material stored on the web domain
+      (`ssl_cert`, `ssl_key`, `ssl_bundle` columns). Responds 204 when no
+      certificate is configured.
     parameters:
       - name: id
         in: path
@@ -216,20 +241,17 @@
               properties:
                 ssl_cert:
                   type: string
-                  description: SSL certificate in PEM format
+                  description: SSL certificate in PEM format (column `ssl_cert`)
                 ssl_key:
                   type: string
-                  description: SSL private key in PEM format
-                ssl_ca_cert:
+                  description: SSL private key in PEM format (column `ssl_key`)
+                ssl_bundle:
                   type: string
-                  description: SSL CA certificate in PEM format
-                ssl_cert_chain:
-                  type: string
-                  description: SSL certificate chain in PEM format
+                  description: CA / intermediate certificate bundle in PEM format (column `ssl_bundle`)
                 ssl_letsencrypt:
-                  type: string
-                  enum: [y, n]
-                  description: Whether Let's Encrypt is enabled
+                  type: boolean
+                  description: Whether Let's Encrypt manages the certificate
+                  x-db-format: "y/n"
       '204':
         description: No SSL certificate configured for this domain
       '401':
@@ -245,7 +267,14 @@
     tags:
       - Web Domains
     summary: Upload SSL certificate
-    description: Uploads an SSL certificate for a web domain
+    description: |
+      Uploads an SSL certificate for the web domain. Writes the `ssl_cert`,
+      `ssl_key` and `ssl_bundle` columns and datalogs the update with
+      `ssl_action='save'`, which triggers the server plugin to install the
+      certificate (legacy parity).
+
+      Certificate and key must be valid PEM and must match each other
+      (422 otherwise).
     parameters:
       - name: id
         in: path
@@ -270,27 +299,40 @@
               ssl_key:
                 type: string
                 description: SSL private key in PEM format
-              ssl_ca_cert:
+              ssl_bundle:
                 type: string
-                description: SSL CA certificate in PEM format
-              ssl_cert_chain:
-                type: string
-                description: SSL certificate chain in PEM format
+                description: CA / intermediate certificate bundle in PEM format
     responses:
       '200':
-        description: SSL certificate uploaded successfully
+        description: SSL certificate upload queued successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ssl_cert:
+                  type: string
+                  description: SSL certificate in PEM format
+                ssl_key:
+                  type: string
+                  description: SSL private key in PEM format
+                ssl_bundle:
+                  type: string
+                  description: CA / intermediate certificate bundle in PEM format
+                ssl_letsencrypt:
+                  type: boolean
+                  description: Whether Let's Encrypt manages the certificate
+                  x-db-format: "y/n"
       '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid certificate format
-          - Certificate and key don't match
-          - Certificate is not valid for this domain
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
@@ -298,7 +340,10 @@
     tags:
       - Web Domains
     summary: Remove SSL certificate
-    description: Removes the SSL certificate from a web domain
+    description: |
+      Removes the SSL certificate from the web domain. Datalogs the update
+      with `ssl_action='del'`, which triggers the server plugin to remove
+      the certificate (legacy parity).
     parameters:
       - name: id
         in: path
@@ -309,7 +354,7 @@
           format: int64
     responses:
       '204':
-        description: SSL certificate removed successfully
+        description: SSL certificate removal queued successfully
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -323,8 +368,19 @@
   post:
     tags:
       - Web Domains
-    summary: Renew SSL certificate
-    description: Renews the Let's Encrypt SSL certificate for a web domain
+    summary: Trigger Let's Encrypt certificate renewal
+    description: |
+      **API-only extension** — legacy ISPConfig has no interface-triggered
+      renewal (Let's Encrypt renewal is automatic server-side).
+
+      This endpoint writes a forced no-change datalog update for the
+      `web_domain` record (the same mechanism ISPConfig's resync tool uses),
+      which makes the server's Let's Encrypt plugin re-evaluate the domain
+      and renew/re-issue the certificate if needed.
+
+      Returns 400 when `ssl_letsencrypt` is not `y` for the domain, or when
+      the domain is not SSL-enabled. The 200 response confirms only that the
+      datalog entry was queued — the renewal itself happens asynchronously.
     parameters:
       - name: id
         in: path
@@ -335,12 +391,21 @@
           format: int64
     responses:
       '200':
-        description: SSL certificate renewed successfully
+        description: Renewal trigger queued successfully (datalog update written)
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ssl_letsencrypt:
+                  type: string
+                  enum: [y]
+                  description: Confirms Let's Encrypt is enabled for the domain
+                queued:
+                  type: boolean
+                  description: Always true — the renewal datalog entry has been queued
       '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Let's Encrypt is not enabled for this domain
-          - Domain is not properly configured for Let's Encrypt
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

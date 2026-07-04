@@ -1,31 +1,30 @@
+# Global system configuration singleton.
+# Backed by table `sys_ini` (singleton row `sysini_id = 1`), whose `config`
+# column is an INI-formatted text blob ([section] headers + key=value lines).
+# The API presents that blob as one composite resource with five section
+# objects. Each section schema is a deliberate subset of the legacy key set;
+# unexposed legacy keys are preserved untouched by PUT (read-merge-write).
 type: object
 x-db-table: sys_ini
-description: System configuration for ISPConfig
+description: >
+  Global system configuration for ISPConfig — the `sys_ini` singleton
+  (row `sysini_id = 1`) parsed from its INI-formatted `config` blob
+  into per-section objects.
 properties:
-  sysini_id:
+  id:
     type: integer
     format: int64
-    description: Unique identifier for the system configuration
+    description: Unique identifier of the system configuration singleton (always 1)
     readOnly: true
     example: 1
-  
-  # Reference to configuration sections
+    x-db-field: sysini_id
   sites:
     $ref: './SystemSitesConfig.yaml'
-    description: Sites-related configuration
-  
   mail:
     $ref: './SystemMailConfig.yaml'
-    description: Mail-related configuration
-  
   dns:
     $ref: './SystemDnsConfig.yaml'
-    description: DNS-related configuration
-  
   domains:
     $ref: './SystemDomainsConfig.yaml'
-    description: Domains-related configuration
-  
   misc:
     $ref: './SystemMiscConfig.yaml'
-    description: Miscellaneous configuration

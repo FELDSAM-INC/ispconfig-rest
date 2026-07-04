@@ -1,24 +1,29 @@
-# Server PHP Version Schema
+# Server PHP Version Schema (additional PHP version on a web server)
+# Mirrors the `server_php` table (source_code/install/sql/ispconfig3.sql).
 type: object
 x-db-table: server_php
+required:
+  - name
+  - php_cli_binary
+  - php_jk_section
 properties:
-  server_php_id:
+  id:
     type: integer
-    format: int32
+    format: int64
     description: Unique identifier for the PHP version
     readOnly: true
     example: 1
     x-db-field: server_php_id
   sys_userid:
     type: integer
-    format: int32
+    format: int64
     description: System user ID who created the record
     readOnly: true
     example: 1
     x-db-field: sys_userid
   sys_groupid:
     type: integer
-    format: int32
+    format: int64
     description: System group ID
     readOnly: true
     example: 1
@@ -27,93 +32,111 @@ properties:
     type: string
     maxLength: 5
     description: User permissions (r = read, i = insert, u = update, d = delete)
+    default: "riud"
     example: "riud"
     x-db-field: sys_perm_user
   sys_perm_group:
     type: string
     maxLength: 5
     description: Group permissions (r = read, i = insert, u = update, d = delete)
+    default: "riud"
     example: "riud"
     x-db-field: sys_perm_group
   sys_perm_other:
     type: string
     maxLength: 5
     description: Other permissions (r = read, i = insert, u = update, d = delete)
+    default: ""
     example: ""
     x-db-field: sys_perm_other
   server_id:
     type: integer
-    format: int32
-    description: ID of the server this PHP version is associated with
+    format: int64
+    description: >-
+      ID of the server this PHP version is registered on. Read-only in the
+      API: it is always taken from the URL path (/servers/{id}/php-versions).
+      Legacy restricts the choice to servers with web_server = 1 AND
+      mirror_server_id = 0.
+    readOnly: true
     example: 1
     x-db-field: server_id
   client_id:
     type: integer
-    format: int32
-    description: ID of the client who owns this PHP version
-    example: 1
+    format: int64
+    description: ID of the client this PHP version is limited to (0 = available to all)
+    default: 0
+    example: 0
     x-db-field: client_id
   name:
     type: string
     maxLength: 255
-    description: Name of the PHP version (e.g., 'php7.4', 'php8.0')
-    example: "php8.0"
+    description: >-
+      Display name of the PHP version (e.g. 'PHP 8.2'). Required, non-empty;
+      HTML tags and newlines are stripped on save (legacy STRIPTAGS/STRIPNL).
+    example: "PHP 8.2"
     x-db-field: name
   php_fastcgi_binary:
     type: string
     maxLength: 255
-    description: Path to the PHP FastCGI binary
-    example: "/usr/bin/php-cgi8.0"
+    description: Path to the PHP FastCGI binary (optional; tags/newlines stripped on save)
+    example: "/usr/bin/php-cgi8.2"
     x-db-field: php_fastcgi_binary
   php_fastcgi_ini_dir:
     type: string
     maxLength: 255
-    description: Directory containing PHP FastCGI configuration files
-    example: "/etc/php/8.0/cgi/conf.d"
+    description: Directory containing the php.ini used by FastCGI (optional; tags/newlines stripped on save)
+    example: "/etc/php/8.2/cgi"
     x-db-field: php_fastcgi_ini_dir
   php_fpm_init_script:
     type: string
     maxLength: 255
-    description: Path to the PHP-FPM init script
-    example: "/etc/init.d/php8.0-fpm"
+    description: Path of the PHP-FPM init script or systemd unit name (optional; tags/newlines stripped on save)
+    example: "php8.2-fpm"
     x-db-field: php_fpm_init_script
   php_fpm_ini_dir:
     type: string
     maxLength: 255
-    description: Directory containing PHP-FPM configuration files
-    example: "/etc/php/8.0/fpm/conf.d"
+    description: Directory containing the php.ini used by PHP-FPM (optional; tags/newlines stripped on save)
+    example: "/etc/php/8.2/fpm"
     x-db-field: php_fpm_ini_dir
   php_fpm_pool_dir:
     type: string
     maxLength: 255
-    description: Directory containing PHP-FPM pool configuration files
-    example: "/etc/php/8.0/fpm/pool.d"
+    description: Directory containing the PHP-FPM pool configuration (optional; tags/newlines stripped on save)
+    example: "/etc/php/8.2/fpm/pool.d"
     x-db-field: php_fpm_pool_dir
   php_fpm_socket_dir:
     type: string
     maxLength: 255
-    description: Directory where PHP-FPM socket files are stored
+    description: Directory where PHP-FPM sockets are created (optional; tags/newlines stripped on save)
     example: "/var/run/php"
     x-db-field: php_fpm_socket_dir
   php_cli_binary:
     type: string
     maxLength: 255
-    description: Path to the PHP CLI binary
-    example: "/usr/bin/php8.0"
+    pattern: '^\/[a-zA-Z0-9\/\-\_\.\s]*$'
+    description: >-
+      Absolute path to the PHP CLI binary. Required, non-empty; must match the
+      legacy regex /^\/[a-zA-Z0-9\/\-\_\.\s]*$/ (absolute path, restricted
+      character set).
+    example: "/usr/bin/php8.2"
     x-db-field: php_cli_binary
   php_jk_section:
     type: string
     maxLength: 255
-    description: JK connector section name for Apache Tomcat integration
-    example: "php8.0"
+    pattern: '^[a-zA-Z0-9\-\_]*$'
+    description: >-
+      Jailkit section name used to jail this PHP version. Required, non-empty;
+      must match the legacy regex /^[a-zA-Z0-9\-\_]*$/.
+    example: "php82"
     x-db-field: php_jk_section
   active:
-    type: string
-    enum: ["y", "n"]
+    type: boolean
     description: Whether this PHP version is active
-    default: "y"
-    example: "y"
+    default: true
+    example: true
     x-db-field: active
+    x-db-format: "y/n"
   sortprio:
     type: integer
     format: int32
@@ -121,8 +144,3 @@ properties:
     default: 100
     example: 100
     x-db-field: sortprio
-required:
-  - server_id
-  - name
-  - php_cli_binary
-  - php_jk_section

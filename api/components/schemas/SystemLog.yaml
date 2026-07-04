@@ -1,13 +1,15 @@
 # SystemLog Schema
-# Represents a system log entry
+# One row of ISPConfig's sys_log table — the per-server processing log the
+# server daemons write while applying datalog changes. Read-only.
 
 type: object
 x-db-table: sys_log
 properties:
-  syslog_id:
+  id:
     type: integer
     format: int64
-    description: Unique identifier for the system log entry
+    readOnly: true
+    description: Unique identifier of the log entry (primary key)
     x-db-field: syslog_id
     example: 12345
   server_id:
@@ -19,23 +21,28 @@ properties:
   datalog_id:
     type: integer
     format: int64
-    description: Reference to the related data log entry
+    description: |
+      ID of the `sys_datalog` journal entry this log line was produced while
+      processing (0 when the entry is not related to a datalog job). Bridge to
+      the `/monitor/data-logs` resource.
     x-db-field: datalog_id
     example: 54321
   loglevel:
     type: integer
     format: int32
-    description: Log level (0=info, 1=warning, 2=error, etc.)
+    enum: [0, 1, 2]
+    description: "Log level: 0=Debug, 1=Warning, 2=Error (legacy ISPConfig mapping)"
     x-db-field: loglevel
     example: 1
   tstamp:
     type: integer
     format: int64
-    description: Unix timestamp when the log entry was created
+    description: UNIX timestamp when the log entry was created
     x-db-field: tstamp
     example: 1622505600
   message:
     type: string
+    nullable: true
     description: The log message
     x-db-field: message
-    example: "Server connection failed"
+    example: "Processing of datalog_id 54321 failed."

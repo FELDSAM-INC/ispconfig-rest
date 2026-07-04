@@ -1,37 +1,14 @@
-# Spamfilter User endpoints
+# Spamfilter User endpoints (table spamfilter_users)
 /mail/spamfilter/users:
   get:
     tags:
       - Mail Spamfilter
     summary: List all spamfilter users
     description: |
-      Returns a paginated list of spamfilter users.
-      Non-admin users can only see their own entries.
+      Returns a paginated list of spamfilter users (email-to-policy mappings).
 
-      ### Filtering
-      Filter results using query parameters in the format `field[op]=value`.
-
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-
-      Example: `email[ilike]=%example.com&local[eq]=Y`
-
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-
-      Example: `sort=email` or `sort=-priority`
-
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -39,7 +16,7 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: email
         in: query
-        description: Filter by email address (supports wildcards with %)
+        description: Filter by email address
         schema:
           type: string
       - name: server_id
@@ -61,13 +38,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/SpamfilterUser.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '500':
@@ -78,12 +58,13 @@
       - Mail Spamfilter
     summary: Create a new spamfilter user
     description: |
-      Creates a new spamfilter user mapping.
+      Creates a new spamfilter user (email-to-policy mapping).
 
       ### Validation Rules
-      - Email and policy_id are required
-      - Users can only create entries for their own email addresses
-      - Admin users can create entries for any email
+      - `email`, `fullname`, `policy_id` and `server_id` are required
+      - `email` must be unique (database unique key) — duplicates yield 409
+      - A non-zero `policy_id` must reference an existing policy (404 otherwise)
+      - `server_id` must reference a mail server
     requestBody:
       required: true
       content:
@@ -104,7 +85,7 @@
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
-        description: Referenced policy or server not found
+        $ref: '../../components/responses/NotFound.yaml'
       '409':
         $ref: '../../components/responses/Conflict.yaml'
       '422':
@@ -117,9 +98,7 @@
     tags:
       - Mail Spamfilter
     summary: Get spamfilter user by ID
-    description: |
-      Returns a single spamfilter user by its ID.
-      Non-admin users can only see their own entries.
+    description: Returns a single spamfilter user by its ID
     parameters:
       - name: id
         in: path
@@ -149,11 +128,11 @@
       - Mail Spamfilter
     summary: Update spamfilter user
     description: |
-      Updates an existing spamfilter user mapping.
+      Updates an existing spamfilter user.
 
       ### Notes
-      - Non-admin users can only update their own entries
-      - Email and server_id cannot be changed after creation
+      - `email` and `server_id` cannot be changed after creation
+      - A non-zero `policy_id` must reference an existing policy
     parameters:
       - name: id
         in: path
@@ -195,8 +174,8 @@
     description: |
       Deletes a spamfilter user mapping by ID.
 
-      ### Notes
-      - Non-admin users can only delete their own entries
+      Note: white/blacklist entries referencing this mapping via `rid` become
+      inert on the mail server (their recipient can no longer be resolved).
     parameters:
       - name: id
         in: path

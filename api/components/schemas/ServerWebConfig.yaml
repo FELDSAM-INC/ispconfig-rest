@@ -1,83 +1,501 @@
+# Server Web Configuration Schema — the [web] section of the server.config
+# INI blob (server table, `config` column). Field inventory mirrors the
+# legacy `web` tab of server_config.tform.php (previously declared
+# apache2_http_port/php_fpm_pm/... properties were invented and have been
+# removed).
+# All properties are optional on PUT: omitted text/select keys keep their
+# current value; omitted checkbox keys are written with their unchecked
+# value ('n'), mirroring legacy form semantics. Keys present in the stored
+# blob but unknown to this schema are preserved untouched.
 type: object
-x_db_table: server
-required:
-  - server_type
-  - apache2_http_port
-  - apache2_ssl_port
-  - php_fastcgi
-  - php_fpm
+x-db-table: server
+x-db-field: config
+x-ini-section: web
+additionalProperties: true
 properties:
   server_type:
     type: string
-    enum: [apache, nginx, litespeed, other]
-    description: Type of the web server software
-    example: "apache"
-  apache2_http_port:
-    type: integer
-    minimum: 1
-    maximum: 65535
-    description: Port for HTTP connections
-    example: 80
-  apache2_ssl_port:
-    type: integer
-    minimum: 1
-    maximum: 65535
-    description: Port for HTTPS connections
-    example: 443
-  php_fastcgi:
+    enum: [apache, nginx]
+    description: Web server software
+    default: apache
+    example: apache
+  website_basedir:
     type: string
-    enum: [y, n]
-    description: Whether PHP FastCGI is enabled
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{5,128}$'
+    description: Absolute base directory for websites (legacy NOTEMPTY + path regex)
+    example: "/var/www"
+  website_path:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/\[\]]{5,128}$'
+    description: >-
+      Website document root template; supports [client_id] and [website_id]
+      placeholders (legacy NOTEMPTY + path regex).
+    example: "/var/www/clients/client[client_id]/web[website_id]"
+  website_symlinks:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/\[\]\:]{5,128}$'
+    description: >-
+      Colon-separated list of symlink templates created per website; supports
+      [website_domain] and [client_id] placeholders (legacy NOTEMPTY + regex).
+    example: "/var/www/[website_domain]/:/var/www/clients/client[client_id]/[website_domain]/"
+  website_symlinks_rel:
+    type: string
+    enum: ["y", "n"]
+    description: Create website symlinks as relative links (checkbox)
+    default: "n"
+    example: "n"
+  network_filesystem:
+    type: string
+    enum: ["y", "n"]
+    description: Website base directory is on a network filesystem (checkbox)
+    default: "n"
+    example: "n"
+  website_autoalias:
+    type: string
+    maxLength: 255
+    description: Auto-alias template for new websites (tags/newlines stripped on save; empty = disabled)
+    default: ""
+    example: ""
+  vhost_rewrite_v6:
+    type: string
+    enum: ["y", "n"]
+    description: Rewrite IPv6 addresses in mirrored vhosts (checkbox)
+    default: "n"
+    example: "n"
+  vhost_proxy_protocol_enabled:
+    type: string
+    enum: ["n", "y", "all"]
+    description: PROXY protocol support — n = disabled, y = enabled per site, all = enabled for all sites
+    default: "n"
+    example: "n"
+  vhost_proxy_protocol_protocols:
+    type: string
+    enum: [ipv4, ipv6, "ipv4,ipv6"]
+    description: IP protocols the PROXY protocol listeners bind to
+    default: ipv4
+    example: ipv4
+  vhost_proxy_protocol_http_port:
+    type: integer
+    description: HTTP port used when the PROXY protocol is enabled
+    default: 880
+    example: 880
+  vhost_proxy_protocol_https_port:
+    type: integer
+    description: HTTPS port used when the PROXY protocol is enabled
+    default: 8443
+    example: 8443
+  vhost_conf_dir:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{5,128}$'
+    description: Apache vhost configuration directory (legacy NOTEMPTY + path regex)
+    example: "/etc/apache2/sites-available"
+  vhost_conf_enabled_dir:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{5,128}$'
+    description: Apache enabled-vhost directory (legacy NOTEMPTY + path regex)
+    example: "/etc/apache2/sites-enabled"
+  apache_init_script:
+    type: string
+    maxLength: 255
+    pattern: '^(|[a-zA-Z0-9\.\-\_]{1,128})$'
+    description: Name of the Apache init script / service (may be empty for the OS default)
+    default: ""
+    example: ""
+  nginx_enable_pagespeed:
+    type: string
+    enum: ["y", "n"]
+    description: Enable the nginx pagespeed module (checkbox)
+    default: "n"
+    example: "n"
+  nginx_vhost_conf_dir:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{5,128}$'
+    description: nginx vhost configuration directory (legacy NOTEMPTY + path regex)
+    example: "/etc/nginx/sites-available"
+  nginx_vhost_conf_enabled_dir:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{5,128}$'
+    description: nginx enabled-vhost directory (legacy NOTEMPTY + path regex)
+    example: "/etc/nginx/sites-enabled"
+  CA_path:
+    type: string
+    maxLength: 255
+    pattern: '^[a-zA-Z0-9\.\-\_\/]{0,128}$'
+    description: Path of the local certificate authority used to sign site certificates (may be empty)
+    default: ""
+    example: ""
+  CA_pass:
+    type: string
+    maxLength: 255
+    format: password
+    description: Password of the local certificate authority key
+    default: ""
+    example: ""
+  security_level:
+    type: string
+    enum: ["10", "20"]
+    description: Website security level — 10 = medium, 20 = high
+    default: "20"
+    example: "20"
+  set_folder_permissions_on_update:
+    type: string
+    enum: ["y", "n"]
+    description: Re-apply folder permissions on website update (checkbox)
+    default: "n"
+    example: "n"
+  web_folder_permission:
+    type: string
+    enum: ["0710", "0711", "0750", "0751"]
+    pattern: '^0[0-7]{3}$'
+    description: Permission mode of the website root folder
+    default: "0710"
+    example: "0710"
+  web_folder_protection:
+    type: string
+    enum: ["y", "n"]
+    description: Make website folders immutable (chattr +i) (checkbox)
+    default: "y"
     example: "y"
-  php_fpm:
+  add_web_users_to_sshusers_group:
     type: string
-    enum: [y, n]
-    description: Whether PHP-FPM is enabled
+    enum: ["y", "n"]
+    description: Add web users to the sshusers group (checkbox)
+    default: "y"
     example: "y"
-  php_fpm_port:
+  check_apache_config:
+    type: string
+    enum: ["y", "n"]
+    description: Test the web server configuration on restart and roll back on failure (checkbox)
+    default: "y"
+    example: "y"
+  enable_sni:
+    type: string
+    enum: ["y", "n"]
+    description: Enable SNI (Server Name Indication) (checkbox)
+    default: "y"
+    example: "y"
+  enable_ip_wildcard:
+    type: string
+    enum: ["y", "n"]
+    description: Enable the IP address wildcard (*) in vhosts (checkbox)
+    default: "y"
+    example: "y"
+  logging:
+    type: string
+    enum: ["yes", "anon", "no"]
+    description: Website access logging — yes, anon (anonymized IPs) or no
+    default: "yes"
+    example: "yes"
+  overtraffic_notify_admin:
+    type: string
+    enum: ["y", "n"]
+    description: Send over-traffic notifications to the admin (checkbox)
+    default: "y"
+    example: "y"
+  overtraffic_notify_reseller:
+    type: string
+    enum: ["y", "n"]
+    description: Send over-traffic notifications to the reseller (checkbox)
+    default: "y"
+    example: "y"
+  overtraffic_notify_client:
+    type: string
+    enum: ["y", "n"]
+    description: Send over-traffic notifications to the client (checkbox)
+    default: "y"
+    example: "y"
+  overtraffic_disable_web:
+    type: string
+    enum: ["y", "n"]
+    description: Disable websites that exceed their traffic quota (checkbox)
+    default: "y"
+    example: "y"
+  overquota_notify_threshold:
+    type: integer
+    minimum: 0
+    maximum: 100
+    description: Harddisk quota usage percentage that triggers notifications (legacy RANGE 0:100)
+    default: 90
+    example: 90
+  overquota_notify_admin:
+    type: string
+    enum: ["y", "n"]
+    description: Send web quota notifications to the admin (checkbox)
+    default: "y"
+    example: "y"
+  overquota_notify_reseller:
+    type: string
+    enum: ["y", "n"]
+    description: Send web quota notifications to the reseller (checkbox)
+    default: "y"
+    example: "y"
+  overquota_notify_client:
+    type: string
+    enum: ["y", "n"]
+    description: Send web quota notifications to the client (checkbox)
+    default: "y"
+    example: "y"
+  overquota_db_notify_threshold:
+    type: integer
+    minimum: 0
+    maximum: 100
+    description: Database quota usage percentage that triggers notifications (legacy RANGE 0:100)
+    default: 90
+    example: 90
+  overquota_db_notify_admin:
+    type: string
+    enum: ["y", "n"]
+    description: Send database quota notifications to the admin (checkbox)
+    default: "y"
+    example: "y"
+  overquota_db_notify_reseller:
+    type: string
+    enum: ["y", "n"]
+    description: Send database quota notifications to the reseller (checkbox)
+    default: "y"
+    example: "y"
+  overquota_db_notify_client:
+    type: string
+    enum: ["y", "n"]
+    description: Send database quota notifications to the client (checkbox)
+    default: "y"
+    example: "y"
+  overquota_notify_freq:
+    type: integer
+    minimum: 0
+    description: Days between repeated quota notifications (0 = notify once)
+    default: 7
+    example: 7
+  overquota_notify_onok:
+    type: string
+    enum: ["y", "n"]
+    description: Notify when quota usage returns below the threshold (checkbox)
+    default: "n"
+    example: "n"
+  user:
+    type: string
+    maxLength: 255
+    description: Apache system user (legacy NOTEMPTY + CUSTOM system-user validation)
+    example: "www-data"
+  group:
+    type: string
+    maxLength: 255
+    description: Apache system group (legacy NOTEMPTY + CUSTOM system-group validation)
+    example: "www-data"
+  connect_userid_to_webid:
+    type: string
+    enum: ["y", "n"]
+    description: Derive the website Linux UID from the website ID (checkbox)
+    default: "n"
+    example: "n"
+  connect_userid_to_webid_start:
+    type: integer
+    description: First UID used when connecting user IDs to website IDs (legacy ISINT)
+    default: 10000
+    example: 10000
+  nginx_user:
+    type: string
+    maxLength: 255
+    description: nginx system user (legacy NOTEMPTY + CUSTOM system-user validation)
+    example: "www-data"
+  nginx_group:
+    type: string
+    maxLength: 255
+    description: nginx system group (legacy NOTEMPTY + CUSTOM system-group validation)
+    example: "www-data"
+  php_ini_path_apache:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{5,128}$'
+    description: Absolute path of the php.ini used by mod_php (legacy NOTEMPTY + path regex)
+    example: "/etc/php5/apache2/php.ini"
+  php_ini_path_cgi:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{5,128}$'
+    description: Absolute path of the php.ini used by CGI/FastCGI (legacy NOTEMPTY + path regex)
+    example: "/etc/php5/cgi/php.ini"
+  php_default_hide:
+    type: string
+    enum: ["y", "n"]
+    description: Hide the default PHP version in site settings (checkbox)
+    default: "n"
+    example: "n"
+  php_default_name:
+    type: string
+    maxLength: 255
+    description: Display name of the default PHP version (legacy NOTEMPTY; trimmed, tags/newlines stripped)
+    default: "Default"
+    example: "Default"
+  php_fpm_init_script:
+    type: string
+    maxLength: 255
+    pattern: '^[a-zA-Z0-9\.\-\_]{1,128}$'
+    description: Name of the PHP-FPM init script / service (legacy NOTEMPTY + regex)
+    example: "php5-fpm"
+  php_fpm_ini_path:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{5,128}$'
+    description: Absolute path of the php.ini used by PHP-FPM (legacy NOTEMPTY + path regex)
+    example: "/etc/php5/fpm/php.ini"
+  php_fpm_pool_dir:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{5,128}$'
+    description: Absolute path of the PHP-FPM pool directory (legacy NOTEMPTY + path regex)
+    example: "/etc/php5/fpm/pool.d"
+  php_fpm_start_port:
     type: integer
     minimum: 1
-    maximum: 65535
-    description: Port for PHP-FPM service
-    example: 9000
-  php_fpm_socket:
+    description: First TCP port used for PHP-FPM pools (legacy ISPOSITIVE)
+    default: 9010
+    example: 9010
+  php_fpm_socket_dir:
     type: string
-    description: Path to PHP-FPM socket
-    example: "/var/run/php/php-fpm.sock"
-  php_fpm_pm:
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{5,128}$'
+    description: Absolute path of the PHP-FPM socket directory (legacy NOTEMPTY + path regex)
+    example: "/var/lib/php5-fpm"
+  php_open_basedir:
     type: string
-    enum: [static, dynamic, ondemand]
-    description: PHP-FPM process manager
-    example: "dynamic"
-  php_fpm_max_children:
+    maxLength: 4000
+    pattern: '^[a-zA-Z0-9\.\-\_\/\]\[\:]{1,}$'
+    description: >-
+      Default open_basedir template; colon-separated, supports [website_path]
+      and [website_domain] placeholders (legacy NOTEMPTY + regex).
+    example: "[website_path]/web:[website_path]/private:[website_path]/tmp:/usr/share/php:/tmp"
+  php_ini_check_minutes:
     type: integer
-    description: Maximum number of PHP-FPM children
-    example: 50
-  php_fpm_start_servers:
-    type: integer
-    description: Number of PHP-FPM start servers
-    example: 5
-  php_fpm_min_spare_servers:
-    type: integer
-    description: Minimum number of PHP-FPM spare servers
-    example: 5
-  php_fpm_max_spare_servers:
-    type: integer
-    description: Maximum number of PHP-FPM spare servers
-    example: 35
-  php_fpm_process_idle_timeout:
+    minimum: 0
+    description: Interval in minutes for php.ini change checks (0 = disabled; legacy NOTEMPTY)
+    default: 1
+    example: 1
+  php_handler:
     type: string
-    description: PHP-FPM process idle timeout
-    example: "10s"
-  php_fpm_max_requests:
+    enum: ["no", fast-cgi, cgi, mod, suphp, php-fpm, hhvm]
+    description: Default PHP handler for new sites (no = PHP disabled)
+    default: fast-cgi
+    example: php-fpm
+  php_fpm_default_chroot:
+    type: string
+    enum: ["y", "n"]
+    description: Chroot PHP-FPM pools by default (checkbox)
+    default: "n"
+    example: "n"
+  php_fpm_incron_reload:
+    type: string
+    enum: ["y", "n"]
+    description: Reload PHP-FPM via incron on pool changes (checkbox)
+    default: "y"
+    example: "y"
+  nginx_cgi_socket:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: Absolute path of the fcgiwrap socket used by nginx for CGI (legacy NOTEMPTY + path regex)
+    example: "/var/run/fcgiwrap.socket"
+  htaccess_allow_override:
+    type: string
+    maxLength: 255
+    description: Value of the Apache AllowOverride directive for websites (legacy NOTEMPTY; tags/newlines stripped)
+    default: "All"
+    example: "All"
+  apps_vhost_enabled:
+    type: string
+    enum: ["y", "n"]
+    description: Enable the apps vhost (checkbox)
+    default: "y"
+    example: "y"
+  apps_vhost_port:
     type: integer
-    description: Maximum number of requests per PHP-FPM process
-    example: 500
-  php_fpm_status_path:
+    description: Port of the apps vhost
+    default: 8081
+    example: 8081
+  apps_vhost_ip:
     type: string
-    description: Path for PHP-FPM status page
-    example: "/status"
-  php_fpm_ping_path:
+    maxLength: 255
+    description: IP address of the apps vhost (_default_ = all addresses)
+    default: "_default_"
+    example: "_default_"
+  apps_vhost_servername:
     type: string
-    description: Path for PHP-FPM ping page
-    example: "/ping"
+    maxLength: 255
+    description: ServerName of the apps vhost (tags/newlines stripped; empty = none)
+    default: ""
+    example: ""
+  awstats_conf_dir:
+    type: string
+    maxLength: 255
+    description: AWStats configuration directory (tags/newlines stripped)
+    example: "/etc/awstats"
+  awstats_data_dir:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: AWStats data directory (legacy NOTEMPTY + path regex)
+    example: "/var/lib/awstats"
+  awstats_pl:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: Absolute path of awstats.pl (legacy NOTEMPTY + path regex)
+    example: "/usr/lib/cgi-bin/awstats.pl"
+  awstats_buildstaticpages_pl:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{1,128}$'
+    description: Absolute path of awstats_buildstaticpages.pl (legacy NOTEMPTY + path regex)
+    example: "/usr/share/awstats/tools/awstats_buildstaticpages.pl"
+  skip_le_check:
+    type: string
+    enum: ["y", "n"]
+    description: Skip the Let's Encrypt reachability pre-check (checkbox)
+    default: "n"
+    example: "n"
+  php_fpm_reload_mode:
+    type: string
+    enum: [reload, restart]
+    description: How PHP-FPM is reloaded after pool changes
+    default: reload
+    example: reload
+  le_signature_type:
+    type: string
+    enum: [RSA, ECDSA]
+    description: Signature algorithm for Let's Encrypt certificates
+    default: ECDSA
+    example: ECDSA
+  le_delete_on_site_remove:
+    type: string
+    enum: ["y", "n"]
+    description: Delete the Let's Encrypt certificate when a site is removed (checkbox)
+    default: "y"
+    example: "y"
+  le_auto_cleanup:
+    type: string
+    enum: ["y", "n"]
+    description: Automatically clean up unused Let's Encrypt certificates (checkbox)
+    default: "y"
+    example: "y"
+  le_auto_cleanup_denylist:
+    type: string
+    maxLength: 255
+    description: >-
+      Comma-separated list of domain globs excluded from Let's Encrypt
+      auto-cleanup; supports the [server_name] placeholder (legacy CUSTOM
+      domain_glob_list validator, may be empty).
+    default: "[server_name]"
+    example: "[server_name]"
+  le_revoke_before_delete:
+    type: string
+    enum: ["y", "n"]
+    description: Revoke Let's Encrypt certificates before deleting them (checkbox)
+    default: "y"
+    example: "y"

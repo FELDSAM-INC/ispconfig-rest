@@ -1,4 +1,4 @@
-# Spamfilter Policy endpoints
+# Spamfilter Policy endpoints (table spamfilter_policy)
 /mail/spamfilter/policies:
   get:
     tags:
@@ -7,30 +7,8 @@
     description: |
       Returns a paginated list of spamfilter policies.
 
-      ### Filtering
-      Filter results using query parameters in the format `field[op]=value`.
-
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-
-      Example: `policy_name[ilike]=%default%&virus_lover[eq]=N`
-
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-
-      Example: `sort=policy_name` or `sort=-id`
-
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -38,7 +16,7 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: policy_name
         in: query
-        description: Filter by policy name (supports wildcards with %)
+        description: Filter by policy name
         schema:
           type: string
     responses:
@@ -48,13 +26,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/SpamfilterPolicy.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -70,8 +51,8 @@
       Creates a new spamfilter policy.
 
       ### Validation Rules
-      - Policy name is required and must be unique
-      - Only admin users can create policies
+      - `policy_name` is required and must be unique (application-level check)
+      - Unexposed policy columns keep their database defaults
     requestBody:
       required: true
       content:
@@ -91,8 +72,6 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -136,8 +115,7 @@
       Updates an existing spamfilter policy.
 
       ### Notes
-      - Only admin users can update policies
-      - Policy name must remain unique
+      - `policy_name` must remain unique (application-level check)
     parameters:
       - name: id
         in: path
@@ -167,8 +145,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -182,8 +158,8 @@
       Deletes a spamfilter policy by ID.
 
       ### Notes
-      - Only admin users can delete policies
-      - Cannot delete a policy that is in use by spamfilter users
+      - A policy that is referenced by spamfilter users cannot be deleted
+        (returns 400; API-added guard — legacy has no in-use check)
     parameters:
       - name: id
         in: path
@@ -196,9 +172,7 @@
       '204':
         description: Spamfilter policy deleted successfully
       '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Policy is in use by spamfilter users
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

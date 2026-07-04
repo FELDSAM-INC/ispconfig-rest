@@ -1,32 +1,90 @@
+# Server Firewall Schema (port-list firewall record)
+# Mirrors the `firewall` table (source_code/install/sql/ispconfig3.sql).
+# There is AT MOST ONE firewall record per server: the DB declares server_id
+# UNIQUE (firewall.tform.php validator). The API models it as a singleton
+# under /servers/{id}/firewall (PUT upserts: 201 create, 200 update).
 type: object
-x_db_table: firewall
-required:
-  - server_id
-  - tcp_port
-  - udp_port
-  - active
+x-db-table: firewall
 properties:
-  firewall_id:
+  id:
     type: integer
     format: int64
-    description: Unique identifier for the firewall rule
+    description: Unique identifier for the firewall record
     readOnly: true
     example: 1
+    x-db-field: firewall_id
+  sys_userid:
+    type: integer
+    format: int64
+    description: System user ID who created the record
+    readOnly: true
+    example: 1
+    x-db-field: sys_userid
+  sys_groupid:
+    type: integer
+    format: int64
+    description: System group ID
+    readOnly: true
+    example: 1
+    x-db-field: sys_groupid
+  sys_perm_user:
+    type: string
+    maxLength: 5
+    description: User permissions (r = read, i = insert, u = update, d = delete)
+    default: "riud"
+    example: "riud"
+    x-db-field: sys_perm_user
+  sys_perm_group:
+    type: string
+    maxLength: 5
+    description: Group permissions (r = read, i = insert, u = update, d = delete)
+    default: "riud"
+    example: "riud"
+    x-db-field: sys_perm_group
+  sys_perm_other:
+    type: string
+    maxLength: 5
+    description: Other permissions (r = read, i = insert, u = update, d = delete)
+    default: ""
+    example: ""
+    x-db-field: sys_perm_other
   server_id:
     type: integer
     format: int64
-    description: ID of the server this firewall rule applies to
+    description: >-
+      ID of the server this firewall record applies to. UNIQUE — one firewall
+      record per server (the resource is a singleton). Read-only in the API:
+      it is always taken from the URL path (/servers/{id}/firewall) and is
+      immutable (legacy firewall_edit.php::onBeforeUpdate reverts any
+      change); a request body value that differs from the path is rejected
+      with 422.
+    readOnly: true
     example: 1
+    x-db-field: server_id
   tcp_port:
     type: string
-    description: Comma-separated list of TCP ports or port ranges (e.g., "80,443,8080:8090")
-    example: "21,22,80,443,8080:8090"
+    pattern: '^$|\d{1,5}(?::\d{1,5})?(?:,\d{1,5}(?::\d{1,5})?)*$'
+    description: >-
+      Comma-separated list of open TCP ports; each entry is a single port or
+      a low:high range. An empty string is valid and means "no TCP ports"
+      (legacy regex /^$|\d{1,5}(?::\d{1,5})?(?:,\d{1,5}(?::\d{1,5})?)*$/).
+    default: "21,22,25,53,80,110,143,443,465,587,993,995,3306,4190,8080,8081,40110:40210"
+    example: "22,80,443,40110:40210"
+    x-db-field: tcp_port
   udp_port:
     type: string
-    description: Comma-separated list of UDP ports or port ranges
-    example: "53,123,161:162"
+    pattern: '^$|\d{1,5}(?::\d{1,5})?(?:,\d{1,5}(?::\d{1,5})?)*$'
+    description: >-
+      Comma-separated list of open UDP ports; each entry is a single port or
+      a low:high range. An empty string is valid and means "no UDP ports"
+      (legacy regex /^$|\d{1,5}(?::\d{1,5})?(?:,\d{1,5}(?::\d{1,5})?)*$/).
+    default: "53"
+    example: "53"
+    x-db-field: udp_port
   active:
-    type: string
-    enum: [y, n]
-    description: Whether the firewall rule is active (y) or not (n)
-    example: "y"
+    type: boolean
+    description: Whether the firewall record is active
+    default: true
+    example: true
+    x-db-field: active
+    x-db-format: "y/n"

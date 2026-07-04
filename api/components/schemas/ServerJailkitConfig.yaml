@@ -1,38 +1,52 @@
+# Server Jailkit Configuration Schema — the [jailkit] section of the
+# server.config INI blob (server table, `config` column). Field inventory
+# mirrors the legacy `jailkit` tab of server_config.tform.php.
+# All properties are optional on PUT: omitted text/select keys keep their
+# current value. Keys present in the stored blob but unknown to this schema
+# are preserved untouched.
 type: object
-x_db_table: server
-required:
-  - jailkit
-  - jailkit_path
-  - jailkit_shell
-  - jailkit_skel
+x-db-table: server
+x-db-field: config
+x-ini-section: jailkit
+additionalProperties: true
 properties:
-  jailkit:
+  jailkit_chroot_home:
     type: string
-    enum: [y, n]
-    description: Whether Jailkit is enabled
-    example: "y"
-  jailkit_path:
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/\[\]]{1,}$'
+    description: >-
+      Absolute path of the jail home directory; supports the [username]
+      placeholder (legacy NOTEMPTY + path regex).
+    example: "/home/[username]"
+  jailkit_chroot_app_sections:
     type: string
-    description: Base path for Jailkit jails
-    example: "/var/jail"
-  jailkit_shell:
+    maxLength: 1000
+    pattern: '^[a-zA-Z0-9\.\-\_\ ]{1,}$'
+    description: Space-separated list of jk_init sections installed into new jails (legacy NOTEMPTY + regex)
+    example: "coreutils basicshell editors extendedshell netutils ssh sftp scp jk_lsh mysql-client git"
+  jailkit_chroot_app_programs:
     type: string
-    description: Default shell for jailed users
-    example: "/bin/bash"
-  jailkit_skel:
+    maxLength: 1000
+    pattern: '^[a-zA-Z0-9\.\-\_\/\ ]{1,}$'
+    description: Space-separated list of additional programs copied into new jails (legacy NOTEMPTY + regex)
+    example: "lesspipe pico unzip zip patch which"
+  jailkit_chroot_cron_programs:
     type: string
-    description: Skeleton directory for new jails
-    example: "/etc/skel"
-  jailkit_tmpfs:
+    maxLength: 1000
+    pattern: '^[a-zA-Z0-9\.\-\_\/\ ]{1,}$'
+    description: Space-separated list of programs/paths available to jailed cron jobs (legacy NOTEMPTY + regex)
+    example: "/usr/bin/php /usr/lib/php/ /usr/share/php/ /usr/share/zoneinfo/ /usr/bin/perl /usr/share/perl/"
+  jailkit_chroot_authorized_keys_template:
     type: string
-    enum: [y, n]
-    description: Whether to use tmpfs for jail filesystems
-    example: "y"
-  jailkit_tmpfs_size:
+    maxLength: 1000
+    pattern: '^[a-zA-Z0-9\.\-\_\/\ ]*$'
+    description: Path of the authorized_keys template copied into new jails (optional)
+    example: "/root/.ssh/authorized_keys"
+  jailkit_hardlinks:
     type: string
-    description: Size limit for tmpfs filesystems
-    example: "100M"
-  jailkit_devices:
-    type: string
-    description: Device files to include in jails
-    example: "null,zero,random,urandom,tty,ptmx,pts/*"
+    enum: [allow, "no", "yes"]
+    description: >-
+      Hardlink handling inside jails — allow = leave hardlinks in place,
+      no = do not use hardlinks (copy), yes = use hardlinks.
+    default: allow
+    example: allow

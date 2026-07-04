@@ -1,0 +1,19 @@
+# Server Getmail Configuration Schema — the [getmail] section of the
+# server.config INI blob (server table, `config` column). Field inventory
+# mirrors the legacy `getmail` tab of server_config.tform.php (a single
+# key).
+# All properties are optional on PUT: omitted keys keep their current value.
+# Keys present in the stored blob but unknown to this schema are preserved
+# untouched.
+type: object
+x-db-table: server
+x-db-field: config
+x-ini-section: getmail
+additionalProperties: true
+properties:
+  getmail_config_dir:
+    type: string
+    maxLength: 255
+    pattern: '^\/[a-zA-Z0-9\.\-\_\/]{5,128}$'
+    description: Getmail configuration directory (legacy NOTEMPTY + path regex)
+    example: "/etc/getmail"

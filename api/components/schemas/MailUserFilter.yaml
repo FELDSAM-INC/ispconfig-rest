@@ -1,15 +1,16 @@
+# Verified against source_code/install/sql/ispconfig3.sql (table mail_user_filter)
+# and source_code/interface/web/mail/form/mail_user_filter.tform.php.
+# Enum values are the values legacy actually STORES (not UI language keys).
 type: object
 x-db-table: mail_user_filter
 required:
-  - mailuser_id
   - rulename
   - source
   - op
   - searchterm
   - action
-  - active
 properties:
-  filter_id:
+  id:
     type: integer
     format: int64
     readOnly: true
@@ -20,7 +21,8 @@ properties:
   mailuser_id:
     type: integer
     format: int64
-    description: ID of the mail user this filter belongs to
+    readOnly: true
+    description: ID of the mail user this filter belongs to (taken from the URL path)
     example: 1
     x-db-field: mailuser_id
 
@@ -28,21 +30,24 @@ properties:
     type: string
     description: Name of the filter rule
     example: "Block newsletters"
-    maxLength: 255
+    maxLength: 64
     x-db-field: rulename
 
   source:
     type: string
-    description: Email header or field to filter on
-    enum: [subject_txt, from_txt, to_txt, list_id_txt, header_txt, size_over_txt]
-    example: subject_txt
+    description: Message attribute to match on (stored values per legacy mail_user_filter form)
+    enum: [Subject, From, To, List-Id, Header, Size]
+    example: Subject
     x-db-field: source
 
   op:
     type: string
-    description: Operation to perform for matching
-    enum: [contains_txt, is_txt, begins_with_txt, ends_with_txt, regex_txt, localpart_txt, domain_txt]
-    example: contains_txt
+    description: |
+      Matching operation (stored values per legacy mail_user_filter form).
+      `localpart` and `domain` apply to address fields, `regex` to any source;
+      for `Size` the search term is compared numerically.
+    enum: [contains, is, begins, ends, regex, localpart, domain]
+    example: contains
     x-db-field: op
 
   searchterm:
@@ -54,42 +59,39 @@ properties:
 
   action:
     type: string
-    description: Action to take when the filter matches
-    enum: [move_to_folder, forward_to, delete, redirect_to, stop_processing, mark_as_read, flag]
-    example: move_to_folder
+    description: |
+      Action to take when the filter matches (stored values per legacy form):
+      - move: file the message into the folder named by `target`
+      - delete: discard the message
+      - keep: keep the message (stop further filtering)
+      - reject: reject the message
+    enum: [move, delete, keep, reject]
+    example: move
     x-db-field: action
 
-  action_value:
+  target:
     type: string
-    description: Value for the action (e.g., folder name, email address)
+    description: |
+      Target of the action (e.g. folder name for `move`).
+      Validated with the legacy pattern below (max 100 characters).
     example: "Junk"
-    maxLength: 255
-    x-db-field: action_value
+    maxLength: 100
+    pattern: "^[\\p{Latin}0-9\\.\\'\\-\\_\\ \\&\\/]{0,100}$"
+    x-db-field: target
 
   active:
-    type: string
-    enum: [y, n]
-    default: y
-    description: Whether the filter rule is active
+    type: boolean
+    default: true
+    description: Whether the filter rule is active (inactive rules generate no sieve code)
     x-db-field: active
 
 description: |
-  Email filter rules for mail users.
-  
-  ### Features
-  - Filter emails based on various headers and content
-  - Multiple matching operations
-  - Various actions for matched emails
-  - Can be enabled/disabled
-  
-  ### Validation Rules
-  - Rule name is required
-  - Valid source field must be selected
-  - Valid operation must be selected
-  - Search term is required
-  - Valid action must be selected
-  
-  ### Notes
-  - Filters are processed in order of their ID
-  - System administrators can manage all filters
-  - Regular users can only manage their own filters
+  Server-side mail sorting rule for a mailbox (table `mail_user_filter`).
+
+  ### Side effects
+  Every create/update/delete regenerates the owning mailbox's
+  `mail_user.custom_mailfilter`: the block between `### BEGIN FILTER_ID:<id>`
+  and `### END FILTER_ID:<id>` is replaced/removed (new rules are prepended,
+  inactive rules render nothing), and a `mail_user` datalog update is emitted
+  alongside the `mail_user_filter` entry. Rule syntax (sieve or maildrop)
+  follows the server mail config `mail_filter_syntax`.

@@ -1,4 +1,4 @@
-# Mail Content Filter endpoints
+# Mail Content Filter endpoints (table mail_content_filter)
 /mail/content-filters:
   get:
     tags:
@@ -6,32 +6,9 @@
     summary: List all mail content filter rules
     description: |
       Returns a paginated list of mail content filter rules.
-      Only accessible by admin users.
-      
-      ### Filtering
-      Filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `type[eq]=header&active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=type` or `sort=-content_filter_id`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -39,7 +16,7 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: type
         in: query
-        description: Filter by filter type (header/body/mime_header/nested_header)
+        description: Filter by filter type
         schema:
           type: string
           enum: [header, body, mime_header, nested_header]
@@ -51,10 +28,9 @@
           enum: [DISCARD, DUNNO, FILTER, HOLD, IGNORE, PREPEND, REDIRECT, REPLACE, REJECT, WARN]
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
         description: A list of mail content filter rules
@@ -62,18 +38,20 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/MailContentFilter.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: Only admin users can access content filters
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
@@ -83,12 +61,10 @@
     summary: Create a new mail content filter rule
     description: |
       Creates a new mail content filter rule.
-      Only accessible by admin users.
-      
+
       ### Validation Rules
-      - Pattern is required
-      - Server must be a valid mail server
-      - Server cannot be changed after creation
+      - `pattern` is required
+      - `server_id` must reference a mail server and cannot be changed after creation
     requestBody:
       required: true
       content:
@@ -108,13 +84,12 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: Only admin users can create content filter rules
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
-/mail/content-filters/{id}: 
+/mail/content-filters/{id}:
   get:
     tags:
       - Mail Content Filters
@@ -139,7 +114,6 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: Only admin users can view content filter rules
       '404':
         $ref: '../../components/responses/NotFound.yaml'
       '500':
@@ -151,11 +125,10 @@
     summary: Update mail content filter rule
     description: |
       Updates an existing mail content filter rule.
-      Only accessible by admin users.
-      
+
       ### Notes
-      - The server_id cannot be changed after creation
-      - All fields except server_id can be updated
+      - `server_id` cannot be changed after creation
+      - All other fields can be updated
     parameters:
       - name: id
         in: path
@@ -179,15 +152,10 @@
               $ref: '../../components/schemas/MailContentFilter.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Attempt to change server_id
-          - Invalid data format
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: Only admin users can update content filter rules
       '404':
         $ref: '../../components/responses/NotFound.yaml'
       '422':
@@ -201,11 +169,8 @@
     summary: Delete mail content filter rule
     description: |
       Deletes a mail content filter rule by ID.
-      Only accessible by admin users.
-      
-      ### Notes
-      - This will permanently delete the filter rule
-      - This action cannot be undone
+
+      The operation is permanent and cannot be undone.
     parameters:
       - name: id
         in: path
@@ -221,7 +186,6 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-        description: Only admin users can delete content filter rules
       '404':
         $ref: '../../components/responses/NotFound.yaml'
       '500':

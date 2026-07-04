@@ -1,3 +1,5 @@
+# Verified against source_code/install/sql/ispconfig3.sql (table mail_content_filter)
+# and source_code/interface/web/mail/form/mail_content_filter.tform.php.
 type: object
 x-db-table: mail_content_filter
 required:
@@ -5,9 +7,8 @@ required:
   - type
   - pattern
   - action
-  - active
 properties:
-  content_filter_id:
+  id:
     type: integer
     format: int64
     readOnly: true
@@ -20,7 +21,7 @@ properties:
     format: int64
     description: |
       Server ID where the filter rule is configured
-      - Must be a valid server ID with mail server enabled
+      - Must reference a mail server (server.mail_server=1, mirror_server_id=0)
       - Cannot be changed after creation
     example: 1
     x-db-field: server_id
@@ -39,19 +40,14 @@ properties:
 
   pattern:
     type: string
-    description: |
-      Pattern to match in the email content
-      - Required field
-      - Case-sensitive pattern matching
+    description: Pattern (regexp) to match in the email content
     maxLength: 255
-    example: "X-Spam-Flag: YES"
+    example: "/^X-Spam-Flag: YES/"
     x-db-field: pattern
 
   data:
     type: string
-    description: |
-      Additional data for the filter action
-      - Used with certain action types like REPLACE or REDIRECT
+    description: Additional data for the filter action (used with actions like REPLACE, REDIRECT or PREPEND)
     maxLength: 255
     example: "X-Spam-Status: Yes, score=10.0"
     x-db-field: data
@@ -59,29 +55,25 @@ properties:
   action:
     type: string
     description: |
-      Action to take when the pattern matches
+      Postfix header/body_checks action to take when the pattern matches
       - 'DISCARD': Silently discard the message
       - 'DUNNO': Continue processing as if no match
-      - 'FILTER': Apply additional filtering
+      - 'FILTER': Route through the named content filter
       - 'HOLD': Hold the message for manual review
-      - 'IGNORE': Skip further filter processing
-      - 'PREPEND': Add text to the beginning
+      - 'IGNORE': Delete the matching line
+      - 'PREPEND': Add a header line
       - 'REDIRECT': Redirect the message
-      - 'REPLACE': Replace the matched content
+      - 'REPLACE': Replace the matched line
       - 'REJECT': Reject the message with an error
-      - 'WARN': Add a warning header
+      - 'WARN': Log a warning
     enum: [DISCARD, DUNNO, FILTER, HOLD, IGNORE, PREPEND, REDIRECT, REPLACE, REJECT, WARN]
     example: "REJECT"
     x-db-field: action
 
   active:
-    type: string
-    description: |
-      Whether the filter rule is active
-      - 'y': Rule is active
-      - 'n': Rule is disabled
-    enum: [y, n]
-    default: "y"
+    type: boolean
+    default: true
+    description: Whether the filter rule is active
     x-db-field: active
 
   # System fields (readonly)
@@ -99,12 +91,12 @@ properties:
     example: 1
     x-db-field: sys_groupid
 
-  sys_perm:
+  sys_perm_user:
     type: string
     readOnly: true
-    description: Permissions for the record (r=read, i=insert, u=update, d=delete)
+    description: Owner permissions for the record (r=read, i=insert, u=update, d=delete)
     example: "riud"
-    x-db-field: sys_perm
+    x-db-field: sys_perm_user
 
   sys_perm_group:
     type: string
@@ -121,21 +113,9 @@ properties:
     x-db-field: sys_perm_other
 
 description: |
-  Mail content filter rules allow administrators to define pattern-based filtering
-  for email messages. These rules can inspect and modify email headers and body
-  content based on configurable patterns and actions.
-  
-  ### Key Features
-  - Filter based on headers, body, MIME headers, or nested headers
-  - Various actions including reject, redirect, modify, or log
-  - Server-specific configuration
-  - Active/inactive toggle for each rule
-  
-  ### Access Control
-  - Only available to admin users
-  - Server assignment is fixed after creation
-  
+  Mail content filter rule (table `mail_content_filter`) — pattern-based
+  header/body filtering applied by Postfix on the selected mail server.
+
   ### Usage Notes
   - Use with caution as incorrect rules may affect email delivery
-  - Test rules in a non-production environment first
-  - Order of rules may affect processing behavior
+  - Server assignment is fixed after creation

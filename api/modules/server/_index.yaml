@@ -1,25 +1,27 @@
 # Server module API paths
+# Note: the root document (api/openapi.yaml) references the path files below
+# directly via JSON pointers; this index documents the module's files.
 
-# Server management
+# Server management (table: server)
 servers:
   $ref: './servers.yaml'
 
-# Server configuration
+# Server configuration (server.config INI blob; GET + per-section PUT only)
 configs:
   $ref: './server-config.yaml'
 
-# Firewall management
+# Firewall management (table: firewall; one record per server)
 firewall:
   $ref: './firewall.yaml'
 
-# PHP Versions management
+# PHP Versions management (table: server_php)
 php-versions:
   $ref: './php-versions.yaml'
 
-# IP Addresses management
+# IP Addresses management (table: server_ip)
 ip-addresses:
   $ref: './ip-addresses.yaml'
 
-# IP Mappings management
+# IP Mappings management (table: server_ip_map)
 ip-mappings:
   $ref: './ip-mappings.yaml'

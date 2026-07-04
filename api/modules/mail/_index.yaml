@@ -48,9 +48,9 @@ relay-recipients:
 transports:
   $ref: './transports.yaml'
 
-# Include mail get configurations
-get:
-  $ref: './get.yaml'
+# Include fetchmail configurations (table mail_get)
+fetchmail:
+  $ref: './fetchmail.yaml'
 
 # Include mail user filter paths
 user-filters:

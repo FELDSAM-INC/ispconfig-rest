@@ -5,33 +5,18 @@
       - DNS Records
     summary: List all DNS resource records
     description: |
-      Returns a paginated list of DNS resource records.
-      The results can be filtered, sorted, and paginated.
-      
+      Returns a paginated list of DNS resource records. Every record includes
+      a computed `meta` object with its type-specific fields decomposed from
+      the stored `aux`/`data` values.
+
       ### Filtering
-      You can filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `type[eq]=A&zone[eq]=1`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=name` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+      Results can be filtered with the declared query parameters (plain
+      equality). The `name` filter additionally supports `*` as a wildcard
+      (e.g. `name=www*`); the `data` filter matches substrings.
+
+      ### Sorting & Pagination
+      Use the shared `sort`, `order` (asc/desc, default asc), `limit`
+      (default 25, max 100) and `offset` parameters.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -44,21 +29,27 @@
           type: integer
       - name: type
         in: query
-        description: Filter by record type (A, AAAA, MX, CNAME, etc.)
+        description: |
+          Filter by record type (case-insensitive). SPF/DKIM/DMARC records
+          are stored as TXT rows, so filter with `type=TXT` to include them.
         schema:
           type: string
-          enum: [A, AAAA, MX, CNAME, TXT, NS, PTR, SOA, SRV, NAPTR, CAA, SSHFP, TLSA, DS, DNSKEY, SPF, DKIM, DMARC, ALIAS, HINFO, RP, LOC]
+          enum: [A, AAAA, ALIAS, CNAME, DNAME, CAA, DS, HINFO, LOC, MX, NAPTR, NS, PTR, RP, SRV, SSHFP, TXT, TLSA, DNSKEY]
       - name: name
         in: query
-        description: Filter by record name (supports wildcards with %)
+        description: Filter by record name (supports `*` as wildcard)
+        schema:
+          type: string
+      - name: data
+        in: query
+        description: Filter by record data (substring match)
         schema:
           type: string
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
         description: A list of DNS resource records
@@ -66,13 +57,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/DnsRecord.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -87,71 +81,42 @@
       - DNS Records
     summary: Create a new DNS resource record
     description: |
-      Creates a new DNS resource record with the specified configuration.
-      
-      ### Record Types
-      The `type` field determines which additional fields are required:
-      
-      #### Common Fields (all record types)
+      Creates a new DNS resource record in an existing zone. The write is
+      journaled to `sys_datalog` and the parent zone's SOA serial is bumped
+      automatically (legacy parity). `server_id` is inherited from the zone.
+
+      ### Common fields (all record types)
       - `zone`: Zone ID (required)
-      - `name`: Record name (e.g., www, @, mail)
+      - `name`: Record name (required, e.g. `www`, `mail`)
+      - `type`: Record type (required)
       - `ttl`: Time to live in seconds (default: 3600)
-      - `active`: Whether the record is active (y/n, default: 'y')
-      
-      #### Type-Specific Fields
-      
-      ##### A (IPv4 Address)
-      - `data`: IPv4 address (required)
-      
-      ##### AAAA (IPv6 Address)
-      - `data`: IPv6 address (required)
-      
-      ##### CNAME (Canonical Name)
-      - `data`: Target hostname (required)
-      
-      ##### MX (Mail Exchange)
-      - `data`: Mail server hostname (required)
-      - `aux`: Priority (0-65535, required)
-      
-      ##### TXT (Text)
-      - `data`: Text content (required)
-      
-      ##### NS (Name Server)
-      - `data`: Nameserver hostname (required)
-      
-      ##### PTR (Pointer)
-      - `data`: Target hostname (required)
-      
-      ##### SRV (Service)
-      - `data`: Target hostname (required)
-      - `aux`: Priority (0-65535, required)
-      - `weight`: Relative weight for records with same priority (0-65535, required)
-      - `port`: Port number (0-65535, required)
-      
-      ##### CAA (Certification Authority Authorization)
-      - `data`: CAA property value (required)
-      - `aux`: CAA flags (0-255, required)
-      - `caa_type`: CAA tag (issue, issuewild, iodef, etc., required)
-      
-      ##### SSHFP (SSH Fingerprint)
-      - `data`: Fingerprint (required)
-      - `algorithm`: Algorithm number (required)
-      - `hash_type`: Hash type number (required)
-      
-      ##### TLSA (TLS Authentication)
-      - `data`: Certificate association data (required)
-      - `cert_usage`: Certificate usage (0-255, required)
-      - `selector`: Selector type (0-255, required)
-      - `matching_type`: Matching type (0-255, required)
-      
-      ##### DS (Delegation Signer)
-      - `data`: Digest (required)
-      - `key_tag`: Key tag (0-65535, required)
-      - `algorithm`: Algorithm number (required)
-      - `digest_type`: Digest type number (required)
-      
-      ##### Other Types
-      For other record types, use the `data` field with the appropriate value.
+      - `active`: Whether the record is active (y/n, default: `y`)
+
+      ### Type-specific fields
+      Simple types take the wire value in `data`; structured types take
+      human-friendly meta fields at the top level of the request — the server
+      composes the stored `aux` and `data` (quoting, trailing dots, SPF/DMARC
+      text assembly). See the DnsRecord schema for per-field details.
+
+      | Type | Fields |
+      |------|--------|
+      | A | `data` (IPv4 address) |
+      | AAAA | `data` (IPv6 address) |
+      | CNAME, NS, PTR, ALIAS, DNAME | `data` (target hostname) |
+      | TXT, DKIM, LOC, RP, DNSKEY | `data` (raw record text) |
+      | MX | `priority`, `hostname` |
+      | SRV | `priority`, `weight`, `port`, `hostname` |
+      | TLSA | `cert_usage`, `selector`, `matching_type`, `hash` |
+      | SSHFP | `algorithm`, `hash_type`, `hash` |
+      | CAA | `caa_flag`, `caa_type`, `ca_issuer` (issue/issuewild) or `additional` (iodef) |
+      | HINFO | `cpu`, `os` |
+      | SPF | `allow_mx`, `allow_a`, `ipv4_address`, `ipv6_address`, `hostname`, `include`, `policy` |
+      | DMARC | `policy`, `pct`, `rua`, `ruf`, `sp`, `adkim`, `aspf` |
+      | NAPTR | `order`, `pref`, `naptr_flag`, `service`, `regexp`, `replacement` |
+      | DS | `key_tag`, `algorithm`, `digest_type`, `digest` |
+
+      SPF, DKIM and DMARC records are stored as `TXT` rows (legacy parity);
+      reads classify them back via the computed `meta` object.
     requestBody:
       required: true
       content:
@@ -171,8 +136,6 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -183,7 +146,9 @@
     tags:
       - DNS Records
     summary: Get DNS record by ID
-    description: Returns a single DNS record by its ID
+    description: |
+      Returns a single DNS record by its ID, including the computed `meta`
+      object with the type-specific fields decomposed from `aux`/`data`.
     parameters:
       - name: id
         in: path
@@ -213,12 +178,14 @@
       - DNS Records
     summary: Update DNS record
     description: |
-      Updates an existing DNS record configuration.
-      
+      Updates an existing DNS record. The record's `stamp` and `serial` are
+      refreshed and the parent zone's SOA serial is bumped automatically
+      (legacy parity).
+
       ### Partial Updates
       Only include the fields you want to update. Omitted fields will remain unchanged.
-      
-      See the POST endpoint for field requirements based on record type.
+
+      See the POST endpoint for the type-specific fields.
     parameters:
       - name: id
         in: path
@@ -248,8 +215,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -259,7 +224,9 @@
     tags:
       - DNS Records
     summary: Delete DNS record
-    description: Deletes a DNS record by ID
+    description: |
+      Deletes a DNS record by ID (journaled to `sys_datalog`). The parent
+      zone's SOA serial is bumped automatically (legacy parity).
     parameters:
       - name: id
         in: path
@@ -271,10 +238,6 @@
     responses:
       '204':
         description: DNS record deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Record cannot be deleted because it's in use
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

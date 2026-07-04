@@ -1,4 +1,4 @@
-# Mail Domain endpoints
+# Mail Domain endpoints (table mail_domain)
 /mail/domains:
   get:
     tags:
@@ -6,32 +6,10 @@
     summary: List all mail domains
     description: |
       Returns a paginated list of mail domains.
-      The results can be filtered, sorted, and paginated.
-      
-      ### Filtering
-      You can filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `domain[ilike]=%example%&active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=domain` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+
+      Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
+      The documented query parameters filter by exact match; `domain`
+      supports `*` as a wildcard.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -39,27 +17,24 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: domain
         in: query
-        description: Filter by domain name (supports wildcards with %)
+        description: Filter by domain name (use * as wildcard)
         schema:
           type: string
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
       - name: local_delivery
         in: query
-        description: Filter by local delivery status (y/n)
+        description: Filter by local delivery status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
       - name: dkim
         in: query
-        description: Filter by DKIM status (y/n)
+        description: Filter by DKIM status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
     responses:
       '200':
         description: A list of mail domains
@@ -67,13 +42,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/MailDomain.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -89,13 +67,14 @@
     summary: Create a new mail domain
     description: |
       Creates a new mail domain configuration.
-      
+
       ### Validation Rules
-      - Domain name must be valid and not already in use
-      - If DKIM is enabled, a valid private key must be provided
-      - If relay_host is set, both relay_user and relay_pass are required
-      - User must have permission to create mail domains
-      - User must be within their allowed limits for mail domains
+      - Domain name must be valid and not already in use (application-level
+        uniqueness check, mirroring the legacy UNIQUE validator)
+      - If DKIM is enabled, a valid private key must be provided; the public
+        key is derived server-side
+      - If relay_host is set, relay_user is required; if relay_user is set,
+        relay_pass is required
     requestBody:
       required: true
       content:
@@ -111,18 +90,10 @@
               $ref: '../../components/schemas/MailDomain.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
-        description: |
-          Bad Request. Possible reasons:
-          - Invalid domain format
-          - Domain already exists
-          - Missing required fields for DKIM or relay configuration
-          - Invalid DKIM private key
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -164,12 +135,14 @@
     summary: Update mail domain
     description: |
       Updates an existing mail domain configuration.
-      
+
       ### Notes
-      - Domain name cannot be changed after creation
-      - When updating DKIM settings, both private and public keys must be provided
-      - To disable DKIM, set `dkim: n`
-      - To update relay settings, provide all relay-related fields
+      - Domain name cannot be changed after creation (legacy parity; legacy
+        restricts renames to admins and cascades them — the API disallows
+        renames instead)
+      - To enable DKIM, set `dkim: true` and provide `dkim_private`; the
+        public key is derived server-side
+      - To disable DKIM, set `dkim: false`
     parameters:
       - name: id
         in: path
@@ -199,8 +172,6 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
-      '409':
-        $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
@@ -212,11 +183,14 @@
     summary: Delete mail domain
     description: |
       Deletes a mail domain by ID.
-      
-      ### Notes
-      - This will remove the mail domain configuration but not the actual domain
-      - Any associated mailboxes, aliases, and forwarders will also be deleted
-      - This action cannot be undone
+
+      ### Cascade (legacy parity)
+      Deleting a mail domain also deletes its dependent records — mailboxes
+      (`mail_user`), forwards/aliases/catchalls and alias domains
+      (`mail_forwarding`), fetchmail entries (`mail_get`) and spamfilter
+      users with their white/blacklist entries (`spamfilter_users`,
+      `spamfilter_wblist`) — mirroring legacy `mail_domain_del.php`.
+      This action cannot be undone.
     parameters:
       - name: id
         in: path
@@ -228,11 +202,6 @@
     responses:
       '204':
         description: Mail domain deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Mail domain is currently in use
-          - Insufficient permissions
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

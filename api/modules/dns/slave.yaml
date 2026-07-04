@@ -5,33 +5,16 @@
       - DNS Slave Zones
     summary: List all DNS slave zones
     description: |
-      Returns a paginated list of DNS slave zones.
-      The results can be filtered, sorted, and paginated.
-      
+      Returns a paginated list of DNS slave (secondary) zones.
+
       ### Filtering
-      You can filter results using query parameters in the format `field[op]=value`.
-      
-      Supported operators:
-      - `eq` - Equal to
-      - `neq` - Not equal to
-      - `gt` - Greater than
-      - `gte` - Greater than or equal to
-      - `lt` - Less than
-      - `lte` - Less than or equal to
-      - `like` - Case-sensitive pattern matching (use % as wildcard)
-      - `ilike` - Case-insensitive pattern matching (use % as wildcard)
-      - `in` - Value is in a comma-separated list
-      
-      Example: `origin[ilike]=%example%&active[eq]=y`
-      
-      ### Sorting
-      Sort results using the `sort` parameter. Prefix with `-` for descending order.
-      
-      Example: `sort=origin` or `sort=-created_at`
-      
-      ### Pagination
-      - `page` - Page number (default: 1)
-      - `per_page` - Items per page (default: 20, max: 100)
+      Results can be filtered with the declared query parameters (plain
+      equality). The `origin` filter additionally supports `*` as a wildcard
+      (e.g. `origin=exa*`).
+
+      ### Sorting & Pagination
+      Use the shared `sort`, `order` (asc/desc, default asc), `limit`
+      (default 25, max 100) and `offset` parameters.
     parameters:
       - $ref: '../../components/parameters/limit.yaml'
       - $ref: '../../components/parameters/offset.yaml'
@@ -39,15 +22,14 @@
       - $ref: '../../components/parameters/order.yaml'
       - name: origin
         in: query
-        description: Filter by zone origin (supports wildcards with %)
+        description: Filter by zone origin (supports `*` as wildcard)
         schema:
           type: string
       - name: active
         in: query
-        description: Filter by active status (y/n)
+        description: Filter by active status
         schema:
-          type: string
-          enum: [y, n]
+          type: boolean
       - name: server_id
         in: query
         description: Filter by server ID
@@ -60,13 +42,18 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/DnsSlave.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -78,7 +65,10 @@
     tags:
       - DNS Slave Zones
     summary: Create a new DNS slave zone
-    description: Creates a new DNS slave zone with the specified configuration
+    description: |
+      Creates a new DNS slave (secondary) zone that is transferred from an
+      external master server. The write is journaled to `sys_datalog`.
+      The combination of `origin` and `server_id` must be unique.
     requestBody:
       required: true
       content:
@@ -141,7 +131,7 @@
     summary: Update DNS slave zone
     description: |
       Updates an existing DNS slave zone configuration.
-      
+
       ### Partial Updates
       Only include the fields you want to update. Omitted fields will remain unchanged.
     parameters:
@@ -184,7 +174,7 @@
     tags:
       - DNS Slave Zones
     summary: Delete DNS slave zone
-    description: Deletes a DNS slave zone by ID
+    description: Deletes a DNS slave zone by ID (journaled to `sys_datalog`)
     parameters:
       - name: id
         in: path
@@ -196,10 +186,6 @@
     responses:
       '204':
         description: DNS slave zone deleted successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Slave zone cannot be deleted because it's in use
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

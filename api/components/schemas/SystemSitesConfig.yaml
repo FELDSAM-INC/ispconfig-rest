@@ -1,5 +1,10 @@
+# [sites] section of the global system configuration (sys_ini INI blob).
+# Field set verified against legacy source_code/interface/web/admin/form/system_config.tform.php.
+# This schema is a deliberate subset of the legacy key set (e.g. webdavuser_prefix,
+# phpmyadmin_url, webftp_url, client_protection, vhost_subdomains are not exposed).
+# Unexposed legacy keys are preserved untouched by PUT (read-merge-write).
 type: object
-description: System configuration for sites in ISPConfig
+description: Sites-related global system configuration (the `[sites]` section of the `sys_ini` blob)
 properties:
   dbname_prefix:
     type: string
@@ -43,7 +48,9 @@ properties:
     items:
       type: string
       enum: [no, fast-cgi, cgi, mod, suphp, php-fpm, hhvm]
-    description: Available PHP processing methods
+    description: >
+      Available PHP processing methods (must not be empty).
+      Stored in the INI blob as a comma-separated string.
     example: ["fast-cgi", "php-fpm"]
   ssh_authentication:
     type: string

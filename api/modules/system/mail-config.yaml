@@ -1,10 +1,14 @@
+# [mail] section of the global system configuration — GET/PUT only
+# (singleton section of the sys_ini blob; no create, delete or list).
 /system/config/mail:
   get:
     tags: [System]
     summary: Get mail configuration
-    description: Retrieve the mail-related system configuration
-    security:
-      - basicAuth: []
+    description: |
+      Retrieve the `[mail]` section of the global system configuration,
+      parsed from the INI-formatted `config` blob of the `sys_ini` singleton
+      (row `sysini_id = 1`). Keys absent from the blob are returned with
+      their ISPConfig defaults.
     responses:
       '200':
         description: Mail configuration retrieved successfully
@@ -20,9 +24,22 @@
   put:
     tags: [System]
     summary: Update mail configuration
-    description: Update the mail-related system configuration
-    security:
-      - basicAuth: []
+    description: |
+      Partially update the `[mail]` section of the global system configuration.
+
+      Update semantics — read-merge-write on the `sys_ini` INI blob:
+      - The current blob (singleton row `sysini_id = 1`) is read, the submitted
+        keys are merged into the `[mail]` section, and the whole blob is
+        re-serialized and written back in one operation.
+      - Keys absent from the request are left unchanged (absent key =
+        "leave unchanged", not "unset").
+      - All other sections and all legacy `[mail]` keys not exposed by this
+        schema (e.g. the `smtp_*` block) are preserved untouched.
+      - The write is persisted through a single `sys_datalog` update entry
+        (`dbtable=sys_ini`, `action=u`) per ISPConfig's change-management
+        system — never a direct, unjournaled table write.
+
+      Returns the updated section.
     requestBody:
       required: true
       content:
@@ -35,19 +52,14 @@
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                success:
-                  type: boolean
-                  example: true
-                message:
-                  type: string
-                  example: "Mail configuration updated successfully"
+              $ref: '../../components/schemas/SystemMailConfig.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'

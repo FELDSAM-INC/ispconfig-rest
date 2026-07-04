@@ -1,5 +1,6 @@
 ---
-# Mail User Spam Filter API Endpoints
+# Mail User Spam Filter endpoints (singleton sub-resource of a mailbox;
+# view over the move_junk / purge_* / custom_mailfilter columns of mail_user)
 
 /mail/users/{id}/spamfilter:
   get:
@@ -23,8 +24,6 @@
           application/json:
             schema:
               $ref: '../../components/schemas/MailUserSpamFilter.yaml'
-      '400':
-        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -33,14 +32,14 @@
         $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []
 
   put:
     tags:
       - Mail Users
     summary: Update spam filter settings for a mail user
-    description: Update the spam filter settings for a specific mail user
+    description: |
+      Update the spam filter settings for a specific mail user
+      (datalog update on the `mail_user` row).
     operationId: updateMailUserSpamFilter
     parameters:
       - name: id
@@ -71,7 +70,7 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
-    security:
-      - basicAuth: []

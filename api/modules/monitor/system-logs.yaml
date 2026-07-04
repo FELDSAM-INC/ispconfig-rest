@@ -1,20 +1,35 @@
-# System Logs API
+# System Logs endpoints (read-only sys_log — GET only, no write operations)
+
 /monitor/system-logs:
   get:
     tags:
       - Monitor
     summary: List system logs
     description: |
-      Retrieves a list of system log entries.
+      Retrieves a list of system log entries (`sys_log`) — the per-server
+      processing log ISPConfig's daemons write while applying datalog changes.
+      Each entry's `datalog_id` links it to the corresponding
+      `/monitor/data-logs` journal entry.
 
-      You can filter logs by server, log level, and date range.
-    security:
-      - basicAuth: []
+      You can filter entries by server, log level, and date range.
+      Default ordering is newest first (`sort=tstamp`, `order=desc`).
     parameters:
       - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/limit.yaml'
-      - $ref: '../../components/parameters/order.yaml'
-      - $ref: '../../components/parameters/sort.yaml'
+      - name: sort
+        in: query
+        description: Field name to sort by (defaults to `tstamp` for newest-first ordering)
+        schema:
+          type: string
+          enum: [id, server_id, datalog_id, loglevel, tstamp]
+          default: tstamp
+      - name: order
+        in: query
+        description: Sort order (defaults to `desc` — newest entries first)
+        schema:
+          type: string
+          enum: [asc, desc]
+          default: desc
       - name: server_id
         in: query
         description: Filter by server ID
@@ -23,19 +38,20 @@
           format: int64
       - name: loglevel
         in: query
-        description: Filter by log level (0=info, 1=warning, 2=error, etc.)
+        description: "Filter by log level: 0=Debug, 1=Warning, 2=Error (legacy ISPConfig mapping)"
         schema:
           type: integer
           format: int32
+          enum: [0, 1, 2]
       - name: start_date
         in: query
-        description: Filter by start date (UNIX timestamp)
+        description: Only entries with `tstamp` >= this UNIX timestamp (inclusive)
         schema:
           type: integer
           format: int64
       - name: end_date
         in: query
-        description: Filter by end date (UNIX timestamp)
+        description: Only entries with `tstamp` <= this UNIX timestamp (inclusive)
         schema:
           type: integer
           format: int64
@@ -46,13 +62,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/SystemLog.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':

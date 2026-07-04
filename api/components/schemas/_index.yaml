@@ -8,9 +8,6 @@ Database:
 DatabaseUser:
   $ref: './DatabaseUser.yaml'
 
-Error:
-  $ref: './Error.yaml'
-
 FtpUser:
   $ref: './FtpUser.yaml'
 
@@ -137,6 +134,12 @@ ServerFirewall:
 ServerConfig:
   $ref: './ServerConfig.yaml'
 
+ServerServerConfig:
+  $ref: './ServerServerConfig.yaml'
+
+ServerGetmailConfig:
+  $ref: './ServerGetmailConfig.yaml'
+
 ServerMailConfig:
   $ref: './ServerMailConfig.yaml'
 
@@ -155,9 +158,6 @@ ServerXmppConfig:
 ServerJailkitConfig:
   $ref: './ServerJailkitConfig.yaml'
 
-ServerUfwConfig:
-  $ref: './ServerUfwConfig.yaml'
-
 ServerVloggerConfig:
   $ref: './ServerVloggerConfig.yaml'
 
@@ -167,14 +167,14 @@ ServerCronConfig:
 ServerRescueConfig:
   $ref: './ServerRescueConfig.yaml'
 
-Pagination:
-  $ref: './Pagination.yaml'
-
 DirectiveSnippet:
   $ref: './DirectiveSnippet.yaml'
 
 ResyncRequest:
   $ref: './ResyncRequest.yaml'
+
+ResyncResult:
+  $ref: './ResyncResult.yaml'
 
 DataLog:
   $ref: './DataLog.yaml'
@@ -184,3 +184,34 @@ SystemLog:
 
 ServerStatus:
   $ref: './ServerStatus.yaml'
+
+DnsCaConfig:
+  $ref: './DnsCaConfig.yaml'
+
+SystemConfig:
+  $ref: './SystemConfig.yaml'
+
+SystemDnsConfig:
+  $ref: './SystemDnsConfig.yaml'
+
+SystemDomainsConfig:
+  $ref: './SystemDomainsConfig.yaml'
+
+SystemMailConfig:
+  $ref: './SystemMailConfig.yaml'
+
+SystemMiscConfig:
+  $ref: './SystemMiscConfig.yaml'
+
+SystemSitesConfig:
+  $ref: './SystemSitesConfig.yaml'
+
+# Canonical envelope/error schemas (Constitution v2.0.0, Principle V)
+Meta:
+  $ref: './Meta.yaml'
+
+Problem:
+  $ref: './Problem.yaml'
+
+ValidationProblem:
+  $ref: './ValidationProblem.yaml'

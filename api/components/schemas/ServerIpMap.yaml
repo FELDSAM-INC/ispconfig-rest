@@ -1,24 +1,28 @@
-# Server IP Mapping Schema
+# Server IP Mapping Schema (NAT source -> destination rewrite rule)
+# Mirrors the `server_ip_map` table (source_code/install/sql/ispconfig3.sql).
 type: object
 x-db-table: server_ip_map
+required:
+  - source_ip
+  - destination_ip
 properties:
-  server_ip_map_id:
+  id:
     type: integer
-    format: int32
+    format: int64
     description: Unique identifier for the IP mapping
     readOnly: true
     example: 1
     x-db-field: server_ip_map_id
   sys_userid:
     type: integer
-    format: int32
+    format: int64
     description: System user ID who created the record
     readOnly: true
     example: 1
     x-db-field: sys_userid
   sys_groupid:
     type: integer
-    format: int32
+    format: int64
     description: System group ID
     readOnly: true
     example: 1
@@ -27,46 +31,56 @@ properties:
     type: string
     maxLength: 5
     description: User permissions (r = read, i = insert, u = update, d = delete)
+    default: "riud"
     example: "riud"
     x-db-field: sys_perm_user
   sys_perm_group:
     type: string
     maxLength: 5
     description: Group permissions (r = read, i = insert, u = update, d = delete)
+    default: "riud"
     example: "riud"
     x-db-field: sys_perm_group
   sys_perm_other:
     type: string
     maxLength: 5
     description: Other permissions (r = read, i = insert, u = update, d = delete)
+    default: ""
     example: ""
     x-db-field: sys_perm_other
   server_id:
     type: integer
-    format: int32
-    description: ID of the server this IP mapping is associated with
+    format: int64
+    description: >-
+      ID of the server this IP mapping belongs to. Read-only in the API: it is
+      always taken from the URL path (/servers/{id}/ip-mappings).
+    readOnly: true
     example: 1
     x-db-field: server_id
   source_ip:
     type: string
-    format: ipv4
-    description: Source IP address to be mapped
+    maxLength: 15
+    description: >-
+      Source (internal) IPv4 address to be rewritten. Required, non-empty
+      (legacy NOTEMPTY). The legacy UI offers only the server's registered
+      server_ip addresses, but the server side enforces only non-emptiness;
+      the column is IPv4-sized (varchar(15)).
     example: "192.168.1.1"
     x-db-field: source_ip
   destination_ip:
     type: string
     format: ipv4
-    description: Destination IP address to map to
-    example: "10.0.0.1"
+    maxLength: 35
+    description: >-
+      Destination (public) IP address to map to. Required and must be a valid
+      IPv4 address (legacy ISIPV4 + NOTEMPTY validators — IPv6 destinations
+      are rejected with 422).
+    example: "203.0.113.9"
     x-db-field: destination_ip
   active:
-    type: string
-    enum: ["y", "n"]
+    type: boolean
     description: Whether this IP mapping is active
-    default: "y"
-    example: "y"
+    default: true
+    example: true
     x-db-field: active
-required:
-  - server_id
-  - source_ip
-  - destination_ip
+    x-db-format: "y/n"

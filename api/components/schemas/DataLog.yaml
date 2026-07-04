@@ -1,66 +1,99 @@
 # DataLog Schema
-# Represents a data log entry in the system
+# One journaled change in ISPConfig's sys_datalog table — the write-ahead journal
+# that the server daemons process asynchronously (Constitution Principle II).
+# Read-only: the API never creates or modifies journal entries.
 
 type: object
 x-db-table: sys_datalog
 properties:
-  datalog_id:
+  id:
     type: integer
     format: int64
-    description: Unique identifier for the data log entry
+    readOnly: true
+    description: Unique identifier of the journal entry (primary key)
     x-db-field: datalog_id
     example: 12345
   server_id:
     type: integer
     format: int64
-    description: ID of the server this log entry belongs to
+    description: ID of the server that must process this entry (0 = not tied to a specific server)
     x-db-field: server_id
     example: 1
   dbtable:
     type: string
-    description: Database table that was modified
+    description: Name of the database table the change applies to
     x-db-field: dbtable
     example: "web_domain"
   dbidx:
     type: string
-    description: Database index/ID of the modified record
+    description: |
+      Primary key of the changed record in `<primary_key_column>:<value>` format,
+      as written by the datalog journal.
     x-db-field: dbidx
-    example: "42"
+    example: "domain_id:42"
   action:
     type: string
-    enum: ["I", "U", "D"]
-    description: Action performed - I (Insert), U (Update), D (Delete)
+    enum: [i, u, d]
+    description: |
+      Action performed, stored lowercase in the database:
+      `i` = insert, `u` = update, `d` = delete.
     x-db-field: action
-    example: "U"
+    example: "u"
   tstamp:
     type: integer
     format: int64
-    description: Unix timestamp when the action was performed
+    description: UNIX timestamp when the change was journaled
     x-db-field: tstamp
     example: 1622505600
   user:
     type: string
-    description: Username of the user who performed the action
+    description: Username that performed the change
     x-db-field: user
     example: "admin"
   data:
-    type: string
-    description: Serialized data containing the changes
+    type: object
+    nullable: true
+    description: |
+      The recorded change payload, deserialized from the PHP-serialized
+      `sys_datalog.data` blob. For entries written by this API and by ISPConfig
+      it is a diff record with `new` and/or `old` field maps. `null` when the
+      entry carries no payload. Corrupt legacy blobs that cannot be deserialized
+      are returned verbatim as a raw string instead of an object.
+    properties:
+      new:
+        type: object
+        additionalProperties: true
+        description: Field values after the change (present for inserts and updates)
+      old:
+        type: object
+        additionalProperties: true
+        description: Field values before the change (present for updates and deletes)
     x-db-field: data
-    example: "{\"field\":\"value\"}"
+    example:
+      new:
+        domain: "example.com"
+        active: "y"
+      old:
+        domain: "example.com"
+        active: "n"
   status:
     type: string
-    enum: ["pending", "ok", "warning", "error"]
-    description: Status of the data log entry
+    enum: [pending, ok, warning, error]
+    description: |
+      Entry status (MySQL SET column, default `ok`). Note that "processed vs
+      pending" is NOT tracked here — ISPConfig tracks processing progress via the
+      per-server `server.updated` datalog-ID watermark (see the `unprocessed_only`
+      list filter).
     x-db-field: status
     example: "ok"
   error:
     type: string
-    description: Error message if status is error
+    nullable: true
+    description: Error message recorded by the processing daemon, if any
     x-db-field: error
-    example: "Connection failed"
+    example: null
   session_id:
     type: string
-    description: Session ID of the user who performed the action
+    description: Interface session ID under which the change was made (empty for API writes)
     x-db-field: session_id
     example: "abc123def456"

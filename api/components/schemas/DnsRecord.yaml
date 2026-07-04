@@ -1,38 +1,45 @@
 type: object
 x-db-table: dns_rr
+description: |
+  A DNS resource record inside a zone. Maps 1:1 to ISPConfig's `dns_rr` table
+  (`id`, `zone`, `name`, `type`, `data`, `aux`, `ttl`, `active`, `stamp`,
+  `serial` plus the `sys_*` system fields).
+
+  ### Type-specific fields
+  The wire format of a record is stored in `type` + `aux` + `data`. For
+  structured record types the API accepts human-friendly meta fields at the
+  top level of the request instead of a hand-assembled `data` string; the
+  server composes `aux`/`data` from them (quoting, trailing dots, `v=spf1` /
+  `v=DMARC1` text assembly). Every read response additionally contains a
+  computed read-only `meta` object with the same fields decomposed from
+  `aux`/`data`.
+
+  | Type | Request fields |
+  |------|----------------|
+  | A | `data` (IPv4 address) |
+  | AAAA | `data` (IPv6 address) |
+  | CNAME, NS, PTR, ALIAS, DNAME | `data` (target hostname) |
+  | TXT, DKIM, LOC, RP, DNSKEY | `data` (raw record text) |
+  | MX | `priority`, `hostname` |
+  | SRV | `priority`, `weight`, `port`, `hostname` |
+  | TLSA | `cert_usage`, `selector`, `matching_type`, `hash` |
+  | SSHFP | `algorithm`, `hash_type`, `hash` |
+  | CAA | `caa_flag`, `caa_type`, `ca_issuer` (issue/issuewild) or `additional` (iodef) |
+  | HINFO | `cpu`, `os` |
+  | SPF | `allow_mx`, `allow_a`, `ipv4_address`, `ipv6_address`, `hostname`, `include`, `policy` |
+  | DMARC | `policy`, `pct`, `rua`, `ruf`, `sp`, `adkim`, `aspf` |
+  | NAPTR | `order`, `pref`, `naptr_flag`, `service`, `regexp`, `replacement` |
+  | DS | `key_tag`, `algorithm`, `digest_type`, `digest` |
 required:
   - zone
   - type
   - name
 
-discriminator:
-  propertyName: type
-  mapping:
-    A: '#/components/schemas/DnsRecordA'
-    AAAA: '#/components/schemas/DnsRecordAAAA'
-    CNAME: '#/components/schemas/DnsRecordCNAME'
-    MX: '#/components/schemas/DnsRecordMX'
-    TXT: '#/components/schemas/DnsRecordTXT'
-    NS: '#/components/schemas/DnsRecordNS'
-    PTR: '#/components/schemas/DnsRecordPTR'
-    SRV: '#/components/schemas/DnsRecordSRV'
-    CAA: '#/components/schemas/DnsRecordCAA'
-    SSHFP: '#/components/schemas/DnsRecordSSHFP'
-    TLSA: '#/components/schemas/DnsRecordTLSA'
-    DS: '#/components/schemas/DnsRecordDS'
-    SPF: '#/components/schemas/DnsRecordSPF'
-    DMARC: '#/components/schemas/DnsRecordDMARC'
-    ALIAS: '#/components/schemas/DnsRecordALIAS'
-    HINFO: '#/components/schemas/DnsRecordHINFO'
-    RP: '#/components/schemas/DnsRecordRP'
-    LOC: '#/components/schemas/DnsRecordLOC'
-    NAPTR: '#/components/schemas/DnsRecordNAPTR'
-
 properties:
   # System Fields
   id:
     type: integer
-    format: int32
+    format: int64
     x-db-field: id
     minimum: 1
     readOnly: true
@@ -44,14 +51,14 @@ properties:
     format: int32
     minimum: 1
     readOnly: true
-    description: ID of the system user who created this record
+    description: ID of the system user who created this record (derived from the API key)
     example: 1
 
   sys_groupid:
     type: integer
     format: int32
     minimum: 1
-    description: System group ID that owns this record
+    description: System group ID that owns this record (defaults to the parent zone's group when omitted)
     example: 10
 
   sys_perm_user:
@@ -83,15 +90,18 @@ properties:
     type: integer
     format: int32
     minimum: 1
-    description: ID of the DNS server where this record is hosted
+    readOnly: true
+    description: |
+      ID of the DNS server where this record is hosted.
+      Server-managed: always inherited from the parent zone (legacy parity).
     x-db-field: server_id
     example: 1
 
   zone:
     type: integer
-    format: int32
+    format: int64
     minimum: 1
-    description: ID of the zone this record belongs to
+    description: ID of the zone (`dns_soa.id`) this record belongs to
     x-db-field: zone
     example: 1
 
@@ -99,121 +109,145 @@ properties:
     type: string
     maxLength: 255
     description: |
-      The name of the record (e.g., www, @, mail).
-      Use @ for the zone apex.
+      The name of the record (e.g., www, mail).
     x-db-field: name
     example: "www"
 
   type:
     type: string
-    enum: [A, AAAA, MX, CNAME, TXT, NS, PTR, SRV, NAPTR, CAA, SSHFP, TLSA, DS, DNSKEY, SPF, DMARC, ALIAS, HINFO, RP, LOC]
+    enum: [A, AAAA, ALIAS, CNAME, DNAME, CAA, DS, HINFO, LOC, MX, NAPTR, NS, PTR, RP, SRV, SSHFP, TXT, TLSA, DNSKEY, SPF, DKIM, DMARC]
     description: |
-      The DNS record type.
-      Determines the format and validation of the data field.
+      The DNS record type. Determines which type-specific fields are accepted
+      (see the schema description).
+
+      The database enum (`dns_rr.type`) stores
+      `A, AAAA, ALIAS, CNAME, DNAME, CAA, DS, HINFO, LOC, MX, NAPTR, NS, PTR,
+      RP, SRV, SSHFP, TXT, TLSA, DNSKEY`. The friendly types `SPF`, `DKIM`
+      and `DMARC` are accepted by the API but are stored as `TXT` rows
+      (legacy ISPConfig parity — the server composes the TXT `data` and
+      persists `type=TXT`). Reads classify stored TXT data beginning with
+      `v=spf1` / `v=DMARC1` back as SPF / DMARC in the computed `meta`
+      object.
     x-db-field: type
     example: "A"
 
   data:
     type: string
+    maxLength: 65535
     description: |
-      The record data. Format depends on the record type.
+      The record data in wire format. For structured types this is composed
+      by the server from the type-specific meta fields; for simple types it
+      is supplied directly:
       - A: IPv4 address (e.g., 192.0.2.1)
       - AAAA: IPv6 address (e.g., 2001:db8::1)
-      - CNAME: Target hostname (e.g., example.com.)
-      - MX: Mail server hostname (e.g., mail.example.com.)
-      - TXT: Text content (e.g., "v=spf1 -all")
-      - NS: Nameserver hostname (e.g., ns1.example.com.)
-      - PTR: Target hostname (e.g., example.com.)
-      - SRV: Target hostname (e.g., example.com.)
-      - CAA: Property value (e.g., "0 issue \"letsencrypt.org"")
-      - SSHFP: Fingerprint (e.g., "2 1 1234567890abcdef...")
-      - TLSA: Certificate association data (hex encoded)
-      - DS: Digest (hex encoded)
-      - SPF: SPF record data (e.g., "v=spf1 -all")
-      - DMARC: DMARC policy (e.g., "v=DMARC1; p=none; rua=mailto:dmarc@example.com")
-      - ALIAS: Target hostname (e.g., example.com.)
-      - HINFO: Hardware and OS info (e.g., "PC-Intel-386\" "OS/2")
-      - RP: Responsible person (e.g., "hostmaster.example.com. example.com.")
-      - LOC: Location data (e.g., "51 30 12.748 N 0 7 39.612 W 0.00m 0.00m 0.00m 0.00m")
-      - NAPTR: NAPTR data (e.g., "100 10 "u" "sip+E2U" "!^.*$!sip:info@example.com!" .")
+      - CNAME/NS/PTR/ALIAS/DNAME: target hostname (e.g., example.com.)
+      - TXT/DKIM: text content (e.g., "v=DKIM1; k=rsa; p=...")
+      - LOC: location data (e.g., "51 30 12.748 N 0 7 39.612 W 0.00m")
+      - RP: responsible person (e.g., "hostmaster.example.com. example.com.")
+      - MX: mail server hostname (composed from `hostname`)
+      - SRV: "weight port target" (composed)
+      - CAA: flag tag "value" (composed)
+      - SSHFP: "algorithm hash_type hash" (composed)
+      - TLSA: "cert_usage selector matching_type hash" (composed)
+      - DS: "key_tag algorithm digest_type digest" (composed)
+      - HINFO: '"cpu" "os"' (composed)
+      - SPF: "v=spf1 ..." (composed, stored as TXT)
+      - DMARC: "v=DMARC1; ..." (composed, stored as TXT)
+      - NAPTR: 'pref "flags" "service" "regexp" replacement.' (composed; `aux` holds the order)
     x-db-field: data
     example: "192.0.2.1"
 
   aux:
     type: integer
     format: int32
+    minimum: 0
+    maximum: 4294967295
+    default: 0
     description: |
-      Auxiliary data whose meaning depends on the record type:
-      - MX: Priority (0-65535)
-      - SRV: Priority (0-65535)
-      - NAPTR: Order (0-65535)
+      Auxiliary numeric value whose meaning depends on the record type:
+      - MX: priority (composed from `priority`)
+      - SRV: priority (composed from `priority`)
+      - NAPTR: order (composed from `order`)
+      For all other types it is 0. When the corresponding meta field is sent,
+      the server derives this value from it.
     x-db-field: aux
     example: 10
 
   ttl:
     type: integer
-    format: int32
-    minimum: 0
+    format: int64
+    minimum: 60
+    maximum: 4294967295
     default: 3600
     description: Time to live in seconds
     x-db-field: ttl
     example: 3600
 
   active:
-    type: string
-    enum: [y, n]
-    default: 'y'
-    description: |
-      Whether the record is active.
-      - y: Record is active
-      - n: Record is inactive
+    type: boolean
+    default: true
+    description: Whether the record is active
     x-db-field: active
-    example: 'y'
+    x-db-format: "Y/N"
+    example: true
 
-  # Additional fields for specific record types
+  stamp:
+    type: string
+    format: date-time
+    readOnly: true
+    x-db-field: stamp
+    description: |
+      Timestamp of the last change to this record. Server-managed: refreshed
+      on every write (legacy parity).
+    example: "2026-07-04 12:00:00"
+
+  serial:
+    type: integer
+    format: int64
+    minimum: 1
+    maximum: 4294967295
+    nullable: true
+    readOnly: true
+    x-db-field: serial
+    description: |
+      Per-record serial in `YYYYMMDDnn` format. Server-managed: bumped on
+      every write, together with the parent zone's SOA serial (legacy
+      parity).
+    example: 2026070401
+
+  # Computed read-only representation of the type-specific fields
+  meta:
+    type: object
+    readOnly: true
+    additionalProperties: true
+    description: |
+      Computed object present on every read response: the type-specific
+      fields decomposed from the stored `aux`/`data` values (e.g.,
+      `{"priority": 10, "hostname": "mail.example.com."}` for an MX record).
+      Stored TXT rows whose data begins with `v=spf1` / `v=DMARC1` are
+      decomposed as SPF / DMARC.
+    example:
+      priority: 10
+      hostname: "mail.example.com."
+
+  # Type-specific request fields (write-only meta fields, not stored as columns)
   priority:
     type: integer
     format: int32
     minimum: 0
     maximum: 65535
     description: |
-      Priority for MX and SRV records
+      Priority (MX and SRV records). Stored in `aux`.
     example: 10
-
-  ipv4_address:
-    type: string
-    description: |
-      The IPv4 address for SPF records
-      Multiple addresses can be separated by spaces
-    example: "2001:db8::1"
-
-  ipv6_address:
-    type: string
-    description: |
-      The IPv6 address for SPF records
-      Multiple addresses can be separated by spaces
-    example: "2001:db8::1"
 
   hostname:
     type: string
+    maxLength: 255
     description: |
-      The hostname for MX, SRV, and SPF records
-      Multiple hostnames can be separated by spaces for SPF records
-    example: "example.com"
-
-  include:
-    type: string
-    description: |
-      The include for SPF records
-      Multiple includes can be separated by spaces
-    example: "example.com"
-
-  policy:
-    type: string
-    enum: [fail, softfail, neutral]
-    description: |
-      The policy for SPF records
-    example: "neutral"
+      Target hostname (MX and SRV records; also accepted for SPF `a:`/`mx:`
+      mechanisms, where multiple hostnames can be separated by spaces).
+      A trailing dot is appended by the server if missing.
+    example: "mail.example.com"
 
   weight:
     type: integer
@@ -221,7 +255,7 @@ properties:
     minimum: 0
     maximum: 65535
     description: |
-      Relative weight for records with same priority (SRV only)
+      Relative weight for records with the same priority (SRV records)
     example: 10
 
   port:
@@ -230,89 +264,241 @@ properties:
     minimum: 0
     maximum: 65535
     description: |
-      Port number (SRV only)
+      Port number (SRV records)
     example: 5060
-
-  caa_type:
-    type: string
-    enum: [issue, issuewild, iodef]
-    description: |
-      CAA tag (CAA only)
-    example: "issue"
-
-  caa_flag:
-    type: integer
-    format: int32
-    description: |
-      CAA flag (CAA only)
-    example: 0
-
-  naptr_flag:
-    type: string
-    maxLength: 1
-    enum: [U,S,A,P]
-    description: |
-      NAPTR flag (NAPTR only)
-    example: "U"
-
-  ca_issuer:
-    type: string
-    description: |
-      CAA issuer (CAA only)
-    example: "letsencrypt.org"
-
-  additional:
-    type: string
-    description: |
-      Additional CAA property value (CAA only when type is iodef)
-    example: "mailto:admin@example.com"
-
-  algorithm:
-    type: integer
-    format: int32
-    description: |
-      Algorithm number (SSHFP and DS only)
-    example: 2
-
-  hash_type:
-    type: integer
-    format: int32
-    description: |
-      Hash type number (SSHFP only)
-    example: 1
-
-  hash:
-    type: string
-    description: |
-      Hash (SSHFP and TLSA only)
-    example: "1234567890abcdef..."
 
   cert_usage:
     type: integer
     format: int32
     minimum: 0
-    maximum: 255
+    maximum: 3
     description: |
-      Certificate usage (TLSA only)
+      Certificate usage (TLSA records)
     example: 3
 
   selector:
     type: integer
     format: int32
     minimum: 0
-    maximum: 255
+    maximum: 1
     description: |
-      Selector type (TLSA only)
+      Selector type (TLSA records)
     example: 1
 
   matching_type:
     type: integer
     format: int32
     minimum: 0
+    maximum: 2
+    description: |
+      Matching type (TLSA records)
+    example: 1
+
+  hash:
+    type: string
+    maxLength: 255
+    description: |
+      Hash / certificate association data, hex encoded (SSHFP and TLSA records)
+    example: "1234567890abcdef..."
+
+  algorithm:
+    type: integer
+    format: int32
+    minimum: 0
     maximum: 255
     description: |
-      Matching type (TLSA only)
+      Algorithm number (SSHFP records: 0-4; DS records: 0-255)
+    example: 2
+
+  hash_type:
+    type: integer
+    format: int32
+    minimum: 0
+    maximum: 2
+    description: |
+      Hash type number (SSHFP records)
     example: 1
+
+  caa_flag:
+    type: integer
+    format: int32
+    minimum: 0
+    maximum: 255
+    description: |
+      CAA flags (CAA records)
+    example: 0
+
+  caa_type:
+    type: string
+    enum: [issue, issuewild, iodef]
+    description: |
+      CAA tag (CAA records)
+    example: "issue"
+
+  ca_issuer:
+    type: string
+    maxLength: 255
+    description: |
+      CA issuer domain (CAA records with `caa_type` issue/issuewild)
+    example: "letsencrypt.org"
+
+  additional:
+    type: string
+    maxLength: 255
+    description: |
+      CAA property value (CAA records with `caa_type` iodef)
+    example: "mailto:admin@example.com"
+
+  cpu:
+    type: string
+    maxLength: 255
+    description: |
+      CPU / hardware description (HINFO records). Quoted by the server in the
+      stored `data`.
+    example: "INTEL-386"
+
+  os:
+    type: string
+    maxLength: 255
+    description: |
+      Operating system description (HINFO records). Quoted by the server in
+      the stored `data`.
+    example: "LINUX"
+
+  allow_mx:
+    type: boolean
+    description: |
+      Include the zone's MX hosts (`mx` mechanism) in the SPF policy (SPF records)
+    example: true
+
+  allow_a:
+    type: boolean
+    description: |
+      Include the zone's A/AAAA hosts (`a` mechanism) in the SPF policy (SPF records)
+    example: true
+
+  ipv4_address:
+    type: string
+    description: |
+      IPv4 address(es) for the SPF `ip4:` mechanism (SPF records).
+      Multiple addresses can be separated by spaces; CIDR suffixes allowed.
+    example: "192.0.2.1 198.51.100.0/24"
+
+  ipv6_address:
+    type: string
+    description: |
+      IPv6 address(es) for the SPF `ip6:` mechanism (SPF records).
+      Multiple addresses can be separated by spaces; CIDR suffixes allowed.
+    example: "2001:db8::1"
+
+  include:
+    type: string
+    maxLength: 255
+    description: |
+      Domain(s) for the SPF `include:` mechanism (SPF records).
+      Multiple domains can be separated by spaces.
+    example: "_spf.example.com"
+
+  policy:
+    type: string
+    enum: [fail, softfail, neutral, none, quarantine, reject]
+    description: |
+      Policy:
+      - SPF records: `fail` (-all), `softfail` (~all) or `neutral` (?all)
+      - DMARC records: `none`, `quarantine` or `reject` (the `p=` tag)
+    example: "neutral"
+
+  pct:
+    type: integer
+    format: int32
+    minimum: 0
+    maximum: 100
+    description: |
+      Percentage of messages the DMARC policy applies to (`pct=` tag, DMARC records)
+    example: 100
+
+  rua:
+    type: string
+    maxLength: 255
+    description: |
+      Aggregate report address(es) (`rua=` tag, DMARC records)
+    example: "mailto:dmarc@example.com"
+
+  ruf:
+    type: string
+    maxLength: 255
+    description: |
+      Forensic report address(es) (`ruf=` tag, DMARC records)
+    example: "mailto:dmarc-forensic@example.com"
+
+  sp:
+    type: string
+    enum: [none, quarantine, reject]
+    description: |
+      Subdomain policy (`sp=` tag, DMARC records)
+    example: "none"
+
+  adkim:
+    type: string
+    enum: [r, s]
+    description: |
+      DKIM alignment mode, relaxed or strict (`adkim=` tag, DMARC records)
+    example: "r"
+
+  aspf:
+    type: string
+    enum: [r, s]
+    description: |
+      SPF alignment mode, relaxed or strict (`aspf=` tag, DMARC records)
+    example: "r"
+
+  order:
+    type: integer
+    format: int32
+    minimum: 0
+    maximum: 65535
+    description: |
+      Order (NAPTR records). Stored in `aux`.
+    example: 100
+
+  pref:
+    type: integer
+    format: int32
+    minimum: 0
+    maximum: 65535
+    description: |
+      Preference (NAPTR records). Composed into the stored `data`.
+    example: 10
+
+  naptr_flag:
+    type: string
+    maxLength: 1
+    enum: [U, S, A, P]
+    description: |
+      Flag (NAPTR records). Quoted by the server in the stored `data`.
+    example: "U"
+
+  service:
+    type: string
+    maxLength: 32
+    description: |
+      Service (NAPTR records). Quoted by the server in the stored `data`.
+    example: "E2U+sip"
+
+  regexp:
+    type: string
+    maxLength: 255
+    description: |
+      Substitution expression (NAPTR records). Quoted by the server in the
+      stored `data`. Required when `replacement` is absent.
+    example: "!^.*$!sip:info@example.com!"
+
+  replacement:
+    type: string
+    maxLength: 255
+    description: |
+      Replacement domain (NAPTR records). Required when `regexp` is absent.
+    example: "sip.example.com"
 
   key_tag:
     type: integer
@@ -320,33 +506,21 @@ properties:
     minimum: 0
     maximum: 65535
     description: |
-      Key tag (DS only)
+      Key tag (DS records)
     example: 12345
 
   digest_type:
     type: integer
     format: int32
+    minimum: 0
+    maximum: 255
     description: |
-      Digest type number (DS only)
-    example: 1
+      Digest type number (DS records)
+    example: 2
 
   digest:
     type: string
+    maxLength: 255
     description: |
-      Digest (DS only)
+      Digest, hex encoded (DS records)
     example: "1234567890abcdef..."
-
-  # Timestamps
-  created_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Timestamp when the record was created
-    example: "2023-01-01T12:00:00Z"
-
-  updated_at:
-    type: string
-    format: date-time
-    readOnly: true
-    description: Timestamp when the record was last updated
-    example: "2023-01-01T12:00:00Z"

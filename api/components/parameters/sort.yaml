@@ -1,5 +1,5 @@
 name: sort
 in: query
-description: Field to sort by
+description: Field name to sort by
 schema:
   type: string

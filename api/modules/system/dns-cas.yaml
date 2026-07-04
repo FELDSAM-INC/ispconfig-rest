@@ -1,13 +1,30 @@
-/system/config/dns-cas:
+# DNS Certification Authorities (CAA policy records) — CRUD over the
+# `dns_ssl_ca` table. These records store CAA *policy data* (which CA may
+# issue certificates), consumed by ISPConfig interface plugins to auto-create
+# CAA DNS records — they do NOT store certificate material.
+#
+# Datalog note: legacy ISPConfig maintains this table with direct SQL and no
+# sys_datalog journaling (nonstandard); the API implementation defines the
+# datalog behavior explicitly — writes are journaled through sys_datalog for
+# auditability (a harmless superset of legacy, since no server daemon
+# consumes these entries).
+/system/dns-cas:
   get:
     tags: [System]
     summary: List DNS CAs
-    description: Retrieve a list of DNS Certification Authorities
+    description: |
+      Retrieve a paginated list of DNS Certification Authorities
+      (CAA policy records from the `dns_ssl_ca` table).
     parameters:
-      - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/limit.yaml'
-      - $ref: '../../components/parameters/order.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
       - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
+      - name: active
+        in: query
+        description: Filter by active status
+        schema:
+          type: boolean
     responses:
       '200':
         description: List of DNS CAs retrieved successfully
@@ -15,13 +32,18 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/DnsCaConfig.yaml'
-                pagination:
-                  $ref: '../../components/schemas/Pagination.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '500':
@@ -30,11 +52,21 @@
   post:
     tags: [System]
     summary: Create a new DNS CA
-    description: Add a new DNS Certification Authority
+    description: |
+      Create a new DNS Certification Authority (CAA policy record).
+
+      ### Validation rules
+      - `ca_name` and `ca_issue` are required
+      - `ca_issue` must be unique (DB UNIQUE KEY on `dns_ssl_ca.ca_issue`) —
+        duplicates are rejected with 409
+
+      Note: legacy ISPConfig 3.2's CA creation is broken (syntactically
+      invalid INSERT); this endpoint defines the intended behavior against
+      the real table.
     requestBody:
       required: true
       content:
-        multipart/form-data:
+        application/json:
           schema:
             $ref: '../../components/schemas/DnsCaConfig.yaml'
     responses:
@@ -50,14 +82,18 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
-/system/config/dns-cas/{id}:  
+/system/dns-cas/{id}:
   get:
     tags: [System]
     summary: Get a DNS CA
-    description: Retrieve details of a specific DNS Certification Authority
+    description: Retrieve a specific DNS Certification Authority (CAA policy record)
     parameters:
       - name: id
         in: path
@@ -83,7 +119,12 @@
   put:
     tags: [System]
     summary: Update a DNS CA
-    description: Update an existing DNS Certification Authority
+    description: |
+      Update an existing DNS Certification Authority (CAA policy record).
+      Keys absent from the request are left unchanged.
+
+      Changing `ca_issue` to a value used by another record is rejected
+      with 409 (DB UNIQUE KEY on `dns_ssl_ca.ca_issue`).
     parameters:
       - name: id
         in: path
@@ -113,13 +154,19 @@
         $ref: '../../components/responses/Forbidden.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
   delete:
     tags: [System]
     summary: Delete a DNS CA
-    description: Remove a DNS Certification Authority
+    description: |
+      Remove a DNS Certification Authority (CAA policy record).
+      Already auto-created CAA DNS records are not deleted retroactively.
     parameters:
       - name: id
         in: path

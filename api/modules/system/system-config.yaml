@@ -1,10 +1,15 @@
+# Global system configuration (sys_ini singleton) — composite resource.
+# GET/PUT only: the configuration is one record (sys_ini row sysini_id = 1),
+# so there is no create, delete or list.
 /system/config:
   get:
     tags: [System]
     summary: Get system configuration
-    description: Retrieve the current system configuration including all sections
-    security:
-      - basicAuth: []
+    description: |
+      Retrieve the whole global system configuration — all five sections
+      (`sites`, `mail`, `dns`, `domains`, `misc`) parsed from the INI-formatted
+      `config` blob of the `sys_ini` singleton (row `sysini_id = 1`).
+      Keys absent from the blob are returned with their ISPConfig defaults.
     responses:
       '200':
         description: System configuration retrieved successfully
@@ -20,9 +25,22 @@
   put:
     tags: [System]
     summary: Update system configuration
-    description: Update the system configuration (all sections or specific sections)
-    security:
-      - basicAuth: []
+    description: |
+      Partially update the global system configuration (any or all sections).
+
+      Update semantics — read-merge-write on the `sys_ini` INI blob:
+      - The current blob (singleton row `sysini_id = 1`) is read, the submitted
+        section keys are merged in, and the whole blob is re-serialized and
+        written back in one operation.
+      - Keys and sections absent from the request are left unchanged
+        (absent key = "leave unchanged", not "unset").
+      - Legacy keys not exposed by the API schemas are preserved untouched, so
+        the stored blob stays fully readable by the legacy ISPConfig interface.
+      - The write is persisted through a single `sys_datalog` update entry
+        (`dbtable=sys_ini`, `action=u`) per ISPConfig's change-management
+        system — never a direct, unjournaled table write.
+
+      Returns the updated configuration.
     requestBody:
       required: true
       content:
@@ -42,5 +60,7 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'

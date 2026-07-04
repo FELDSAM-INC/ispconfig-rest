@@ -1,15 +1,24 @@
+# Template assignment resource — additional (addon) assignments mirror the
+# `client_template_assigned` pivot table in ispconfig3.sql; the master template
+# assignment is stored in `client.template_master` and therefore has no pivot
+# row (`id` is null and is_master is true for it).
 type: object
 x-db-table: client_template_assigned
-description: Represents the assignment of a addon template to a client
+description: Represents the assignment of a client template (master or additional) to a client
 required:
   - client_id
   - client_template_id
 properties:
-  assigned_template_id:
+  id:
     type: integer
     format: int64
     readOnly: true
-    description: Unique identifier for the assignment
+    nullable: true
+    x-db-field: assigned_template_id
+    description: >-
+      Unique identifier of the assignment pivot row. Null for the master
+      template assignment, which is stored in `client.template_master`
+      instead of the pivot table.
     example: 1
 
   client_id:
@@ -24,7 +33,22 @@ properties:
     description: ID of the template being assigned
     example: 5
 
+  is_master:
+    type: boolean
+    readOnly: true
+    description: >-
+      True when this assignment is the client's master template
+      (template_type m), false for additional templates (template_type a).
+    example: false
+
+  template:
+    readOnly: true
+    description: The assigned client template
+    allOf:
+      - $ref: './ClientTemplate.yaml'
+
 example:
-  assigned_template_id: 1
+  id: 1
   client_id: 42
   client_template_id: 5
+  is_master: false

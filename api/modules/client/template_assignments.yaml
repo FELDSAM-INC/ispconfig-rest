@@ -5,7 +5,8 @@
       - Client Template Assignments
     summary: List all templates assigned to a client
     description: |
-      Returns a list of all templates assigned to the specified client.
+      Returns a paginated list of all templates assigned to the specified client,
+      covering the master template (is_master = true) and each additional template.
     parameters:
       - name: client_id
         in: path
@@ -14,6 +15,10 @@
         schema:
           type: integer
           format: int64
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
     responses:
       '200':
         description: A list of assigned templates
@@ -21,11 +26,16 @@
           application/json:
             schema:
               type: object
+              required:
+                - data
+                - meta
               properties:
                 data:
                   type: array
                   items:
                     $ref: '../../components/schemas/ClientTemplateAssigned.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
@@ -42,7 +52,11 @@
       - Client Template Assignments
     summary: Assign a template to a client
     description: |
-      Assigns a template to a client. If the template is already assigned, it will be updated.
+      Assigns a template to a client. Master templates (template_type m) are stored
+      in client.template_master; additional templates (template_type a) are stored
+      in the client_template_assigned pivot table. Assigning a template that is
+      already assigned is rejected with 409. After every assignment change the
+      client's effective limits are recomputed from master + additional templates.
     parameters:
       - name: client_id
         in: path
@@ -147,10 +161,6 @@
     responses:
       '204':
         description: Template unassigned successfully
-      '400':
-        description: |
-          Bad Request. Possible reasons:
-          - Cannot unassign a required template
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
