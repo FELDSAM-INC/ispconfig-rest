@@ -63,10 +63,11 @@ class SwaggerController extends Controller
             $relativePath .= '.yaml';
         }
         
-        // Get the file from the api directory
-        $filePath = base_path('api/' . $relativePath);
-        
-        if (!File::exists($filePath)) {
+        // Get the file from the api directory, refusing path traversal
+        $apiRoot = realpath(base_path('api'));
+        $filePath = realpath(base_path('api/' . $relativePath));
+
+        if ($filePath === false || !str_starts_with($filePath, $apiRoot . DIRECTORY_SEPARATOR)) {
             return response()->json(['error' => 'Module specification not found: ' . $relativePath], 404);
         }
         
