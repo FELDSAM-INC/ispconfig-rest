@@ -2,189 +2,164 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreClientDomainRequest;
+use App\Http\Requests\UpdateClientDomainRequest;
 use App\Models\ClientDomain;
-use App\Models\SysGroup; // Added SysGroup model
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB; // Added for DB facade if needed for SysGroup query, or use Eloquent.
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
+/**
+ * Client Domains (contract: api/modules/client/domains.yaml) — the domain
+ * module's `domain` table. The table has no client_id column: the write-only
+ * client_id request field is resolved to the client's sys_group and stored
+ * as sys_groupid with sys_perm_group 'ru', mirroring legacy
+ * domain_edit.php::onAfterInsert. Duplicate domain names are 409 (the real
+ * UNIQUE key), per the contract.
+ */
 class ClientDomainController extends Controller
 {
+    use HandlesListQuery;
+
     /**
-     * Display a listing of client domains
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * GET /clients/domains — sorted, paginated list; the declared client_id
+     * filter resolves through the client's sys_group (empty result for
+     * clients without a group, spec 001 FR-015).
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        // Apply filters, sorting, and pagination based on request parameters
         $query = ClientDomain::query();
-        
-        // Apply client_id filter if provided
-        if ($request->has('client_id')) {
-            $clientId = $request->get('client_id');
-            // Find sys_groupids associated with the client_id
-            $groupIds = SysGroup::where('client_id', $clientId)->pluck('groupid')->toArray();
-            if (!empty($groupIds)) {
-                $query->whereIn('sys_groupid', $groupIds);
+
+        $clientId = $request->query('client_id');
+
+        if ($clientId !== null) {
+            if (! is_string($clientId) || filter_var($clientId, FILTER_VALIDATE_INT) === false) {
+                throw new BadRequestHttpException("Invalid integer value for filter 'client_id'.");
+            }
+
+            $groupId = DB::table('sys_group')->where('client_id', (int) $clientId)->value('groupid');
+
+            if ($groupId === null) {
+                $query->whereRaw('1 = 0'); // client without a group owns nothing
             } else {
-                // If client has no groups, or client_id is invalid, return no domains for this filter
-                $query->whereRaw('1 = 0'); 
+                $query->where('sys_groupid', (int) $groupId);
             }
         }
-        
-        // Apply other filters if provided
-        if ($request->has('filter')) {
-            $filters = $request->get('filter');
-            foreach ($filters as $field => $value) {
-                $query->where($field, $value);
-            }
-        }
-        
-        // Apply sorting
-        $sort = $request->get('sort', 'domain_id');
-        $order = $request->get('order', 'asc');
-        $query->orderBy($sort, $order);
-        
-        // Apply pagination
-        $limit = $request->get('limit', 25);
-        $offset = $request->get('offset', 0);
-        
-        $total = $query->count();
-        $items = $query->skip($offset)->take($limit)->get();
-        
-        return response()->json([
-            'items' => $items,
-            'total' => $total,
-            'limit' => (int)$limit,
-            'offset' => (int)$offset
-        ]);
+
+        $result = $this->listQuery(
+            $query,
+            $request,
+            sortable: ['domain_id', 'domain', 'sys_groupid'],
+            defaultSort: 'domain'
+        );
+
+        return response()->json($result);
     }
 
     /**
-     * Display the specified client domain
-     *
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * GET /clients/domains/{id} — implicit binding 404s as problem+json.
      */
-    public function show($id)
+    public function show(ClientDomain $clientDomain): JsonResponse
     {
-        $domain = ClientDomain::find($id);
-        
-        if (!$domain) {
-            return response()->json(['error' => 'Domain not found'], Response::HTTP_NOT_FOUND);
-        }
-        
-        return response()->json($domain);
+        return response()->json($clientDomain);
     }
 
     /**
-     * Store a newly created client domain
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * POST /clients/domains — 201 with the created record; datalog action
+     * 'i' carrying the owning client's sys_groupid and sys_perm_group 'ru'.
      */
-    public function store(Request $request)
+    public function store(StoreClientDomainRequest $request): JsonResponse
     {
-        // Validate request data
-        $this->validate($request, [
-            'client_id' => 'required|integer|exists:client,client_id', // Used to derive sys_groupid
-            'domain' => 'required|string|max:255|unique:domain',
-            // sys_* fields can be optional in request, will be defaulted
-            'sys_userid' => 'sometimes|integer',
-            'sys_perm_user' => 'sometimes|string|max:5',
-            'sys_perm_group' => 'sometimes|string|max:5', // Will be overridden to 'ru' for new domains
-            'sys_perm_other' => 'sometimes|string|max:5',
-        ]);
-        
-        $clientId = $request->input('client_id');
-        $sysGroup = SysGroup::where('client_id', $clientId)->first();
+        $payload = $request->payload();
 
-        if (!$sysGroup) {
-            // This case should ideally be caught by 'exists:client,client_id' validation
-            // or if a client might exist without a group, which would be unusual.
-            return response()->json(['error' => 'Associated client group not found.'], Response::HTTP_BAD_REQUEST);
-        }
+        $this->assertDomainAvailable($payload['domain']);
 
-        // Extract only 'domain' as per schema for direct attributes
-        $domainData = $request->only(['domain']);
+        $domain = new ClientDomain(['domain' => $payload['domain']]);
+        $domain->setAttribute('sys_groupid', $this->resolveClientGroup((int) $payload['client_id']));
+        $domain->setAttribute('sys_perm_group', 'ru');
 
-        $domain = new ClientDomain($domainData); // This will only fill 'domain'
-        
-        // Set system fields based on schema and logic
-        // sys_groupid is determined from client_id
-        $domain->sys_groupid = $sysGroup->groupid;
+        DB::transaction(function () use ($domain): void {
+            $domain->save();
+        });
 
-        // sys_userid: from request attribute set by ApiAuthMiddleware, or fallback to request input, then 1.
-        $ispconfigUserId = $request->attributes->get('ispconfig_user_id', 1); // Default to 1 if attribute not set
-        $domain->sys_userid = $request->input('sys_userid', $ispconfigUserId); 
-
-        // sys_perm_user: from request if provided, else default
-        $domain->sys_perm_user = $request->input('sys_perm_user', 'riud');
-        
-        // sys_perm_group: always 'ru' for new domains, as per ISPConfig's onAfterInsert logic for domains
-        $domain->sys_perm_group = 'ru'; 
-
-        // sys_perm_other: from request if provided, else default
-        $domain->sys_perm_other = $request->input('sys_perm_other', '');
-
-        // 'server_id' and 'active' are not set here as they are not in ClientDomain.yaml for this endpoint.
-        // They will be handled by ISPConfig's backend processing of the datalog entry for the 'domain' table.
-        
-        $domain->save();
-        
-        // Return 202 Accepted for pending changes as per ISPConfig datalog pattern
-        return response()->json($domain, Response::HTTP_ACCEPTED);
+        return response()->json($domain->refresh(), 201);
     }
 
     /**
-     * Update the specified client domain
-     *
-     * @param Request $request
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * PUT /clients/domains/{id} — 200 with the updated record; datalog
+     * action 'u' (suppressed when nothing changed). Renaming to a taken
+     * name is 409; client_id re-owns the domain via its sys_group.
      */
-    public function update(Request $request, $id)
+    public function update(UpdateClientDomainRequest $request, ClientDomain $clientDomain): JsonResponse
     {
-        $domain = ClientDomain::find($id);
-        
-        if (!$domain) {
-            return response()->json(['error' => 'Domain not found'], Response::HTTP_NOT_FOUND);
+        $payload = $request->payload();
+
+        if (array_key_exists('domain', $payload)) {
+            $this->assertDomainAvailable($payload['domain'], (int) $clientDomain->getKey());
+            $clientDomain->fill(['domain' => $payload['domain']]);
         }
-        
-        // Validate request data
-        $this->validate($request, [
-            'client_id' => 'integer|exists:client,client_id',
-            'domain' => 'string|max:255|unique:domain,domain,' . $id . ',domain_id',
-            'domain_option' => 'nullable|string'
-        ]);
-        
-        $domain->fill($request->all());
-        $domain->save();
-        
-        // Return 202 Accepted for pending changes as per ISPConfig datalog pattern
-        return response()->json($domain, Response::HTTP_ACCEPTED);
+
+        if (array_key_exists('client_id', $payload)) {
+            $clientDomain->setAttribute('sys_groupid', $this->resolveClientGroup((int) $payload['client_id']));
+            $clientDomain->setAttribute('sys_perm_group', 'ru');
+        }
+
+        DB::transaction(function () use ($clientDomain): void {
+            $clientDomain->save();
+        });
+
+        return response()->json($clientDomain->refresh());
     }
 
     /**
-     * Remove the specified client domain
-     *
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * DELETE /clients/domains/{id} — 204; datalog action 'd'.
      */
-    public function destroy($id)
+    public function destroy(ClientDomain $clientDomain): Response
     {
-        $domain = ClientDomain::find($id);
-        
-        if (!$domain) {
-            return response()->json(['error' => 'Domain not found'], Response::HTTP_NOT_FOUND);
+        DB::transaction(function () use ($clientDomain): void {
+            $clientDomain->delete();
+        });
+
+        return response()->noContent();
+    }
+
+    /**
+     * Duplicate domain names are 409 (contract; the DB carries the real
+     * UNIQUE KEY `domain`).
+     */
+    protected function assertDomainAvailable(string $domain, ?int $exceptId = null): void
+    {
+        $query = DB::table('domain')->where('domain', $domain);
+
+        if ($exceptId !== null) {
+            $query->where('domain_id', '!=', $exceptId);
         }
-        
-        $domain->delete();
-        
-        // Return 202 Accepted for pending changes as per ISPConfig datalog pattern
-        return response()->json(null, Response::HTTP_ACCEPTED);
+
+        if ($query->exists()) {
+            throw new ConflictHttpException("The domain '{$domain}' is already registered.");
+        }
+    }
+
+    /**
+     * Resolve the owning client's sys_group (legacy domain_edit.php
+     * onAfterInsert fixup). The client's existence is guaranteed by the
+     * request's exists rule; a client without a group cannot own domains.
+     */
+    protected function resolveClientGroup(int $clientId): int
+    {
+        $groupId = DB::table('sys_group')->where('client_id', $clientId)->value('groupid');
+
+        if ($groupId === null) {
+            throw new BadRequestHttpException(
+                'The client has no system group and cannot own domains.'
+            );
+        }
+
+        return (int) $groupId;
     }
 }

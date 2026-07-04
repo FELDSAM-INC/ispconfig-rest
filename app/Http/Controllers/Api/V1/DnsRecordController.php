@@ -2,251 +2,240 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreDnsRecordRequest;
+use App\Http\Requests\UpdateDnsRecordRequest;
 use App\Models\DnsRecord;
 use App\Models\DnsSoa;
 use App\Services\DnsRecordMetaService;
+use App\Services\DnsSerialService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
+/**
+ * DNS resource records (contract: api/modules/dns/records.yaml).
+ *
+ * Thin HTTP layer: validation lives in the Form Requests, aux/data
+ * composition and meta decomposition in DnsRecordMetaService, serial
+ * arithmetic in DnsSerialService, datalogging in BaseModel/DatalogService.
+ *
+ * Legacy side effects mirrored from dns_edit_base.php / dns_rr_del.php:
+ *  - server_id and sys_groupid are inherited from the parent zone;
+ *  - every effective write refreshes the record's stamp + serial and bumps
+ *    the parent zone's SOA serial (a second dns_soa 'u' datalog row);
+ *  - SPF/DKIM/DMARC are stored as TXT rows (spec 002 gap G02) and NAPTR's
+ *    preference field is `pref` end to end (gap G03).
+ */
 class DnsRecordController extends Controller
 {
+    use HandlesListQuery;
+
     /**
-     * Display a listing of the DNS records.
+     * The dns_rr.type DB enum — the valid values for the `type` list filter
+     * (records.yaml; SPF/DKIM/DMARC rows are stored and filtered as TXT).
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * @var array<int, string>
      */
-    public function index(Request $request)
+    protected const FILTER_TYPES = [
+        'A', 'AAAA', 'ALIAS', 'CNAME', 'DNAME', 'CAA', 'DS', 'HINFO', 'LOC', 'MX',
+        'NAPTR', 'NS', 'PTR', 'RP', 'SRV', 'SSHFP', 'TXT', 'TLSA', 'DNSKEY',
+    ];
+
+    public function __construct(
+        protected DnsRecordMetaService $meta,
+        protected DnsSerialService $serial,
+    ) {}
+
+    /**
+     * GET /dns/records — filtered, sorted, paginated list; every row
+     * carries the computed `meta` object.
+     */
+    public function index(Request $request): JsonResponse
     {
         $query = DnsRecord::query();
 
-        // Apply filters
-        if ($request->has('zone')) {
-            $query->where('zone', $request->input('zone'));
+        // `type` filter: case-insensitive, restricted to the DB enum.
+        $type = $request->query('type');
+        if ($type !== null) {
+            if (! is_string($type) || ! in_array(strtoupper($type), self::FILTER_TYPES, true)) {
+                throw new BadRequestHttpException(
+                    "Invalid value for filter 'type'. Allowed: ".implode(', ', self::FILTER_TYPES).'.'
+                );
+            }
+            $query->where('type', strtoupper($type));
         }
 
-        if ($request->has('type')) {
-            $query->where('type', strtoupper($request->input('type')));
+        // `data` filter: substring match (contract).
+        $data = $request->query('data');
+        if ($data !== null) {
+            if (! is_string($data)) {
+                throw new BadRequestHttpException("Invalid value for filter 'data'.");
+            }
+            $escaped = str_replace(['%', '_'], ['\\%', '\\_'], $data);
+            $query->where('data', 'like', '%'.$escaped.'%');
         }
 
-        if ($request->has('name')) {
-            $query->where('name', 'like', str_replace('*', '%', $request->input('name')));
-        }
-
-        if ($request->has('data')) {
-            $query->where('data', 'like', '%' . $request->input('data') . '%');
-        }
-
-        if ($request->has('active')) {
-            $query->where('active', $request->input('active'));
-        }
-
-        // Apply sorting
-        $sortField = $request->input('sort', 'name');
-        $sortOrder = 'asc';
-
-        if (str_starts_with($sortField, '-')) {
-            $sortField = substr($sortField, 1);
-            $sortOrder = 'desc';
-        }
-
-        $query->orderBy($sortField, $sortOrder);
-
-        // Paginate results
-        $perPage = min($request->input('per_page', 20), 100);
-        $records = $query->paginate($perPage);
-
-        return response()->json([
-            'data' => $records->items(),
-            'pagination' => [
-                'total' => $records->total(),
-                'per_page' => $records->perPage(),
-                'current_page' => $records->currentPage(),
-                'last_page' => $records->lastPage(),
+        $result = $this->listQuery(
+            $query,
+            $request,
+            sortable: ['id', 'zone', 'name', 'type', 'aux', 'ttl', 'serial'],
+            defaultSort: 'name',
+            filters: [
+                'zone' => 'integer',
+                'name' => 'wildcard',
+                'active' => 'boolean',
             ]
+        );
+
+        return response()->json($result);
+    }
+
+    /**
+     * GET /dns/records/{id} — implicit binding 404s as problem+json.
+     */
+    public function show(DnsRecord $dnsRecord): JsonResponse
+    {
+        return response()->json($dnsRecord);
+    }
+
+    /**
+     * POST /dns/records — 201 with the created record; datalog action 'i'
+     * for dns_rr plus a 'u' for the parent zone's serial bump.
+     */
+    public function store(StoreDnsRecordRequest $request): JsonResponse
+    {
+        $payload = $request->payload();
+
+        $zone = DnsSoa::query()->findOrFail((int) $payload['zone']);
+        $zoneAttributes = $zone->getRawOriginal();
+
+        $type = strtoupper((string) $payload['type']);
+        $storage = $this->meta->compose($payload, $type, $zoneAttributes);
+
+        $record = new DnsRecord(array_intersect_key($payload, array_flip(['zone', 'name', 'ttl', 'active'])));
+
+        $record->forceFill([
+            'type' => $storage['type'],
+            'aux' => $storage['aux'],
+            'data' => $storage['data'],
+            // Legacy dns_edit_base.php: server_id and sys_groupid always
+            // come from the parent zone (an explicit sys_groupid wins, per
+            // the DnsRecord schema description).
+            'server_id' => (int) $zoneAttributes['server_id'],
+            'sys_groupid' => (int) ($payload['sys_groupid'] ?? $zoneAttributes['sys_groupid']),
+            // Legacy onSubmit: stamp = now, serial = increase_serial(old).
+            'stamp' => $this->serial->timestamp(),
+            'serial' => $this->serial->increaseSerial(null),
         ]);
-    }
 
-    /**
-     * Store a newly created DNS record in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function store(Request $request)
-    {
-        // All fields including meta fields are at the same level in the request
-        $requestData = $request->all();
-
-        $validator = Validator::make(
-            $requestData,
-            DnsRecord::getValidationRules($request->input('type'), null, false)
-        );
-
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        // DMARC forces the record name to _dmarc.<origin> (legacy).
+        if (isset($storage['name'])) {
+            $record->name = $storage['name'];
         }
 
-        // Verify zone exists
-        $zone = DnsSoa::find($request->input('zone'));
-        if (!$zone) {
-            return response()->json([
-                'message' => 'Zone not found',
-                'error' => 'The specified zone does not exist'
-            ], Response::HTTP_BAD_REQUEST);
-        }
-
-        try {
-            DB::beginTransaction();
-
-            // Create record with all data including meta fields
-            $record = new DnsRecord($requestData);
-            $record->processMetaFields($requestData);
-
-            $record->server_id = $zone->server_id; // Inherit server_id from zone
+        DB::transaction(function () use ($record, $zone): void {
             $record->save();
+            $this->serial->bumpZoneSerial((int) $zone->getKey());
+        });
 
-            DB::commit();
-
-            return response()->json($record, Response::HTTP_CREATED);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to create DNS record: ' . $e->getMessage());
-
-            return response()->json([
-                'message' => 'Failed to create DNS record',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        return response()->json($record->refresh(), 201);
     }
 
     /**
-     * Display the specified DNS record.
+     * PUT /dns/records/{id} — 200 with the updated record.
      *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * Partial updates: structured types are re-composed from the stored
+     * record's decomposed meta merged with the request. Effective changes
+     * refresh stamp + serial and bump the parent zone's serial; a no-change
+     * update writes nothing (datalog no-change suppression).
      */
-    public function show($id)
+    public function update(UpdateDnsRecordRequest $request, DnsRecord $dnsRecord): JsonResponse
     {
-        $record = DnsRecord::find($id);
+        $payload = $request->payload();
+        $stored = $dnsRecord->getRawOriginal();
 
-        if (!$record) {
-            return response()->json([
-                'message' => 'DNS record not found'
-            ], Response::HTTP_NOT_FOUND);
+        $oldZoneId = (int) $stored['zone'];
+        $newZoneId = isset($payload['zone']) ? (int) $payload['zone'] : $oldZoneId;
+
+        $zone = DnsSoa::query()->findOrFail($newZoneId);
+        $zoneAttributes = $zone->getRawOriginal();
+
+        // The effective (friendly) type: requested, or the stored record's
+        // classification (TXT rows re-classify as SPF/DKIM/DMARC).
+        $type = isset($payload['type'])
+            ? strtoupper((string) $payload['type'])
+            : $this->meta->classify((string) ($stored['type'] ?? 'TXT'), (string) ($stored['data'] ?? ''));
+
+        // Re-compose aux/data from the stored state overlaid with the
+        // request: simple types keep data/aux unless sent, structured types
+        // merge their decomposed meta fields with the request's.
+        $base = ['data' => (string) ($stored['data'] ?? ''), 'aux' => (int) ($stored['aux'] ?? 0)];
+        if (in_array($type, DnsRecordMetaService::STRUCTURED_TYPES, true)) {
+            $base = array_merge($base, $this->meta->meta($stored));
+        }
+        $storage = $this->meta->compose(array_merge($base, $payload), $type, $zoneAttributes);
+
+        $dnsRecord->fill(array_intersect_key($payload, array_flip(['zone', 'name', 'ttl', 'active'])));
+
+        $dnsRecord->forceFill([
+            'type' => $storage['type'],
+            'aux' => $storage['aux'],
+            'data' => $storage['data'],
+        ]);
+
+        if (isset($storage['name'])) {
+            $dnsRecord->name = $storage['name'];
         }
 
-        return response()->json($record);
+        // Zone reassignment re-inherits server_id from the new zone
+        // (spec 002 FR-004).
+        if ($newZoneId !== $oldZoneId) {
+            $dnsRecord->forceFill(['server_id' => (int) $zoneAttributes['server_id']]);
+        }
+
+        if (isset($payload['sys_groupid'])) {
+            $dnsRecord->forceFill(['sys_groupid' => (int) $payload['sys_groupid']]);
+        }
+
+        if ($dnsRecord->isDirty()) {
+            // Legacy onSubmit: every effective write refreshes stamp and
+            // bumps the per-record serial.
+            $dnsRecord->forceFill([
+                'stamp' => $this->serial->timestamp(),
+                'serial' => $this->serial->increaseSerial($stored['serial'] ?? null),
+            ]);
+
+            DB::transaction(function () use ($dnsRecord, $newZoneId, $oldZoneId): void {
+                $dnsRecord->save();
+                $this->serial->bumpZoneSerial($newZoneId);
+
+                if ($newZoneId !== $oldZoneId) {
+                    // Both zones changed content — notify both serials.
+                    $this->serial->bumpZoneSerial($oldZoneId);
+                }
+            });
+        }
+
+        return response()->json($dnsRecord->refresh());
     }
 
     /**
-     * Update the specified DNS record in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * DELETE /dns/records/{id} — 204; datalog action 'd' for dns_rr plus a
+     * 'u' for the parent zone's serial bump (legacy dns_rr_del.php).
      */
-    public function update(Request $request, $id)
+    public function destroy(DnsRecord $dnsRecord): Response
     {
-        $record = DnsRecord::find($id);
+        $zoneId = (int) $dnsRecord->getRawOriginal('zone');
 
-        if (!$record) {
-            return response()->json([
-                'message' => 'DNS record not found'
-            ], Response::HTTP_NOT_FOUND);
-        }
+        DB::transaction(function () use ($dnsRecord, $zoneId): void {
+            $dnsRecord->delete();
+            $this->serial->bumpZoneSerial($zoneId);
+        });
 
-        // All fields including meta fields are at the same level in the request
-        $requestData = $request->all();
-
-        $recordType = $request->input('type', $record->type);
-
-        $validator = Validator::make(
-            $requestData,
-            DnsRecord::getValidationRules($recordType, $id, true)
-        );
-
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        // If zone is being updated, verify it exists
-        if ($request->has('zone') && $request->input('zone') != $record->zone) {
-            $zone = DnsSoa::find($request->input('zone'));
-            if (!$zone) {
-                return response()->json([
-                    'message' => 'Zone not found',
-                    'error' => 'The specified zone does not exist'
-                ], Response::HTTP_BAD_REQUEST);
-            }
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $record->fill($requestData);
-            $record->processMetaFields($requestData);
-
-            // If zone changed, update server_id to match new zone
-            if ($request->has('zone') && $request->input('zone') != $record->getOriginal('zone')) {
-                $record->server_id = $zone->server_id;
-            }
-
-            $record->save();
-
-            DB::commit();
-
-            return response()->json($record);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to update DNS record: ' . $e->getMessage());
-
-            return response()->json([
-                'message' => 'Failed to update DNS record',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    /**
-     * Remove the specified DNS record from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function destroy($id)
-    {
-        $record = DnsRecord::find($id);
-
-        if (!$record) {
-            return response()->json([
-                'message' => 'DNS record not found'
-            ], Response::HTTP_NOT_FOUND);
-        }
-
-        try {
-            DB::beginTransaction();
-            $record->delete();
-            DB::commit();
-
-            return response()->json(null, Response::HTTP_NO_CONTENT);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to delete DNS record: ' . $e->getMessage());
-
-            return response()->json([
-                'message' => 'Failed to delete DNS record',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        return response()->noContent();
     }
 }

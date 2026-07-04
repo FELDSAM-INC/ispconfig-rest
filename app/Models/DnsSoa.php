@@ -2,16 +2,22 @@
 
 namespace App\Models;
 
-use App\Services\DnsSerialService;
-use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
+use App\Casts\YesNoBoolean;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * dns_soa — an authoritative DNS zone (contract:
+ * api/components/schemas/DnsSoa.yaml; legacy:
+ * source_code/interface/web/dns/form/dns_soa.tform.php).
+ *
+ * The SOA `serial` is server-managed (never mass assignable): generated on
+ * create and bumped on every effective update by the controller through
+ * DnsSerialService. DNSSEC state fields (dnssec_initialized,
+ * dnssec_last_signed, dnssec_info) and rendered_zone are readOnly per the
+ * contract and only ever written by ISPConfig's server daemons.
+ */
 class DnsSoa extends BaseModel
 {
-    use HasFactory;
-
     /**
      * The table associated with the model.
      *
@@ -27,208 +33,89 @@ class DnsSoa extends BaseModel
     protected $primaryKey = 'id';
 
     /**
-     * The attributes that are mass assignable.
+     * Writable fields per the contract. serial and all DNSSEC state fields
+     * are server-managed; sys_userid comes from IspContext (BaseModel),
+     * sys_groupid may be set explicitly (defaults to the API user's group).
      *
-     * @var array
+     * @var array<int, string>
      */
     protected $fillable = [
         'server_id',
         'origin',
         'ns',
         'mbox',
-        'serial',
         'refresh',
         'retry',
         'expire',
         'minimum',
         'ttl',
         'active',
-        'sys_userid',
-        'sys_groupid',
-        'sys_perm_user',
-        'sys_perm_group',
-        'sys_perm_other',
         'xfer',
         'also_notify',
-        'update_acl'
+        'update_acl',
+        'dnssec_wanted',
+        'dnssec_algo',
+        'sys_groupid',
     ];
 
-
     /**
-     * The attributes that should be cast.
+     * dns_soa enums are UPPERCASE 'N'/'Y' (ispconfig3.sql: active
+     * enum('N','Y'), dnssec_* ENUM('Y','N')) — hence the :upper cast so
+     * datalog payloads carry the exact column case legacy plugins expect.
      *
-     * @var array
+     * @var array<string, string>
      */
     protected $casts = [
-        'active' => \App\Casts\YesNoBoolean::class,
+        'active' => YesNoBoolean::class.':upper',
+        'dnssec_initialized' => YesNoBoolean::class.':upper',
+        'dnssec_wanted' => YesNoBoolean::class.':upper',
+        'server_id' => 'integer',
         'serial' => 'integer',
         'refresh' => 'integer',
         'retry' => 'integer',
         'expire' => 'integer',
         'minimum' => 'integer',
         'ttl' => 'integer',
-        'server_id' => 'integer',
-        'sys_groupid' => 'integer',
+        'dnssec_last_signed' => 'integer',
         'sys_userid' => 'integer',
+        'sys_groupid' => 'integer',
     ];
 
     /**
-     * Default values for attributes
+     * Raw column defaults (DB-native values, bypassing casts), matching the
+     * contract's documented defaults — which equal the dns_soa DDL defaults
+     * (refresh 28800, retry 7200, expire 604800, minimum 3600, ttl 3600) —
+     * plus the legacy form's active=Y preset and DNSSEC form defaults.
      *
-     * @var array
+     * @var array<string, mixed>
      */
     protected $attributes = [
-        'active' => true,
-        'sys_perm_user' => 'riud',
-        'sys_perm_group' => 'riud',
-        'sys_perm_other' => '',
-        'serial' => 1,
         'refresh' => 28800,
         'retry' => 7200,
         'expire' => 604800,
-        'minimum' => 86400,
-        'ttl' => 86400,
+        'minimum' => 3600,
+        'ttl' => 3600,
+        'active' => 'Y',
+        'xfer' => '',
+        'also_notify' => '',
+        'update_acl' => '',
+        'dnssec_wanted' => 'N',
+        'dnssec_algo' => 'ECDSAP256SHA256',
     ];
 
     /**
-     * Validation rules for the model
-     *
-     * @var array
+     * The zone's resource records (dns_rr.zone).
      */
-    public static $rules = [
-        'server_id' => 'required|integer|exists:server,server_id',
-        'origin' => 'required|string|max:255|regex:/^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/|unique:dns_soa,origin',
-        'ns' => 'required|string|max:255',
-        'mbox' => 'required|string|max:255',
-        'serial' => 'required|integer|min:1|max:4294967295',
-        'refresh' => 'required|integer|min:0|max:2147483647',
-        'retry' => 'required|integer|min:0|max:2147483647',
-        'expire' => 'required|integer|min:0|max:2147483647',
-        'minimum' => 'required|integer|min:0|max:2147483647',
-        'ttl' => 'required|integer|min:0|max:2147483647',
-        'active' => 'required|in:y,n',
-        'sys_userid' => 'required|integer|exists:sys_user,userid',
-        'sys_groupid' => 'required|integer|exists:sys_group,groupid',
-        'sys_perm_user' => 'sometimes|string|max:5|regex:/^[riud]*$/',
-        'sys_perm_group' => 'sometimes|string|max:5|regex:/^[riud]*$/',
-        'sys_perm_other' => 'sometimes|string|max:5|regex:/^[riud]*$/',
-        'xfer' => 'nullable|string|max:255',
-        'also_notify' => 'nullable|string|max:255',
-        'update_acl' => 'nullable|string|max:255',
-    ];
-
-    /**
-     * Get the validation rules for a specific operation
-     *
-     * @param int|null $id
-     * @return array
-     */
-    public static function getValidationRules($id = null)
-    {
-        $rules = self::$rules;
-        
-        // For updates, make all fields optional and handle unique constraint for origin
-        if ($id) {
-            // Make origin unique except for the current record
-            $rules['origin'] = str_replace('required', 'sometimes', $rules['origin']);
-            $rules['origin'] = str_replace('unique:dns_soa,origin', 'unique:dns_soa,origin,' . $id . ',id', $rules['origin']);
-            
-            // Make all required fields optional
-            foreach ($rules as $field => $rule) {
-                $rules[$field] = str_replace('required', 'sometimes', $rule);
-            }
-        }
-        
-        return $rules;
-    }
-
-    /**
-     * Get the server that owns the DNS zone.
-     */
-    public function server()
-    {
-        return $this->belongsTo(Server::class, 'server_id', 'server_id');
-    }
-
-    /**
-     * Get the DNS records for the zone.
-     */
-    public function records()
+    public function records(): HasMany
     {
         return $this->hasMany(DnsRecord::class, 'zone', 'id');
     }
 
     /**
-     * Get the group that owns the DNS zone.
-     */
-    public function group()
-    {
-        return $this->belongsTo(Group::class, 'sys_groupid', 'groupid');
-    }
-
-    /**
-     * Scope a query to only include active zones.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * Scope: only active zones.
      */
     public function scopeActive($query)
     {
-        return $query->where('active', 'y');
-    }
-
-    /**
-     * Scope a query to only include zones for a specific server.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @param  int  $serverId
-     * @return \Illuminate\Database\Eloquent\Builder
-     */
-    public function scopeForServer($query, $serverId)
-    {
-        return $query->where('server_id', $serverId);
-    }
-
-    /**
-     * Increment and return the next serial number for the zone.
-     *
-     * @return int
-     */
-    public function incrementSerial()
-    {
-        $this->serial = DnsSerialService::getNextSerialNumber($this->serial);
-        $this->save();
-        
-        return $this->serial;
-    }
-
-    /**
-     * Boot the model.
-     *
-     * @return void
-     */
-    protected static function boot()
-    {
-        parent::boot();
-
-        // Set default values when creating a new model
-        static::creating(function ($model) {
-            if (empty($model->sys_userid)) {
-                $model->sys_userid = auth()->id() ?? 1;
-            }
-            
-            // Generate a serial number if not provided
-            if (empty($model->serial)) {
-                $model->serial = (int) (date('Ymd') . '00');
-            }
-        });
-
-        // When updating, ensure the serial is incremented if the zone is modified
-        static::updating(function ($model) {
-            // Skip if this is a system update (like updating the serial number)
-            if ($model->isDirty() && !$model->isDirty('serial')) {
-                $model->serial = $model->getNextSerialNumber();
-            }
-        });
+        return $query->where('active', 'Y');
     }
 }

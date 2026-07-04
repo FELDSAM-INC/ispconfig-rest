@@ -2,208 +2,113 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreClientTemplateRequest;
+use App\Http\Requests\UpdateClientTemplateRequest;
 use App\Models\ClientTemplate;
-use App\Services\DatalogService;
+use App\Services\ClientTemplateService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
+/**
+ * Client Templates (contract: api/modules/client/templates.yaml) — reusable
+ * limit templates: 'm' (master) templates define a client's base limits,
+ * 'a' (additional) templates stack on top. Updates re-apply the changed
+ * limits to every assigned client (legacy client_template_edit.php::
+ * onAfterUpdate — fixes spec 001 gap G14); deletion is blocked with 409
+ * while the template is in use (fixed in-use check — spec 001 gap G2).
+ */
 class ClientTemplateController extends Controller
 {
-    /**
-     * Display a listing of client templates
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function index(Request $request)
+    use HandlesListQuery;
+
+    public function __construct(protected ClientTemplateService $service)
     {
-        // Apply filters, sorting, and pagination based on request parameters
-        $query = ClientTemplate::query();
-        
-        // Apply filters if provided
-        if ($request->has('filter')) {
-            $filters = $request->get('filter');
-            foreach ($filters as $field => $value) {
-                $query->where($field, 'like', "%{$value}%");
-            }
-        }
-        
-        // Apply search
-        if ($request->has('search')) {
-            $search = $request->get('search');
-            $query->where(function($q) use ($search) {
-                $q->where('template_name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
-            });
-        }
-        
-        // Apply sorting
-        $sort = $request->get('sort', 'template_id');
-        $order = $request->get('order', 'asc');
-        $query->orderBy($sort, $order);
-        
-        // Apply pagination
-        $limit = $request->get('limit', 25);
-        $offset = $request->get('offset', 0);
-        
-        $total = $query->count();
-        $items = $query->skip($offset)->take($limit)->get();
-        
-        return response()->json([
-            'items' => $items,
-            'total' => $total,
-            'limit' => (int)$limit,
-            'offset' => (int)$offset
-        ]);
     }
 
     /**
-     * Store a newly created client template
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * GET /clients/templates — filtered, sorted, paginated list.
      */
-    public function store(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        // Use validation rules from the model
-        // For store method, we need to make sure template_name is required
-        $rules = ClientTemplate::$rules;
-        $rules['template_name'] = 'required|string|max:255';
-        $rules['template_type'] = 'required|string|in:m,a'; // m = main template, a = additional template
-        
-        $validator = Validator::make($request->all(), $rules);
+        $result = $this->listQuery(
+            ClientTemplate::query(),
+            $request,
+            sortable: ['template_id', 'template_name', 'template_type'],
+            defaultSort: 'template_id',
+            filters: [
+                'template_type' => 'string',
+                'template_name' => 'string',
+            ]
+        );
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        try {
-            // Add system fields
-            $data = array_merge($request->all(), [
-                'sys_userid' => Auth::id() ?? 1,
-                'sys_groupid' => Auth::user()->sys_groupid ?? 1,
-                'sys_perm_user' => 'riud',
-                'sys_perm_group' => 'riud',
-                'sys_perm_other' => ''
-            ]);
-            
-            $template = new ClientTemplate($data);
-            $template->save(); // This will use the BaseModel's save method which logs to datalog
-            
-            return response()->json($template, Response::HTTP_CREATED);
-            
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to create client template',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        return response()->json($result);
     }
 
     /**
-     * Display the specified client template
-     *
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * GET /clients/templates/{template_id} — implicit binding 404s as
+     * problem+json.
      */
-    public function show($id)
+    public function show(ClientTemplate $template): JsonResponse
     {
-        $template = ClientTemplate::findOrFail($id);
         return response()->json($template);
     }
 
     /**
-     * Update the specified client template
-     *
-     * @param Request $request
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * POST /clients/templates — 201 with the created record; datalog action
+     * 'i' (legacy sets db_history=no for this form — the surplus datalog row
+     * is documented and harmless).
      */
-    public function update(Request $request, $id)
+    public function store(StoreClientTemplateRequest $request): JsonResponse
     {
-        $template = ClientTemplate::findOrFail($id);
-        
-        // Log the input data for debugging
-        \Log::info('Update client template input data:', ['input' => $request->all(), 'id' => $id]);
-        
-        // Use validation rules from the model
-        $validator = Validator::make($request->all(), ClientTemplate::$rules);
+        $template = new ClientTemplate($request->payload());
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        try {
-            // Begin transaction
-            DB::beginTransaction();
-            
-            // Fill the model with the new data, excluding system fields
-            $data = $request->except([
-                'sys_userid', 'sys_groupid', 'sys_perm_user', 
-                'sys_perm_group', 'sys_perm_other'
-            ]);
-            
-            // Fill the model with the filtered data
-            $template->fill($data);
-            
-            // Save changes which will use BaseModel's save method to log to datalog
+        DB::transaction(function () use ($template): void {
             $template->save();
-            
-            DB::commit();
-            
-            // Return 202 Accepted for pending changes as per ISPConfig datalog pattern
-            return response()->json($template, Response::HTTP_ACCEPTED);
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to update client template: ' . $e->getMessage(), ['exception' => $e, 'id' => $id]);
-            return response()->json([
-                'message' => 'Failed to update client template',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        });
+
+        return response()->json($template->refresh(), 201);
     }
 
     /**
-     * Remove the specified client template
-     *
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * PUT /clients/templates/{template_id} — 200 with the updated record;
+     * datalog action 'u', then the changed limits are re-applied to every
+     * client using the template (spec 001 gap G14).
      */
-    public function destroy($id)
+    public function update(UpdateClientTemplateRequest $request, ClientTemplate $template): JsonResponse
     {
-        $template = ClientTemplate::findOrFail($id);
-        
-        try {
-            // Check if template is in use
-            if ($template->clients()->exists()) {
-                return response()->json([
-                    'message' => 'Cannot delete template that is in use by clients'
-                ], Response::HTTP_CONFLICT);
-            }
-            
-            // Delete the template - this will use BaseModel's delete method to log to datalog
-            $template->delete();
-            
-            return response()->json(null, Response::HTTP_NO_CONTENT);
-            
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to delete client template',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-    }
-    
+        DB::transaction(function () use ($request, $template): void {
+            $template->fill($request->payload());
+            $template->save();
 
+            $this->service->reapplyTemplate($template);
+        });
+
+        return response()->json($template->refresh());
+    }
+
+    /**
+     * DELETE /clients/templates/{template_id} — 204; 409 while the template
+     * is in use as a master (client.template_master) or additional
+     * (client_template_assigned) template — the fixed legacy
+     * client_template_del.php::onBeforeDelete check (spec 001 gap G2).
+     */
+    public function destroy(ClientTemplate $template): Response
+    {
+        if ($template->isInUse()) {
+            throw new ConflictHttpException(
+                'The template is assigned to one or more clients and cannot be deleted.'
+            );
+        }
+
+        DB::transaction(function () use ($template): void {
+            $template->delete();
+        });
+
+        return response()->noContent();
+    }
 }

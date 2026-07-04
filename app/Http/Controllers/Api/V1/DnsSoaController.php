@@ -2,201 +2,138 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreDnsSoaRequest;
+use App\Http\Requests\UpdateDnsSoaRequest;
 use App\Models\DnsSoa;
+use App\Services\DnsSerialService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
+/**
+ * DNS zones — SOA records (contract: api/modules/dns/soa.yaml).
+ *
+ * Thin HTTP layer: validation lives in the Form Requests, serial arithmetic
+ * in DnsSerialService, datalogging in BaseModel/DatalogService. Success
+ * responses confirm the sys_datalog entry — ISPConfig applies changes
+ * asynchronously.
+ *
+ * The SOA `serial` is server-managed (contract): generated on create and
+ * bumped on every effective update — client-supplied values never reach the
+ * model (spec 002 gap G01, the legacy port's update path 500ed on a
+ * nonexistent getNextSerialNumber() method).
+ */
 class DnsSoaController extends Controller
 {
+    use HandlesListQuery;
+
+    public function __construct(protected DnsSerialService $serial) {}
+
     /**
-     * Display a listing of the DNS zones.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * GET /dns/soa — filtered, sorted, paginated list.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $query = DnsSoa::query();
-
-        // Apply filters
-        if ($request->has('origin')) {
-            $query->where('origin', 'like', str_replace('*', '%', $request->input('origin')));
-        }
-
-        if ($request->has('active')) {
-            $query->where('active', $request->input('active'));
-        }
-
-        // Apply sorting
-        $sortField = $request->input('sort', 'origin');
-        $sortOrder = 'asc';
-        
-        if (str_starts_with($sortField, '-')) {
-            $sortField = substr($sortField, 1);
-            $sortOrder = 'desc';
-        }
-        
-        $query->orderBy($sortField, $sortOrder);
-
-        // Paginate results
-        $perPage = min($request->input('per_page', 20), 100);
-        $zones = $query->paginate($perPage);
-
-        return response()->json([
-            'data' => $zones->items(),
-            'pagination' => [
-                'total' => $zones->total(),
-                'per_page' => $zones->perPage(),
-                'current_page' => $zones->currentPage(),
-                'last_page' => $zones->lastPage(),
+        $result = $this->listQuery(
+            DnsSoa::query(),
+            $request,
+            sortable: ['id', 'origin', 'server_id', 'active', 'serial', 'ttl', 'refresh', 'expire'],
+            defaultSort: 'origin',
+            filters: [
+                'origin' => 'wildcard',
+                'active' => 'boolean',
             ]
-        ]);
+        );
+
+        return response()->json($result);
     }
 
     /**
-     * Store a newly created DNS zone in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * GET /dns/soa/{id} — implicit binding 404s as problem+json.
      */
-    public function store(Request $request)
+    public function show(DnsSoa $dnsSoa): JsonResponse
     {
-        $validator = Validator::make($request->all(), DnsSoa::getValidationRules());
+        return response()->json($dnsSoa);
+    }
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+    /**
+     * POST /dns/soa — 201 with the created zone; datalog action 'i'.
+     * A duplicate origin is a 409 (dns_soa `origin` UNIQUE key, contract).
+     */
+    public function store(StoreDnsSoaRequest $request): JsonResponse
+    {
+        $payload = $request->payload();
+
+        if (DnsSoa::query()->where('origin', $payload['origin'])->exists()) {
+            throw new ConflictHttpException("A DNS zone with origin '{$payload['origin']}' already exists.");
         }
 
-        try {
-            DB::beginTransaction();
+        $zone = new DnsSoa($payload);
+        // Server-side serial generation (contract; legacy YYYYMMDDnn form).
+        $zone->serial = $this->serial->increaseSerial(null);
 
-            $zone = new DnsSoa($request->all());
+        DB::transaction(function () use ($zone): void {
             $zone->save();
+        });
 
-            DB::commit();
-
-            return response()->json($zone, Response::HTTP_CREATED);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to create DNS zone: ' . $e->getMessage());
-            
-            return response()->json([
-                'message' => 'Failed to create DNS zone',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        return response()->json($zone->refresh(), 201);
     }
 
     /**
-     * Display the specified DNS zone.
+     * PUT /dns/soa/{id} — 200 with the updated zone; datalog action 'u'.
      *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * The serial is bumped automatically whenever the update actually
+     * changes a column (legacy parity, spec 002 G01); a no-change update
+     * writes nothing (datalog no-change suppression).
      */
-    public function show($id)
+    public function update(UpdateDnsSoaRequest $request, DnsSoa $dnsSoa): JsonResponse
     {
-        $zone = DnsSoa::find($id);
+        $payload = $request->payload();
 
-        if (!$zone) {
-            return response()->json([
-                'message' => 'DNS zone not found'
-            ], Response::HTTP_NOT_FOUND);
+        if (isset($payload['origin'])
+            && DnsSoa::query()->where('origin', $payload['origin'])->whereKeyNot($dnsSoa->getKey())->exists()) {
+            throw new ConflictHttpException("A DNS zone with origin '{$payload['origin']}' already exists.");
         }
 
-        return response()->json($zone);
+        $dnsSoa->fill($payload);
+
+        if ($dnsSoa->isDirty()) {
+            $dnsSoa->serial = $this->serial->increaseSerial($dnsSoa->getRawOriginal('serial'));
+
+            DB::transaction(function () use ($dnsSoa): void {
+                $dnsSoa->save();
+            });
+        }
+
+        return response()->json($dnsSoa->refresh());
     }
 
     /**
-     * Update the specified DNS zone in storage.
+     * DELETE /dns/soa/{id} — 204; datalog action 'd'.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * A zone that still contains records is refused with 400 problem+json
+     * (contract's documented intentional deviation from legacy ISPConfig's
+     * cascade delete — consumers must empty the zone first).
      */
-    public function update(Request $request, $id)
+    public function destroy(DnsSoa $dnsSoa): Response
     {
-        $zone = DnsSoa::find($id);
+        $recordCount = $dnsSoa->records()->count();
 
-        if (!$zone) {
-            return response()->json([
-                'message' => 'DNS zone not found'
-            ], Response::HTTP_NOT_FOUND);
+        if ($recordCount > 0) {
+            throw new BadRequestHttpException(
+                "Cannot delete zone that contains DNS records ({$recordCount} associated records)."
+            );
         }
 
+        DB::transaction(function () use ($dnsSoa): void {
+            $dnsSoa->delete();
+        });
 
-        $validator = Validator::make($request->all(), DnsSoa::getValidationRules($id));
-
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $zone->fill($request->all());
-            $zone->save();
-
-            DB::commit();
-
-            return response()->json($zone);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to update DNS zone: ' . $e->getMessage());
-            
-            return response()->json([
-                'message' => 'Failed to update DNS zone',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    /**
-     * Remove the specified DNS zone from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function destroy($id)
-    {
-        $zone = DnsSoa::withCount('records')->find($id);
-
-        if (!$zone) {
-            return response()->json([
-                'message' => 'DNS zone not found'
-            ], Response::HTTP_NOT_FOUND);
-        }
-
-
-        if ($zone->records_count > 0) {
-            return response()->json([
-                'message' => 'Cannot delete zone that contains DNS records',
-                'error' => 'Zone has ' . $zone->records_count . ' associated records'
-            ], Response::HTTP_BAD_REQUEST);
-        }
-
-        try {
-            DB::beginTransaction();
-            $zone->delete();
-            DB::commit();
-
-            return response()->json(null, Response::HTTP_NO_CONTENT);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to delete DNS zone: ' . $e->getMessage());
-            
-            return response()->json([
-                'message' => 'Failed to delete DNS zone',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        return response()->noContent();
     }
 }

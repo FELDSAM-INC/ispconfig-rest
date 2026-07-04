@@ -2,309 +2,129 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreClientResellerRequest;
+use App\Http\Requests\UpdateClientResellerRequest;
 use App\Models\ClientReseller;
+use App\Services\ClientService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
+/**
+ * Resellers (contract: api/modules/client/resellers.yaml) — clients whose
+ * limit_client is > 0 or -1, enforced by the ClientReseller global scope
+ * (route binding on a plain client id 404s). The reseller condition on
+ * writes is answered with 400 per the contract's wording; deletion is
+ * blocked with 409 while clients are still assigned.
+ */
 class ClientResellerController extends Controller
 {
-    /**
-     * Display a listing of resellers
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function index(Request $request)
+    use HandlesListQuery;
+
+    public function __construct(protected ClientService $service)
     {
-        // Start with a base query for clients that are resellers
-        // The ClientReseller model already has the reseller scope applied
-        $query = ClientReseller::query();
-        
-        // Apply filters if provided
-        if ($request->has('contact_name')) {
-            $query->where('contact_name', 'like', '%' . $request->get('contact_name') . '%');
-        }
-        
-        if ($request->has('company_name')) {
-            $query->where('company_name', 'like', '%' . $request->get('company_name') . '%');
-        }
-        
-        if ($request->has('email')) {
-            $query->where('email', 'like', '%' . $request->get('email') . '%');
-        }
-        
-        if ($request->has('customer_no')) {
-            $query->where('customer_no', $request->get('customer_no'));
-        }
-        
-        // Apply sorting
-        $sort = $request->get('sort', 'client_id');
-        $order = $request->get('order', 'asc');
-        $query->orderBy($sort, $order);
-        
-        // Apply pagination
-        $limit = $request->get('limit', 25);
-        $offset = $request->get('offset', 0);
-        
-        $total = $query->count();
-        $items = $query->skip($offset)->take($limit)->get();
-        
-        return response()->json([
-            'data' => $items,
-            'pagination' => [
-                'total' => $total,
-                'limit' => (int)$limit,
-                'offset' => (int)$offset
+    }
+
+    /**
+     * GET /resellers — filtered, sorted, paginated list.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $result = $this->listQuery(
+            ClientReseller::query(),
+            $request,
+            sortable: ['client_id', 'company_name', 'contact_name', 'email', 'username', 'customer_no', 'limit_client'],
+            defaultSort: 'client_id',
+            filters: [
+                'contact_name' => 'string',
+                'company_name' => 'string',
+                'email' => 'string',
+                'customer_no' => 'string',
             ]
-        ]);
+        );
+
+        return response()->json($result);
     }
 
     /**
-     * Display the specified reseller
-     *
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * GET /resellers/{id} — implicit binding (reseller scope) 404s as
+     * problem+json for unknown ids AND for non-reseller clients.
      */
-    public function show($id)
+    public function show(ClientReseller $reseller): JsonResponse
     {
-        $reseller = ClientReseller::find($id);
-        
-        if (!$reseller) {
-            return response()->json(['error' => 'Reseller not found'], Response::HTTP_NOT_FOUND);
-        }
-        
-        return response()->json(['data' => $reseller]);
+        return response()->json($reseller);
     }
 
     /**
-     * Store a newly created reseller
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * POST /resellers — 201 with the created record; datalog action 'i'.
+     * limit_client is persisted (fixes spec 001 gap G5) and must satisfy
+     * the reseller condition (400 otherwise, per the contract).
      */
-    public function store(Request $request)
+    public function store(StoreClientResellerRequest $request): JsonResponse
     {
-        // Use validation rules from the model
-        // For resellers, make certain fields required
-        $rules = ClientReseller::$rules;
-        $rules['company_name'] = 'required|string|max:64';
-        $rules['contact_name'] = 'required|string|max:255';
-        $rules['username'] = 'required|string|max:64|unique:client';
-        $rules['password'] = 'required|string|min:8';
-        $rules['email'] = 'required|email|max:255';
-        $rules['street'] = 'required|string';
-        $rules['zip'] = 'required|string|max:15';
-        $rules['city'] = 'required|string|max:255';
-        $rules['country'] = 'required|string|max:2';
-        $rules['template_master'] = 'required|integer';
-        
-        // Reseller specific limits
-        $rules['limit_client'] = 'required|integer';
-        $rules['limit_web_domain'] = 'required|integer';
-        $rules['limit_web_quota'] = 'required|integer';
-        $rules['limit_web_user'] = 'required|integer';
-        $rules['limit_mail_domain'] = 'required|integer';
-        $rules['limit_mailbox'] = 'required|integer';
-        $rules['limit_mail_quota'] = 'required|integer';
-        $rules['limit_database'] = 'required|integer';
-        $rules['limit_dns_domain'] = 'required|integer';
-        $rules['limit_cron'] = 'required|integer';
-        $rules['limit_shell_user'] = 'required|integer';
-        $rules['limit_php_mode'] = 'required|string|in:php-fcgi,php-fpm,mod_php';
-        $rules['limit_php_upload_max_filesize'] = 'required|integer';
-        $rules['limit_php_post_max_size'] = 'required|integer';
-        $rules['limit_php_max_execution_time'] = 'required|integer';
-        $rules['limit_php_memory_limit'] = 'required|integer';
-        $rules['limit_php_disable_functions'] = 'required|string';
-        $rules['limit_php_mail_function'] = 'required|string|in:mail,smtp,sendmail,qmail';
-        $rules['limit_php_mail_smtp_server'] = 'required|string';
-        $rules['limit_php_mail_smtp_port'] = 'required|integer';
-        $rules['limit_php_mail_smtp_ssl'] = 'required|string|in:none,ssl,tls';
-        $rules['limit_php_mail_smtp_auth'] = 'required|string|in:none,plain,login,cram-md5';
-        $rules['limit_php_mail_smtp_user'] = 'required|string';
-        $rules['limit_php_mail_smtp_pass'] = 'required|string';
-        
-        $this->validate($request, $rules);
-        
-        // Ensure this is a reseller by checking limit_client
-        if (!$request->has('limit_client') || 
-            ($request->get('limit_client') <= 0 && $request->get('limit_client') != -1)) {
-            return response()->json([
-                'message' => 'A reseller must have limit_client > 0 or limit_client = -1'
-            ], Response::HTTP_BAD_REQUEST);
-        }
-        
-        try {
-            // Begin transaction
-            DB::beginTransaction();
-            
-            // Add system fields
-            $data = array_merge($request->all(), [
-                'sys_userid' => Auth::id() ?? 1,
-                'sys_groupid' => Auth::user()->sys_groupid ?? 1,
-                'sys_perm_user' => 'riud',
-                'sys_perm_group' => 'riud',
-                'sys_perm_other' => '',
-                'active' => 'y'
-            ]);
-            
-            $reseller = new ClientReseller($data);
-            $reseller->save(); // This will use BaseModel's save method to log to datalog
-            
-            DB::commit();
-            
-            // Return 202 Accepted for pending changes as per ISPConfig datalog pattern
-            return response()->json([
-                'data' => $reseller,
-                'message' => 'Reseller created successfully'
-            ], Response::HTTP_ACCEPTED);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Failed to create reseller: ' . $e->getMessage(), ['exception' => $e]);
-            return response()->json([
-                'message' => 'Failed to create reseller',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        $payload = $request->payload();
+        $this->assertResellerLimit((int) $payload['limit_client']);
+
+        $reseller = DB::transaction(
+            fn (): ClientReseller => $this->service->createClient(new ClientReseller, $payload, asReseller: true)
+        );
+
+        return response()->json($reseller, 201);
     }
 
     /**
-     * Update the specified reseller
-     *
-     * @param Request $request
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * PUT /resellers/{id} — 200 with the updated record; datalog action 'u'.
+     * Demoting the reseller (limit_client = 0) is rejected with 400.
      */
-    public function update(Request $request, $id)
+    public function update(UpdateClientResellerRequest $request, ClientReseller $reseller): JsonResponse
     {
-        $reseller = ClientReseller::find($id);
-        
-        if (!$reseller) {
-            return response()->json(['error' => 'Reseller not found'], Response::HTTP_NOT_FOUND);
+        $payload = $request->payload();
+
+        if (array_key_exists('limit_client', $payload)) {
+            $this->assertResellerLimit((int) $payload['limit_client']);
         }
-        
-        // Use validation rules from the model with sometimes modifier
-        $rules = ClientReseller::$rules;
-        
-        // Add unique rule for username if it's being updated
-        if ($request->has('username')) {
-            $rules['username'] = 'sometimes|string|max:64|unique:client,username,' . $id . ',client_id';
-        }
-        
-        // Add sometimes modifier to all reseller-specific fields
-        $rules['limit_client'] = 'sometimes|integer';
-        $rules['limit_web_domain'] = 'sometimes|integer';
-        $rules['limit_web_quota'] = 'sometimes|integer';
-        $rules['limit_web_user'] = 'sometimes|integer';
-        $rules['limit_mail_domain'] = 'sometimes|integer';
-        $rules['limit_mailbox'] = 'sometimes|integer';
-        $rules['limit_mail_quota'] = 'sometimes|integer';
-        $rules['limit_database'] = 'sometimes|integer';
-        $rules['limit_dns_domain'] = 'sometimes|integer';
-        $rules['limit_cron'] = 'sometimes|integer';
-        $rules['limit_shell_user'] = 'sometimes|integer';
-        $rules['limit_php_mode'] = 'sometimes|string|in:php-fcgi,php-fpm,mod_php';
-        $rules['limit_php_upload_max_filesize'] = 'sometimes|integer';
-        $rules['limit_php_post_max_size'] = 'sometimes|integer';
-        $rules['limit_php_max_execution_time'] = 'sometimes|integer';
-        $rules['limit_php_memory_limit'] = 'sometimes|integer';
-        $rules['limit_php_disable_functions'] = 'sometimes|string';
-        $rules['limit_php_mail_function'] = 'sometimes|string|in:mail,smtp,sendmail,qmail';
-        $rules['limit_php_mail_smtp_server'] = 'sometimes|string';
-        $rules['limit_php_mail_smtp_port'] = 'sometimes|integer';
-        $rules['limit_php_mail_smtp_ssl'] = 'sometimes|string|in:none,ssl,tls';
-        $rules['limit_php_mail_smtp_auth'] = 'sometimes|string|in:none,plain,login,cram-md5';
-        $rules['limit_php_mail_smtp_user'] = 'sometimes|string';
-        $rules['limit_php_mail_smtp_pass'] = 'sometimes|string';
-        
-        $this->validate($request, $rules);
-        
-        // Ensure this remains a reseller by checking limit_client if it's being updated
-        if ($request->has('limit_client') && 
-            $request->get('limit_client') <= 0 && 
-            $request->get('limit_client') != -1) {
-            return response()->json([
-                'message' => 'A reseller must have limit_client > 0 or limit_client = -1'
-            ], Response::HTTP_BAD_REQUEST);
-        }
-        
-        try {
-            // Begin transaction
-            DB::beginTransaction();
-            
-            // Fill the model with the new data, excluding system fields
-            $data = $request->except([
-                'sys_userid', 'sys_groupid', 'sys_perm_user', 
-                'sys_perm_group', 'sys_perm_other'
-            ]);
-            
-            // Fill the model with the filtered data
-            $reseller->fill($data);
-            
-            // Save changes which will use BaseModel's save method to log to datalog
-            $reseller->save();
-            
-            DB::commit();
-            
-            // Return 202 Accepted for pending changes as per ISPConfig datalog pattern
-            return response()->json([
-                'data' => $reseller,
-                'message' => 'Reseller updated successfully'
-            ], Response::HTTP_ACCEPTED);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Failed to update reseller: ' . $e->getMessage(), ['exception' => $e, 'id' => $id]);
-            return response()->json([
-                'message' => 'Failed to update reseller',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+
+        $reseller = DB::transaction(
+            fn (): ClientReseller => $this->service->updateClient($reseller, $payload)
+        );
+
+        return response()->json($reseller);
     }
 
     /**
-     * Remove the specified reseller
-     *
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * DELETE /resellers/{id} — 204 with the legacy client_del.php cascade;
+     * 409 while clients are still assigned (parent_client_id).
      */
-    public function destroy($id)
+    public function destroy(ClientReseller $reseller): Response
     {
-        $reseller = ClientReseller::find($id);
-        
-        if (!$reseller) {
-            return response()->json(['error' => 'Reseller not found'], Response::HTTP_NOT_FOUND);
+        if ($reseller->clients()->exists()) {
+            throw new ConflictHttpException(
+                'The reseller still has clients assigned to it and cannot be deleted.'
+            );
         }
-        
-        try {
-            // Begin transaction
-            DB::beginTransaction();
-            
-            // Check if this reseller has any clients assigned
-            $clientCount = $reseller->clients()->count();
-            if ($clientCount > 0) {
-                return response()->json([
-                    'message' => 'Cannot delete reseller with assigned clients. Please reassign or delete the clients first.'
-                ], Response::HTTP_CONFLICT);
-            }
-            
-            // Delete the reseller - this will use BaseModel's delete method to log to datalog
-            $reseller->delete();
-            
-            DB::commit();
-            
-            // Return 204 No Content for successful deletion
-            return response()->json(null, Response::HTTP_NO_CONTENT);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Failed to delete reseller: ' . $e->getMessage(), ['exception' => $e, 'id' => $id]);
-            return response()->json([
-                'message' => 'Failed to delete reseller',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+
+        DB::transaction(function () use ($reseller): void {
+            $this->service->deleteClient($reseller);
+        });
+
+        return response()->noContent();
+    }
+
+    /**
+     * The legacy reseller condition (reseller.tform.php limit_client
+     * validator): > 0 or -1; anything else is 400 per the contract.
+     */
+    protected function assertResellerLimit(int $limitClient): void
+    {
+        if ($limitClient !== -1 && $limitClient <= 0) {
+            throw new BadRequestHttpException(
+                'A reseller must have limit_client > 0 or limit_client = -1.'
+            );
         }
     }
 }
