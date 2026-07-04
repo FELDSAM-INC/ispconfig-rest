@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -51,6 +52,14 @@ class Problem
 
         if ($e instanceof AuthenticationException) {
             return self::response(401, 'Unauthorized', 'A valid API key is required.');
+        }
+
+        // Row-permission denials (spec 011 FR-011/FR-023): thrown by
+        // BaseModel's write gates before any DB write happens.
+        if ($e instanceof AuthorizationException) {
+            $detail = $e->getMessage() !== '' ? $e->getMessage() : 'You do not have permission to perform this action.';
+
+            return self::response(403, 'Forbidden', $detail);
         }
 
         if ($e instanceof HttpExceptionInterface) {

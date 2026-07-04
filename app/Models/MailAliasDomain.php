@@ -56,13 +56,12 @@ class MailAliasDomain extends MailForwarding
 
     /**
      * Route binding is scoped to type='aliasdomain': a forward/alias/catchall
-     * row 404s on /mail/alias-domains.
+     * row 404s on /mail/alias-domains. Funnelled through
+     * resolveRouteBindingQuery so BaseModel's row-permission scoping applies
+     * too (spec 011 FR-008).
      */
     public function resolveRouteBinding($value, $field = null)
     {
-        return $this->newQuery()
-            ->aliasDomains()
-            ->where($field ?? $this->getKeyName(), $value)
-            ->first();
+        return $this->resolveRouteBindingQuery($this->newQuery()->aliasDomains(), $value, $field)->first();
     }
 }

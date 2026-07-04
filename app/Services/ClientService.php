@@ -87,6 +87,17 @@ class ClientService
 
         $client->fill($payload);
 
+        // Non-admin (reseller) creators cannot choose the parent: the new
+        // client is always their own (spec 011 FR-018; parity
+        // client_edit.php:349-362 — legacy forces the reseller's client id
+        // for non-admin sessions). Any payload value is overridden.
+        $scope = $this->context->authScope();
+
+        if (! $scope->isAdmin) {
+            $payload['parent_client_id'] = $scope->clientId;
+            $client->setAttribute('parent_client_id', $scope->clientId);
+        }
+
         // Reseller ownership: sys_userid/sys_groupid from the parent
         // reseller's sys_user (client_edit.php onAfterInsert + spec FR-003).
         $parentClientId = (int) ($payload['parent_client_id'] ?? 0);

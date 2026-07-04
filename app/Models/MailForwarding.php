@@ -98,14 +98,13 @@ class MailForwarding extends BaseModel
 
     /**
      * Route binding is scoped to the resource's types: an alias-domain row
-     * 404s on /mail/forwards (and vice versa in the subclass).
+     * 404s on /mail/forwards (and vice versa in the subclass). Funnelled
+     * through resolveRouteBindingQuery so BaseModel's row-permission scoping
+     * applies too (spec 011 FR-008).
      */
     public function resolveRouteBinding($value, $field = null)
     {
-        return $this->newQuery()
-            ->forwardTypes()
-            ->where($field ?? $this->getKeyName(), $value)
-            ->first();
+        return $this->resolveRouteBindingQuery($this->newQuery()->forwardTypes(), $value, $field)->first();
     }
 
     /**
