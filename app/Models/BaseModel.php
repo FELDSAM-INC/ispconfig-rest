@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ClientLimitService;
 use App\Services\DatalogService;
 use App\Support\AuthScope;
 use App\Support\IspContext;
@@ -147,6 +148,16 @@ abstract class BaseModel extends Model
 
         if (! $wasUpdate && $this->hasSysFields) {
             $this->applySysFieldDefaults();
+
+            // Client resource-limit enforcement (spec 012 FR-005): count- and
+            // quota-limits are checked at this one create chokepoint (after
+            // sys-field forcing, before any DB write) so a denial throws a 403
+            // and writes no sys_datalog row. Admin scopes and unmapped tables
+            // short-circuit inside the service (zero overhead — 011 regression
+            // bar).
+            $limits = App::make(ClientLimitService::class);
+            $limits->checkCreate($this);
+            $limits->checkQuotaSum($this);
         }
 
         // The 'old' record for updates: raw attributes as originally loaded
@@ -158,8 +169,14 @@ abstract class BaseModel extends Model
         // DB write, so no datalog row is produced (parity
         // tform_base.inc.php:1626/1574 — legacy denies the UPDATE and its
         // WHERE getAuthSQL('u') would match nothing).
-        if ($wasUpdate && $this->hasSysFields && ! $this->authScope()->allows($oldRecord, 'u')) {
-            throw new AuthorizationException('You do not have permission to update this resource.');
+        if ($wasUpdate && $this->hasSysFields) {
+            if (! $this->authScope()->allows($oldRecord, 'u')) {
+                throw new AuthorizationException('You do not have permission to update this resource.');
+            }
+
+            // Quota-SUM limits are re-checked on update (spec 012 FR-027): a
+            // quota bump alters the sum. Row-count limits are create-only.
+            App::make(ClientLimitService::class)->checkQuotaSum($this);
         }
 
         $saved = parent::save($options);

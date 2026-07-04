@@ -150,6 +150,26 @@ trait TenantFixtures
     }
 
     /**
+     * Seed N limit-consuming rows on $table owned by $owner (stamped with the
+     * tenant's sys identity), so the next create sees exactly N existing rows.
+     * $attrs receives the 0-based index and returns that row's column values
+     * (keep unique columns distinct across rows).
+     *
+     * @param  callable(int): array<string, mixed>  $attrs
+     * @return array<int, int> the inserted primary-key ids
+     */
+    protected function seedOwnedRows(string $owner, string $table, int $count, callable $attrs, string $pk = 'id'): array
+    {
+        $ids = [];
+
+        for ($i = 0; $i < $count; $i++) {
+            $ids[] = (int) DB::table($table)->insertGetId($this->ownedBy($owner, $attrs($i)), $pk);
+        }
+
+        return $ids;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function stamp(int $userid, int $groupid): array

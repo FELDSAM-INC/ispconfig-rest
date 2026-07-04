@@ -18,6 +18,49 @@ use Illuminate\Support\Facades\Schema;
  */
 class TenantSchema
 {
+    /**
+     * Every client.limit_* column the spec 012 counting/quota fixtures need,
+     * with its DDL default (ispconfig3.sql:174-247). Applied on both the
+     * create branch and the ensureColumns else branch so any schema
+     * composition order yields a fully limit-bearing client table.
+     *
+     * @var array<string, int>
+     */
+    private const LIMIT_COLUMNS = [
+        // access-gate columns (011) — legacy default 0 = not booked
+        'limit_mailrouting' => 0,
+        'limit_mail_wblist' => 0,
+        'limit_spamfilter_wblist' => 0,
+        // reseller meta
+        'limit_client' => 0,
+        // P1/P2 row-count limits
+        'limit_maildomain' => -1,
+        'limit_mailbox' => -1,
+        'limit_mailalias' => -1,
+        'limit_mailforward' => -1,
+        'limit_mailcatchall' => -1,
+        'limit_mailaliasdomain' => -1,
+        'limit_mailfilter' => -1,
+        'limit_fetchmail' => -1,
+        'limit_web_domain' => -1,
+        'limit_web_subdomain' => -1,
+        'limit_web_aliasdomain' => -1,
+        'limit_ftp_user' => -1,
+        'limit_shell_user' => 0,
+        'limit_webdav_user' => 0,
+        'limit_cron' => 0,
+        'limit_database' => -1,
+        'limit_database_user' => -1,
+        'limit_database_postgresql' => -1,
+        'limit_dns_zone' => -1,
+        'limit_dns_slave_zone' => -1,
+        // P3 quota-sum limits
+        'limit_mailquota' => -1,
+        'limit_web_quota' => -1,
+        'limit_traffic_quota' => -1,
+        'limit_database_quota' => -1,
+    ];
+
     public static function create(): void
     {
         if (! Schema::hasTable('sys_datalog')) {
@@ -110,15 +153,10 @@ class TenantSchema
                 $table->string('username', 64)->nullable();
                 $table->string('contact_name', 64)->nullable();
                 $table->unsignedInteger('parent_client_id')->default(0);
-                $table->integer('limit_client')->default(0);
-                // FR-017 access-gate columns (legacy defaults 0 = not booked)
-                $table->integer('limit_mailrouting')->default(0);
-                $table->integer('limit_mail_wblist')->default(0);
-                $table->integer('limit_spamfilter_wblist')->default(0);
-                // Common P3 columns so limit fixtures stay reusable
-                $table->integer('limit_maildomain')->default(-1);
-                $table->integer('limit_dns_zone')->default(-1);
-                $table->integer('limit_web_domain')->default(-1);
+
+                foreach (self::LIMIT_COLUMNS as $column => $default) {
+                    $table->integer($column)->default($default);
+                }
             });
         } else {
             self::ensureColumns('client', function (Blueprint $table, array $missing): void {
@@ -131,12 +169,12 @@ class TenantSchema
                 if (in_array('parent_client_id', $missing, true)) {
                     $table->unsignedInteger('parent_client_id')->default(0);
                 }
-                foreach (['limit_client', 'limit_mailrouting', 'limit_mail_wblist', 'limit_spamfilter_wblist'] as $limit) {
+                foreach (self::LIMIT_COLUMNS as $limit => $default) {
                     if (in_array($limit, $missing, true)) {
-                        $table->integer($limit)->default(0);
+                        $table->integer($limit)->default($default);
                     }
                 }
-            }, ['username', 'contact_name', 'parent_client_id', 'limit_client', 'limit_mailrouting', 'limit_mail_wblist', 'limit_spamfilter_wblist']);
+            }, array_merge(['username', 'contact_name', 'parent_client_id'], array_keys(self::LIMIT_COLUMNS)));
 
             self::ensureSysFields(['client']);
         }
