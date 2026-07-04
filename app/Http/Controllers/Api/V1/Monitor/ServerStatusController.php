@@ -27,9 +27,7 @@ class ServerStatusController extends Controller
 {
     use HandlesListQuery;
 
-    public function __construct(private readonly MonitorDataService $monitorData)
-    {
-    }
+    public function __construct(private readonly MonitorDataService $monitorData) {}
 
     /**
      * GET /monitor/servers/status — aggregated status of all servers,

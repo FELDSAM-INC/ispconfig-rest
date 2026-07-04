@@ -20,9 +20,7 @@ use App\Models\MailUserFilter;
  */
 class MailUserFilterService
 {
-    public function __construct(protected MailUserService $mailUsers)
-    {
-    }
+    public function __construct(protected MailUserService $mailUsers) {}
 
     /**
      * Rewrite the filter's block after an insert/update
@@ -229,8 +227,8 @@ class MailUserFilterService
         $mailDirMakeNoQuotes = '"'.$target.'" $DEFAULT';
 
         if ($action === 'move') {
-            $content .= "
-`test -e ".$testChDirQuotes." && exit 1 || exit 0`
+            $content .= '
+`test -e '.$testChDirQuotes." && exit 1 || exit 0`
 if ( \$RETURNCODE != 1 )
 {
 	`maildirmake -f $mailDirMakeNoQuotes`

@@ -14,9 +14,7 @@ use Illuminate\Support\Facades\DB;
  */
 class MailDomainService
 {
-    public function __construct(protected DatalogService $datalog)
-    {
-    }
+    public function __construct(protected DatalogService $datalog) {}
 
     /**
      * Derive dkim_public from dkim_private, mirroring legacy onSubmit():

@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use Tests\Support\MailSchema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\MailSchema;
 use Tests\TestCase;
 
 class AuthBeforeBindingTest extends TestCase

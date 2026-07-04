@@ -104,9 +104,7 @@ class ClientTemplateService
         'limit_cron_type' => ['full', 'chrooted', 'url'],
     ];
 
-    public function __construct(protected DatalogService $datalog)
-    {
-    }
+    public function __construct(protected DatalogService $datalog) {}
 
     /**
      * A client's template assignments in the contract shape

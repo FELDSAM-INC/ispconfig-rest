@@ -14,6 +14,7 @@ use Illuminate\Foundation\Http\FormRequest;
  * mail_forward/mail_alias/mail_domain_catchall tforms):
  *
  *  - source is IDN-encoded + lowercased; a full email for forward/alias,
+ *
  *    @domain.tld for catchall (legacy regex);
  *  - destination is split on /[,;\s]+/, each part validated as an email,
  *    stored re-joined with ', ' (FR-016);

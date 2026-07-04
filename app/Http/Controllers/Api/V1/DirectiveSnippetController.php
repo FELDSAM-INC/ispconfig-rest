@@ -28,9 +28,7 @@ class DirectiveSnippetController extends Controller
 {
     use HandlesListQuery;
 
-    public function __construct(protected DirectiveSnippetService $service)
-    {
-    }
+    public function __construct(protected DirectiveSnippetService $service) {}
 
     /**
      * GET /system/directive-snippets — filtered, sorted, paginated list.

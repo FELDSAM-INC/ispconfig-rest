@@ -8,6 +8,4 @@ namespace App\Http\Requests;
  * Partial updates; demoting the reseller (limit_client = 0) is rejected
  * with 400 in the controller per the contract's wording.
  */
-class UpdateClientResellerRequest extends UpdateClientRequest
-{
-}
+class UpdateClientResellerRequest extends UpdateClientRequest {}

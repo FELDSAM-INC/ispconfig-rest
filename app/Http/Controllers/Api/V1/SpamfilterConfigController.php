@@ -29,9 +29,7 @@ class SpamfilterConfigController extends Controller
 {
     use HandlesListQuery;
 
-    public function __construct(protected ServerIniConfigService $service)
-    {
-    }
+    public function __construct(protected ServerIniConfigService $service) {}
 
     /**
      * GET /mail/spamfilter/config — one entry per mail server, hostname

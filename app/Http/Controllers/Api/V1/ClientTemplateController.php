@@ -26,9 +26,7 @@ class ClientTemplateController extends Controller
 {
     use HandlesListQuery;
 
-    public function __construct(protected ClientTemplateService $service)
-    {
-    }
+    public function __construct(protected ClientTemplateService $service) {}
 
     /**
      * GET /clients/templates — filtered, sorted, paginated list.

@@ -26,9 +26,7 @@ class MailDomainController extends Controller
 {
     use HandlesListQuery;
 
-    public function __construct(protected MailDomainService $service)
-    {
-    }
+    public function __construct(protected MailDomainService $service) {}
 
     /**
      * GET /mail/domains — filtered, sorted, paginated list.

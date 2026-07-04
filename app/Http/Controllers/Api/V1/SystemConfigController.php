@@ -26,9 +26,7 @@ use Illuminate\Http\JsonResponse;
  */
 class SystemConfigController extends Controller
 {
-    public function __construct(protected SystemConfigService $config)
-    {
-    }
+    public function __construct(protected SystemConfigService $config) {}
 
     /**
      * GET /system/config — id + all five sections.

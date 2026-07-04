@@ -28,9 +28,7 @@ class MailUserController extends Controller
 {
     use HandlesListQuery;
 
-    public function __construct(protected MailUserService $service)
-    {
-    }
+    public function __construct(protected MailUserService $service) {}
 
     /**
      * GET /mail/users — filtered, sorted, paginated list.

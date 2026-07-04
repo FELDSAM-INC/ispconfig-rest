@@ -27,9 +27,7 @@ use stdClass;
  */
 class ServerConfigController extends Controller
 {
-    public function __construct(protected ServerConfigService $service)
-    {
-    }
+    public function __construct(protected ServerConfigService $service) {}
 
     /**
      * GET /servers/{id}/configs — the fully parsed configuration

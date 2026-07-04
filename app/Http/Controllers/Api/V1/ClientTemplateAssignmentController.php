@@ -27,9 +27,7 @@ class ClientTemplateAssignmentController extends Controller
 {
     use HandlesListQuery;
 
-    public function __construct(protected ClientTemplateService $service)
-    {
-    }
+    public function __construct(protected ClientTemplateService $service) {}
 
     /**
      * GET /clients/{client_id}/templates — the client's assignments

@@ -70,8 +70,7 @@ class ClientService
         protected DatalogService $datalog,
         protected ClientTemplateService $templates,
         protected IspContext $context,
-    ) {
-    }
+    ) {}
 
     /**
      * Create a client (or reseller) with the legacy side effects.

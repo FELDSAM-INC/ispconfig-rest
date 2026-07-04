@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -131,7 +132,7 @@ abstract class MailCompletionApiTestCase extends TestCase
     /**
      * Datalog rows for one table, oldest first.
      *
-     * @return \Illuminate\Support\Collection<int, object>
+     * @return Collection<int, object>
      */
     protected function datalogRows(string $table)
     {

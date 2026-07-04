@@ -33,9 +33,7 @@ class ResyncController extends Controller
 
     protected const SERVER_TYPES = ['web', 'mail', 'dns', 'db', 'file', 'vserver'];
 
-    public function __construct(protected ResyncService $resync)
-    {
-    }
+    public function __construct(protected ResyncService $resync) {}
 
     /**
      * POST /system/resync — run the resync, return the 200 ResyncResult.

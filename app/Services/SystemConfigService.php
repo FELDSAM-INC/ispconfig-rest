@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\SysIni;
+use App\Support\IniConfig;
 use Closure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -29,8 +30,9 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * of the legacy tform); defaults and validation rules mirror
  * source_code/interface/web/admin/form/system_config.tform.php.
  *
- * NOTE: the server module keeps its own INI helpers for server.config —
- * deliberately not shared (zero cross-module coupling).
+ * The INI parsing/serialization itself is the canonical shared port in
+ * App\Support\IniConfig (also used by ServerConfigService and
+ * ServerIniConfigService for server.config).
  */
 class SystemConfigService
 {
@@ -244,9 +246,13 @@ class SystemConfigService
             $config = $this->parseBlob((string) $row->config);
 
             foreach ($sectionChanges as $section => $changes) {
+                $values = [];
+
                 foreach ($changes as $key => $value) {
-                    $config[$section][$key] = $this->toBlobValue($section, $key, $value);
+                    $values[$key] = $this->toBlobValue($section, $key, $value);
                 }
+
+                $config = IniConfig::mergeSection($config, $section, $values);
             }
 
             $row->config = $this->buildBlob($config);
@@ -310,60 +316,27 @@ class SystemConfigService
     }
 
     /**
-     * Port of legacy ini_parser::parse_ini_string, reading the blob through
+     * Legacy ini_parser::parse_ini_string (canonical implementation in
+     * App\Support\IniConfig::parse()), reading the blob through
      * stripslashes() first exactly like getconf::get_global_config.
      *
      * @return array<string, array<string, string>>
      */
     public function parseBlob(string $blob): array
     {
-        $config = [];
-        $section = null;
-
-        $blob = str_replace("\r\n", "\n", stripslashes($blob));
-
-        foreach (explode("\n", $blob) as $line) {
-            $line = trim($line);
-
-            if ($line === '') {
-                continue;
-            }
-
-            if (preg_match('/^\[([\w\d_]+)\]$/', $line, $matches)) {
-                $section = strtolower($matches[1]);
-            } elseif (preg_match('/^([\w\d_]+)=(.*)$/', $line, $matches) && $section !== null) {
-                $config[$section][trim($matches[1])] = trim($matches[2]);
-            }
-        }
-
-        return $config;
+        return IniConfig::parse(stripslashes($blob));
     }
 
     /**
-     * Port of legacy ini_parser::get_ini_string — `[section]` header,
-     * `key=value` per key, one trailing blank line per section.
+     * Legacy ini_parser::get_ini_string (canonical implementation in
+     * App\Support\IniConfig::serialize()) — `[section]` header, `key=value`
+     * per key, one trailing blank line per section.
      *
      * @param  array<string, array<string, string>>  $config
      */
     public function buildBlob(array $config): string
     {
-        $content = '';
-
-        foreach ($config as $section => $data) {
-            $content .= "[$section]\n";
-
-            foreach ($data as $item => $value) {
-                $item = trim((string) $item);
-
-                if ($item !== '') {
-                    $content .= $item.'='.trim((string) $value)."\n";
-                }
-            }
-
-            $content .= "\n";
-        }
-
-        return $content;
+        return IniConfig::serialize($config);
     }
 
     /**

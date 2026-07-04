@@ -26,9 +26,7 @@ class ClientResellerController extends Controller
 {
     use HandlesListQuery;
 
-    public function __construct(protected ClientService $service)
-    {
-    }
+    public function __construct(protected ClientService $service) {}
 
     /**
      * GET /resellers — filtered, sorted, paginated list.

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\MonitorCompletionSchema;
+use Tests\Support\MonitorSchema;
 use Tests\TestCase;
 
 /**
@@ -237,7 +238,7 @@ class SystemLogApiTest extends TestCase
 
     public function test_endpoint_produces_no_datalog_entries(): void
     {
-        \Tests\Support\MonitorSchema::create(); // provides sys_datalog
+        MonitorSchema::create(); // provides sys_datalog
 
         $this->seedLog();
 

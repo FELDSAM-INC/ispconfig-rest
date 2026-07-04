@@ -6,6 +6,7 @@ use App\Http\Requests\Concerns\NormalizesMailInput;
 use App\Models\MailTransport;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Shared behavior for /mail/transports writes (contract:
@@ -67,7 +68,7 @@ abstract class MailTransportRequest extends FormRequest
     protected function notMailDomainRule(): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail): void {
-            $exists = \Illuminate\Support\Facades\DB::table('mail_domain')
+            $exists = DB::table('mail_domain')
                 ->where('domain', (string) $value)
                 ->exists();
 

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Server;
+use App\Support\IniConfig;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -20,10 +21,20 @@ use Illuminate\Validation\ValidationException;
  *   parse whole blob -> replace ONE section -> re-serialize whole blob ->
  *   datalogUpdate('server', ['config' => $blob], 'server_id', $id)
  *
- * parse()/serialize() below are exact ports of ini_parser::parse_ini_string
- * and ini_parser::get_ini_string — the stored blob MUST stay parseable by
- * legacy at all times, and a parse->serialize round trip of a blob legacy
- * itself produced is byte-identical.
+ * parse()/serialize() delegate to the canonical App\Support\IniConfig port
+ * of ini_parser::parse_ini_string / get_ini_string — the stored blob MUST
+ * stay parseable by legacy at all times, and a parse->serialize round trip
+ * of a blob legacy itself produced is byte-identical.
+ *
+ * WRITE DISCIPLINE — server.config has TWO writers, on purpose:
+ *  - THIS service persists through Server::save(), which DATALOGS the
+ *    update (sys_datalog 'u' on `server` carrying the whole new blob) —
+ *    parity with the legacy Server Config panel
+ *    (server_config_edit.php::onUpdateSave via tform datalogUpdate);
+ *  - ServerIniConfigService (the mail module's spamfilter-config view over
+ *    the same blob) writes with a plain UPDATE and NO datalog — parity
+ *    with the legacy Spamfilter Config panel (spamfilter_config_edit.php),
+ *    which never datalogs. Do NOT "unify" the two disciplines.
  *
  * Merge guarantees on updateSection() (contract, server-config.yaml):
  *  - only the target [section] changes; every other section and key —
@@ -282,71 +293,31 @@ class ServerConfigService
         ],
     ];
 
-    public function __construct(protected DatalogService $datalog)
-    {
-    }
+    public function __construct(protected DatalogService $datalog) {}
 
     /**
-     * Exact port of legacy ini_parser::parse_ini_string(): CRLF-normalized,
-     * lines trimmed, [section] headers matched by /^\[([\w\d_]+)\]$/ and
-     * lowercased, key=value lines matched by /^([\w\d_]+)=(.*)$/ with both
-     * sides trimmed. Anything else (comments, junk, keys before the first
-     * section header) is dropped, exactly like legacy.
+     * Legacy ini_parser::parse_ini_string() — canonical implementation in
+     * App\Support\IniConfig::parse() (this class's port was the
+     * fixture-proven original it was extracted from).
      *
      * @return array<string, array<string, string>> ordered sections => ordered key/value pairs
      */
     public function parse(string $ini): array
     {
-        $config = [];
-        $section = null;
-
-        $ini = str_replace("\r\n", "\n", $ini);
-
-        foreach (explode("\n", $ini) as $line) {
-            $line = trim($line);
-
-            if ($line === '') {
-                continue;
-            }
-
-            if (preg_match('/^\[([\w\d_]+)\]$/', $line, $matches)) {
-                $section = strtolower($matches[1]);
-            } elseif ($section !== null && preg_match('/^([\w\d_]+)=(.*)$/', $line, $matches)) {
-                $config[$section][trim($matches[1])] = trim($matches[2]);
-            }
-        }
-
-        return $config;
+        return IniConfig::parse($ini);
     }
 
     /**
-     * Exact port of legacy ini_parser::get_ini_string(): "[section]\n",
-     * one trimmed "key=value\n" per pair (empty keys skipped), one blank
-     * line after every section. parse(serialize(parse($x))) is a fixed
-     * point, and serializing an unmodified parse of a legacy-produced blob
-     * reproduces it byte for byte.
+     * Legacy ini_parser::get_ini_string() — canonical implementation in
+     * App\Support\IniConfig::serialize(). parse(serialize(parse($x))) is a
+     * fixed point, and serializing an unmodified parse of a legacy-produced
+     * blob reproduces it byte for byte.
      *
      * @param  array<string, array<string, mixed>>  $config
      */
     public function serialize(array $config): string
     {
-        $content = '';
-
-        foreach ($config as $section => $data) {
-            $content .= "[$section]\n";
-
-            foreach ((array) $data as $item => $value) {
-                $item = trim((string) $item);
-
-                if ($item !== '') {
-                    $content .= $item.'='.trim((string) $value)."\n";
-                }
-            }
-
-            $content .= "\n";
-        }
-
-        return $content;
+        return IniConfig::serialize($config);
     }
 
     /**
@@ -446,12 +417,16 @@ class ServerConfigService
             }
         }
 
-        $config[$section] = $new;
+        $config = IniConfig::mergeSection($config, $section, $new);
 
         $switchesToRspamd = $section === 'mail'
             && ($input['content_filter'] ?? null) === 'rspamd'
             && ($current['content_filter'] ?? '') !== 'rspamd';
 
+        // Server::save() DATALOGS the blob update (server-config panel
+        // parity). ServerIniConfigService writes the same column WITHOUT a
+        // datalog (spamfilter panel parity) — both are correct, see the
+        // class docblock.
         $server->setAttribute('config', $this->serialize($config));
         $server->save();
 

@@ -83,7 +83,6 @@ abstract class BaseModel extends Model
     /**
      * Save the model and record the change in sys_datalog.
      *
-     * @param  array  $options
      * @return bool
      */
     public function save(array $options = [])

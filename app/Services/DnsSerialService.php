@@ -23,9 +23,7 @@ use Illuminate\Support\Facades\DB;
  */
 class DnsSerialService
 {
-    public function __construct(protected DatalogService $datalog)
-    {
-    }
+    public function __construct(protected DatalogService $datalog) {}
 
     /**
      * Exact port of legacy validate_dns::increase_serial().

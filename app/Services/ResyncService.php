@@ -115,8 +115,7 @@ class ResyncService
     public function __construct(
         protected DatalogService $datalog,
         protected DnsSerialService $dnsSerial,
-    ) {
-    }
+    ) {}
 
     /**
      * Run a resync request and return the ResyncResult payload

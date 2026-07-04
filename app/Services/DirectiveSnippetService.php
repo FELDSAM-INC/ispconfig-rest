@@ -24,9 +24,7 @@ use Illuminate\Support\Facades\DB;
  */
 class DirectiveSnippetService
 {
-    public function __construct(protected ResyncService $resync)
-    {
-    }
+    public function __construct(protected ResyncService $resync) {}
 
     /**
      * Legacy validate_snippet: (name, type) must be unique across snippets,

@@ -45,8 +45,7 @@ class MailUserService
     public function __construct(
         protected ServerIniConfigService $serverConfig,
         protected IspContext $context,
-    ) {
-    }
+    ) {}
 
     /**
      * The mail_domain row for an email's domain part; 400 when the domain is
