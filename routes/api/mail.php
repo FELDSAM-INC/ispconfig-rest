@@ -85,66 +85,83 @@ Route::delete('mail/alias-domains/{mailAliasDomain}', [MailAliasDomainController
 
 // Spamfilter Config — api/modules/mail/spamfilter-config.yaml
 // (no POST/DELETE by contract; static 'config' segment precedes the
-// parameterized sibling resources below)
-Route::get('mail/spamfilter/config', [SpamfilterConfigController::class, 'index']);
-Route::get('mail/spamfilter/config/{serverId}', [SpamfilterConfigController::class, 'show'])->whereNumber('serverId');
-Route::put('mail/spamfilter/config/{serverId}', [SpamfilterConfigController::class, 'update'])->whereNumber('serverId');
+// parameterized sibling resources below). Admin-only INCLUDING reads: the
+// values live in the server.config blob, which carries no row permissions
+// (spec 011 FR-017 + plan — SpamfilterConfig is one of the admin-gated
+// non-listQuery controllers; the contract declares 403 on all three ops).
+Route::middleware('scope.admin')->group(function () {
+    Route::get('mail/spamfilter/config', [SpamfilterConfigController::class, 'index']);
+    Route::get('mail/spamfilter/config/{serverId}', [SpamfilterConfigController::class, 'show'])->whereNumber('serverId');
+    Route::put('mail/spamfilter/config/{serverId}', [SpamfilterConfigController::class, 'update'])->whereNumber('serverId');
+});
 
 // Spamfilter Policies — api/modules/mail/spamfilter-policies.yaml
+// (reads row-scoped — policies are world-readable by seed convention;
+// writes admin-only, spec 011 FR-017 hardening)
 Route::get('mail/spamfilter/policies', [SpamfilterPolicyController::class, 'index']);
-Route::post('mail/spamfilter/policies', [SpamfilterPolicyController::class, 'store']);
+Route::post('mail/spamfilter/policies', [SpamfilterPolicyController::class, 'store'])->middleware('scope.admin');
 Route::get('mail/spamfilter/policies/{spamfilterPolicy}', [SpamfilterPolicyController::class, 'show'])->whereNumber('spamfilterPolicy');
-Route::put('mail/spamfilter/policies/{spamfilterPolicy}', [SpamfilterPolicyController::class, 'update'])->whereNumber('spamfilterPolicy');
-Route::delete('mail/spamfilter/policies/{spamfilterPolicy}', [SpamfilterPolicyController::class, 'destroy'])->whereNumber('spamfilterPolicy');
+Route::put('mail/spamfilter/policies/{spamfilterPolicy}', [SpamfilterPolicyController::class, 'update'])->whereNumber('spamfilterPolicy')->middleware('scope.admin');
+Route::delete('mail/spamfilter/policies/{spamfilterPolicy}', [SpamfilterPolicyController::class, 'destroy'])->whereNumber('spamfilterPolicy')->middleware('scope.admin');
 
 // Spamfilter Users — api/modules/mail/spamfilter-users.yaml
+// (reads row-scoped; writes admin-only, spec 011 FR-017 hardening)
 Route::get('mail/spamfilter/users', [SpamfilterUserController::class, 'index']);
-Route::post('mail/spamfilter/users', [SpamfilterUserController::class, 'store']);
+Route::post('mail/spamfilter/users', [SpamfilterUserController::class, 'store'])->middleware('scope.admin');
 Route::get('mail/spamfilter/users/{spamfilterUser}', [SpamfilterUserController::class, 'show'])->whereNumber('spamfilterUser');
-Route::put('mail/spamfilter/users/{spamfilterUser}', [SpamfilterUserController::class, 'update'])->whereNumber('spamfilterUser');
-Route::delete('mail/spamfilter/users/{spamfilterUser}', [SpamfilterUserController::class, 'destroy'])->whereNumber('spamfilterUser');
+Route::put('mail/spamfilter/users/{spamfilterUser}', [SpamfilterUserController::class, 'update'])->whereNumber('spamfilterUser')->middleware('scope.admin');
+Route::delete('mail/spamfilter/users/{spamfilterUser}', [SpamfilterUserController::class, 'destroy'])->whereNumber('spamfilterUser')->middleware('scope.admin');
 
 // Spamfilter WB List — api/modules/mail/spamfilter-wblist.yaml
+// (reads row-scoped; writes require the client's limit_spamfilter_wblist
+// to be booked — legacy default 0, spec 011 FR-017)
 Route::get('mail/spamfilter/wblist', [SpamfilterWBListController::class, 'index']);
-Route::post('mail/spamfilter/wblist', [SpamfilterWBListController::class, 'store']);
+Route::post('mail/spamfilter/wblist', [SpamfilterWBListController::class, 'store'])->middleware('scope.limit:limit_spamfilter_wblist');
 Route::get('mail/spamfilter/wblist/{spamfilterWblist}', [SpamfilterWBListController::class, 'show'])->whereNumber('spamfilterWblist');
-Route::put('mail/spamfilter/wblist/{spamfilterWblist}', [SpamfilterWBListController::class, 'update'])->whereNumber('spamfilterWblist');
-Route::delete('mail/spamfilter/wblist/{spamfilterWblist}', [SpamfilterWBListController::class, 'destroy'])->whereNumber('spamfilterWblist');
+Route::put('mail/spamfilter/wblist/{spamfilterWblist}', [SpamfilterWBListController::class, 'update'])->whereNumber('spamfilterWblist')->middleware('scope.limit:limit_spamfilter_wblist');
+Route::delete('mail/spamfilter/wblist/{spamfilterWblist}', [SpamfilterWBListController::class, 'destroy'])->whereNumber('spamfilterWblist')->middleware('scope.limit:limit_spamfilter_wblist');
 
 // Mail Transports — api/modules/mail/transports.yaml
+// (reads row-scoped; writes require limit_mailrouting — legacy default 0,
+// mail_transport_edit.php:60, spec 011 FR-017)
 Route::get('mail/transports', [MailTransportController::class, 'index']);
-Route::post('mail/transports', [MailTransportController::class, 'store']);
+Route::post('mail/transports', [MailTransportController::class, 'store'])->middleware('scope.limit:limit_mailrouting');
 Route::get('mail/transports/{mailTransport}', [MailTransportController::class, 'show'])->whereNumber('mailTransport');
-Route::put('mail/transports/{mailTransport}', [MailTransportController::class, 'update'])->whereNumber('mailTransport');
-Route::delete('mail/transports/{mailTransport}', [MailTransportController::class, 'destroy'])->whereNumber('mailTransport');
+Route::put('mail/transports/{mailTransport}', [MailTransportController::class, 'update'])->whereNumber('mailTransport')->middleware('scope.limit:limit_mailrouting');
+Route::delete('mail/transports/{mailTransport}', [MailTransportController::class, 'destroy'])->whereNumber('mailTransport')->middleware('scope.limit:limit_mailrouting');
 
 // Mail Relay Domains — api/modules/mail/relay-domains.yaml
+// (reads row-scoped; writes admin-only, spec 011 FR-017 hardening)
 Route::get('mail/relay-domains', [MailRelayDomainController::class, 'index']);
-Route::post('mail/relay-domains', [MailRelayDomainController::class, 'store']);
+Route::post('mail/relay-domains', [MailRelayDomainController::class, 'store'])->middleware('scope.admin');
 Route::get('mail/relay-domains/{mailRelayDomain}', [MailRelayDomainController::class, 'show'])->whereNumber('mailRelayDomain');
-Route::put('mail/relay-domains/{mailRelayDomain}', [MailRelayDomainController::class, 'update'])->whereNumber('mailRelayDomain');
-Route::delete('mail/relay-domains/{mailRelayDomain}', [MailRelayDomainController::class, 'destroy'])->whereNumber('mailRelayDomain');
+Route::put('mail/relay-domains/{mailRelayDomain}', [MailRelayDomainController::class, 'update'])->whereNumber('mailRelayDomain')->middleware('scope.admin');
+Route::delete('mail/relay-domains/{mailRelayDomain}', [MailRelayDomainController::class, 'destroy'])->whereNumber('mailRelayDomain')->middleware('scope.admin');
 
 // Mail Relay Recipients — api/modules/mail/relay-recipients.yaml
+// (reads row-scoped; writes admin-only, spec 011 FR-017 hardening)
 Route::get('mail/relay-recipients', [MailRelayRecipientController::class, 'index']);
-Route::post('mail/relay-recipients', [MailRelayRecipientController::class, 'store']);
+Route::post('mail/relay-recipients', [MailRelayRecipientController::class, 'store'])->middleware('scope.admin');
 Route::get('mail/relay-recipients/{mailRelayRecipient}', [MailRelayRecipientController::class, 'show'])->whereNumber('mailRelayRecipient');
-Route::put('mail/relay-recipients/{mailRelayRecipient}', [MailRelayRecipientController::class, 'update'])->whereNumber('mailRelayRecipient');
-Route::delete('mail/relay-recipients/{mailRelayRecipient}', [MailRelayRecipientController::class, 'destroy'])->whereNumber('mailRelayRecipient');
+Route::put('mail/relay-recipients/{mailRelayRecipient}', [MailRelayRecipientController::class, 'update'])->whereNumber('mailRelayRecipient')->middleware('scope.admin');
+Route::delete('mail/relay-recipients/{mailRelayRecipient}', [MailRelayRecipientController::class, 'destroy'])->whereNumber('mailRelayRecipient')->middleware('scope.admin');
 
 // Mail Access Rules — api/modules/mail/access-rules.yaml
+// (reads row-scoped; writes require limit_mail_wblist — legacy default 0,
+// spec 011 FR-017)
 Route::get('mail/access-rules', [MailAccessController::class, 'index']);
-Route::post('mail/access-rules', [MailAccessController::class, 'store']);
+Route::post('mail/access-rules', [MailAccessController::class, 'store'])->middleware('scope.limit:limit_mail_wblist');
 Route::get('mail/access-rules/{mailAccess}', [MailAccessController::class, 'show'])->whereNumber('mailAccess');
-Route::put('mail/access-rules/{mailAccess}', [MailAccessController::class, 'update'])->whereNumber('mailAccess');
-Route::delete('mail/access-rules/{mailAccess}', [MailAccessController::class, 'destroy'])->whereNumber('mailAccess');
+Route::put('mail/access-rules/{mailAccess}', [MailAccessController::class, 'update'])->whereNumber('mailAccess')->middleware('scope.limit:limit_mail_wblist');
+Route::delete('mail/access-rules/{mailAccess}', [MailAccessController::class, 'destroy'])->whereNumber('mailAccess')->middleware('scope.limit:limit_mail_wblist');
 
 // Mail Content Filters — api/modules/mail/content-filters.yaml
+// (reads row-scoped; writes admin-only, spec 011 FR-017 hardening)
 Route::get('mail/content-filters', [MailContentFilterController::class, 'index']);
-Route::post('mail/content-filters', [MailContentFilterController::class, 'store']);
+Route::post('mail/content-filters', [MailContentFilterController::class, 'store'])->middleware('scope.admin');
 Route::get('mail/content-filters/{mailContentFilter}', [MailContentFilterController::class, 'show'])->whereNumber('mailContentFilter');
-Route::put('mail/content-filters/{mailContentFilter}', [MailContentFilterController::class, 'update'])->whereNumber('mailContentFilter');
-Route::delete('mail/content-filters/{mailContentFilter}', [MailContentFilterController::class, 'destroy'])->whereNumber('mailContentFilter');
+Route::put('mail/content-filters/{mailContentFilter}', [MailContentFilterController::class, 'update'])->whereNumber('mailContentFilter')->middleware('scope.admin');
+Route::delete('mail/content-filters/{mailContentFilter}', [MailContentFilterController::class, 'destroy'])->whereNumber('mailContentFilter')->middleware('scope.admin');
 
 // Mail Fetchmail (table mail_get) — api/modules/mail/fetchmail.yaml
 Route::get('mail/fetchmail', [MailGetController::class, 'index']);

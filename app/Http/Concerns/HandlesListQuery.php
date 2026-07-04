@@ -2,6 +2,8 @@
 
 namespace App\Http\Concerns;
 
+use App\Models\BaseModel;
+use App\Support\IspContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -44,6 +46,17 @@ trait HandlesListQuery
      */
     protected function listQuery(Builder $query, Request $request, array $sortable, string $defaultSort, array $filters = [], array $extra = []): array
     {
+        // Row-level read scoping (spec 011 FR-006/FR-007): lists on
+        // sys-fielded ISPConfig tables are silently filtered to the rows the
+        // acting scope may read — applied before filters and the count so
+        // meta.total counts visible rows only (parity
+        // listform_actions.inc.php:242-247). No-op for admin scopes.
+        $model = $query->getModel();
+
+        if ($model instanceof BaseModel && $model->hasSysFields()) {
+            app(IspContext::class)->authScope()->applyReadPredicate($query, 'r');
+        }
+
         // Unknown parameters are rejected, not silently ignored: a misspelled
         // filter would otherwise return the unfiltered collection — and a
         // consumer acting on that result (e.g. deleting "the match") would

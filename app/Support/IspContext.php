@@ -26,6 +26,8 @@ class IspContext
 
     protected ?string $sessionId = null;
 
+    protected ?AuthScope $authScope = null;
+
     /**
      * Set the acting identity (called by ApiKeyAuth after key validation).
      */
@@ -34,6 +36,27 @@ class IspContext
         $this->sysUserId = $sysUserId;
         $this->sysGroupId = $sysGroupId;
         $this->username = null;
+        $this->authScope = null;
+    }
+
+    /**
+     * Park the resolved authorization scope (called by ApiKeyAuth after
+     * actAs(); spec 011 FR-001).
+     */
+    public function actAsScope(AuthScope $scope): void
+    {
+        $this->authScope = $scope;
+    }
+
+    /**
+     * The acting authorization scope. Outside an authenticated HTTP request
+     * (CLI commands, tests seeding data) no scope was resolved — default to
+     * an admin scope carrying the current identity so datalog attribution
+     * keeps working unrestricted (spec 011 FR-025).
+     */
+    public function authScope(): AuthScope
+    {
+        return $this->authScope ??= AuthScope::admin($this->sysUserId, $this->sysGroupId);
     }
 
     public function sysUserId(): int

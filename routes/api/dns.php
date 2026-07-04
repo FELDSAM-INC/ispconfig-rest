@@ -36,8 +36,10 @@ Route::put('dns/slaves/{dnsSlave}', [DnsSlaveController::class, 'update'])->wher
 Route::delete('dns/slaves/{dnsSlave}', [DnsSlaveController::class, 'destroy'])->whereNumber('dnsSlave');
 
 // DNS Templates — api/modules/dns/template.yaml
+// (reads row-scoped; writes admin-only — legacy exposes template editing
+// only in the admin menu, dns/lib/module.conf.php:23-28; spec 011 FR-017)
 Route::get('dns/templates', [DnsTemplateController::class, 'index']);
-Route::post('dns/templates', [DnsTemplateController::class, 'store']);
+Route::post('dns/templates', [DnsTemplateController::class, 'store'])->middleware('scope.admin');
 Route::get('dns/templates/{dnsTemplate}', [DnsTemplateController::class, 'show'])->whereNumber('dnsTemplate');
-Route::put('dns/templates/{dnsTemplate}', [DnsTemplateController::class, 'update'])->whereNumber('dnsTemplate');
-Route::delete('dns/templates/{dnsTemplate}', [DnsTemplateController::class, 'destroy'])->whereNumber('dnsTemplate');
+Route::put('dns/templates/{dnsTemplate}', [DnsTemplateController::class, 'update'])->whereNumber('dnsTemplate')->middleware('scope.admin');
+Route::delete('dns/templates/{dnsTemplate}', [DnsTemplateController::class, 'destroy'])->whereNumber('dnsTemplate')->middleware('scope.admin');
