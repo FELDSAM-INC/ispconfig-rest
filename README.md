@@ -42,7 +42,14 @@ X-API-Key: isp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 For local development, setting `API_DEV_KEY` in `.env` enables a fixed key that authenticates as the ISPConfig admin (local/development/testing environments only).
 
-> The API currently operates at **admin scope**: per-client permission enforcement (ISPConfig's `sys_perm_*` model) is not applied per key. Grant keys accordingly.
+### Permission scope
+
+Each key is bound to an ISPConfig user, and access follows ISPConfig's own `sys_perm_*` model:
+
+- A key for the **admin** user (`sys_userid` 1) has unrestricted access — the default when you mint a key without `--client-id`.
+- A key bound to a **client or reseller** (`php artisan api:key:create "label" --client-id=N`) sees and mutates only the rows that user's AUTHSQL grants (own rows, rows in its groups, world-readable rows). Rows it cannot read return `404`; rows it can read but not modify return `403`. The admin-only modules — `servers`, `system`, `monitor`, and `resellers` — return `403` in full. On create, the key's identity is stamped onto the row; client-supplied `sys_userid`/`sys_groupid` values are ignored.
+
+> Per-client resource **quota** enforcement (`client.limit_*` counting) is not yet applied — a scoped key can create beyond its client's limits. Tracked as a follow-up.
 
 ## Conventions
 
