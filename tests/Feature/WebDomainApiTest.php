@@ -194,12 +194,26 @@ class WebDomainApiTest extends SitesApiTestCase
 
     public function test_create_duplicate_domain_returns_409(): void
     {
-        $this->seedVhost(['domain' => 'example.com', 'ip_address' => null]);
+        // Real vhost rows carry '*' (the create default); the uniqueness key
+        // is (server_id, ip_address, domain) with exact matching like legacy.
+        $this->seedVhost(['domain' => 'example.com', 'ip_address' => '*']);
 
         $this->postJson('/api/v1/sites/web-domains', $this->validPayload(), $this->authHeaders())
             ->assertStatus(409)
             ->assertHeader('Content-Type', 'application/problem+json')
             ->assertJsonPath('status', 409);
+    }
+
+    public function test_create_defaults_ip_address_to_wildcard(): void
+    {
+        // A NULL/empty ip_address renders a broken <VirtualHost :80> block
+        // and apache refuses to reload (verified against the live panel);
+        // the ISPConfig UI preselects '*' — creates must default to it.
+        $this->postJson('/api/v1/sites/web-domains', $this->validPayload(), $this->authHeaders())
+            ->assertStatus(201)
+            ->assertJsonPath('ip_address', '*');
+
+        $this->assertSame('*', DB::table('web_domain')->value('ip_address'));
     }
 
     public function test_create_enforces_sni_limit_when_disabled(): void

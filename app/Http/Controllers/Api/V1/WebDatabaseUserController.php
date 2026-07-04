@@ -50,6 +50,7 @@ class WebDatabaseUserController extends Controller
             $request,
             sortable: ['database_user_id', 'database_user', 'server_id'],
             defaultSort: 'database_user',
+            extra: ['search'],
         );
 
         return response()->json($result);

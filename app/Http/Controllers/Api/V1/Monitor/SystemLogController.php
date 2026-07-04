@@ -66,7 +66,8 @@ class SystemLogController extends Controller
             defaultSort: 'tstamp',
             filters: [
                 'server_id' => 'integer',
-            ]
+            ],
+            extra: ['loglevel', 'start_date', 'end_date'],
         );
 
         return response()->json($result);

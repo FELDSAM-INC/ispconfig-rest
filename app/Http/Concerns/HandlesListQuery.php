@@ -39,10 +39,23 @@ trait HandlesListQuery
      * @param  array<int, string>  $sortable  whitelisted sort columns
      * @param  string  $defaultSort  column used when no sort parameter is given
      * @param  array<string, string>  $filters  query param => type (boolean|integer|string|wildcard)
+     * @param  array<int, string>  $extra  params the controller consumes itself (e.g. 'search')
      * @return array{data: array<int, mixed>, meta: array{total: int, limit: int, offset: int}}
      */
-    protected function listQuery(Builder $query, Request $request, array $sortable, string $defaultSort, array $filters = []): array
+    protected function listQuery(Builder $query, Request $request, array $sortable, string $defaultSort, array $filters = [], array $extra = []): array
     {
+        // Unknown parameters are rejected, not silently ignored: a misspelled
+        // filter would otherwise return the unfiltered collection — and a
+        // consumer acting on that result (e.g. deleting "the match") would
+        // target the wrong resource.
+        $allowed = array_merge(['limit', 'offset', 'sort', 'order'], array_keys($filters), $extra);
+        $unknown = array_diff(array_keys($request->query()), $allowed);
+        if ($unknown !== []) {
+            throw new BadRequestHttpException(
+                sprintf("Unknown parameter '%s'. Allowed: %s.", implode("', '", $unknown), implode(', ', $allowed))
+            );
+        }
+
         $this->applyListFilters($query, $request, $filters);
 
         // Sorting: shared `sort` (column) + `order` (asc|desc) parameters.

@@ -46,7 +46,8 @@ class MailForwardingController extends Controller
                 'destination' => 'wildcard',
                 'type' => 'string',
                 'active' => 'boolean',
-            ]
+            ],
+            extra: ['type'],
         );
 
         return response()->json($result);

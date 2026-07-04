@@ -50,6 +50,7 @@ class ShellUserController extends Controller
             $request,
             sortable: ['shell_user_id', 'username', 'server_id', 'parent_domain_id', 'active'],
             defaultSort: 'username',
+            extra: ['search'],
         );
 
         return response()->json($result);

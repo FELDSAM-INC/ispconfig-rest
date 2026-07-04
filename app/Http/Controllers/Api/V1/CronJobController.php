@@ -44,6 +44,7 @@ class CronJobController extends Controller
             $request,
             sortable: ['id', 'server_id', 'parent_domain_id', 'type', 'active'],
             defaultSort: 'id',
+            extra: ['search'],
         );
 
         return response()->json($result);

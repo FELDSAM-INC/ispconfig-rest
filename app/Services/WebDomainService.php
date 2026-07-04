@@ -77,6 +77,15 @@ class WebDomainService
 
         $serverId = (int) ($record['server_id'] ?? 0);
 
+        // A vhost with an empty ip_address renders a broken <VirtualHost :80>
+        // block and apache refuses to reload (verified live: ISPConfig writes
+        // the vhost, the restart fails and the daemon auto-reverts). The
+        // ISPConfig UI preselects the wildcard — mirror that: '*' for
+        // vhosts, parent's address for vhost children.
+        if (empty($record['ip_address'])) {
+            $record['ip_address'] = $isChildVhost ? ($parent->ip_address ?: '*') : '*';
+        }
+
         $this->assertUniqueVhost($serverId, $record['ip_address'] ?? null, (string) $record['domain']);
         $this->runConfigDependentChecks($record, null);
         $record['server_php_id'] = $this->resolveServerPhpId($record);

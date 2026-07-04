@@ -80,7 +80,8 @@ class DataLogController extends Controller
             filters: [
                 'server_id' => 'integer',
                 'dbtable' => 'string',
-            ]
+            ],
+            extra: ['server_id', 'unprocessed_only', 'start_date', 'end_date', 'dbtable', 'status', 'action'],
         );
 
         return response()->json($result);

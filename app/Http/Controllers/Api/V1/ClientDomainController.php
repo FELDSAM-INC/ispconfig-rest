@@ -55,7 +55,8 @@ class ClientDomainController extends Controller
             $query,
             $request,
             sortable: ['domain_id', 'domain', 'sys_groupid'],
-            defaultSort: 'domain'
+            defaultSort: 'domain',
+            extra: ['client_id'],
         );
 
         return response()->json($result);

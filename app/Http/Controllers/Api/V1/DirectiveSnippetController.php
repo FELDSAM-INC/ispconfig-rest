@@ -53,7 +53,8 @@ class DirectiveSnippetController extends Controller
             filters: [
                 'type' => 'string',
                 'active' => 'boolean',
-            ]
+            ],
+            extra: ['type'],
         );
 
         return response()->json($result);

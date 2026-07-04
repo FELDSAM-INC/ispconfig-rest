@@ -54,7 +54,8 @@ class MailUserController extends Controller
                 'email' => 'wildcard',
                 'login' => 'wildcard',
                 'postfix' => 'boolean',
-            ]
+            ],
+            extra: ['domain'],
         );
 
         return response()->json($result);

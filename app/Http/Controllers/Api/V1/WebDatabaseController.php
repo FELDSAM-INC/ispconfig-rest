@@ -49,6 +49,7 @@ class WebDatabaseController extends Controller
             $request,
             sortable: ['database_id', 'database_name', 'server_id', 'parent_domain_id', 'type', 'active'],
             defaultSort: 'database_name',
+            extra: ['search'],
         );
 
         return response()->json($result);

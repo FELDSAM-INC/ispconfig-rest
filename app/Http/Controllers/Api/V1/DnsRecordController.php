@@ -88,7 +88,8 @@ class DnsRecordController extends Controller
                 'zone' => 'integer',
                 'name' => 'wildcard',
                 'active' => 'boolean',
-            ]
+            ],
+            extra: ['data', 'type'],
         );
 
         return response()->json($result);
