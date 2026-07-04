@@ -34,7 +34,7 @@ class SysUser extends BaseModel
         'language',
         'groups',
         'default_group',
-        'client_id'
+        'client_id',
     ];
 
     /**

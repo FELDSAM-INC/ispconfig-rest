@@ -2,45 +2,23 @@
 
 namespace App\Models;
 
+use App\Casts\YesNoBoolean;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+/**
+ * client_template — a reusable set of resource limits applied to clients
+ * (contract: api/components/schemas/ClientTemplate.yaml; legacy:
+ * source_code/interface/web/client/form/client_template.tform.php and the
+ * `client_template` DDL in ispconfig3.sql).
+ *
+ * template_type 'm' templates define a client's base limits (stored in
+ * client.template_master); 'a' templates stack on top via the
+ * client_template_assigned pivot. Note: legacy sets db_history=no for this
+ * form — the REST API datalogs it anyway (documented, harmless surplus).
+ */
 class ClientTemplate extends BaseModel
 {
-    /**
-     * Validation rules for the model
-     *
-     * @var array
-     */
-    public static $rules = [
-        'template_name' => 'required|string|max:255',
-        'template_type' => 'sometimes|string|in:m,a',
-        'description' => 'sometimes|nullable|string',
-        'mail_servers' => 'sometimes|string',
-        'web_servers' => 'sometimes|string',
-        'dns_servers' => 'sometimes|string',
-        'db_servers' => 'sometimes|string',
-        'limit_maildomain' => 'sometimes|integer',
-        'limit_mailbox' => 'sometimes|integer',
-        'limit_mailalias' => 'sometimes|integer',
-        'limit_mailaliasdomain' => 'sometimes|integer',
-        'limit_mailforward' => 'sometimes|integer',
-        'limit_mailcatchall' => 'sometimes|integer',
-        'limit_mailrouting' => 'sometimes|integer',
-        'limit_mailfilter' => 'sometimes|integer',
-        'limit_fetchmail' => 'sometimes|integer',
-        'limit_mailquota' => 'sometimes|integer',
-        'limit_web_domain' => 'sometimes|integer',
-        'limit_web_quota' => 'sometimes|integer',
-        'limit_web_subdomain' => 'sometimes|integer',
-        'limit_web_aliasdomain' => 'sometimes|integer',
-        'limit_ftp_user' => 'sometimes|integer',
-        'limit_shell_user' => 'sometimes|integer',
-        'limit_webdav_user' => 'sometimes|integer',
-        'limit_database' => 'sometimes|integer',
-        'limit_database_quota' => 'sometimes|integer',
-        'limit_dns_zone' => 'sometimes|integer',
-        'limit_dns_record' => 'sometimes|integer',
-        'limit_client' => 'sometimes|integer',
-    ];
-    
     /**
      * The table associated with the model.
      *
@@ -56,29 +34,16 @@ class ClientTemplate extends BaseModel
     protected $primaryKey = 'template_id';
 
     /**
-     * The attributes that are mass assignable.
+     * Writable fields per the contract (ClientTemplate.yaml). System fields
+     * come from IspContext (BaseModel).
      *
-     * @var array
+     * @var array<int, string>
      */
     protected $fillable = [
-        // System fields
-        'sys_userid',
-        'sys_groupid',
-        'sys_perm_user',
-        'sys_perm_group',
-        'sys_perm_other',
-        
-        // Template fields
         'template_name',
         'template_type',
-        'description',
+        // Mail
         'mail_servers',
-        'web_servers',
-        'db_servers',
-        'dns_servers',
-        'file_servers',
-        
-        // Limit fields
         'limit_maildomain',
         'limit_mailbox',
         'limit_mailalias',
@@ -93,33 +58,97 @@ class ClientTemplate extends BaseModel
         'limit_spamfilter_wblist',
         'limit_spamfilter_user',
         'limit_spamfilter_policy',
+        'limit_mail_backup',
+        'limit_relayhost',
+        'limit_mailmailinglist',
+        // XMPP
+        'default_xmppserver',
+        'xmpp_servers',
+        'limit_xmpp_domain',
+        'limit_xmpp_user',
+        'limit_xmpp_muc',
+        'limit_xmpp_anon',
+        'limit_xmpp_vjud',
+        'limit_xmpp_proxy',
+        'limit_xmpp_status',
+        'limit_xmpp_pastebin',
+        'limit_xmpp_httparchive',
+        // Web
+        'web_servers',
+        'limit_web_ip',
         'limit_web_domain',
         'limit_web_quota',
+        'web_php_options',
+        'limit_cgi',
+        'limit_ssi',
+        'limit_perl',
+        'limit_ruby',
+        'limit_python',
+        'force_suexec',
+        'limit_hterror',
+        'limit_wildcard',
+        'limit_ssl',
+        'limit_ssl_letsencrypt',
         'limit_web_subdomain',
         'limit_web_aliasdomain',
         'limit_ftp_user',
+        // Shell
         'limit_shell_user',
+        'ssh_chroot',
         'limit_webdav_user',
-        'limit_database',
-        'limit_database_quota',
+        'limit_backup',
+        'limit_directive_snippets',
+        'limit_aps',
+        // DNS
+        'dns_servers',
         'limit_dns_zone',
+        'default_slave_dnsserver',
+        'limit_dns_slave_zone',
         'limit_dns_record',
-        'limit_client',
+        // Database
+        'db_servers',
+        'limit_database',
+        'limit_database_postgresql',
+        'limit_database_user',
+        'limit_database_quota',
+        // Cron
         'limit_cron',
-        'limit_web_ip',
+        'limit_cron_type',
+        'limit_cron_frequency',
+        'limit_traffic_quota',
+        // Other
+        'limit_client',
+        'limit_domainmodule',
+        'limit_openvz_vm',
+        'limit_openvz_vm_template_id',
     ];
 
     /**
-     * The attributes that should be cast.
+     * template_id is exposed as `id`.
      *
-     * @var array
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'template_id',
+    ];
+
+    /**
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'id',
+    ];
+
+    /**
+     * client_template enums are lowercase 'n'/'y' (ispconfig3.sql).
+     *
+     * @var array<string, string>
      */
     protected $casts = [
-        'template_id' => 'integer',
         'sys_userid' => 'integer',
         'sys_groupid' => 'integer',
-        'server_id' => 'integer',
-        'limit_client' => 'integer',
+        'default_xmppserver' => 'integer',
+        'default_slave_dnsserver' => 'integer',
         'limit_maildomain' => 'integer',
         'limit_mailbox' => 'integer',
         'limit_mailalias' => 'integer',
@@ -134,6 +163,9 @@ class ClientTemplate extends BaseModel
         'limit_spamfilter_wblist' => 'integer',
         'limit_spamfilter_user' => 'integer',
         'limit_spamfilter_policy' => 'integer',
+        'limit_mailmailinglist' => 'integer',
+        'limit_xmpp_domain' => 'integer',
+        'limit_xmpp_user' => 'integer',
         'limit_web_domain' => 'integer',
         'limit_web_quota' => 'integer',
         'limit_web_subdomain' => 'integer',
@@ -141,43 +173,77 @@ class ClientTemplate extends BaseModel
         'limit_ftp_user' => 'integer',
         'limit_shell_user' => 'integer',
         'limit_webdav_user' => 'integer',
-        'limit_database' => 'integer',
-        'limit_database_quota' => 'integer',
-        'limit_dns_zone' => 'integer',
-        'limit_dns_record' => 'integer',
+        'limit_aps' => 'integer',
         'limit_cron' => 'integer',
-        'limit_web_ip' => 'integer',
+        'limit_cron_frequency' => 'integer',
+        'limit_traffic_quota' => 'integer',
+        'limit_dns_zone' => 'integer',
+        'limit_dns_slave_zone' => 'integer',
+        'limit_dns_record' => 'integer',
+        'limit_database' => 'integer',
+        'limit_database_postgresql' => 'integer',
+        'limit_database_user' => 'integer',
+        'limit_database_quota' => 'integer',
+        'limit_client' => 'integer',
+        'limit_domainmodule' => 'integer',
+        'limit_openvz_vm' => 'integer',
+        'limit_openvz_vm_template_id' => 'integer',
+        'limit_mail_backup' => YesNoBoolean::class,
+        'limit_relayhost' => YesNoBoolean::class,
+        'limit_xmpp_muc' => YesNoBoolean::class,
+        'limit_xmpp_anon' => YesNoBoolean::class,
+        'limit_xmpp_vjud' => YesNoBoolean::class,
+        'limit_xmpp_proxy' => YesNoBoolean::class,
+        'limit_xmpp_status' => YesNoBoolean::class,
+        'limit_xmpp_pastebin' => YesNoBoolean::class,
+        'limit_xmpp_httparchive' => YesNoBoolean::class,
+        'limit_cgi' => YesNoBoolean::class,
+        'limit_ssi' => YesNoBoolean::class,
+        'limit_perl' => YesNoBoolean::class,
+        'limit_ruby' => YesNoBoolean::class,
+        'limit_python' => YesNoBoolean::class,
+        'force_suexec' => YesNoBoolean::class,
+        'limit_hterror' => YesNoBoolean::class,
+        'limit_wildcard' => YesNoBoolean::class,
+        'limit_ssl' => YesNoBoolean::class,
+        'limit_ssl_letsencrypt' => YesNoBoolean::class,
+        'limit_backup' => YesNoBoolean::class,
+        'limit_directive_snippets' => YesNoBoolean::class,
     ];
 
     /**
-     * Default attribute values.
+     * Legacy tform default: template_type 'm'.
      *
-     * @var array
+     * @var array<string, mixed>
      */
     protected $attributes = [
         'template_type' => 'm',
-        'limit_client' => 0,
-        'limit_maildomain' => 0,
-        'limit_mailbox' => 0,
-        'limit_mailalias' => 0,
-        'limit_mailaliasdomain' => -1,
-        'limit_mailforward' => 0,
-        'limit_mailcatchall' => -1,
-        'limit_mailrouting' => 0,
-        'limit_mailquota' => -1,
-        'limit_web_domain' => 0,
-        'limit_web_quota' => -1,
-        'limit_web_subdomain' => -1,
-        'limit_web_aliasdomain' => -1,
-        'limit_ftp_user' => 0,
-        'limit_database' => 0,
     ];
 
     /**
-     * Get the clients that use this template.
+     * The contract exposes the primary key as `id`.
      */
-    public function clients()
+    protected function id(): Attribute
     {
-        return $this->hasMany(Client::class, 'template_id', 'template_id');
+        return Attribute::get(fn () => $this->getKey());
+    }
+
+    /**
+     * Pivot assignments referencing this template (additional assignments).
+     */
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(ClientTemplateAssigned::class, 'client_template_id', 'template_id');
+    }
+
+    /**
+     * Whether the template is in use — as a master template
+     * (client.template_master) or via a client_template_assigned pivot row
+     * (fixed in-use check; legacy: client_template_del.php::onBeforeDelete).
+     */
+    public function isInUse(): bool
+    {
+        return $this->assignments()->exists()
+            || Client::query()->where('template_master', $this->getKey())->exists();
     }
 }

@@ -2,11 +2,38 @@
 
 namespace App\Models;
 
-use App\Casts\YesNoBoolean;
 use App\Services\DatalogService;
+use App\Support\IspContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 
+/**
+ * Base class for every model that maps an ISPConfig table (constitution
+ * Principle II — datalog-only writes).
+ *
+ * save() and delete() perform the actual row change AND record it in
+ * sys_datalog through DatalogService, exactly like the legacy interface's
+ * datalogInsert()/datalogUpdate()/datalogDelete() (db_mysql.inc.php):
+ *
+ *  - insert: INSERT, then re-read the complete row from the DB (so column
+ *    defaults the API never set are part of the payload) and log action 'i'
+ *    with old = [].
+ *  - update: log action 'u' with old = the record as originally loaded and
+ *    new = the re-read row. DatalogService diffs the two and writes NOTHING
+ *    when no column actually changed (legacy no-change suppression).
+ *  - delete: log action 'd' with old = the full record, new = [].
+ *
+ * All records passed to the datalog are RAW attribute arrays (DB-native
+ * 'y'/'n' strings etc.), never cast values — the payload must match what
+ * legacy serializes byte for byte (see DatalogService for the format
+ * contract).
+ *
+ * On insert, ISPConfig system fields are defaulted from the request-scoped
+ * IspContext (sys_userid/sys_groupid of the authenticated API key) and the
+ * legacy tform auth_preset permissions (sys_perm_user/group 'riud',
+ * sys_perm_other '' — see e.g. mail_domain.tform.php). server_id is
+ * resource-specific and stays the responsibility of models/controllers.
+ */
 abstract class BaseModel extends Model
 {
     /**
@@ -24,189 +51,148 @@ abstract class BaseModel extends Model
     protected $table;
 
     /**
-     * Indicates if the model should be timestamped.
+     * ISPConfig tables have no created_at/updated_at.
      *
      * @var bool
      */
     public $timestamps = false;
 
     /**
-     * The system fields that are present in most ISPConfig tables
+     * Whether the table carries the ISPConfig system fields (sys_userid,
+     * sys_groupid, sys_perm_*). Models for the few tables without them
+     * override this with false.
      */
-    protected $systemFields = [
-        'sys_userid',
-        'sys_groupid',
-        'sys_perm_user',
-        'sys_perm_group',
-        'sys_perm_other',
-        'server_id',
-        'active'
-    ];
+    protected bool $hasSysFields = true;
 
     /**
-     * Save changes to the datalog instead of directly to the database
+     * Force a datalog row on the next save even when nothing changed
+     * (legacy $force_update, needed for resync). One-shot flag.
+     */
+    protected bool $forceDatalog = false;
+
+    /**
+     * Emit a datalog row on the next save() even if no column changes.
+     */
+    public function forceDatalog(bool $force = true): static
+    {
+        $this->forceDatalog = $force;
+
+        return $this;
+    }
+
+    /**
+     * Save the model and record the change in sys_datalog.
      *
-     * @param array $options
      * @return bool
      */
     public function save(array $options = [])
     {
         $wasUpdate = $this->exists;
-        $action = $wasUpdate ? 'u' : 'i';
 
-        // For updates, capture original attributes before they are changed by parent::save()
-        $original_attributes_for_datalog = $wasUpdate ? $this->getOriginal() : [];
+        if (! $wasUpdate && $this->hasSysFields) {
+            $this->applySysFieldDefaults();
+        }
 
-        // Perform the actual save operation using Eloquent's parent::save()
+        // The 'old' record for updates: raw attributes as originally loaded
+        // from the DB, captured before parent::save() syncs the original.
+        $oldRecord = $wasUpdate ? $this->getRawOriginal() : [];
+
         $saved = parent::save($options);
 
         if ($saved) {
-            $primaryKeyValue = $this->getKey(); // Now contains the ID for inserts
-            $current_attributes_for_datalog = $this->getAttributes(); // Get all current attributes after save
+            // Legacy re-SELECTs the complete row after the write so the
+            // datalog payload contains every column (including DB defaults
+            // this process never set). Mirror that.
+            $newRecord = $this->freshRecordFromDatabase() ?? $this->getAttributes();
 
-            // Ensure the primary key is in the 'new' attributes for datalog, especially for inserts.
-            // Eloquent's getAttributes() after save should include the ID.
-            if (!$wasUpdate && $this->getKeyName() && !isset($current_attributes_for_datalog[$this->getKeyName()])) {
-                 $current_attributes_for_datalog[$this->getKeyName()] = $primaryKeyValue;
-            }
-
-            // The $original_attributes_for_datalog holds the 'old' state for updates.
-            // For inserts, it's an empty array, which is correct for datalog's 'old' part.
-            if ($action === 'u') {
-                $diff_old = [];
-                $diff_new = [];
-                $all_keys = array_unique(array_merge(array_keys($original_attributes_for_datalog), array_keys($current_attributes_for_datalog)));
-
-                foreach ($all_keys as $key) {
-                    // Use array_key_exists to properly check for the existence of the key
-                    // This ensures we don't lose false/0/empty string values
-                    $old_value = array_key_exists($key, $original_attributes_for_datalog) 
-                        ? $original_attributes_for_datalog[$key] 
-                        : null;
-                    $new_value = array_key_exists($key, $current_attributes_for_datalog) 
-                        ? $current_attributes_for_datalog[$key] 
-                        : null;
-                    
-                    // Normalize boolean values for comparison
-                    $isBooleanField = isset($this->casts[$key]) && (
-                        $this->casts[$key] === 'boolean' || 
-                        is_a($this->casts[$key], 'boolean', false) ||
-                        $this->casts[$key] === YesNoBoolean::class
-                    );
-                    
-                    if ($isBooleanField) {
-                        $old_value = $this->normalizeBooleanForDatalog($old_value);
-                        $new_value = $this->normalizeBooleanForDatalog($new_value);
-                    }
-
-                    // A field is considered changed if its value differs, or if it's added/removed.
-                    if ($old_value !== $new_value || 
-                        (array_key_exists($key, $original_attributes_for_datalog) && !array_key_exists($key, $current_attributes_for_datalog)) || 
-                        (!array_key_exists($key, $original_attributes_for_datalog) && array_key_exists($key, $current_attributes_for_datalog))) {
-                        
-                        // If the key existed in the old record, store its old value
-                        if (array_key_exists($key, $original_attributes_for_datalog)) {
-                            $diff_old[$key] = $old_value;
-                        }
-                        // If the key exists in the new record, store its new value
-                        if (array_key_exists($key, $current_attributes_for_datalog)) {
-                            $diff_new[$key] = $new_value;
-                        }
-                    }
-                }
-
-                // Only proceed if there are actual changes
-                if (empty($diff_new) && empty($diff_old)) {
-                    return $saved; // No changes to log for an update
-                }
-                $datalog_payload = ['new' => $diff_new, 'old' => $diff_old];
-
-            } else { // For inserts ('i')
-                $datalog_payload = [
-                    'new' => $current_attributes_for_datalog,
-                    'old' => [] // Original attributes are empty for inserts
-                ];
-            }
-
-            // Determine server_id and sys_userid for the datalog entry itself
-            // Prefer 'new' state, fallback to 'old' (relevant for fields not changing or on delete)
-            $datalog_server_id = $current_attributes_for_datalog['server_id']
-                               ?? ($original_attributes_for_datalog['server_id'] ?? 0);
-            $datalog_sys_userid = $current_attributes_for_datalog['sys_userid']
-                                ?? ($original_attributes_for_datalog['sys_userid'] ?? 1);
-
-            $datalogService = App::make(DatalogService::class);
-            $datalogService->log(
-                $this->getTable(), // Use Eloquent's getTable()
+            App::make(DatalogService::class)->log(
+                $this->getTable(),
                 $this->getKeyName(),
-                $primaryKeyValue,
-                $action,
-                $datalog_payload,
-                $datalog_server_id,
-                $datalog_sys_userid
+                $this->getKey(),
+                $wasUpdate ? 'u' : 'i',
+                $oldRecord,
+                $newRecord,
+                $this->forceDatalog
             );
+
+            $this->forceDatalog = false;
         }
 
         return $saved;
     }
 
     /**
-     * Delete the model from the database via datalog
+     * Delete the model and record the deletion in sys_datalog.
      *
      * @return bool|null
      */
     public function delete()
     {
         if (is_null($this->getKeyName())) {
-            throw new \Exception('No primary key defined on model.');
+            throw new \LogicException('No primary key defined on model.');
         }
 
-        if (!$this->exists) {
-            // Or return false, or throw exception, depending on desired behavior for non-existent model delete attempt
+        if (! $this->exists) {
             return true;
         }
 
-        $original_attributes_for_datalog = $this->getAttributes(); // Capture attributes before actual deletion
+        // Full old record (legacy datalogDelete SELECTs it before deleting).
+        $oldRecord = $this->freshRecordFromDatabase() ?? $this->getAttributes();
         $primaryKeyValue = $this->getKey();
 
-        // Perform the actual delete operation using Eloquent's parent::delete()
         $deleted = parent::delete();
 
         if ($deleted) {
-            $datalog_payload = [
-                'new' => [], // 'new' state is empty for deletes
-                'old' => $original_attributes_for_datalog
-            ];
-
-            $datalog_server_id = $original_attributes_for_datalog['server_id'] ?? 0;
-            $datalog_sys_userid = $original_attributes_for_datalog['sys_userid'] ?? 1;
-
-            $datalogService = App::make(DatalogService::class);
-            $datalogService->log(
-                $this->getTable(), // Use Eloquent's getTable()
+            App::make(DatalogService::class)->log(
+                $this->getTable(),
                 $this->getKeyName(),
                 $primaryKeyValue,
                 'd',
-                $datalog_payload,
-                $datalog_server_id,
-                $datalog_sys_userid
+                $oldRecord,
+                []
             );
         }
 
         return $deleted;
     }
-    
+
     /**
-     * Normalize boolean values for datalog comparison
-     *
-     * @param mixed $value
-     * @return string
+     * Default the ISPConfig system fields for inserts from the authenticated
+     * request context, with the legacy tform auth_preset permission defaults.
+     * Values already set (by the model's $attributes or explicitly) win.
      */
-    protected function normalizeBooleanForDatalog($value)
+    protected function applySysFieldDefaults(): void
     {
-        if ($value === true || $value === 'Y' || $value === '1' || $value === 1) {
-            return 'Y';
+        $context = App::make(IspContext::class);
+
+        $defaults = [
+            'sys_userid' => $context->sysUserId(),
+            'sys_groupid' => $context->sysGroupId(),
+            'sys_perm_user' => 'riud',
+            'sys_perm_group' => 'riud',
+            'sys_perm_other' => '',
+        ];
+
+        foreach ($defaults as $field => $value) {
+            if (! array_key_exists($field, $this->getAttributes())) {
+                $this->setAttribute($field, $value);
+            }
         }
-        return 'N';
+    }
+
+    /**
+     * Re-read this row from the database as a raw column => value array,
+     * bypassing casts and scopes (equivalent to legacy's SELECT * re-read).
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function freshRecordFromDatabase(): ?array
+    {
+        $row = $this->newQueryWithoutScopes()
+            ->getQuery()
+            ->where($this->getKeyName(), $this->getKey())
+            ->first();
+
+        return $row === null ? null : (array) $row;
     }
 }

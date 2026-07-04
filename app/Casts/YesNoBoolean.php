@@ -4,82 +4,56 @@ namespace App\Casts;
 
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 
+/**
+ * Casts ISPConfig ENUM('n','y') / ENUM('N','Y') columns to booleans.
+ *
+ * The stored case matters: sys_datalog payloads are consumed by legacy
+ * ISPConfig server plugins that compare against the exact column case.
+ * Most tables use lowercase 'y'/'n' (the default); DNS tables use
+ * uppercase — declare those casts as YesNoBoolean::class.':upper'.
+ */
 class YesNoBoolean implements CastsAttributes
 {
-    /**
-     * Cast the given value.
-     *
-     * @param  \Illuminate\Database\Eloquent\Model  $model
-     * @param  string  $key
-     * @param  mixed  $value
-     * @param  array  $attributes
-     * @return bool
-     */
-    public function get($model, string $key, $value, array $attributes)
+    protected string $true;
+
+    protected string $false;
+
+    public function __construct(string $case = 'lower')
     {
-        // Return a boolean value for the application
+        $upper = strtolower($case) === 'upper';
+        $this->true = $upper ? 'Y' : 'y';
+        $this->false = $upper ? 'N' : 'n';
+    }
+
+    /**
+     * Cast the stored value to a boolean for the application.
+     */
+    public function get($model, string $key, $value, array $attributes): bool
+    {
         if ($value === null) {
             return false;
         }
-        
-        // Handle string values (Y/N from database)
+
         if (is_string($value)) {
-            $value = strtoupper($value);
-            return $value === 'Y' || $value === '1' || $value === 'TRUE';
+            return in_array(strtoupper($value), ['Y', '1', 'TRUE'], true);
         }
-        
-        // Handle boolean or numeric values
+
         return (bool) $value;
     }
 
     /**
-     * Convert a value to a database boolean string.
-     *
-     * @param  mixed  $value
-     * @return string
+     * Prepare the boolean for storage in the column's native case.
      */
-    protected function toDbValue($value)
+    public function set($model, string $key, $value, array $attributes): ?string
     {
-        if (is_bool($value)) {
-            return $value ? 'Y' : 'N';
-        }
-        
-        if (is_string($value)) {
-            $value = strtolower($value);
-            return in_array($value, ['y', 'yes', '1', 'true']) ? 'Y' : 'N';
-        }
-        
-        return $value ? 'Y' : 'N';
-    }
-
-    /**
-     * Prepare the given value for storage.
-     *
-     * @param  \Illuminate\Database\Eloquent\Model  $model
-     * @param  string  $key
-     * @param  mixed  $value
-     * @param  array  $attributes
-     * @return string
-     */
-    public function set($model, string $key, $value, array $attributes)
-    {
-        // If the value is null, return null to indicate no change
         if ($value === null) {
             return null;
         }
-        
-        // Convert the value to database format ('Y' or 'N')
-        $newValue = $this->toDbValue($value);
-        
-        // Get the current original value before any changes
-        $original = $model->getOriginal($key);
-        
-        // If the original value exists and is already in the correct format ('Y' or 'N'),
-        // and the new value would be the same, return the original to prevent marking as dirty
-        if ($original !== null && in_array($original, ['Y', 'N']) && $original === $newValue) {
-            return $original;
+
+        if (is_string($value)) {
+            $value = in_array(strtolower($value), ['y', 'yes', '1', 'true'], true);
         }
-        
-        return $newValue;
+
+        return $value ? $this->true : $this->false;
     }
 }

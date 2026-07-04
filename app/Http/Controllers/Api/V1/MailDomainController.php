@@ -2,217 +2,106 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreMailDomainRequest;
+use App\Http\Requests\UpdateMailDomainRequest;
 use App\Models\MailDomain;
+use App\Services\MailDomainService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 
+/**
+ * Mail Domains (contract: api/modules/mail/domains.yaml).
+ *
+ * Thin HTTP layer: validation lives in the Form Requests, legacy side
+ * effects (DKIM key derivation, DKIM DNS records, delete cascade) in
+ * MailDomainService, datalogging in BaseModel/DatalogService. Success
+ * responses confirm the sys_datalog entry — ISPConfig applies changes
+ * asynchronously.
+ */
 class MailDomainController extends Controller
 {
+    use HandlesListQuery;
+
+    public function __construct(protected MailDomainService $service) {}
+
     /**
-     * Display a listing of the mail domains.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * GET /mail/domains — filtered, sorted, paginated list.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $query = MailDomain::query();
-
-        // Apply filters
-        if ($request->has('domain')) {
-            $query->where('domain', 'like', str_replace('*', '%', $request->input('domain')));
-        }
-
-        if ($request->has('active')) {
-            $query->where('active', $request->input('active'));
-        }
-
-        if ($request->has('local_delivery')) {
-            $query->where('local_delivery', $request->input('local_delivery'));
-        }
-
-        if ($request->has('dkim')) {
-            $query->where('dkim', $request->input('dkim'));
-        }
-
-        // Apply sorting
-        $sortField = $request->input('sort', 'domain');
-        $sortOrder = 'asc';
-        
-        if (str_starts_with($sortField, '-')) {
-            $sortField = substr($sortField, 1);
-            $sortOrder = 'desc';
-        }
-        
-        $query->orderBy($sortField, $sortOrder);
-
-        // Paginate results
-        $perPage = min($request->input('per_page', 20), 100);
-        $domains = $query->paginate($perPage);
-
-        return response()->json([
-            'data' => $domains->items(),
-            'pagination' => [
-                'total' => $domains->total(),
-                'per_page' => $domains->perPage(),
-                'current_page' => $domains->currentPage(),
-                'last_page' => $domains->lastPage(),
+        $result = $this->listQuery(
+            MailDomain::query(),
+            $request,
+            sortable: ['domain_id', 'domain', 'server_id', 'active', 'dkim', 'local_delivery'],
+            defaultSort: 'domain',
+            filters: [
+                'domain' => 'wildcard',
+                'active' => 'boolean',
+                'local_delivery' => 'boolean',
+                'dkim' => 'boolean',
             ]
-        ]);
+        );
+
+        return response()->json($result);
     }
 
     /**
-     * Store a newly created mail domain in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * GET /mail/domains/{id} — implicit binding 404s as problem+json.
      */
-    public function store(Request $request)
+    public function show(MailDomain $mailDomain): JsonResponse
     {
-        $validator = Validator::make($request->all(), MailDomain::getValidationRules());
+        return response()->json($mailDomain);
+    }
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-        
-        // Custom validation for DKIM private key
-        if ($request->input('dkim') === 'y' && !MailDomain::validateDkimPrivateKey($request->input('dkim_private'))) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => ['dkim_private' => ['Invalid DKIM private key']]
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
+    /**
+     * POST /mail/domains — 201 with the created record; datalog action 'i'.
+     */
+    public function store(StoreMailDomainRequest $request): JsonResponse
+    {
+        $domain = new MailDomain($request->payload());
+        $this->service->applyDkimKeys($domain);
 
-        try {
-            DB::beginTransaction();
-
-            $domain = new MailDomain($request->all());
+        DB::transaction(function () use ($domain): void {
             $domain->save();
+            $this->service->syncDnsAfterInsert($domain);
+        });
 
-            DB::commit();
-
-            return response()->json($domain, Response::HTTP_CREATED);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to create mail domain: ' . $e->getMessage());
-            
-            return response()->json([
-                'message' => 'Failed to create mail domain',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        return response()->json($domain->refresh(), 201);
     }
 
     /**
-     * Display the specified mail domain.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * PUT /mail/domains/{id} — 200 with the updated record; datalog action
+     * 'u' (suppressed when nothing changed).
      */
-    public function show($id)
+    public function update(UpdateMailDomainRequest $request, MailDomain $mailDomain): JsonResponse
     {
-        $domain = MailDomain::find($id);
+        $oldRecord = $mailDomain->getRawOriginal();
 
-        if (!$domain) {
-            return response()->json([
-                'message' => 'Mail domain not found'
-            ], Response::HTTP_NOT_FOUND);
-        }
+        $mailDomain->fill($request->payload());
+        $this->service->applyDkimKeys($mailDomain);
 
-        return response()->json($domain);
+        DB::transaction(function () use ($mailDomain, $oldRecord): void {
+            $mailDomain->save();
+            $this->service->syncDnsAfterUpdate($mailDomain, $oldRecord);
+        });
+
+        return response()->json($mailDomain->refresh());
     }
 
     /**
-     * Update the specified mail domain in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * DELETE /mail/domains/{id} — 204; datalog action 'd' for the domain
+     * and every dependent record (legacy cascade).
      */
-    public function update(Request $request, $id)
+    public function destroy(MailDomain $mailDomain): Response
     {
-        $domain = MailDomain::find($id);
+        DB::transaction(function () use ($mailDomain): void {
+            $this->service->deleteWithCascade($mailDomain);
+        });
 
-        if (!$domain) {
-            return response()->json([
-                'message' => 'Mail domain not found'
-            ], Response::HTTP_NOT_FOUND);
-        }
-
-        $validator = Validator::make($request->all(), MailDomain::getValidationRules($id));
-
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-        
-        // Custom validation for DKIM private key if present in request
-        if ($request->has('dkim') && $request->input('dkim') === 'y' && 
-            $request->has('dkim_private') && !MailDomain::validateDkimPrivateKey($request->input('dkim_private'))) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => ['dkim_private' => ['Invalid DKIM private key']]
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $domain->fill($request->all());
-            $domain->save();
-
-            DB::commit();
-
-            return response()->json($domain);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to update mail domain: ' . $e->getMessage());
-            
-            return response()->json([
-                'message' => 'Failed to update mail domain',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    /**
-     * Remove the specified mail domain from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function destroy($id)
-    {
-        $domain = MailDomain::find($id);
-
-        if (!$domain) {
-            return response()->json([
-                'message' => 'Mail domain not found'
-            ], Response::HTTP_NOT_FOUND);
-        }
-
-        try {
-            DB::beginTransaction();
-            $domain->delete();
-            DB::commit();
-
-            return response()->json(null, Response::HTTP_NO_CONTENT);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to delete mail domain: ' . $e->getMessage());
-            
-            return response()->json([
-                'message' => 'Failed to delete mail domain',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        return response()->noContent();
     }
 }

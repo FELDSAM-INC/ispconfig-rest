@@ -1,118 +1,92 @@
 # ISPConfig REST API
 
-## Overview
+A modern, contract-first REST API for [ISPConfig 3.2](https://www.ispconfig.org/), built on Laravel 12. It exposes ISPConfig's full administration surface — clients, DNS, mail, sites, servers, monitoring, and system configuration — as ~270 industry-standard REST endpoints, while remaining a first-class citizen of ISPConfig's own change-management system.
 
-This is a REST API implementation for ISPConfig using the PHP Lumen framework. The API provides programmatic access to ISPConfig's functionality, following the API specifications defined in the `api/` directory.
+## How it works
 
-## Key Features
+The API connects directly to ISPConfig's `dbispconfig` MySQL database, but **never modifies ISPConfig tables directly**. Every write is journaled through ISPConfig's `sys_datalog` table in the exact byte format the legacy interface produces, so ISPConfig's server daemons pick up and apply changes precisely as if they came from the built-in panel. Behavioral parity with the legacy interface (validation rules, derived fields, side effects, cascades) is reverse-engineered from the ISPConfig source and enforced by tests.
 
-- RESTful API endpoints for ISPConfig entities (clients, domains, etc.)
-- Follows ISPConfig's datalog pattern for database changes
-- Proper permission handling using ISPConfig's permission system
-- API authentication via API keys
-- Pagination, filtering, and sorting support
+The OpenAPI 3 contract in [`api/`](api/) is the source of truth — the PHP implements it, not the other way around. Explore it live at `/api/documentation` (Swagger UI).
 
-## Architecture
+## Requirements
 
-This API implementation follows the ISPConfig database change management system through the `sys_datalog` table. As specified in the ISPConfig architecture:
-
-- Direct database modifications are prohibited
-- All changes must be logged through the `sys_datalog` table
-- System fields (sys_userid, sys_groupid, etc.) are included in all operations
+- PHP ≥ 8.2 (8.3+ recommended)
+- Composer
+- Network access to an ISPConfig 3.2 MySQL database (`dbispconfig`)
 
 ## Installation
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/ispconfig_rest.git
-   cd ispconfig_rest
-   ```
+```bash
+git clone <repository-url> ispconfig_rest && cd ispconfig_rest
+composer install
+cp .env.example .env
+php artisan key:generate
+```
 
-2. Install dependencies:
-   ```bash
-   composer install
-   ```
+Edit `.env` with your ISPConfig database credentials (`DB_HOST`, `DB_DATABASE=dbispconfig`, `DB_USERNAME`, `DB_PASSWORD`), then create the API's own key table and mint a key:
 
-3. Configure environment:
-   ```bash
-   cp .env.example .env
-   ```
-   Edit the `.env` file with your ISPConfig database credentials and other settings.
+```bash
+php artisan migrate            # creates only the api_keys table — ISPConfig tables are never migrated
+php artisan api:key:create "my integration"
+```
 
-4. Generate application key:
-   ```bash
-   php artisan key:generate
-   ```
-
-5. Start the development server:
-   ```bash
-   php -S localhost:8000 -t public
-   ```
-
-## API Endpoints
-
-### Clients
-
-- `GET /api/v1/clients` - List all clients
-- `GET /api/v1/clients/{id}` - Get a specific client
-- `POST /api/v1/clients` - Create a new client
-- `PUT /api/v1/clients/{id}` - Update a client
-- `DELETE /api/v1/clients/{id}` - Delete a client
-
-### Domains
-
-- `GET /api/v1/domains` - List all domains
-- `GET /api/v1/domains/{id}` - Get a specific domain
-- `POST /api/v1/domains` - Create a new domain
-- `PUT /api/v1/domains/{id}` - Update a domain
-- `DELETE /api/v1/domains/{id}` - Delete a domain
-
-### DataLog
-
-- `GET /api/v1/datalog/status` - Get status of pending datalog entries
-- `GET /api/v1/datalog/{id}` - Get details of a specific datalog entry
+Run the development server with `php artisan serve`.
 
 ## Authentication
 
-All API requests require an API key to be included in the request headers:
+Every request requires an API key in the `X-API-Key` header. Keys are stored SHA-256-hashed and bound to an ISPConfig `sys_userid`/`sys_groupid`, which all datalogged changes are attributed to.
 
 ```
-X-API-Key: your_api_key_here
+X-API-Key: isp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-## Response Format
+For local development, setting `API_DEV_KEY` in `.env` enables a fixed key that authenticates as the ISPConfig admin (local/development/testing environments only).
 
-All API responses are in JSON format. List endpoints return paginated results with the following structure:
+> The API currently operates at **admin scope**: per-client permission enforcement (ISPConfig's `sys_perm_*` model) is not applied per key. Grant keys accordingly.
 
-```json
-{
-  "items": [...],
-  "total": 100,
-  "limit": 25,
-  "offset": 0
-}
+## Conventions
+
+- **Lists**: `GET /api/v1/{module}/{resource}?limit=25&offset=0&sort=domain&order=asc` returns `{ "data": [...], "meta": { "total", "limit", "offset" } }`. Unknown query parameters are rejected with `400` — filters are never silently ignored.
+- **Errors**: RFC 9457 `application/problem+json` — `{ "type", "title", "status", "detail" }`, plus an `errors` map on validation failures (`422`).
+- **Status codes**: `200` read/update, `201` create, `204` delete, `400/401/404/409/422` as problem+json.
+- **Async writes**: a successful write confirms the `sys_datalog` journal entry; ISPConfig's daemons apply it within their next cycle (typically ≤ 1 minute). Track processing via `GET /api/v1/monitor/data-logs?unprocessed_only=true&server_id={id}`.
+- **Booleans**: ISPConfig's `y/n` enum columns are exposed as JSON booleans and stored in the column's native case.
+
+## Modules
+
+| Module | Resources |
+|--------|-----------|
+| `clients` | clients, resellers, client domains, templates, template assignments, circles |
+| `dns` | zones (SOA), records (incl. SPF/DKIM/DMARC stored as TXT like legacy), slave zones, templates |
+| `mail` | domains, mailboxes (+ autoresponder/cc/filters/password/spamfilter sub-resources), forwards, alias domains, fetchmail, transports, relay domains/recipients, access rules, content filters, spamfilter config/policies/users/wblist |
+| `sites` | web domains (+ SSL sub-resource), child domains, FTP/shell users, databases, database users, cron jobs, web folders/folder users, WebDAV users |
+| `servers` | servers, per-section server config, firewall, IP addresses, IP mappings, PHP versions |
+| `system` | global config panels, directive snippets, DNS CAA policies, resync |
+| `monitor` | datalog journal, per-server status, system logs |
+
+## Testing
+
+```bash
+php artisan test
 ```
 
-## Error Handling
+The suite (560+ tests) runs against an in-memory sqlite database with ISPConfig-shaped schemas and asserts, among other things, the exact byte format of every `sys_datalog` payload. CI runs on every push (`.github/workflows/tests.yml`).
 
-Errors are returned with appropriate HTTP status codes and a JSON response containing error details:
+## Known deviations from legacy ISPConfig
 
-```json
-{
-  "error": "Error message"
-}
-```
+Deliberate and documented in code where they occur:
 
-## ISPConfig Database Integration
+- **Interface-session behaviors are not replicated**: `use_domain_module` first-enable domain seeding, `maintenance_mode` session purge, and `session_timeout` → `sys_config` sync are legacy UI-session concerns with no REST equivalent.
+- **`resync_client` does not raise the interface plugin event** `client:client:on_after_update` (un-raisable outside the legacy interface); datalog re-emission is performed.
+- **`server.config` has two write disciplines, both legacy-faithful**: the server-config endpoints datalog their updates (as `server_config_edit.php` does); the mail `spamfilter/config` endpoint writes without datalog (as the legacy spamfilter panel does).
+- **Directive-snippet in-use checks use exact ID matching** — legacy's REGEXP substring-matches (snippet 5 matches "15"); a regression test documents the divergence.
+- **Deleting a DNS zone with records returns `400`** instead of legacy's silent cascade (declared in the contract).
+- **DNS CAA policy writes are datalogged** although legacy writes `dns_ssl_ca` with direct SQL (whose insert is broken upstream) — a documented superset.
 
-This API follows ISPConfig's database change management system:
+## Project governance
 
-1. Changes are not made directly to tables
-2. All modifications are logged through the `sys_datalog` table
-3. The ISPConfig system processes these changes asynchronously
-
-This ensures proper change tracking, system consistency, and audit trail maintenance.
+Engineering rules live in [`.specify/memory/constitution.md`](.specify/memory/constitution.md); per-module specifications in [`specs/`](specs/). The legacy ISPConfig source used as the parity reference is expected (untracked) at `source_code/`.
 
 ## License
 
-This project is licensed under the BSD License - see the LICENSE file for details.
+BSD-3-Clause — see the LICENSE file for details.

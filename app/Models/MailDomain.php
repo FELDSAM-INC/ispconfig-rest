@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
+use App\Casts\YesNoBoolean;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
+/**
+ * mail_domain — an email domain with DKIM signing and outbound-relay
+ * configuration (contract: api/components/schemas/MailDomain.yaml; legacy:
+ * source_code/interface/web/mail/form/mail_domain.tform.php).
+ */
 class MailDomain extends BaseModel
 {
-    use HasFactory;
-
     /**
      * The table associated with the model.
      *
@@ -25,9 +27,11 @@ class MailDomain extends BaseModel
     protected $primaryKey = 'domain_id';
 
     /**
-     * The attributes that are mass assignable.
+     * Writable fields per the contract. System fields come from IspContext
+     * (BaseModel), dkim_public is always derived server-side — neither is
+     * mass assignable.
      *
-     * @var array
+     * @var array<int, string>
      */
     protected $fillable = [
         'server_id',
@@ -40,137 +44,86 @@ class MailDomain extends BaseModel
         'relay_pass',
         'active',
         'local_delivery',
-        'sys_userid',
-        'sys_groupid',
-        'sys_perm_user',
-        'sys_perm_group',
-        'sys_perm_other',
     ];
 
     /**
-     * The attributes that should be cast.
+     * mail_domain enums are lowercase 'n'/'y' (ispconfig3.sql), so the
+     * default YesNoBoolean case applies.
      *
-     * @var array
+     * @var array<string, string>
      */
     protected $casts = [
-        'active' => \App\Casts\YesNoBoolean::class,
-        'dkim' => \App\Casts\YesNoBoolean::class,
-        'local_delivery' => \App\Casts\YesNoBoolean::class,
+        'active' => YesNoBoolean::class,
+        'dkim' => YesNoBoolean::class,
+        'local_delivery' => YesNoBoolean::class,
         'server_id' => 'integer',
-        'sys_groupid' => 'integer',
         'sys_userid' => 'integer',
+        'sys_groupid' => 'integer',
     ];
 
     /**
-     * The attributes that should be hidden for arrays.
+     * relay_pass is writeOnly in the contract and never serialized;
+     * domain_id is exposed as `id` (schema x-db-field mapping).
      *
-     * @var array
+     * @var array<int, string>
      */
     protected $hidden = [
         'relay_pass',
+        'domain_id',
     ];
 
     /**
-     * Default values for attributes
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'id',
+    ];
+
+    /**
+     * Raw column defaults, mirroring the legacy tform field defaults
+     * (dkim 'n', dkim_selector 'default', active 'y', local_delivery 'y').
+     * Values are DB-native — $attributes bypasses the casts.
      *
-     * @var array
+     * @var array<string, mixed>
      */
     protected $attributes = [
-        'active' => true,
-        'dkim' => false,
-        'local_delivery' => true,
+        'dkim' => 'n',
         'dkim_selector' => 'default',
-        'sys_perm_user' => 'riud',
-        'sys_perm_group' => 'riud',
-        'sys_perm_other' => '',
+        'relay_host' => '',
+        'relay_user' => '',
+        'relay_pass' => '',
+        'active' => 'y',
+        'local_delivery' => 'y',
     ];
 
     /**
-     * Validation rules for the model
-     *
-     * @var array
+     * The contract exposes the primary key as `id`.
      */
-    public static $rules = [
-        'server_id' => 'required|integer|exists:server,server_id',
-        'domain' => 'required|string|max:255|regex:/^[a-zA-Z0-9\.\-]{1,255}\.[a-zA-Z0-9\-]{2,63}[\.]{0,1}$/|unique:mail_domain,domain',
-        'dkim' => 'required|in:y,n',
-        'dkim_private' => 'required_if:dkim,y|nullable|string',
-        'dkim_selector' => 'nullable|string|max:126|regex:/^[a-z0-9]{1,63}(?:\.[a-z0-9]{1,63})?$/',
-        'relay_host' => 'nullable|string|max:255',
-        'relay_user' => 'required_with:relay_host|nullable|string|max:255',
-        'relay_pass' => 'required_with:relay_user|nullable|string|max:255',
-        'active' => 'required|in:y,n',
-        'local_delivery' => 'required|in:y,n',
-        'sys_userid' => 'required|integer|exists:sys_user,userid',
-        'sys_groupid' => 'required|integer|exists:sys_group,groupid',
-        'sys_perm_user' => 'sometimes|string|max:5|regex:/^[riud]*$/',
-        'sys_perm_group' => 'sometimes|string|max:5|regex:/^[riud]*$/',
-        'sys_perm_other' => 'sometimes|string|max:5|regex:/^[riud]*$/',
-    ];
-
-    /**
-     * Get the validation rules for a specific operation
-     *
-     * @param int|null $id
-     * @return array
-     */
-    public static function getValidationRules($id = null)
+    protected function id(): Attribute
     {
-        $rules = self::$rules;
-        
-        // For updates, make all fields optional and handle unique constraint for domain
-        if ($id) {
-            // Make domain unique except for the current record
-            $rules['domain'] = str_replace('required', 'sometimes', $rules['domain']);
-            $rules['domain'] = str_replace('unique:mail_domain,domain', 'unique:mail_domain,domain,' . $id . ',domain_id', $rules['domain']);
-            
-            // Make all required fields optional
-            foreach ($rules as $field => &$rule) {
-                $rules[$field] = str_replace('required', 'sometimes', $rule);
-            }
-        }
-        
-        return $rules;
+        return Attribute::get(fn () => $this->getKey());
     }
 
     /**
-     * Validate the DKIM private key
-     *
-     * @param string $privateKey
-     * @return bool
+     * Derive the DKIM public key from a private key, mirroring legacy
+     * mail_domain_edit.php::onSubmit() (openssl_pkey_get_details).
+     * Returns null when the key cannot be parsed.
      */
-    public static function validateDkimPrivateKey($privateKey)
+    public static function derivePublicKey(string $privateKey): ?string
     {
-        if (empty($privateKey)) {
-            return true;
+        $key = openssl_pkey_get_private($privateKey);
+
+        if ($key === false) {
+            return null;
         }
 
-        // Check if it's a valid private key
-        $keyResource = openssl_pkey_get_private($privateKey);
-        return $keyResource !== false;
+        $details = openssl_pkey_get_details($key);
+
+        return $details === false ? null : $details['key'];
     }
 
     /**
-     * Get the server that owns the mail domain.
-     */
-    public function server()
-    {
-        return $this->belongsTo(Server::class, 'server_id', 'server_id');
-    }
-
-    /**
-     * Get the group that owns the mail domain.
-     */
-    public function group()
-    {
-        return $this->belongsTo(Group::class, 'sys_groupid', 'groupid');
-    }
-
-    /**
-     * Scope a query to only include active domains.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * Scope: only active domains.
      */
     public function scopeActive($query)
     {
@@ -178,10 +131,7 @@ class MailDomain extends BaseModel
     }
 
     /**
-     * Scope a query to only include domains with local delivery.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * Scope: only domains with local delivery.
      */
     public function scopeWithLocalDelivery($query)
     {
@@ -189,31 +139,10 @@ class MailDomain extends BaseModel
     }
 
     /**
-     * Scope a query to only include domains for a specific server.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @param  int  $serverId
-     * @return \Illuminate\Database\Eloquent\Builder
+     * Scope: domains on a specific server.
      */
-    public function scopeForServer($query, $serverId)
+    public function scopeForServer($query, int $serverId)
     {
         return $query->where('server_id', $serverId);
-    }
-
-    /**
-     * Boot the model.
-     *
-     * @return void
-     */
-    protected static function boot()
-    {
-        parent::boot();
-
-        // Set default values when creating a new model
-        static::creating(function ($model) {
-            if (empty($model->sys_userid)) {
-                $model->sys_userid = auth()->id() ?? 1;
-            }
-        });
     }
 }

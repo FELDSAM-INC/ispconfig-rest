@@ -5,579 +5,560 @@ namespace App\Services;
 use App\Models\Client;
 use App\Models\ClientTemplate;
 use App\Models\ClientTemplateAssigned;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
+/**
+ * Template assignment and limit recomputation, porting legacy
+ * source_code/interface/lib/classes/client_templates.inc.php:
+ *
+ *  - master templates live in client.template_master, additional templates
+ *    as client_template_assigned pivot rows (old-style template_additional
+ *    bookkeeping is converted to pivot rows on the fly, exactly like
+ *    legacy apply_client_templates);
+ *  - after every assignment change the client's effective limits are
+ *    recomputed: numeric limits summed with -1 (unlimited) winning,
+ *    limit_cron_frequency taking the minimum (floor 1), default_* servers
+ *    only filled when unset, CHECKBOX y/n picking the less-limited value
+ *    (force_suexec inverted), CHECKBOXARRAY/MULTIPLE lists union-merged,
+ *    SELECT picking the lower option index, reseller limit_client
+ *    adjustments;
+ *  - merged limits are written back through Client::save(), so the change
+ *    is datalogged (legacy issues a plain UPDATE here — the datalog row is
+ *    a deliberate constitution Principle II improvement).
+ *
+ * The previous implementation's operator-precedence bug in the skip
+ * condition and the duplicated force_suexec field type (spec 001 gap G17)
+ * are gone: this is a fresh port of the legacy merge rules.
+ */
 class ClientTemplateService
 {
     /**
-     * Update client template assignments
-     * 
-     * @param int $clientId
-     * @param array $templates Array of template assignments in format: ['assigned_id:template_id', 'template_id', ...]
-     * @return bool
+     * y/n CHECKBOX limit fields (legacy client/reseller tform limits tab).
+     * Merging picks 'y' when either side is 'y' — except force_suexec,
+     * where 'n' is the less-limited value.
+     *
+     * @var array<int, string>
      */
-    public function updateClientTemplates($clientId, $templates = [])
+    protected const CHECKBOX_FIELDS = [
+        'limit_mail_backup',
+        'limit_relayhost',
+        'limit_xmpp_muc',
+        'limit_xmpp_anon',
+        'limit_xmpp_vjud',
+        'limit_xmpp_proxy',
+        'limit_xmpp_status',
+        'limit_xmpp_pastebin',
+        'limit_xmpp_httparchive',
+        'limit_cgi',
+        'limit_ssi',
+        'limit_perl',
+        'limit_ruby',
+        'limit_python',
+        'force_suexec',
+        'limit_hterror',
+        'limit_wildcard',
+        'limit_ssl',
+        'limit_ssl_letsencrypt',
+        'limit_backup',
+        'limit_directive_snippets',
+    ];
+
+    /**
+     * CHECKBOXARRAY fields: canonical value order from the legacy tform —
+     * the union is filtered and ordered by this list, exactly like legacy.
+     *
+     * @var array<string, array<int, string>>
+     */
+    protected const CHECKBOXARRAY_FIELDS = [
+        'web_php_options' => ['no', 'fast-cgi', 'cgi', 'mod', 'suphp', 'php-fpm', 'hhvm'],
+        'ssh_chroot' => ['no', 'jailkit'],
+    ];
+
+    /**
+     * MULTIPLE server-list fields, union-merged. Legacy merges
+     * mail/web/dns/db_servers with array_unique(array_merge(...)) and
+     * filters xmpp_servers against the live server list; the API
+     * union-merges xmpp_servers too (documented deviation — no DB-dependent
+     * form values here).
+     *
+     * @var array<int, string>
+     */
+    protected const MULTIPLE_FIELDS = [
+        'mail_servers',
+        'web_servers',
+        'dns_servers',
+        'db_servers',
+        'xmpp_servers',
+    ];
+
+    /**
+     * SELECT fields: option order from the legacy tform ('lower index wins'
+     * on merge — for limit_cron_type, 'full' is the least limited).
+     *
+     * @var array<string, array<int, string>>
+     */
+    protected const SELECT_FIELDS = [
+        'limit_cron_type' => ['full', 'chrooted', 'url'],
+    ];
+
+    public function __construct(protected DatalogService $datalog) {}
+
+    /**
+     * A client's template assignments in the contract shape
+     * (ClientTemplateAssigned.yaml): the master template (id null,
+     * is_master true) followed by the pivot rows.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function assignmentsForClient(Client $client): Collection
     {
-        if (!is_array($templates)) {
-            return false;
+        $rows = collect();
+
+        $masterId = (int) ($client->getAttributes()['template_master'] ?? 0);
+
+        if ($masterId > 0) {
+            $rows->push([
+                'id' => null,
+                'client_id' => (int) $client->getKey(),
+                'client_template_id' => $masterId,
+                'is_master' => true,
+                'template' => ClientTemplate::find($masterId),
+            ]);
         }
 
-        // Handle empty array - this means unassign all additional templates
-        if (empty($templates)) {
-            ClientTemplateAssigned::where('client_id', $clientId)->delete();
-            return true;
+        $pivots = ClientTemplateAssigned::query()
+            ->with('template')
+            ->where('client_id', $client->getKey())
+            ->orderBy('assigned_template_id')
+            ->get();
+
+        foreach ($pivots as $pivot) {
+            $rows->push([
+                'id' => (int) $pivot->getKey(),
+                'client_id' => (int) $pivot->client_id,
+                'client_template_id' => (int) $pivot->client_template_id,
+                'is_master' => false,
+                'template' => $pivot->template,
+            ]);
         }
 
-        $newTemplates = [];
-        $usedAssigned = [];
-        $neededTypes = [];
-        $oldStyle = true;
-
-        // Parse template assignments
-        foreach ($templates as $item) {
-            $item = trim($item);
-            if ($item == '') continue;
-
-            $templateId = 0;
-            $assignedId = 0;
-
-            if (strpos($item, ':') === false) {
-                // Old style: just template ID
-                $templateId = $item;
-            } else {
-                // New style: assigned_id:template_id
-                $oldStyle = false;
-                list($assignedId, $templateId) = explode(':', $item, 2);
-                if (substr($assignedId, 0, 1) === 'n') {
-                    $assignedId = 0; // newly inserted items
-                }
-            }
-
-            if (!array_key_exists($templateId, $neededTypes)) {
-                $neededTypes[$templateId] = 0;
-            }
-            $neededTypes[$templateId]++;
-
-            if ($assignedId > 0) {
-                $usedAssigned[] = $assignedId;
-            } else {
-                $newTemplates[] = $templateId;
-            }
-        }
-
-        if ($oldStyle) {
-            // Handle old-style template assignments
-            $inDb = ClientTemplateAssigned::where('client_id', $clientId)
-                ->select('assigned_template_id', 'client_template_id')
-                ->get()
-                ->toArray();
-
-            if (count($inDb) > 0) {
-                foreach ($inDb as $item) {
-                    if (!array_key_exists($item['client_template_id'], $neededTypes)) {
-                        $neededTypes[$item['client_template_id']] = 0;
-                    }
-                    $neededTypes[$item['client_template_id']]--;
-                }
-            }
-
-            foreach ($neededTypes as $templateId => $count) {
-                if ($count > 0) {
-                    // Add new template assignments
-                    for ($i = $count; $i > 0; $i--) {
-                        $this->createTemplateAssignment($clientId, $templateId);
-                    }
-                } elseif ($count < 0) {
-                    // Remove old template assignments
-                    for ($i = $count; $i < 0; $i++) {
-                        ClientTemplateAssigned::where('client_id', $clientId)
-                            ->where('client_template_id', $templateId)
-                            ->limit(1)
-                            ->delete();
-                    }
-                }
-            }
-        } else {
-            // Handle new-style template assignments
-            $inDb = ClientTemplateAssigned::where('client_id', $clientId)
-                ->select('assigned_template_id', 'client_template_id')
-                ->get()
-                ->toArray();
-
-            if (count($inDb) > 0) {
-                // Remove assignments that are no longer needed
-                foreach ($inDb as $item) {
-                    if (!in_array($item['assigned_template_id'], $usedAssigned)) {
-                        ClientTemplateAssigned::where('assigned_template_id', $item['assigned_template_id'])
-                            ->delete();
-                    }
-                }
-            }
-
-            // Add new template assignments
-            if (count($newTemplates) > 0) {
-                foreach ($newTemplates as $templateId) {
-                    $this->createTemplateAssignment($clientId, $templateId);
-                }
-            }
-        }
-
-        // Apply template changes to client limits
-        $this->applyClientTemplates($clientId);
-
-        return true;
+        return $rows;
     }
 
     /**
-     * Create a new template assignment
-     * 
-     * @param int $clientId
-     * @param int $templateId
-     * @return array Response with assignment details
-     * @throws \Exception
+     * A single assignment by template id (contract:
+     * GET /clients/{client_id}/templates/{template_id}); the master
+     * assignment is checked first. 404 when the template is not assigned.
+     *
+     * @return array<string, mixed>
      */
-    public function createTemplateAssignment($clientId, $templateId)
+    public function assignmentForClient(Client $client, int $templateId): array
     {
-        // Get client
-        $client = Client::find($clientId);
-        
-        if (!$client) {
-            throw new \Exception("Client not found");
+        $assignment = $this->assignmentsForClient($client)
+            ->first(fn (array $row) => $row['client_template_id'] === $templateId);
+
+        if ($assignment === null) {
+            throw new NotFoundHttpException('The template is not assigned to this client.');
         }
-        
-        // Check if this is a master template or additional template
-        $template = ClientTemplate::find($templateId);
-        
-        if (!$template) {
-            throw new \Exception("Template not found");
-        }
-        
-        // If it's a master template, assign it to the client
-        if ($template->template_type === 'm') {
-            // Check if client already has a master template
-            if ($client->template_master) {
-                throw new \Exception("Client already has a master template assigned");
+
+        return $assignment;
+    }
+
+    /**
+     * Assign a template to a client (contract: POST
+     * /clients/{client_id}/templates). Master templates set
+     * client.template_master (datalogged via Client::save()); additional
+     * templates insert a pivot row. Duplicate assignments are rejected
+     * with 409; limits are recomputed afterwards.
+     *
+     * @return array<string, mixed> the created assignment (contract shape)
+     */
+    public function assignTemplate(Client $client, ClientTemplate $template): array
+    {
+        $templateId = (int) $template->getKey();
+
+        if ($template->getAttributes()['template_type'] === 'm') {
+            if ((int) ($client->getAttributes()['template_master'] ?? 0) === $templateId) {
+                throw new ConflictHttpException('The master template is already assigned to this client.');
             }
-            
-            // Update the master template
-            $this->updateClientMasterTemplate($clientId, $templateId);
-            
-            // Return formatted response
+
+            $client->setAttribute('template_master', $templateId);
+            $client->save();
+
+            $this->applyClientTemplates((int) $client->getKey());
+
             return [
-                'client_id' => $clientId,
+                'id' => null,
+                'client_id' => (int) $client->getKey(),
                 'client_template_id' => $templateId,
                 'is_master' => true,
-                'template' => $template
-            ];
-        } else {
-            // Check if client already has this additional template
-            $hasTemplate = $client->addonTemplates()
-                ->where('client_template.template_id', $templateId)
-                ->exists();
-
-            if ($hasTemplate) {
-                throw new \Exception("Client already has this template assigned");
-            }
-            
-            // For additional templates, use the belongsToMany relationship
-            // This will automatically create the entry in the pivot table
-            $client->addonTemplates()->attach($templateId);
-            
-            // Apply template changes to client limits
-            $this->applyClientTemplates($clientId);
-            
-            // Return formatted response
-            return [
-                'client_id' => $clientId,
-                'client_template_id' => $templateId,
-                'is_master' => false,
-                'template' => $template
+                'template' => $template->refresh(),
             ];
         }
+
+        $duplicate = ClientTemplateAssigned::query()
+            ->where('client_id', $client->getKey())
+            ->where('client_template_id', $templateId)
+            ->exists();
+
+        if ($duplicate) {
+            throw new ConflictHttpException('The template is already assigned to this client.');
+        }
+
+        $assignment = new ClientTemplateAssigned([
+            'client_id' => (int) $client->getKey(),
+            'client_template_id' => $templateId,
+        ]);
+        $assignment->save();
+
+        $this->applyClientTemplates((int) $client->getKey());
+
+        return [
+            'id' => (int) $assignment->getKey(),
+            'client_id' => (int) $client->getKey(),
+            'client_template_id' => $templateId,
+            'is_master' => false,
+            'template' => $template->refresh(),
+        ];
     }
 
     /**
-     * Get current template assignments for a client
-     * 
-     * @param int $clientId
-     * @return array
+     * Unassign a template from a client (contract: DELETE
+     * /clients/{client_id}/templates/{template_id}); 404 when the template
+     * is not assigned. Limits are recomputed afterwards.
      */
-    public function getClientTemplateAssignments($clientId)
+    public function unassignTemplate(Client $client, int $templateId): void
     {
-        $assignments = ClientTemplateAssigned::where('client_id', $clientId)
-            ->select('assigned_template_id', 'client_template_id')
-            ->get()
-            ->toArray();
-
-        $result = [];
-        foreach ($assignments as $assignment) {
-            $result[] = $assignment['assigned_template_id'] . ':' . $assignment['client_template_id'];
-        }
-
-        return $result;
-    }
-
-    /**
-     * Get legacy template assignments from template_additional field
-     * 
-     * @param string $templateAdditional
-     * @return array
-     */
-    public function parseLegacyTemplateAssignments($templateAdditional)
-    {
-        if (empty($templateAdditional)) {
-            return [];
-        }
-
-        $templates = explode('/', $templateAdditional);
-        $result = [];
-        
-        foreach ($templates as $template) {
-            $template = trim($template);
-            if (!empty($template)) {
-                $result[] = $template;
-            }
-        }
-
-        return $result;
-    }
-
-    /**
-     * Validate template assignments
-     * 
-     * @param array $templateIds
-     * @return array Array of validation errors
-     */
-    public function validateTemplateAssignments($templateIds)
-    {
-        $errors = [];
-        
-        if (!is_array($templateIds)) {
-            return $errors;
-        }
-
-        foreach ($templateIds as $templateId) {
-            // Extract template ID from assignment format
-            if (strpos($templateId, ':') !== false) {
-                list($assignedId, $templateId) = explode(':', $templateId, 2);
-            }
-            
-            $templateId = trim($templateId);
-            if (empty($templateId)) {
-                continue;
-            }
-
-            // Check if template exists
-            $template = ClientTemplate::find($templateId);
-            if (!$template) {
-                $errors[] = "Template with ID {$templateId} does not exist";
-            }
-        }
-
-        return $errors;
-    }
-
-    /**
-     * Update client master template
-     * 
-     * @param int $clientId
-     * @param int|null $templateId Template ID or null to unassign
-     * @return bool
-     */
-    public function updateClientMasterTemplate($clientId, $templateId = null)
-    {
-        $client = Client::find($clientId);
-        if (!$client) {
-            return false;
-        }
-
-        // Update the template_master field directly
-        $client->template_master = $templateId;
-        $client->save();
-        
-        // Apply template changes to client limits
-        $this->applyClientTemplates($clientId);
-
-        return true;
-    }
-    
-    /**
-     * Delete a template assignment
-     * 
-     * @param int $clientId
-     * @param int $templateId
-     * @return array|null
-     */
-    public function deleteTemplateAssignment($clientId, $templateId)
-    {
-        // Get the client and template
-        $client = Client::findOrFail($clientId);
-        $template = ClientTemplate::findOrFail($templateId);
-
-        // Determine if this is a master template or an additional template
-        if ($template->template_type === 'm' && $client->template_master == $templateId) {
-            // Unassign master template
-            $client->template_master = null;
+        if ((int) ($client->getAttributes()['template_master'] ?? 0) === $templateId) {
+            $client->setAttribute('template_master', 0);
             $client->save();
-            $result = ['client_id' => $clientId, 'client_template_id' => $templateId, 'is_master' => true];
-        } else {
-            // Unassign additional template
-            $hasTemplate = $client->addonTemplates()
-                ->where('client_template.template_id', $templateId)
-                ->exists();
-                
-            if (!$hasTemplate) {
-                throw new \Exception("Template assignment not found");
-            }
-            
-            $client->addonTemplates()->detach($templateId);
-            $result = ['client_id' => $clientId, 'client_template_id' => $templateId, 'is_master' => false];
+
+            $this->applyClientTemplates((int) $client->getKey());
+
+            return;
         }
-        
-        // Apply template changes to client limits
-        $this->applyClientTemplates($clientId);
-        
-        return $result;
+
+        $assignment = ClientTemplateAssigned::query()
+            ->where('client_id', $client->getKey())
+            ->where('client_template_id', $templateId)
+            ->orderBy('assigned_template_id')
+            ->first();
+
+        if ($assignment === null) {
+            throw new NotFoundHttpException('The template is not assigned to this client.');
+        }
+
+        $assignment->delete();
+
+        $this->applyClientTemplates((int) $client->getKey());
     }
 
     /**
-     * Field type definitions for client template fields
-     * Based on the form definitions in ISPConfig
+     * Re-apply a changed template to every client using it (legacy
+     * client_template_edit.php::onAfterUpdate — spec 001 gap G14):
+     * master templates via client.template_master, additional templates via
+     * the pivot plus old-style template_additional bookkeeping.
      */
-    protected $fieldTypes = [
-        // CHECKBOXARRAY fields - values are combined with separator
-        'ssh_chroot' => ['type' => 'CHECKBOXARRAY', 'separator' => ','],
-        'web_php_options' => ['type' => 'CHECKBOXARRAY', 'separator' => ','],
-        
-        // MULTIPLE fields - values are combined with separator
-        'mail_servers' => ['type' => 'MULTIPLE', 'separator' => ','],
-        'web_servers' => ['type' => 'MULTIPLE', 'separator' => ','],
-        'dns_servers' => ['type' => 'MULTIPLE', 'separator' => ','],
-        'db_servers' => ['type' => 'MULTIPLE', 'separator' => ','],
-        
-        // CHECKBOX fields - special handling for y/n values
-        'force_suexec' => ['type' => 'CHECKBOX', 'less_limited' => 'n'], // n is less limited
-        'active' => ['type' => 'CHECKBOX', 'less_limited' => 'y'], // y is less limited
-        'limit_cgi' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
-        'limit_ssi' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
-        'limit_perl' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
-        'limit_ruby' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
-        'limit_python' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
-        'force_suexec' => ['type' => 'CHECKBOX', 'less_limited' => 'n'],
-        'limit_hterror' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
-        'limit_wildcard' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
-        'limit_ssl' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
-        'limit_ssl_letsencrypt' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
-        'limit_directive_snippets' => ['type' => 'CHECKBOX', 'less_limited' => 'y'],
-        
-        // SELECT fields - lower index value is chosen
-        'limit_shell_user' => ['type' => 'SELECT'],
-        'limit_webdav_user' => ['type' => 'SELECT'],
-        'limit_backup' => ['type' => 'SELECT']
-    ];
-    
-    /**
-     * Apply client templates to update client limits
-     *
-     * @param int $clientId
-     * @return bool
-     */
-    public function applyClientTemplates($clientId)
+    public function reapplyTemplate(ClientTemplate $template): void
     {
-        // Get client record
+        $templateId = (int) $template->getKey();
+
+        if ($template->getAttributes()['template_type'] === 'm') {
+            $clientIds = DB::table('client')->where('template_master', $templateId)->pluck('client_id');
+        } else {
+            $clientIds = DB::table('client')
+                ->where('template_additional', 'like', '%/'.$templateId.'/%')
+                ->orWhere('template_additional', 'like', $templateId.'/%')
+                ->orWhere('template_additional', 'like', '%/'.$templateId)
+                ->pluck('client_id')
+                ->merge(
+                    DB::table('client_template_assigned')
+                        ->where('client_template_id', $templateId)
+                        ->pluck('client_id')
+                )
+                ->unique();
+        }
+
+        foreach ($clientIds as $clientId) {
+            $this->applyClientTemplates((int) $clientId);
+        }
+    }
+
+    /**
+     * Recompute a client's effective limits from its master + additional
+     * templates — faithful port of legacy
+     * client_templates.inc.php::apply_client_templates().
+     *
+     * No-op when the client has no master template (legacy: "if there is no
+     * master template it makes NO SENSE adding sub templates"). The write-
+     * back goes through Client::save() (datalogged; suppressed when nothing
+     * actually changes).
+     */
+    public function applyClientTemplates(int $clientId): void
+    {
         $client = Client::find($clientId);
-        if (!$client) {
-            return false;
+
+        if ($client === null) {
+            return;
         }
-        
-        // Check if client is a reseller
-        $isReseller = ($client->limit_client != 0);
-        
-        // Get master template
-        $masterTemplate = $client->masterTemplate;
-        if (!$masterTemplate) {
-            // No master template, nothing to apply
-            return false;
+
+        $record = $client->getRawOriginal();
+        $masterTemplateId = (int) ($record['template_master'] ?? 0);
+        $isReseller = (int) ($record['limit_client'] ?? 0) !== 0;
+
+        // Convert old-style template_additional bookkeeping ('id/id/...')
+        // to pivot rows, then clear it (legacy does the same on the fly).
+        $additionalStr = trim((string) ($record['template_additional'] ?? ''));
+
+        if ($additionalStr !== '') {
+            $this->convertLegacyAssignments($clientId, $additionalStr);
+            $this->datalog->updateRecord('client', 'client_id', $clientId, ['template_additional' => '']);
+            $client->refresh();
         }
-        
-        // Start with master template limits
-        $limits = $masterTemplate->getAttributes();
-        
-        // Handle reseller-specific adjustments for master template
-        if ($isReseller && $limits['limit_client'] == 0) {
+
+        if ($masterTemplateId <= 0) {
+            return;
+        }
+
+        $master = DB::table('client_template')->where('template_id', $masterTemplateId)->first();
+
+        if ($master === null) {
+            return;
+        }
+
+        $limits = array_map(
+            fn ($value) => $value === null ? $value : (is_int($value) || is_float($value) ? $value : (string) $value),
+            (array) $master
+        );
+
+        // Reseller adjustment on the master limits (legacy lines 126-127).
+        if ($isReseller && (int) ($limits['limit_client'] ?? 0) === 0) {
             $limits['limit_client'] = -1;
-        } elseif (!$isReseller && $limits['limit_client'] != 0) {
+        } elseif (! $isReseller && (int) ($limits['limit_client'] ?? 0) !== 0) {
             $limits['limit_client'] = 0;
         }
-        
-        // Get additional templates
-        $additionalTemplates = $client->addonTemplates;
 
-        // Process additional templates
-        foreach ($additionalTemplates as $template) {
-            // Handle reseller-specific adjustments for additional templates
-            if ($isReseller && $template->limit_client == 0) {
+        // Merge each additional template on top.
+        $additionalTemplateIds = DB::table('client_template_assigned')
+            ->where('client_id', $clientId)
+            ->pluck('client_template_id');
+
+        foreach ($additionalTemplateIds as $templateId) {
+            $addLimits = DB::table('client_template')->where('template_id', $templateId)->first();
+
+            if ($addLimits === null) {
+                continue; // template deleted in the meantime (legacy guard)
+            }
+
+            $limits = $this->mergeTemplate($limits, (array) $addLimits, $isReseller);
+        }
+
+        // Write back (legacy write filter): limit*/default*/_servers,
+        // ssh_chroot, web_php_options, force_suexec; skip unset default
+        // servers; only resellers may receive limit_client from templates.
+        if (! $isReseller) {
+            unset($limits['limit_client']);
+        }
+
+        $updates = [];
+
+        foreach ($limits as $key => $value) {
+            if (str_contains($key, 'default') && (int) $value === 0) {
+                continue; // template doesn't define the default server
+            }
+
+            if (str_contains($key, 'limit')
+                || str_contains($key, 'default')
+                || str_contains($key, '_servers')
+                || in_array($key, ['ssh_chroot', 'web_php_options', 'force_suexec'], true)) {
+                $updates[$key] = $value;
+            }
+        }
+
+        if ($updates !== []) {
+            // forceFill routes values through the model casts and save()
+            // datalogs the update (no-change suppression applies).
+            $client->forceFill($updates)->save();
+        }
+    }
+
+    /**
+     * Merge one additional template into the accumulated limits — the
+     * foreach body of legacy apply_client_templates().
+     *
+     * @param  array<string, mixed>  $limits
+     * @param  array<string, mixed>  $addLimits
+     * @return array<string, mixed>
+     */
+    protected function mergeTemplate(array $limits, array $addLimits, bool $isReseller): array
+    {
+        foreach ($addLimits as $key => $value) {
+            if ($key === 'limit_client') {
+                if ($isReseller && (int) $value === 0) {
+                    continue;
+                }
+
+                if (! $isReseller && (int) $value !== 0) {
+                    continue;
+                }
+            }
+
+            // Only limit/default/server-ish keys take part in the merge.
+            if (! (str_contains($key, 'limit')
+                || str_contains($key, 'default')
+                || str_contains($key, 'servers')
+                || in_array($key, ['ssh_chroot', 'web_php_options', 'force_suexec'], true))) {
                 continue;
             }
-            
-            // Process each limit field in the additional template
-            foreach ($template->getAttributes() as $key => $value) {
-                // Skip non-limit fields and empty values
-                if ((!strpos($key, 'limit_') === 0 && 
-                     !strpos($key, 'default_') === 0 && 
-                     !strpos($key, '_servers') !== false && 
-                     $key != 'ssh_chroot' && 
-                     $key != 'web_php_options' && 
-                     $key != 'force_suexec') || 
-                    empty($value)) {
-                    continue;
-                }
-                
-                // Handle numeric limits
-                if (is_numeric($value)) {
-                    // Skip if the current limit is unlimited (-1)
-                    if (isset($limits[$key]) && $limits[$key] == -1) {
-                        continue;
+
+            $isServerList = in_array($key, self::MULTIPLE_FIELDS, true);
+
+            if ($value !== null && is_numeric($value) && ! $isServerList) {
+                $current = (int) ($limits[$key] ?? 0);
+                $value = (int) $value;
+
+                if ($key === 'limit_cron_frequency') {
+                    if ($value < $current) {
+                        $limits[$key] = $value;
                     }
-                    
-                    // For default server fields, take the first non-zero value
-                    if (strpos($key, 'default_') === 0) {
-                        if (!isset($limits[$key]) || $limits[$key] == 0) {
-                            $limits[$key] = $value;
-                        }
-                    } 
-                    // For all other numeric fields, add the values
-                    else {
-                        if (!isset($limits[$key])) {
-                            $limits[$key] = 0;
-                        }
-                        
-                        // If either value is unlimited (-1), result is unlimited
-                        if ($limits[$key] == -1 || $value == -1) {
-                            $limits[$key] = -1;
-                        } else {
-                            $limits[$key] += $value;
-                        }
+
+                    if ((int) $limits[$key] < 1) {
+                        $limits[$key] = 1; // silent minimum of 1 minute
+                    }
+                } elseif (str_starts_with($key, 'default_')) {
+                    // Additional templates don't override the master's
+                    // default server; they only fill an unset (0) one.
+                    if ($current === 0) {
+                        $limits[$key] = $value;
+                    }
+                } else {
+                    if ($current > -1) {
+                        $limits[$key] = $value === -1 ? -1 : $current + $value;
                     }
                 }
-                // Handle string limits based on field type
-                elseif (is_string($value)) {
-                    // Get field type definition
-                    $fieldType = isset($this->fieldTypes[$key]) ? $this->fieldTypes[$key] : null;
-                    
-                    // Handle based on field type
-                    if ($fieldType) {
-                        switch ($fieldType['type']) {
-                            case 'CHECKBOXARRAY':
-                            case 'MULTIPLE':
-                                // For fields that combine values with a separator
-                                if (!isset($limits[$key])) {
-                                    $limits[$key] = '';
-                                }
-                                
-                                $separator = isset($fieldType['separator']) ? $fieldType['separator'] : ',';
-                                $limitsValues = !empty($limits[$key]) ? explode($separator, $limits[$key]) : [];
-                                $additionalValues = !empty($value) ? explode($separator, $value) : [];
-                                
-                                // Combine values from both templates
-                                $limitsUnified = array_unique(array_merge($limitsValues, $additionalValues));
-                                $limits[$key] = implode($separator, array_filter($limitsUnified));
-                                break;
-                                
-                            case 'CHECKBOX':
-                                // For checkbox fields, determine which value is less limited
-                                $lessLimited = isset($fieldType['less_limited']) ? $fieldType['less_limited'] : 'y';
-                                
-                                if (!isset($limits[$key])) {
-                                    $limits[$key] = ($lessLimited == 'y') ? 'n' : 'y';
-                                }
-                                
-                                if ($lessLimited == 'y') {
-                                    // 'y' is less limited than 'n'
-                                    if ($limits[$key] == 'y' || $value == 'y') {
-                                        $limits[$key] = 'y';
-                                    }
-                                } else {
-                                    // 'n' is less limited than 'y'
-                                    if ($limits[$key] == 'n' || $value == 'n') {
-                                        $limits[$key] = 'n';
-                                    }
-                                }
-                                break;
-                                
-                            case 'SELECT':
-                                // For SELECT fields, choose the lower index value
-                                // In Laravel implementation, we'll just keep the master template value
-                                // as we don't have access to the original form definition's value array
-                                break;
-                                
-                            default:
-                                // Default handling for unknown types
-                                if (!isset($limits[$key])) {
-                                    $limits[$key] = $value;
-                                }
-                        }
-                    } else {
-                        // Default handling for fields without explicit type definition
-                        // For server lists
-                        if (in_array($key, ['mail_servers', 'web_servers', 'dns_servers', 'db_servers'])) {
-                            if (!isset($limits[$key])) {
-                                $limits[$key] = '';
-                            }
-                            
-                            $limitsValues = !empty($limits[$key]) ? explode(',', $limits[$key]) : [];
-                            $additionalValues = !empty($value) ? explode(',', $value) : [];
-                            
-                            $limitsUnified = array_unique(array_merge($limitsValues, $additionalValues));
-                            $limits[$key] = implode(',', array_filter($limitsUnified));
-                        } 
-                        // Default for other string fields - keep master template value
-                        else {
-                            if (!isset($limits[$key])) {
-                                $limits[$key] = $value;
-                            }
-                        }
-                    }
+
+                continue;
+            }
+
+            if (! is_string($value)) {
+                continue;
+            }
+
+            if (isset(self::CHECKBOXARRAY_FIELDS[$key])) {
+                $limits[$key] = $this->unionByCanonicalOrder(
+                    (string) ($limits[$key] ?? ''),
+                    $value,
+                    self::CHECKBOXARRAY_FIELDS[$key]
+                );
+            } elseif ($isServerList) {
+                $current = ($limits[$key] ?? '') === null ? [] : explode(',', (string) $limits[$key]);
+                $additional = explode(',', $value);
+                $merged = array_values(array_unique(array_filter(
+                    array_merge($current, $additional),
+                    fn ($item) => trim((string) $item) !== ''
+                )));
+                $limits[$key] = implode(',', $merged);
+            } elseif (in_array($key, self::CHECKBOX_FIELDS, true)) {
+                if ($key === 'force_suexec') {
+                    // 'n' is less limited than 'y'.
+                    $current = (string) ($limits[$key] ?? 'y');
+                    $limits[$key] = ($current === 'n' || $value === 'n') ? 'n' : 'y';
+                } else {
+                    // 'y' is less limited than 'n'.
+                    $current = (string) ($limits[$key] ?? 'n');
+                    $limits[$key] = ($current === 'y' || $value === 'y') ? 'y' : 'n';
+                }
+            } elseif (isset(self::SELECT_FIELDS[$key])) {
+                $options = self::SELECT_FIELDS[$key];
+                $currentIndex = array_search((string) ($limits[$key] ?? ''), $options, true);
+                $newIndex = array_search($value, $options, true);
+
+                if ($currentIndex !== false && $newIndex !== false) {
+                    $limits[$key] = $options[min($currentIndex, $newIndex)];
+                } elseif ($newIndex !== false) {
+                    $limits[$key] = $value;
                 }
             }
         }
-        
-        // Update client with new limits
-        $updateData = [];
-        
-        // Only update limit and related fields
-        foreach ($limits as $key => $value) {
-            if ((strpos($key, 'limit_') === 0 || 
-                 strpos($key, 'default_') === 0 || 
-                 strpos($key, '_servers') !== false || 
-                 $key == 'ssh_chroot' || 
-                 $key == 'web_php_options' || 
-                 $key == 'force_suexec') && 
-                !is_array($value)) {
-                
-                // Skip default server fields with value 0
-                if (strpos($key, 'default_') === 0 && $value == 0) {
-                    continue;
-                }
-                
-                // Don't set limit_client for non-resellers
-                if (!$isReseller && $key == 'limit_client') {
-                    continue;
-                }
-                
-                $updateData[$key] = $value;
+
+        return $limits;
+    }
+
+    /**
+     * CHECKBOXARRAY union, filtered and ordered by the legacy form's
+     * canonical value list (legacy iterates the form values and keeps
+     * entries present on either side).
+     *
+     * @param  array<int, string>  $canonical
+     */
+    protected function unionByCanonicalOrder(string $current, string $additional, array $canonical): string
+    {
+        $currentValues = explode(',', $current);
+        $additionalValues = explode(',', $additional);
+
+        $union = [];
+
+        foreach ($canonical as $option) {
+            if (in_array($option, $currentValues, true) || in_array($option, $additionalValues, true)) {
+                $union[] = $option;
             }
         }
-        
-        // Update client record
-        if (!empty($updateData)) {
-            foreach ($updateData as $key => $value) {
-                $client->$key = $value;
+
+        return implode(',', $union);
+    }
+
+    /**
+     * Convert old-style client.template_additional bookkeeping
+     * ('/'-separated template ids, optionally 'assigned_id:template_id')
+     * into client_template_assigned pivot rows — legacy
+     * update_client_templates() as invoked from apply_client_templates().
+     */
+    protected function convertLegacyAssignments(int $clientId, string $additionalStr): void
+    {
+        $items = array_filter(array_map('trim', explode('/', $additionalStr)), fn ($item) => $item !== '');
+
+        // Count how many rows of each template id are needed…
+        $needed = [];
+
+        foreach ($items as $item) {
+            $templateId = str_contains($item, ':')
+                ? (int) explode(':', $item, 2)[1]
+                : (int) $item;
+
+            if ($templateId > 0) {
+                $needed[$templateId] = ($needed[$templateId] ?? 0) + 1;
             }
-            $client->save();
         }
-        
-        return true;
+
+        // …minus what the pivot already has (legacy old-style branch).
+        $existing = DB::table('client_template_assigned')
+            ->where('client_id', $clientId)
+            ->pluck('client_template_id');
+
+        foreach ($existing as $templateId) {
+            $needed[(int) $templateId] = ($needed[(int) $templateId] ?? 0) - 1;
+        }
+
+        foreach ($needed as $templateId => $count) {
+            for ($i = 0; $i < $count; $i++) {
+                (new ClientTemplateAssigned([
+                    'client_id' => $clientId,
+                    'client_template_id' => $templateId,
+                ]))->save();
+            }
+
+            // Legacy removes surplus pivot rows one by one (DELETE ... LIMIT 1).
+            for ($i = $count; $i < 0; $i++) {
+                ClientTemplateAssigned::query()
+                    ->where('client_id', $clientId)
+                    ->where('client_template_id', $templateId)
+                    ->orderBy('assigned_template_id')
+                    ->first()
+                    ?->delete();
+            }
+        }
     }
 }

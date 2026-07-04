@@ -2,196 +2,124 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreDnsSlaveRequest;
+use App\Http\Requests\UpdateDnsSlaveRequest;
 use App\Models\DnsSlave;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
+/**
+ * DNS slave (secondary) zones (contract: api/modules/dns/slave.yaml).
+ *
+ * Thin HTTP layer: validation lives in the Form Requests, datalogging in
+ * BaseModel/DatalogService. The dns_slave (origin, server_id) UNIQUE key is
+ * surfaced as a 409 problem (contract).
+ */
 class DnsSlaveController extends Controller
 {
+    use HandlesListQuery;
+
     /**
-     * Display a listing of the DNS slave zones.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * GET /dns/slaves — filtered, sorted, paginated list.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $query = DnsSlave::query();
-
-        // Apply filters
-        if ($request->has('origin')) {
-            $query->where('origin', 'like', str_replace('*', '%', $request->input('origin')));
-        }
-
-        if ($request->has('active')) {
-            $query->where('active', $request->input('active'));
-        }
-
-        if ($request->has('server_id')) {
-            $query->where('server_id', $request->input('server_id'));
-        }
-
-        // Apply sorting
-        $sortField = $request->input('sort', 'origin');
-        $sortOrder = 'asc';
-        
-        if (str_starts_with($sortField, '-')) {
-            $sortField = substr($sortField, 1);
-            $sortOrder = 'desc';
-        }
-        
-        $query->orderBy($sortField, $sortOrder);
-
-        // Paginate results
-        $perPage = min($request->input('per_page', 20), 100);
-        $zones = $query->paginate($perPage);
-
-        return response()->json([
-            'data' => $zones->items(),
-            'pagination' => [
-                'total' => $zones->total(),
-                'per_page' => $zones->perPage(),
-                'current_page' => $zones->currentPage(),
-                'last_page' => $zones->lastPage(),
+        $result = $this->listQuery(
+            DnsSlave::query(),
+            $request,
+            sortable: ['id', 'origin', 'server_id', 'active'],
+            defaultSort: 'origin',
+            filters: [
+                'origin' => 'wildcard',
+                'active' => 'boolean',
+                'server_id' => 'integer',
             ]
-        ]);
+        );
+
+        return response()->json($result);
     }
 
     /**
-     * Store a newly created DNS slave zone in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * GET /dns/slaves/{id} — implicit binding 404s as problem+json.
      */
-    public function store(Request $request)
+    public function show(DnsSlave $dnsSlave): JsonResponse
     {
-        $validator = Validator::make($request->all(), DnsSlave::getValidationRules());
-
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $zone = new DnsSlave($request->all());
-            $zone->save();
-
-            DB::commit();
-
-            return response()->json($zone, Response::HTTP_CREATED);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to create DNS slave zone: ' . $e->getMessage());
-            
-            return response()->json([
-                'message' => 'Failed to create DNS slave zone',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        return response()->json($dnsSlave);
     }
 
     /**
-     * Display the specified DNS slave zone.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * POST /dns/slaves — 201 with the created slave zone; datalog 'i'.
      */
-    public function show($id)
+    public function store(StoreDnsSlaveRequest $request): JsonResponse
     {
-        $zone = DnsSlave::find($id);
+        $payload = $request->payload();
 
-        if (!$zone) {
-            return response()->json([
-                'message' => 'DNS slave zone not found'
-            ], Response::HTTP_NOT_FOUND);
-        }
+        $this->guardUniqueOrigin($payload['origin'], (int) $payload['server_id']);
 
-        return response()->json($zone);
+        $slave = new DnsSlave($payload);
+
+        DB::transaction(function () use ($slave): void {
+            $slave->save();
+        });
+
+        return response()->json($slave->refresh(), 201);
     }
 
     /**
-     * Update the specified DNS slave zone in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * PUT /dns/slaves/{id} — 200 with the updated slave zone; datalog 'u'
+     * (suppressed when nothing changed).
      */
-    public function update(Request $request, $id)
+    public function update(UpdateDnsSlaveRequest $request, DnsSlave $dnsSlave): JsonResponse
     {
-        $zone = DnsSlave::find($id);
+        $payload = $request->payload();
 
-        if (!$zone) {
-            return response()->json([
-                'message' => 'DNS slave zone not found'
-            ], Response::HTTP_NOT_FOUND);
-        }
+        $origin = $payload['origin'] ?? $dnsSlave->getRawOriginal('origin');
+        $serverId = (int) ($payload['server_id'] ?? $dnsSlave->getRawOriginal('server_id'));
+        $this->guardUniqueOrigin($origin, $serverId, (int) $dnsSlave->getKey());
 
-        $validator = Validator::make($request->all(), DnsSlave::getValidationRules($id));
+        $dnsSlave->fill($payload);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
+        DB::transaction(function () use ($dnsSlave): void {
+            $dnsSlave->save();
+        });
 
-        try {
-            DB::beginTransaction();
-
-            $zone->fill($request->all());
-            $zone->save();
-
-            DB::commit();
-
-            return response()->json($zone);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to update DNS slave zone: ' . $e->getMessage());
-            
-            return response()->json([
-                'message' => 'Failed to update DNS slave zone',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+        return response()->json($dnsSlave->refresh());
     }
 
     /**
-     * Remove the specified DNS slave zone from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * DELETE /dns/slaves/{id} — 204; datalog action 'd'.
      */
-    public function destroy($id)
+    public function destroy(DnsSlave $dnsSlave): Response
     {
-        $zone = DnsSlave::find($id);
+        DB::transaction(function () use ($dnsSlave): void {
+            $dnsSlave->delete();
+        });
 
-        if (!$zone) {
-            return response()->json([
-                'message' => 'DNS slave zone not found'
-            ], Response::HTTP_NOT_FOUND);
+        return response()->noContent();
+    }
+
+    /**
+     * The dns_slave (origin, server_id) UNIQUE key -> 409 (contract).
+     */
+    protected function guardUniqueOrigin(string $origin, int $serverId, ?int $exceptId = null): void
+    {
+        $query = DnsSlave::query()
+            ->where('origin', $origin)
+            ->where('server_id', $serverId);
+
+        if ($exceptId !== null) {
+            $query->whereKeyNot($exceptId);
         }
 
-        try {
-            DB::beginTransaction();
-            $zone->delete();
-            DB::commit();
-
-            return response()->json(null, Response::HTTP_NO_CONTENT);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to delete DNS slave zone: ' . $e->getMessage());
-            
-            return response()->json([
-                'message' => 'Failed to delete DNS slave zone',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        if ($query->exists()) {
+            throw new ConflictHttpException(
+                "A DNS slave zone with origin '{$origin}' already exists on server {$serverId}."
+            );
         }
     }
 }
