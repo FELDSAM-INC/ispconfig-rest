@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\ApiKey;
+use App\Support\IspContext;
 use App\Support\Problem;
 use Closure;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class ApiKeyAuth
         if ($devKey && app()->environment(['local', 'development', 'testing']) && hash_equals($devKey, $key)) {
             $request->attributes->set('sys_userid', 1);
             $request->attributes->set('sys_groupid', 1);
+            app(IspContext::class)->actAs(1, 1);
 
             return $next($request);
         }
@@ -48,6 +50,7 @@ class ApiKeyAuth
         $request->attributes->set('sys_userid', $apiKey->sys_userid);
         $request->attributes->set('sys_groupid', $apiKey->sys_groupid);
         $request->attributes->set('api_key_id', $apiKey->id);
+        app(IspContext::class)->actAs((int) $apiKey->sys_userid, (int) $apiKey->sys_groupid);
 
         return $next($request);
     }

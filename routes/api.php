@@ -15,5 +15,13 @@ Route::middleware('api.key')->group(function () {
         'data' => ['pong' => true],
     ]));
 
-    // Module resource routes are added here per feature (Phase 3+).
+    /*
+    | Module route files — one per module so parallel feature work never
+    | edits a shared file. Each module adds exactly one require line here
+    | and owns its routes/api/<module>.php.
+    */
+    require __DIR__.'/api/client.php';
+    require __DIR__.'/api/dns.php';
+    require __DIR__.'/api/mail.php';
+    require __DIR__.'/api/monitor.php';
 });

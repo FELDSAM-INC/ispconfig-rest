@@ -42,7 +42,10 @@ class Problem
             ]);
         }
 
-        if ($e instanceof ModelNotFoundException) {
+        // Route-model-binding misses arrive wrapped in a NotFoundHttpException
+        // whose message would leak the model class — unwrap them.
+        if ($e instanceof ModelNotFoundException
+            || ($e instanceof HttpExceptionInterface && $e->getPrevious() instanceof ModelNotFoundException)) {
             return self::response(404, 'Not found', 'The requested resource does not exist.');
         }
 
