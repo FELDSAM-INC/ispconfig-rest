@@ -24,4 +24,7 @@ Route::middleware('api.key')->group(function () {
     require __DIR__.'/api/dns.php';
     require __DIR__.'/api/mail.php';
     require __DIR__.'/api/monitor.php';
+    require __DIR__.'/api/server.php';
+    require __DIR__.'/api/sites.php';
+    require __DIR__.'/api/system.php';
 });
