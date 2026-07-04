@@ -18,6 +18,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'api.key' => \App\Http\Middleware\ApiKeyAuth::class,
         ]);
+
+        // Auth must run before route-model binding: otherwise a missing id
+        // 404s pre-auth, leaking resource (non)existence to unauthenticated
+        // callers while an existing id correctly 401s.
+        $middleware->priority([
+            \App\Http\Middleware\ApiKeyAuth::class,
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
