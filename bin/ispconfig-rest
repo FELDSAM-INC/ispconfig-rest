@@ -144,8 +144,10 @@ cmd_uninstall() {
     ok "Removed php-fpm pool"
   fi
   rm -f /usr/local/bin/ispconfig-rest
-  ok "Removed manager. Left in place: $INSTALL_DIR, $STATE_FILE, and the api_keys DB table."
-  echo "  To fully remove:  rm -rf $INSTALL_DIR /etc/ispconfig-rest  (and DROP TABLE api_keys if desired)"
+  ok "Removed manager. Left in place: $INSTALL_DIR, $STATE_FILE, and the API-owned"
+  ok "DB tables (api_keys, migrations)."
+  echo "  To fully remove:  rm -rf $INSTALL_DIR /etc/ispconfig-rest"
+  echo "  and, if desired:  DROP TABLE api_keys, migrations;   (in the ISPConfig database)"
 }
 
 case "${1:-}" in
