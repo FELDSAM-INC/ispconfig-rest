@@ -45,6 +45,37 @@ class DnsRecordMetaService
     public const TXT_STORED_TYPES = ['SPF', 'DKIM', 'DMARC'];
 
     /**
+     * The request meta fields compose() reads per structured type — the
+     * single source for the FR-013 recompose guard (DnsRecordController)
+     * and the update-request zone-check gating (spec 013 FR-012/FR-013).
+     *
+     * @var array<string, array<int, string>>
+     */
+    public const META_FIELDS = [
+        'MX' => ['priority', 'hostname'],
+        'SRV' => ['priority', 'weight', 'port', 'hostname'],
+        'TLSA' => ['cert_usage', 'selector', 'matching_type', 'hash'],
+        'SSHFP' => ['algorithm', 'hash_type', 'hash'],
+        'CAA' => ['caa_flag', 'caa_type', 'ca_issuer', 'additional'],
+        'HINFO' => ['cpu', 'os'],
+        'SPF' => ['allow_mx', 'allow_a', 'ipv4_address', 'ipv6_address', 'hostname', 'include', 'policy'],
+        'DMARC' => ['policy', 'pct', 'rua', 'ruf', 'sp', 'adkim', 'aspf'],
+        'NAPTR' => ['order', 'pref', 'naptr_flag', 'service', 'regexp', 'replacement'],
+        'DS' => ['key_tag', 'algorithm', 'digest_type', 'digest'],
+    ];
+
+    /**
+     * The meta fields a structured type composes from (empty for simple
+     * types, whose payload is `data`/`aux`).
+     *
+     * @return array<int, string>
+     */
+    public static function metaFieldsFor(string $type): array
+    {
+        return self::META_FIELDS[$type] ?? [];
+    }
+
+    /**
      * Compose the storable column values for a record write.
      *
      * @param  array<string, mixed>  $input  validated request fields (meta fields at top level)
@@ -594,9 +625,10 @@ class DnsRecordMetaService
     /**
      * Legacy dns_edit_base.php::onSubmit "Remove accidental quotes around a
      * record": strip the wrapping pair only when the data contains exactly
-     * two double quotes.
+     * two double quotes. Public because the TXT no-quote/CR-LF rule
+     * (spec 013 FR-008) validates the post-strip value.
      */
-    protected function stripAccidentalQuotes(string $data): string
+    public function stripAccidentalQuotes(string $data): string
     {
         if (substr_count($data, '"') === 2 && preg_match('/^"(.*)"$/', $data, $matches)) {
             return $matches[1];

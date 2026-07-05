@@ -174,11 +174,38 @@ class DnsRecordController extends Controller
         // Re-compose aux/data from the stored state overlaid with the
         // request: simple types keep data/aux unless sent, structured types
         // merge their decomposed meta fields with the request's.
+        //
+        // FR-013 recompose guard (spec 013): when the request submits none
+        // of a structured type's meta fields (and does not change the
+        // type), the stored aux/data are carried over byte-for-byte instead
+        // of being re-composed. Composing would silently rewrite records a
+        // plain deactivation never touched: unparseable legacy garbage
+        // (e.g. a 2-token SRV would become "0 0 .") and lossy roundtrips
+        // (e.g. an MX target without a trailing dot would gain one).
         $base = ['data' => (string) ($stored['data'] ?? ''), 'aux' => (int) ($stored['aux'] ?? 0)];
+        $storage = null;
+
         if (in_array($type, DnsRecordMetaService::STRUCTURED_TYPES, true)) {
-            $base = array_merge($base, $this->meta->meta($stored));
+            $submittedMeta = array_intersect_key($payload, array_flip(DnsRecordMetaService::metaFieldsFor($type)));
+
+            if ($submittedMeta === [] && ! isset($payload['type'])) {
+                $storage = [
+                    'type' => (string) ($stored['type'] ?? $type),
+                    'aux' => (int) ($stored['aux'] ?? 0),
+                    'data' => (string) ($stored['data'] ?? ''),
+                ];
+
+                // Legacy dns_dmarc_edit.php forces the record name on every
+                // save — kept even when the recompose is skipped.
+                if ($type === 'DMARC') {
+                    $storage['name'] = '_dmarc.'.($zoneAttributes['origin'] ?? '');
+                }
+            } else {
+                $base = array_merge($base, $this->meta->meta($stored));
+            }
         }
-        $storage = $this->meta->compose(array_merge($base, $payload), $type, $zoneAttributes);
+
+        $storage ??= $this->meta->compose(array_merge($base, $payload), $type, $zoneAttributes);
 
         $dnsRecord->fill(array_intersect_key($payload, array_flip(['zone', 'name', 'ttl', 'active'])));
 

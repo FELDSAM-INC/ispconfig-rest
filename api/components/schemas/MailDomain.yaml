@@ -91,7 +91,7 @@ properties:
     type: string
     description: |
       Username for authenticating with the relay host
-      - Required if relay_host is set
+      - Optional; leave empty when the relay host authorizes by IP (no SASL)
     maxLength: 255
     example: "user@example.com"
     x-db-field: relay_user
@@ -101,7 +101,7 @@ properties:
     format: password
     description: |
       Password for authenticating with the relay host
-      - Required if relay_host and relay_user are set
+      - Optional; leave empty when the relay host authorizes by IP (no SASL)
       - Never returned in responses
     writeOnly: true
     maxLength: 255
