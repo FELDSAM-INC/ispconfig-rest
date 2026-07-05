@@ -2,17 +2,20 @@
 #
 # ISPConfig REST API — installer
 #
-# Installs the REST API onto an existing ISPConfig 3.3 server. Reads the
-# database credentials from ISPConfig's own config file, deploys the app,
-# runs it as a systemd service, and registers the `ispconfig-rest` manager
-# in PATH for updates.
+# Installs the REST API onto an existing ISPConfig 3.3 server:
+#   • reads the runtime DB credentials from ISPConfig's own config file;
+#   • creates the API-owned api_keys table using a privileged (root) DB login
+#     obtained the way ISPConfig's own installer does — so the runtime user
+#     never needs CREATE rights;
+#   • serves the app from a DEDICATED web-server vhost that reuses ISPConfig's
+#     panel SSL certificate (never touching ISPConfig's own vhosts, which are
+#     regenerated on update);
+#   • registers the `ispconfig-rest` manager in PATH for updates.
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/FELDSAM-INC/ispconfig-rest/main/install.sh | sudo bash
-#   sudo ./install.sh                       # interactive
-#   sudo ./install.sh --non-interactive     # use defaults + flags/env
-#
-# Every prompt has a corresponding --flag and ISPC_REST_* env var; see --help.
+#   sudo ./install.sh                    # interactive
+#   sudo ./install.sh --help             # all flags / ISPC_REST_* env vars
 
 set -euo pipefail
 
@@ -22,31 +25,34 @@ set -euo pipefail
 REPO_URL="${ISPC_REST_REPO:-https://github.com/FELDSAM-INC/ispconfig-rest.git}"
 BRANCH="${ISPC_REST_BRANCH:-main}"
 INSTALL_DIR="${ISPC_REST_DIR:-/opt/ispconfig-rest}"
-RUN_USER="${ISPC_REST_USER:-ispconfig-rest}"
 ISPCONFIG_CONFIG="${ISPC_REST_ISPCONFIG_CONFIG:-/usr/local/ispconfig/interface/lib/config.inc.php}"
-APP_URL="${ISPC_REST_URL:-http://127.0.0.1:8090}"
-BIND_HOST="${ISPC_REST_BIND_HOST:-127.0.0.1}"
-BIND_PORT="${ISPC_REST_PORT:-8090}"
-SERVE_MODE="${ISPC_REST_SERVE:-systemd}"          # systemd | none
-CREATE_ADMIN_KEY="${ISPC_REST_CREATE_KEY:-ask}"   # yes | no | ask
+ISPCONFIG_SSL_DIR="${ISPC_REST_SSL_DIR:-/usr/local/ispconfig/interface/ssl}"
+PUBLIC_PORT="${ISPC_REST_PORT:-8090}"       # HTTPS port for the dedicated vhost
+APP_URL="${ISPC_REST_URL:-}"
+SERVE_MODE="${ISPC_REST_SERVE:-auto}"       # auto | apache | nginx | systemd | none
+INTERNAL_HOST="127.0.0.1"
+INTERNAL_PORT="${ISPC_REST_INTERNAL_PORT:-8091}"  # artisan-serve port (nginx/systemd modes)
+CREATE_ADMIN_KEY="${ISPC_REST_CREATE_KEY:-ask}"
 NONINTERACTIVE="${ISPC_REST_NONINTERACTIVE:-0}"
 SERVICE_NAME="ispconfig-rest"
 STATE_DIR="/etc/ispconfig-rest"
 MANAGER_PATH="/usr/local/bin/ispconfig-rest"
 MIN_PHP="8.3"
 PHP_BIN="${ISPC_REST_PHP:-php}"
+RUN_USER="${ISPC_REST_USER:-}"              # defaulted per serve mode below
 
-# DB overrides (default: read from ISPConfig config)
+# Runtime DB (default: read from ISPConfig config)
 DB_HOST="" DB_PORT="" DB_NAME="" DB_USER="" DB_PASS="" DB_OVERRIDE=0
+# Privileged DB login used ONLY to create api_keys (default: root via socket)
+DB_ADMIN_USER="${ISPC_REST_DB_ADMIN_USER:-root}"
+DB_ADMIN_PASS="${ISPC_REST_DB_ADMIN_PASS:-}"
 
 # ---------------------------------------------------------------------------
 # Output helpers
 # ---------------------------------------------------------------------------
 if [ -t 1 ]; then
   C_RESET=$'\033[0m'; C_B=$'\033[1m'; C_G=$'\033[32m'; C_Y=$'\033[33m'; C_R=$'\033[31m'; C_C=$'\033[36m'
-else
-  C_RESET="" C_B="" C_G="" C_Y="" C_R="" C_C=""
-fi
+else C_RESET="" C_B="" C_G="" C_Y="" C_R="" C_C=""; fi
 info()  { printf '%s\n' "${C_C}▸${C_RESET} $*"; }
 ok()    { printf '%s\n' "${C_G}✓${C_RESET} $*"; }
 warn()  { printf '%s\n' "${C_Y}!${C_RESET} $*" >&2; }
@@ -58,42 +64,42 @@ usage() {
   cat <<EOF
 ISPConfig REST API installer
 
-Options (each also settable via ISPC_REST_* env var):
-  --dir PATH               install directory            (default: $INSTALL_DIR)
-  --repo URL               git repository               (default: $REPO_URL)
-  --branch NAME            branch or tag                (default: $BRANCH)
-  --run-user NAME          system user to run as        (default: $RUN_USER)
-  --ispconfig-config PATH  ISPConfig config to read DB  (default: $ISPCONFIG_CONFIG)
-  --url URL                public APP_URL               (default: $APP_URL)
-  --host HOST              bind host                    (default: $BIND_HOST)
-  --port PORT              bind port                    (default: $BIND_PORT)
-  --db-host / --db-port / --db-name / --db-user / --db-pass
-                           override DB credentials instead of reading them
-  --serve MODE             systemd | none               (default: $SERVE_MODE)
-  --create-key yes|no      mint an admin API key        (default: ask)
+Options (each also settable via an ISPC_REST_* env var):
+  --dir PATH               install directory              (default: $INSTALL_DIR)
+  --repo URL / --branch    git source                     (default: $BRANCH)
+  --serve MODE             auto|apache|nginx|systemd|none  (default: auto)
+  --port PORT              public HTTPS port for the vhost (default: $PUBLIC_PORT)
+  --url URL                public APP_URL (default: https://<host>:PORT)
+  --ispconfig-config PATH  ISPConfig config to read the runtime DB from
+  --ssl-dir PATH           ISPConfig SSL dir (ispserver.crt/key/bundle)
+  --db-host/-port/-name/-user/-pass   override the runtime DB credentials
+  --db-admin-user NAME     privileged DB user for CREATE  (default: root)
+  --db-admin-pass PASS     its password (default: empty -> unix-socket auth)
+  --run-user NAME          override the service/owner user
+  --create-key yes|no      mint an admin API key          (default: ask)
   --non-interactive        accept defaults, no prompts
-  --php PATH               php binary                    (default: $PHP_BIN)
-  -h, --help               this help
+  --php PATH               php binary                      (default: php)
+  -h, --help
 EOF
 }
 
 # ---------------------------------------------------------------------------
-# Prompt helpers (no-op in non-interactive mode)
+# Prompt helpers
 # ---------------------------------------------------------------------------
-ask() { # ask VAR "Prompt" "default"
+ask() {
   local __var="$1" __prompt="$2" __def="${3:-}" __ans
   if [ "$NONINTERACTIVE" = "1" ]; then printf -v "$__var" '%s' "$__def"; return; fi
   if [ -n "$__def" ]; then read -r -p "$__prompt [$__def]: " __ans </dev/tty || true
   else read -r -p "$__prompt: " __ans </dev/tty || true; fi
   printf -v "$__var" '%s' "${__ans:-$__def}"
 }
-ask_secret() { # ask_secret VAR "Prompt" "default"
+ask_secret() {
   local __var="$1" __prompt="$2" __def="${3:-}" __ans
   if [ "$NONINTERACTIVE" = "1" ]; then printf -v "$__var" '%s' "$__def"; return; fi
   read -r -s -p "$__prompt${__def:+ [keep current]}: " __ans </dev/tty || true; echo
   printf -v "$__var" '%s' "${__ans:-$__def}"
 }
-confirm() { # confirm "Prompt" default(yes|no)
+confirm() {
   local __prompt="$1" __def="${2:-yes}" __ans
   if [ "$NONINTERACTIVE" = "1" ]; then [ "$__def" = "yes" ]; return; fi
   read -r -p "$__prompt [$([ "$__def" = yes ] && echo Y/n || echo y/N)]: " __ans </dev/tty || true
@@ -108,17 +114,19 @@ while [ $# -gt 0 ]; do
     --dir) INSTALL_DIR="$2"; shift 2;;
     --repo) REPO_URL="$2"; shift 2;;
     --branch) BRANCH="$2"; shift 2;;
-    --run-user) RUN_USER="$2"; shift 2;;
-    --ispconfig-config) ISPCONFIG_CONFIG="$2"; shift 2;;
+    --serve) SERVE_MODE="$2"; shift 2;;
+    --port) PUBLIC_PORT="$2"; shift 2;;
     --url) APP_URL="$2"; shift 2;;
-    --host) BIND_HOST="$2"; shift 2;;
-    --port) BIND_PORT="$2"; shift 2;;
+    --ispconfig-config) ISPCONFIG_CONFIG="$2"; shift 2;;
+    --ssl-dir) ISPCONFIG_SSL_DIR="$2"; shift 2;;
     --db-host) DB_HOST="$2"; DB_OVERRIDE=1; shift 2;;
     --db-port) DB_PORT="$2"; DB_OVERRIDE=1; shift 2;;
     --db-name) DB_NAME="$2"; DB_OVERRIDE=1; shift 2;;
     --db-user) DB_USER="$2"; DB_OVERRIDE=1; shift 2;;
     --db-pass) DB_PASS="$2"; DB_OVERRIDE=1; shift 2;;
-    --serve) SERVE_MODE="$2"; shift 2;;
+    --db-admin-user) DB_ADMIN_USER="$2"; shift 2;;
+    --db-admin-pass) DB_ADMIN_PASS="$2"; shift 2;;
+    --run-user) RUN_USER="$2"; shift 2;;
     --create-key) CREATE_ADMIN_KEY="$2"; shift 2;;
     --non-interactive) NONINTERACTIVE=1; shift;;
     --php) PHP_BIN="$2"; shift 2;;
@@ -132,14 +140,12 @@ done
 # ---------------------------------------------------------------------------
 step "Preflight checks"
 [ "$(id -u)" = "0" ] || die "This installer must run as root (use sudo)."
-
 command -v git >/dev/null 2>&1 || die "git is required but not installed."
 command -v "$PHP_BIN" >/dev/null 2>&1 || die "php is required but not installed."
 
 PHP_VER="$("$PHP_BIN" -r 'echo PHP_VERSION;')"
-if [ "$("$PHP_BIN" -r 'echo version_compare(PHP_VERSION, "'"$MIN_PHP"'", ">=") ? 1 : 0;')" != "1" ]; then
-  die "PHP >= $MIN_PHP required, found $PHP_VER."
-fi
+[ "$("$PHP_BIN" -r 'echo version_compare(PHP_VERSION,"'"$MIN_PHP"'",">=")?1:0;')" = "1" ] \
+  || die "PHP >= $MIN_PHP required, found $PHP_VER."
 ok "PHP $PHP_VER"
 
 MISSING_EXT=""
@@ -149,81 +155,79 @@ done
 [ -z "$MISSING_EXT" ] || die "Missing PHP extensions:$MISSING_EXT"
 ok "Required PHP extensions present"
 
-if command -v composer >/dev/null 2>&1; then
-  COMPOSER="composer"
-elif [ -f "$INSTALL_DIR/composer.phar" ]; then
-  COMPOSER="$PHP_BIN $INSTALL_DIR/composer.phar"
+if command -v composer >/dev/null 2>&1; then COMPOSER="composer"
 else
   info "Composer not found — fetching a local copy"
-  ( cd /tmp && "$PHP_BIN" -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
+  ( cd /tmp && "$PHP_BIN" -r "copy('https://getcomposer.org/installer','composer-setup.php');" \
     && "$PHP_BIN" composer-setup.php --quiet && rm -f composer-setup.php )
-  install -m 0755 /tmp/composer.phar /usr/local/bin/composer
-  COMPOSER="composer"
+  install -m 0755 /tmp/composer.phar /usr/local/bin/composer; COMPOSER="composer"
 fi
 ok "Composer available"
 
-[ -f "$ISPCONFIG_CONFIG" ] || warn "ISPConfig config not found at $ISPCONFIG_CONFIG (you can enter DB credentials manually)."
-
-# ---------------------------------------------------------------------------
-# Read ISPConfig DB credentials (PHP parses its own config — robust)
-# ---------------------------------------------------------------------------
-step "Database credentials"
-read_ispconfig_conf() { # read_ispconfig_conf KEY
-  "$PHP_BIN" -r '
-    $c=$argv[1]; if(!is_file($c)){exit(1);}
-    $conf=[]; include $c;
-    echo $conf["db_'"$1"'"] ?? "";
-  ' "$ISPCONFIG_CONFIG" 2>/dev/null || true
+# Detect the web server (from what is actually installed)
+detect_web_server() {
+  if command -v apache2ctl >/dev/null 2>&1 || command -v apachectl >/dev/null 2>&1 || [ -d /etc/apache2 ]; then echo apache
+  elif command -v nginx >/dev/null 2>&1 || [ -d /etc/nginx ]; then echo nginx
+  else echo none; fi
 }
-
-if [ "$DB_OVERRIDE" = "0" ] && [ -f "$ISPCONFIG_CONFIG" ]; then
-  DB_HOST="$(read_ispconfig_conf host)"
-  DB_PORT="$(read_ispconfig_conf port)"
-  DB_NAME="$(read_ispconfig_conf database)"
-  DB_USER="$(read_ispconfig_conf user)"
-  DB_PASS="$(read_ispconfig_conf password)"
-  [ -n "$DB_NAME" ] && ok "Read ISPConfig database credentials ($DB_USER@$DB_HOST/$DB_NAME)" \
-                    || warn "Could not parse credentials from $ISPCONFIG_CONFIG"
+DETECTED_WS="$(detect_web_server)"
+if [ "$SERVE_MODE" = "auto" ]; then
+  case "$DETECTED_WS" in apache|nginx) SERVE_MODE="$DETECTED_WS";; *) SERVE_MODE="systemd";; esac
 fi
+ok "Web server: $DETECTED_WS  →  serve mode: $SERVE_MODE"
 
-# Fall back / confirm
+# ---------------------------------------------------------------------------
+# Runtime DB credentials (from ISPConfig)
+# ---------------------------------------------------------------------------
+step "Runtime database credentials"
+read_conf() { "$PHP_BIN" -r '$c=$argv[1]; if(!is_file($c)){exit(1);} $conf=[]; include $c; echo $conf["db_'"$1"'"] ?? "";' "$ISPCONFIG_CONFIG" 2>/dev/null || true; }
+if [ "$DB_OVERRIDE" = "0" ] && [ -f "$ISPCONFIG_CONFIG" ]; then
+  DB_HOST="$(read_conf host)"; DB_PORT="$(read_conf port)"; DB_NAME="$(read_conf database)"
+  DB_USER="$(read_conf user)"; DB_PASS="$(read_conf password)"
+  [ -n "$DB_NAME" ] && ok "Read from ISPConfig: $DB_USER@$DB_HOST/$DB_NAME" \
+                    || warn "Could not parse $ISPCONFIG_CONFIG"
+fi
 ask        DB_HOST "Database host" "${DB_HOST:-localhost}"
 ask        DB_PORT "Database port" "${DB_PORT:-3306}"
 ask        DB_NAME "Database name" "${DB_NAME:-dbispconfig}"
-ask        DB_USER "Database user" "${DB_USER:-root}"
-ask_secret DB_PASS "Database password" "$DB_PASS"
+ask        DB_USER "Runtime database user (CRUD)" "${DB_USER:-root}"
+ask_secret DB_PASS "Runtime database password" "$DB_PASS"
 
 # ---------------------------------------------------------------------------
 # Deployment options
 # ---------------------------------------------------------------------------
 step "Deployment options"
 ask INSTALL_DIR "Install directory" "$INSTALL_DIR"
-ask BIND_HOST   "Bind host (reverse-proxied)" "$BIND_HOST"
-ask BIND_PORT   "Bind port" "$BIND_PORT"
-ask APP_URL     "Public application URL" "${APP_URL/:[0-9]*/:$BIND_PORT}"
-ask SERVE_MODE  "Service mode (systemd|none)" "$SERVE_MODE"
+ask PUBLIC_PORT "Public HTTPS port" "$PUBLIC_PORT"
+HOSTNAME_FQDN="$(hostname -f 2>/dev/null || hostname)"
+[ -n "$APP_URL" ] || APP_URL="https://${HOSTNAME_FQDN}:${PUBLIC_PORT}"
+ask APP_URL "Public application URL" "$APP_URL"
+
+# Default run-user per serve mode: web modes run as the web user; systemd as its own.
+if [ -z "$RUN_USER" ]; then
+  case "$SERVE_MODE" in
+    apache|nginx) id www-data >/dev/null 2>&1 && RUN_USER="www-data" || RUN_USER="ispconfig-rest";;
+    *) RUN_USER="ispconfig-rest";;
+  esac
+fi
 
 # ---------------------------------------------------------------------------
-# Run-as user
+# System user
 # ---------------------------------------------------------------------------
 step "System user"
 if ! id "$RUN_USER" >/dev/null 2>&1; then
   useradd --system --home-dir "$INSTALL_DIR" --shell /usr/sbin/nologin "$RUN_USER" 2>/dev/null \
     || useradd --system --home-dir "$INSTALL_DIR" --shell /bin/false "$RUN_USER"
   ok "Created system user $RUN_USER"
-else
-  ok "Using existing user $RUN_USER"
-fi
+else ok "Using existing user $RUN_USER"; fi
 
 # ---------------------------------------------------------------------------
-# Fetch / update the code
+# Fetch / update code + dependencies
 # ---------------------------------------------------------------------------
 step "Fetching application code"
 if [ -d "$INSTALL_DIR/.git" ]; then
-  info "Existing install found — updating"
   git -C "$INSTALL_DIR" fetch --depth 1 origin "$BRANCH"
-  git -C "$INSTALL_DIR" checkout -f "$BRANCH"
-  git -C "$INSTALL_DIR" reset --hard "origin/$BRANCH"
+  git -C "$INSTALL_DIR" checkout -f "$BRANCH"; git -C "$INSTALL_DIR" reset --hard "origin/$BRANCH"
 else
   mkdir -p "$(dirname "$INSTALL_DIR")"
   git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
@@ -232,7 +236,6 @@ chown -R "$RUN_USER":"$RUN_USER" "$INSTALL_DIR"
 ok "Code at $INSTALL_DIR ($(git -C "$INSTALL_DIR" rev-parse --short HEAD))"
 
 run_as() { sudo -u "$RUN_USER" env -C "$INSTALL_DIR" "$@"; }
-
 step "Installing dependencies"
 run_as env COMPOSER_HOME="$INSTALL_DIR/.composer" $COMPOSER install --no-dev --optimize-autoloader --no-interaction --no-progress
 ok "Dependencies installed"
@@ -244,21 +247,11 @@ step "Configuring environment"
 ENV_FILE="$INSTALL_DIR/.env"
 APP_KEY_LINE="APP_KEY="
 if [ -f "$ENV_FILE" ] && grep -q '^APP_KEY=base64:' "$ENV_FILE"; then
-  APP_KEY_LINE="$(grep '^APP_KEY=' "$ENV_FILE")"   # preserve key on re-install
-  info "Preserving existing APP_KEY"
+  APP_KEY_LINE="$(grep '^APP_KEY=' "$ENV_FILE")"; info "Preserving existing APP_KEY"
 fi
-
-# Escape a value for a dotenv double-quoted string. The value is passed to PHP
-# via an env var (no shell-quoting of the payload), and PHP escapes backslash,
-# double-quote and dollar in order — verified to round-trip through phpdotenv
-# for arbitrary passwords ($ " \ # spaces, etc.).
-env_escape() {
-  ISPC_REST_VAL="$1" "$PHP_BIN" -r '
-    $v = (string) getenv("ISPC_REST_VAL");
-    $v = str_replace(["\\", "\"", "\$"], ["\\\\", "\\\"", "\\\$"], $v);
-    echo "\"" . $v . "\"";
-  '
-}
+# Escape a value for a dotenv double-quoted string (delegated to PHP; verified
+# to round-trip arbitrary passwords through phpdotenv).
+env_escape() { ISPC_REST_VAL="$1" "$PHP_BIN" -r '$v=(string)getenv("ISPC_REST_VAL"); $v=str_replace(["\\","\"","\$"],["\\\\","\\\"","\\\$"],$v); echo "\"".$v."\"";'; }
 umask 077
 cat > "$ENV_FILE" <<EOF
 APP_NAME="ISPConfig REST API"
@@ -286,33 +279,35 @@ FILESYSTEM_DISK=local
 MAIL_MAILER=log
 
 API_VERSION=1.0
-# No dev key in production — mint real keys with: ispconfig-rest key:create
+# No dev key in production — mint keys with: ispconfig-rest key:create
 API_DEV_KEY=
 EOF
-chown "$RUN_USER":"$RUN_USER" "$ENV_FILE"
-chmod 600 "$ENV_FILE"
-
-if ! grep -q '^APP_KEY=base64:' "$ENV_FILE"; then
-  run_as "$PHP_BIN" artisan key:generate --force
-  ok "Application key generated"
-fi
+chown "$RUN_USER":"$RUN_USER" "$ENV_FILE"; chmod 600 "$ENV_FILE"
+grep -q '^APP_KEY=base64:' "$ENV_FILE" || { run_as "$PHP_BIN" artisan key:generate --force; ok "Application key generated"; }
 
 # ---------------------------------------------------------------------------
-# Database connectivity + migrations
+# Create the api_keys table with a privileged DB login (root)
 # ---------------------------------------------------------------------------
-step "Database setup"
-if run_as "$PHP_BIN" artisan db:show >/dev/null 2>&1 || run_as "$PHP_BIN" -r '
-  require "vendor/autoload.php"; $a=require "bootstrap/app.php";
-  $a->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-  Illuminate\Support\Facades\DB::select("select 1"); echo "ok";
-' >/dev/null 2>&1; then
-  ok "Connected to $DB_NAME@$DB_HOST"
+step "Creating the api_keys table (privileged login)"
+# Runs migrations under the admin DB user so the runtime user needs no CREATE
+# right. With no admin password we use unix-socket auth as MySQL root, which
+# requires running as the root OS user (exactly how ISPConfig's installer works).
+migrate_privileged() {
+  if [ -n "$DB_ADMIN_PASS" ] || [ "$DB_ADMIN_USER" != "root" ]; then
+    run_as env DB_USERNAME="$DB_ADMIN_USER" DB_PASSWORD="$DB_ADMIN_PASS" "$PHP_BIN" artisan migrate --force
+  else
+    ( cd "$INSTALL_DIR" && DB_USERNAME=root DB_PASSWORD="" "$PHP_BIN" artisan migrate --force )
+  fi
+}
+if migrate_privileged; then MIGRATE_OK=1; else MIGRATE_OK=0; fi
+# The privileged run happens as root — hand storage/cache back to the run user.
+chown -R "$RUN_USER":"$RUN_USER" "$INSTALL_DIR/storage" "$INSTALL_DIR/bootstrap/cache" 2>/dev/null || true
+if [ "$MIGRATE_OK" = "1" ]; then
+  ok "api_keys table ready"
 else
-  warn "Could not connect to the database with the supplied credentials — check them and re-run 'ispconfig-rest update'."
+  warn "Privileged migration failed. Provide --db-admin-pass (if MySQL root needs a"
+  warn "password) or create the table manually, then run 'ispconfig-rest update'."
 fi
-
-info "Running migrations (creates only the API-owned api_keys table)"
-run_as "$PHP_BIN" artisan migrate --force || warn "Migration failed — the DB user may lack CREATE. See notes at the end."
 
 step "Optimizing"
 run_as "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true
@@ -320,15 +315,13 @@ run_as "$PHP_BIN" artisan route:cache  >/dev/null 2>&1 || true
 ok "Configuration cached"
 
 # ---------------------------------------------------------------------------
-# systemd service
+# systemd service (nginx / systemd modes only — apache serves via mod_php)
 # ---------------------------------------------------------------------------
-if [ "$SERVE_MODE" = "systemd" ]; then
-  step "Installing systemd service"
-  UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
-  ABS_PHP="$(command -v "$PHP_BIN")"
-  cat > "$UNIT" <<EOF
+install_systemd_service() {
+  local unit="/etc/systemd/system/${SERVICE_NAME}.service" abs_php; abs_php="$(command -v "$PHP_BIN")"
+  cat > "$unit" <<EOF
 [Unit]
-Description=ISPConfig REST API
+Description=ISPConfig REST API (internal app server)
 After=network.target mysql.service mariadb.service
 
 [Service]
@@ -336,10 +329,9 @@ Type=simple
 User=$RUN_USER
 Group=$RUN_USER
 WorkingDirectory=$INSTALL_DIR
-ExecStart=$ABS_PHP artisan serve --host=$BIND_HOST --port=$BIND_PORT
+ExecStart=$abs_php artisan serve --host=$INTERNAL_HOST --port=$INTERNAL_PORT
 Restart=on-failure
 RestartSec=3
-# Hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
@@ -348,18 +340,96 @@ ReadWritePaths=$INSTALL_DIR/storage $INSTALL_DIR/bootstrap/cache
 [Install]
 WantedBy=multi-user.target
 EOF
-  systemctl daemon-reload
-  systemctl enable "$SERVICE_NAME" >/dev/null 2>&1 || true
-  systemctl restart "$SERVICE_NAME"
-  sleep 1
-  if systemctl is-active --quiet "$SERVICE_NAME"; then
-    ok "Service $SERVICE_NAME running on $BIND_HOST:$BIND_PORT"
+  systemctl daemon-reload; systemctl enable "$SERVICE_NAME" >/dev/null 2>&1 || true
+  systemctl restart "$SERVICE_NAME"; sleep 1
+  systemctl is-active --quiet "$SERVICE_NAME" && ok "Service on $INTERNAL_HOST:$INTERNAL_PORT" \
+    || warn "Service failed — journalctl -u $SERVICE_NAME -n 30"
+}
+
+# ---------------------------------------------------------------------------
+# Dedicated web-server vhost reusing the ISPConfig panel SSL certificate
+# ---------------------------------------------------------------------------
+ssl_lines_present() { [ -f "$ISPCONFIG_SSL_DIR/ispserver.crt" ] && [ -f "$ISPCONFIG_SSL_DIR/ispserver.key" ]; }
+
+setup_apache() {
+  step "Configuring Apache vhost (mod_php, reusing ISPConfig SSL)"
+  ssl_lines_present || die "ISPConfig SSL cert not found in $ISPCONFIG_SSL_DIR"
+  local avail="/etc/apache2/sites-available/${SERVICE_NAME}.conf" bundle=""
+  [ -f "$ISPCONFIG_SSL_DIR/ispserver.bundle" ] && \
+    bundle="  SSLCACertificateFile $ISPCONFIG_SSL_DIR/ispserver.bundle"
+  cat > "$avail" <<EOF
+# ISPConfig REST API — dedicated vhost (NOT managed by ISPConfig).
+# Serves the app via mod_php and reuses the ISPConfig panel SSL certificate.
+Listen ${PUBLIC_PORT}
+<VirtualHost _default_:${PUBLIC_PORT}>
+    ServerName ${HOSTNAME_FQDN}
+    DocumentRoot ${INSTALL_DIR}/public
+
+    SSLEngine On
+    SSLProtocol All -SSLv3 -TLSv1 -TLSv1.1
+    SSLHonorCipherOrder On
+    SSLCertificateFile ${ISPCONFIG_SSL_DIR}/ispserver.crt
+    SSLCertificateKeyFile ${ISPCONFIG_SSL_DIR}/ispserver.key
+${bundle}
+
+    <Directory ${INSTALL_DIR}/public>
+        Options FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog \${APACHE_LOG_DIR}/${SERVICE_NAME}-error.log
+    CustomLog \${APACHE_LOG_DIR}/${SERVICE_NAME}-access.log combined
+</VirtualHost>
+EOF
+  a2enmod ssl rewrite headers >/dev/null 2>&1 || true
+  a2ensite "$SERVICE_NAME" >/dev/null 2>&1 || true
+  if apache2ctl configtest 2>/dev/null; then
+    systemctl reload apache2 2>/dev/null || systemctl restart apache2
+    ok "Apache vhost enabled on :$PUBLIC_PORT (DocumentRoot $INSTALL_DIR/public)"
   else
-    warn "Service failed to start — check: journalctl -u $SERVICE_NAME -n 30"
+    warn "apache2ctl configtest failed — review $avail and reload Apache."
   fi
-else
-  info "Service mode 'none' — start the app yourself (e.g. behind php-fpm or 'php artisan serve')."
-fi
+}
+
+setup_nginx() {
+  step "Configuring nginx vhost (proxy to internal service, reusing ISPConfig SSL)"
+  ssl_lines_present || die "ISPConfig SSL cert not found in $ISPCONFIG_SSL_DIR"
+  install_systemd_service   # nginx proxies to the local artisan-serve service
+  local avail="/etc/nginx/sites-available/${SERVICE_NAME}.conf"
+  cat > "$avail" <<EOF
+# ISPConfig REST API — dedicated vhost (NOT managed by ISPConfig).
+# Reuses the ISPConfig panel SSL certificate; proxies to the local service.
+server {
+    listen ${PUBLIC_PORT} ssl;
+    server_name ${HOSTNAME_FQDN};
+
+    ssl_certificate     ${ISPCONFIG_SSL_DIR}/ispserver.crt;
+    ssl_certificate_key ${ISPCONFIG_SSL_DIR}/ispserver.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    location / {
+        proxy_pass         http://${INTERNAL_HOST}:${INTERNAL_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header   Host              \$host;
+        proxy_set_header   X-Real-IP         \$remote_addr;
+        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto https;
+    }
+}
+EOF
+  ln -sf "$avail" "/etc/nginx/sites-enabled/${SERVICE_NAME}.conf"
+  if nginx -t 2>/dev/null; then systemctl reload nginx; ok "nginx vhost enabled on :$PUBLIC_PORT"
+  else warn "nginx -t failed — review $avail and reload nginx."; fi
+}
+
+case "$SERVE_MODE" in
+  apache)  setup_apache;;
+  nginx)   setup_nginx;;
+  systemd) install_systemd_service; info "App on $INTERNAL_HOST:$INTERNAL_PORT — add your own TLS front end.";;
+  none)    info "Serve mode 'none' — deploy the web front end yourself.";;
+  *) die "Unknown serve mode: $SERVE_MODE";;
+esac
 
 # ---------------------------------------------------------------------------
 # Manager CLI + install state
@@ -370,15 +440,15 @@ cat > "$STATE_DIR/install.conf" <<EOF
 # ISPConfig REST API — install state (managed by install.sh / ispconfig-rest)
 INSTALL_DIR="$INSTALL_DIR"
 RUN_USER="$RUN_USER"
-SERVICE_NAME="$SERVICE_NAME"
 SERVE_MODE="$SERVE_MODE"
-BIND_HOST="$BIND_HOST"
-BIND_PORT="$BIND_PORT"
+SERVICE_NAME="$SERVICE_NAME"
+PUBLIC_PORT="$PUBLIC_PORT"
+INTERNAL_HOST="$INTERNAL_HOST"
+INTERNAL_PORT="$INTERNAL_PORT"
 BRANCH="$BRANCH"
 PHP_BIN="$(command -v "$PHP_BIN")"
 EOF
 chmod 600 "$STATE_DIR/install.conf"
-
 install -m 0755 "$INSTALL_DIR/bin/ispconfig-rest" "$MANAGER_PATH"
 ok "Installed $MANAGER_PATH"
 
@@ -387,13 +457,10 @@ ok "Installed $MANAGER_PATH"
 # ---------------------------------------------------------------------------
 ADMIN_KEY=""
 case "$CREATE_ADMIN_KEY" in
-  yes) MAKE_KEY=1;;
-  no)  MAKE_KEY=0;;
-  *)   if confirm "Create an initial admin API key now?" yes; then MAKE_KEY=1; else MAKE_KEY=0; fi;;
+  yes) MK=1;; no) MK=0;;
+  *) confirm "Create an initial admin API key now?" yes && MK=1 || MK=0;;
 esac
-if [ "${MAKE_KEY:-0}" = "1" ]; then
-  ADMIN_KEY="$(run_as "$PHP_BIN" artisan api:key:create "installer admin" 2>/dev/null | grep -oE 'isp_[A-Za-z0-9]+' || true)"
-fi
+[ "${MK:-0}" = "1" ] && ADMIN_KEY="$(run_as "$PHP_BIN" artisan api:key:create "installer admin" 2>/dev/null | grep -oE 'isp_[A-Za-z0-9]+' || true)"
 
 # ---------------------------------------------------------------------------
 # Summary
@@ -401,22 +468,16 @@ fi
 step "Done"
 ok "ISPConfig REST API $(cat "$INSTALL_DIR/VERSION" 2>/dev/null) installed."
 echo
-echo "  Install dir : $INSTALL_DIR"
-echo "  Runs as     : $RUN_USER"
-echo "  Listening   : $BIND_HOST:$BIND_PORT   (reverse-proxy this behind your web server)"
+echo "  Install dir : $INSTALL_DIR   (runs as $RUN_USER)"
+echo "  Serve mode  : $SERVE_MODE"
+echo "  API base    : ${APP_URL%/}/api/v1"
 echo "  Docs (UI)   : ${APP_URL%/}/api/documentation"
 echo "  Manage      : ispconfig-rest {status|update|restart|logs|key:create|artisan ...}"
 [ -n "$ADMIN_KEY" ] && { echo; echo "  ${C_B}Admin API key (shown once):${C_RESET} ${C_G}$ADMIN_KEY${C_RESET}"; }
-cat <<EOF
-
-Next steps:
-  • Front the service with your existing web server. Example (nginx):
-        location /api/ { proxy_pass http://$BIND_HOST:$BIND_PORT; proxy_set_header Host \$host; }
-    (Apache: ProxyPass "/api/" "http://$BIND_HOST:$BIND_PORT/api/")
-  • Mint keys:  ispconfig-rest key:create "my integration" [--client-id N]
-  • Update later:  ispconfig-rest update
-
-If migrations reported a CREATE error, the DB user lacks table-create rights.
-Grant it once (as MySQL root), then run 'ispconfig-rest update':
-    GRANT CREATE ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
-EOF
+case "$SERVE_MODE" in
+  apache|nginx) echo; echo "  The vhost listens on port $PUBLIC_PORT with ISPConfig's panel certificate.";
+                echo "  Open that port in your firewall if you reach the API from outside.";;
+esac
+echo
+echo "  Mint keys:  ispconfig-rest key:create \"my integration\" [--client-id N]"
+echo "  Update:     ispconfig-rest update"

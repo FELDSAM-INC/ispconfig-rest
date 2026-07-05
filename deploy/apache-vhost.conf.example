@@ -1,0 +1,30 @@
+# ISPConfig REST API — dedicated Apache vhost (what the installer generates for
+# an Apache/mod_php host). Serves the app directly via mod_php and reuses the
+# ISPConfig panel SSL certificate. Place in /etc/apache2/sites-available/,
+# enable with `a2ensite ispconfig-rest`, ensure `a2enmod ssl rewrite headers`.
+#
+# This is a standalone vhost — it does NOT touch ISPConfig's own interface
+# (8080) or apps (8081) vhosts, which ISPConfig regenerates on update.
+
+Listen 8090
+<VirtualHost _default_:8090>
+    ServerName server.example.com
+    DocumentRoot /opt/ispconfig-rest/public
+
+    SSLEngine On
+    SSLProtocol All -SSLv3 -TLSv1 -TLSv1.1
+    SSLHonorCipherOrder On
+    SSLCertificateFile /usr/local/ispconfig/interface/ssl/ispserver.crt
+    SSLCertificateKeyFile /usr/local/ispconfig/interface/ssl/ispserver.key
+    # Include only if the bundle exists:
+    SSLCACertificateFile /usr/local/ispconfig/interface/ssl/ispserver.bundle
+
+    <Directory /opt/ispconfig-rest/public>
+        Options FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog  ${APACHE_LOG_DIR}/ispconfig-rest-error.log
+    CustomLog ${APACHE_LOG_DIR}/ispconfig-rest-access.log combined
+</VirtualHost>

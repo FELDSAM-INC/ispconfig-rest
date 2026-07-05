@@ -16,25 +16,31 @@ The OpenAPI 3 contract in [`api/`](api/) is the source of truth — the PHP impl
 
 ## Install on an ISPConfig server (recommended)
 
-Run the installer on your existing ISPConfig 3.3 host — it reads the database
-credentials from ISPConfig's own config, deploys the app under a dedicated
-system user, runs it as a systemd service, and registers the `ispconfig-rest`
-manager in your PATH:
+Run the installer on your existing ISPConfig 3.3 host and it wires everything up:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/FELDSAM-INC/ispconfig-rest/main/install.sh | sudo bash
 ```
 
-The installer prompts for the install directory, confirms the database
-credentials it read from `/usr/local/ispconfig/interface/lib/config.inc.php`,
-the bind host/port, and offers to mint an initial admin API key. Every prompt
-has a flag and `ISPC_REST_*` env var for unattended installs — see
-`sudo ./install.sh --help`. Nothing about ISPConfig is modified; the only table
-created is the API-owned `api_keys`.
+What it does:
 
-Then front the local service with your existing web server — snippets in
-[`deploy/`](deploy/) for [nginx](deploy/nginx-reverse-proxy.conf.example) and
-[Apache](deploy/apache-reverse-proxy.conf.example).
+- **Reads the runtime database credentials** from ISPConfig's own config
+  (`/usr/local/ispconfig/interface/lib/config.inc.php`).
+- **Creates the API-owned `api_keys` table using a privileged (root) DB login** —
+  by default MySQL root over the local unix socket, exactly as ISPConfig's own
+  installer does — so the runtime user needs no `CREATE` right and nothing about
+  ISPConfig is modified. (Pass `--db-admin-pass` if root needs a password.)
+- **Detects your web server** (Apache or nginx) and creates a **dedicated vhost**
+  on its own HTTPS port (default 8090) that **reuses the ISPConfig panel SSL
+  certificate** (`ispserver.crt`/`.key`/`.bundle`). On Apache the app is served
+  directly by mod_php; on nginx it runs as a local systemd service that nginx
+  proxies to. The vhost is standalone — it never edits ISPConfig's own interface
+  (8080) or apps (8081) vhosts, which ISPConfig regenerates on update.
+- **Registers `ispconfig-rest`** in your PATH and offers to mint an admin key.
+
+Every prompt has a flag and `ISPC_REST_*` env var for unattended installs — see
+`sudo ./install.sh --help`. Reference vhost templates live in [`deploy/`](deploy/)
+([Apache](deploy/apache-vhost.conf.example), [nginx](deploy/nginx-vhost.conf.example)).
 
 ### Managing the installation
 
