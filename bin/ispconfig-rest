@@ -10,6 +10,7 @@
 #   ispconfig-rest restart|start|stop     control the service
 #   ispconfig-rest logs [-f]              service logs
 #   ispconfig-rest key:create NAME [--client-id N]   mint an API key
+#   ispconfig-rest firewall:allow PORT [--proto tcp]  open a port in the ISPConfig firewall
 #   ispconfig-rest artisan ...            run an artisan command as the run user
 #   ispconfig-rest version                installed version + commit
 #   ispconfig-rest uninstall              remove service + manager (keeps DB data)
@@ -114,8 +115,9 @@ cmd_logs() {
   if [ "${1:-}" = "-f" ]; then tail -f "$log"; else tail -n "${1:-50}" "$log"; fi
 }
 
-cmd_key_create() { need_root; shift || true; run_as "$PHP_BIN" artisan api:key:create "$@"; }
-cmd_artisan()    { need_root; shift || true; run_as "$PHP_BIN" artisan "$@"; }
+cmd_key_create()    { need_root; shift || true; run_as "$PHP_BIN" artisan api:key:create "$@"; }
+cmd_firewall_allow(){ need_root; shift || true; run_as "$PHP_BIN" artisan firewall:allow "$@"; }
+cmd_artisan()       { need_root; shift || true; run_as "$PHP_BIN" artisan "$@"; }
 
 cmd_uninstall() {
   need_root
@@ -148,6 +150,7 @@ case "${1:-}" in
   start|stop|restart)   cmd_service "$1";;
   logs)          shift; cmd_logs "$@";;
   key:create)    cmd_key_create "$@";;
+  firewall:allow) cmd_firewall_allow "$@";;
   artisan)       cmd_artisan "$@";;
   uninstall)     cmd_uninstall;;
   ""|help|-h|--help)

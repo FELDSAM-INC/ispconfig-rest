@@ -37,6 +37,11 @@ What it does:
   standalone — it never edits ISPConfig's own interface (8080) or apps (8081)
   vhosts, which ISPConfig regenerates on update. (If php-fpm isn't installed,
   Apache falls back to mod_php.)
+- **Opens the port in ISPConfig's own firewall** — it adds the port to the
+  server's `firewall` record through the datalog, so ISPConfig's firewall plugin
+  (bastille/ufw) reconfigures natively. It never creates a firewall record where
+  none exists (that would restrict the firewall to only this port); if ISPConfig
+  isn't managing the firewall it falls back to an active ufw/firewalld.
 - **Registers `ispconfig-rest`** in your PATH and offers to mint an admin key.
 
 Every prompt has a flag and `ISPC_REST_*` env var for unattended installs — see
@@ -52,6 +57,7 @@ ispconfig-rest status                        # service state, version, DB connec
 ispconfig-rest update                        # pull latest, install deps, migrate, restart
 ispconfig-rest key:create "my integration"   # mint an admin key
 ispconfig-rest key:create "acme" --client-id 42   # mint a client-scoped key
+ispconfig-rest firewall:allow 8090           # open a port in the ISPConfig firewall
 ispconfig-rest restart | logs -f | version | uninstall
 ```
 

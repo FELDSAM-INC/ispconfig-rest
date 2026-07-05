@@ -450,6 +450,29 @@ case "$SERVE_MODE" in
 esac
 
 # ---------------------------------------------------------------------------
+# Firewall — open the port in ISPConfig's own firewall (falls back to the OS)
+# ---------------------------------------------------------------------------
+open_firewall() {
+  step "Firewall"
+  local out rc
+  # Preferred: add the port to ISPConfig's firewall record via datalog, so its
+  # firewall plugin (bastille/ufw) reconfigures the running firewall natively.
+  out="$(run_as "$PHP_BIN" artisan firewall:allow "$PUBLIC_PORT" 2>&1)"; rc=$?
+  printf '%s\n' "$out" | sed 's/^/  /'
+  if [ "$rc" = "0" ]; then ok "Port $PUBLIC_PORT allowed in the ISPConfig firewall"; return; fi
+  # Fallback: the OS firewall, only if one is actually active.
+  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qiw active; then
+    ufw allow "${PUBLIC_PORT}/tcp" >/dev/null 2>&1 && ok "Port $PUBLIC_PORT opened via ufw" || warn "ufw rule failed"
+  elif command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state 2>/dev/null | grep -qiw running; then
+    firewall-cmd --permanent --add-port="${PUBLIC_PORT}/tcp" >/dev/null 2>&1 && firewall-cmd --reload >/dev/null 2>&1 \
+      && ok "Port $PUBLIC_PORT opened via firewalld" || warn "firewalld rule failed"
+  else
+    warn "No firewall was changed automatically — open port ${PUBLIC_PORT}/tcp yourself if the API is reached from outside."
+  fi
+}
+[ "$SERVE_MODE" != "none" ] && [ "$MIGRATE_OK" = "1" ] && open_firewall
+
+# ---------------------------------------------------------------------------
 # Manager CLI + install state
 # ---------------------------------------------------------------------------
 step "Registering the ispconfig-rest manager"
