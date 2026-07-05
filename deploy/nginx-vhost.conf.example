@@ -1,25 +1,28 @@
-# ISPConfig REST API — dedicated nginx vhost (what the installer generates for
-# an nginx host). nginx terminates TLS with the ISPConfig panel certificate and
-# proxies to the app's local service (a systemd unit running `artisan serve` on
-# 127.0.0.1:8091). Place in /etc/nginx/sites-available/ and symlink into
-# sites-enabled.
+# ISPConfig REST API — dedicated nginx vhost (what the installer generates on an
+# nginx host). Serves the app via a dedicated php-fpm pool over a socket and
+# reuses the ISPConfig panel SSL certificate. Standalone — it does NOT touch
+# ISPConfig's own vhosts.
 #
-# Standalone vhost — it does NOT touch ISPConfig's own vhosts.
+# Pair with the php-fpm pool in deploy/php-fpm-pool.conf.example.
 
 server {
     listen 8090 ssl;
     server_name server.example.com;
+    root /opt/ispconfig-rest/public;
+    index index.php;
 
-    ssl_certificate     /usr/local/ispconfig/interface/ssl/ispserver.crt;
+    ssl_certificate     /usr/local/ispconfig/interface/ssl/ispserver.crt;   # or ispserver.pem (full chain)
     ssl_certificate_key /usr/local/ispconfig/interface/ssl/ispserver.key;
     ssl_protocols TLSv1.2 TLSv1.3;
 
-    location / {
-        proxy_pass         http://127.0.0.1:8091;
-        proxy_http_version 1.1;
-        proxy_set_header   Host              $host;
-        proxy_set_header   X-Real-IP         $remote_addr;
-        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto https;
+    location / { try_files $uri $uri/ /index.php?$query_string; }
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/ispconfig-rest.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param HTTPS on;
     }
+
+    location ~ /\.(?!well-known).* { deny all; }
 }

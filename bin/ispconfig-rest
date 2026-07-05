@@ -33,15 +33,14 @@ die(){  printf '%s\n' "${C_R}✗${C_RESET} $*" >&2; exit 1; }
 
 need_root(){ [ "$(id -u)" = "0" ] || die "This command must run as root (use sudo)."; }
 run_as(){ sudo -u "$RUN_USER" env -C "$INSTALL_DIR" "$@"; }
-# The app runs under systemd only in nginx/systemd modes; apache serves it via mod_php.
-have_systemd(){ case "${SERVE_MODE:-}" in nginx|systemd) command -v systemctl >/dev/null 2>&1;; *) return 1;; esac; }
 
-# Reload whatever actually serves the app for this install.
+# Reload the php-fpm pool (recycles workers → new code) and the web server.
 reload_server(){
+  [ -n "${FPM_SERVICE:-}" ] && [ "${SERVE_BACKEND:-}" = "fpm" ] && \
+    { systemctl reload "$FPM_SERVICE" 2>/dev/null || systemctl restart "$FPM_SERVICE"; ok "php-fpm ($FPM_SERVICE) reloaded"; }
   case "${SERVE_MODE:-}" in
     apache) apache2ctl configtest 2>/dev/null && { systemctl reload apache2 2>/dev/null || systemctl restart apache2; ok "apache reloaded"; } || warn "apache configtest failed";;
-    nginx)  systemctl restart "$SERVICE_NAME"; nginx -t 2>/dev/null && systemctl reload nginx; ok "service + nginx reloaded";;
-    systemd) systemctl restart "$SERVICE_NAME"; ok "service restarted";;
+    nginx)  nginx -t 2>/dev/null && { systemctl reload nginx; ok "nginx reloaded"; } || warn "nginx configtest failed";;
     *) info "Serve mode '${SERVE_MODE:-none}' — reload your web front end manually.";;
   esac
 }
@@ -56,11 +55,12 @@ cmd_version() {
 cmd_status() {
   cmd_version
   echo
+  if [ "${SERVE_BACKEND:-}" = "fpm" ] && [ -n "${FPM_SERVICE:-}" ]; then
+    systemctl is-active --quiet "$FPM_SERVICE" && ok "php-fpm: active ($FPM_SERVICE, pool $SERVICE_NAME)" || warn "php-fpm: inactive"
+  fi
   case "${SERVE_MODE:-}" in
-    apache) systemctl is-active --quiet apache2 && ok "apache: active (vhost :${PUBLIC_PORT:-?}, mod_php)" || warn "apache: inactive";;
-    nginx)  systemctl is-active --quiet "$SERVICE_NAME" && ok "app service: active (:${INTERNAL_PORT:-?})" || warn "app service: inactive";
-            systemctl is-active --quiet nginx && ok "nginx: active (vhost :${PUBLIC_PORT:-?})" || warn "nginx: inactive";;
-    systemd) systemctl is-active --quiet "$SERVICE_NAME" && ok "service: active (:${INTERNAL_PORT:-?})" || warn "service: inactive — see 'ispconfig-rest logs'";;
+    apache) systemctl is-active --quiet apache2 && ok "apache: active (vhost :${PUBLIC_PORT:-?}, ${SERVE_BACKEND:-?})" || warn "apache: inactive";;
+    nginx)  systemctl is-active --quiet nginx && ok "nginx: active (vhost :${PUBLIC_PORT:-?})" || warn "nginx: inactive";;
     *) info "serve mode: ${SERVE_MODE:-none} (unmanaged)";;
   esac
   if run_as "$PHP_BIN" -r '
@@ -99,21 +99,19 @@ cmd_update() {
   ok "Update complete ($(cat "$INSTALL_DIR/VERSION" 2>/dev/null))"
 }
 
-cmd_service() { # start|stop|restart
+cmd_service() { # restart (start/stop don't apply — the web server + fpm are shared)
   need_root
-  if [ "$1" = "restart" ]; then reload_server; return; fi
-  have_systemd || die "start/stop apply only in nginx/systemd serve modes (this is '${SERVE_MODE:-none}'); use 'restart' to reload."
-  systemctl "$1" "$SERVICE_NAME"; ok "service $1"
+  [ "$1" = "restart" ] && { reload_server; return; }
+  die "Use 'restart' to reload the app (php-fpm + web server); start/stop of shared services is out of scope."
 }
 
 cmd_logs() {
-  if have_systemd; then
-    if [ "${1:-}" = "-f" ]; then journalctl -u "$SERVICE_NAME" -f; else journalctl -u "$SERVICE_NAME" -n "${1:-50}" --no-pager; fi
-  elif [ "${SERVE_MODE:-}" = "apache" ]; then
-    local log="/var/log/apache2/${SERVICE_NAME}-error.log"
-    [ -f "$log" ] || die "Apache log $log not found."
-    if [ "${1:-}" = "-f" ]; then tail -f "$log"; else tail -n "${1:-50}" "$log"; fi
-  else die "No logs to show for serve mode '${SERVE_MODE:-none}'."; fi
+  # Prefer the app's own Laravel log; fall back to the Apache vhost error log.
+  local applog="$INSTALL_DIR/storage/logs/laravel.log"
+  local weblog="/var/log/apache2/${SERVICE_NAME}-error.log"
+  local log="$applog"; [ -f "$applog" ] || log="$weblog"
+  [ -f "$log" ] || die "No log file found ($applog or $weblog)."
+  if [ "${1:-}" = "-f" ]; then tail -f "$log"; else tail -n "${1:-50}" "$log"; fi
 }
 
 cmd_key_create() { need_root; shift || true; run_as "$PHP_BIN" artisan api:key:create "$@"; }
@@ -121,10 +119,22 @@ cmd_artisan()    { need_root; shift || true; run_as "$PHP_BIN" artisan "$@"; }
 
 cmd_uninstall() {
   need_root
-  if have_systemd; then
-    systemctl disable --now "$SERVICE_NAME" >/dev/null 2>&1 || true
-    rm -f "/etc/systemd/system/${SERVICE_NAME}.service"; systemctl daemon-reload
-    ok "Removed systemd service"
+  # Web vhost
+  case "${SERVE_MODE:-}" in
+    apache) a2dissite "$SERVICE_NAME" >/dev/null 2>&1 || true
+            rm -f "/etc/apache2/sites-available/${SERVICE_NAME}.conf"
+            apache2ctl configtest 2>/dev/null && systemctl reload apache2 2>/dev/null || true
+            ok "Removed Apache vhost";;
+    nginx)  rm -f "/etc/nginx/sites-enabled/${SERVICE_NAME}.conf" "/etc/nginx/sites-available/${SERVICE_NAME}.conf"
+            nginx -t 2>/dev/null && systemctl reload nginx 2>/dev/null || true
+            ok "Removed nginx vhost";;
+  esac
+  # php-fpm pool
+  if [ "${SERVE_BACKEND:-}" = "fpm" ] && [ -n "${FPM_SERVICE:-}" ]; then
+    local pooldir
+    for pooldir in /etc/php/*/fpm/pool.d /etc/php-fpm.d; do rm -f "$pooldir/${SERVICE_NAME}.conf" 2>/dev/null || true; done
+    systemctl reload "$FPM_SERVICE" 2>/dev/null || true
+    ok "Removed php-fpm pool"
   fi
   rm -f /usr/local/bin/ispconfig-rest
   ok "Removed manager. Left in place: $INSTALL_DIR, $STATE_FILE, and the api_keys DB table."

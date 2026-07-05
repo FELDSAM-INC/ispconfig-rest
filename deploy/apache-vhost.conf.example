@@ -1,10 +1,10 @@
-# ISPConfig REST API — dedicated Apache vhost (what the installer generates for
-# an Apache/mod_php host). Serves the app directly via mod_php and reuses the
-# ISPConfig panel SSL certificate. Place in /etc/apache2/sites-available/,
-# enable with `a2ensite ispconfig-rest`, ensure `a2enmod ssl rewrite headers`.
+# ISPConfig REST API — dedicated Apache vhost (what the installer generates on
+# an Apache host with php-fpm). Talks to a dedicated php-fpm pool over a socket
+# and reuses the ISPConfig panel SSL certificate. Standalone — it does NOT touch
+# ISPConfig's own interface (8080) / apps (8081) vhosts.
 #
-# This is a standalone vhost — it does NOT touch ISPConfig's own interface
-# (8080) or apps (8081) vhosts, which ISPConfig regenerates on update.
+# Needs: a2enmod ssl rewrite headers proxy proxy_fcgi setenvif
+# Pair with the php-fpm pool in deploy/php-fpm-pool.conf.example.
 
 Listen 8090
 <VirtualHost _default_:8090>
@@ -18,6 +18,10 @@ Listen 8090
     SSLCertificateKeyFile /usr/local/ispconfig/interface/ssl/ispserver.key
     # Include only if the bundle exists:
     SSLCACertificateFile /usr/local/ispconfig/interface/ssl/ispserver.bundle
+
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:/run/ispconfig-rest.sock|fcgi://localhost"
+    </FilesMatch>
 
     <Directory /opt/ispconfig-rest/public>
         Options FollowSymLinks

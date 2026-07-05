@@ -1,0 +1,20 @@
+; ISPConfig REST API — dedicated php-fpm pool (what the installer generates).
+; Place in the fpm pool dir: Debian /etc/php/<ver>/fpm/pool.d/, RHEL /etc/php-fpm.d/
+; then reload the fpm service (e.g. systemctl reload php8.3-fpm).
+;
+; user/group  = who the app runs as (the web-server user by default).
+; listen.owner/group = the web-server user, so Apache/nginx can reach the socket.
+
+[ispconfig-rest]
+user = www-data
+group = www-data
+listen = /run/ispconfig-rest.sock
+listen.owner = www-data
+listen.group = www-data
+listen.mode = 0660
+pm = ondemand
+pm.max_children = 10
+pm.process_idle_timeout = 10s
+pm.max_requests = 500
+php_admin_value[expose_php] = off
+php_admin_flag[display_errors] = off

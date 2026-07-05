@@ -30,17 +30,20 @@ What it does:
   by default MySQL root over the local unix socket, exactly as ISPConfig's own
   installer does — so the runtime user needs no `CREATE` right and nothing about
   ISPConfig is modified. (Pass `--db-admin-pass` if root needs a password.)
-- **Detects your web server** (Apache or nginx) and creates a **dedicated vhost**
-  on its own HTTPS port (default 8090) that **reuses the ISPConfig panel SSL
-  certificate** (`ispserver.crt`/`.key`/`.bundle`). On Apache the app is served
-  directly by mod_php; on nginx it runs as a local systemd service that nginx
-  proxies to. The vhost is standalone — it never edits ISPConfig's own interface
-  (8080) or apps (8081) vhosts, which ISPConfig regenerates on update.
+- **Detects your web server** (Apache or nginx) and creates a **dedicated
+  php-fpm pool plus a dedicated vhost** on its own HTTPS port (default 8090) that
+  **reuses the ISPConfig panel SSL certificate** (`ispserver.crt`/`.key`/`.bundle`) —
+  the same php-fpm serving model ISPConfig uses for its own sites. The vhost is
+  standalone — it never edits ISPConfig's own interface (8080) or apps (8081)
+  vhosts, which ISPConfig regenerates on update. (If php-fpm isn't installed,
+  Apache falls back to mod_php.)
 - **Registers `ispconfig-rest`** in your PATH and offers to mint an admin key.
 
 Every prompt has a flag and `ISPC_REST_*` env var for unattended installs — see
-`sudo ./install.sh --help`. Reference vhost templates live in [`deploy/`](deploy/)
-([Apache](deploy/apache-vhost.conf.example), [nginx](deploy/nginx-vhost.conf.example)).
+`sudo ./install.sh --help`. Reference templates live in [`deploy/`](deploy/):
+[Apache vhost](deploy/apache-vhost.conf.example),
+[nginx vhost](deploy/nginx-vhost.conf.example),
+[php-fpm pool](deploy/php-fpm-pool.conf.example).
 
 ### Managing the installation
 
