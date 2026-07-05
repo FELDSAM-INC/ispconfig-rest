@@ -14,16 +14,48 @@ The OpenAPI 3 contract in [`api/`](api/) is the source of truth — the PHP impl
 - Composer
 - Network access to an ISPConfig 3.3 MySQL database (`dbispconfig`) — reverse-engineered against 3.3.0p1, validated live against 3.3.1p1
 
-## Installation
+## Install on an ISPConfig server (recommended)
+
+Run the installer on your existing ISPConfig 3.3 host — it reads the database
+credentials from ISPConfig's own config, deploys the app under a dedicated
+system user, runs it as a systemd service, and registers the `ispconfig-rest`
+manager in your PATH:
 
 ```bash
-git clone <repository-url> ispconfig_rest && cd ispconfig_rest
+curl -sSL https://raw.githubusercontent.com/FELDSAM-INC/ispconfig-rest/main/install.sh | sudo bash
+```
+
+The installer prompts for the install directory, confirms the database
+credentials it read from `/usr/local/ispconfig/interface/lib/config.inc.php`,
+the bind host/port, and offers to mint an initial admin API key. Every prompt
+has a flag and `ISPC_REST_*` env var for unattended installs — see
+`sudo ./install.sh --help`. Nothing about ISPConfig is modified; the only table
+created is the API-owned `api_keys`.
+
+Then front the local service with your existing web server — snippets in
+[`deploy/`](deploy/) for [nginx](deploy/nginx-reverse-proxy.conf.example) and
+[Apache](deploy/apache-reverse-proxy.conf.example).
+
+### Managing the installation
+
+```bash
+ispconfig-rest status                        # service state, version, DB connectivity
+ispconfig-rest update                        # pull latest, install deps, migrate, restart
+ispconfig-rest key:create "my integration"   # mint an admin key
+ispconfig-rest key:create "acme" --client-id 42   # mint a client-scoped key
+ispconfig-rest restart | logs -f | version | uninstall
+```
+
+## Manual / development installation
+
+```bash
+git clone https://github.com/FELDSAM-INC/ispconfig-rest.git && cd ispconfig-rest
 composer install
 cp .env.example .env
 php artisan key:generate
 ```
 
-Edit `.env` with your ISPConfig database credentials (`DB_HOST`, `DB_DATABASE=dbispconfig`, `DB_USERNAME`, `DB_PASSWORD`), then create the API's own key table and mint a key:
+Edit `.env` with your ISPConfig database credentials (`DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`), then create the API's own key table and mint a key:
 
 ```bash
 php artisan migrate            # creates only the api_keys table — ISPConfig tables are never migrated

@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+#
+# ispconfig-rest — manage the ISPConfig REST API installation.
+#
+# Installed to /usr/local/bin/ispconfig-rest by install.sh. Reads
+# /etc/ispconfig-rest/install.conf to locate the deployment.
+#
+#   ispconfig-rest update                 fetch latest, install deps, migrate, restart
+#   ispconfig-rest status                 service state, version, DB connectivity
+#   ispconfig-rest restart|start|stop     control the service
+#   ispconfig-rest logs [-f]              service logs
+#   ispconfig-rest key:create NAME [--client-id N]   mint an API key
+#   ispconfig-rest artisan ...            run an artisan command as the run user
+#   ispconfig-rest version                installed version + commit
+#   ispconfig-rest uninstall              remove service + manager (keeps DB data)
+
+set -euo pipefail
+
+STATE_FILE="/etc/ispconfig-rest/install.conf"
+
+if [ -t 1 ]; then
+  C_RESET=$'\033[0m'; C_B=$'\033[1m'; C_G=$'\033[32m'; C_Y=$'\033[33m'; C_R=$'\033[31m'; C_C=$'\033[36m'
+else C_RESET="" C_B="" C_G="" C_Y="" C_R="" C_C=""; fi
+info(){ printf '%s\n' "${C_C}▸${C_RESET} $*"; }
+ok(){   printf '%s\n' "${C_G}✓${C_RESET} $*"; }
+warn(){ printf '%s\n' "${C_Y}!${C_RESET} $*" >&2; }
+die(){  printf '%s\n' "${C_R}✗${C_RESET} $*" >&2; exit 1; }
+
+[ -f "$STATE_FILE" ] || die "Not installed: $STATE_FILE missing. Run install.sh first."
+# shellcheck disable=SC1090
+. "$STATE_FILE"
+: "${INSTALL_DIR:?}" "${RUN_USER:?}" "${SERVICE_NAME:=ispconfig-rest}" "${PHP_BIN:=php}"
+
+need_root(){ [ "$(id -u)" = "0" ] || die "This command must run as root (use sudo)."; }
+run_as(){ sudo -u "$RUN_USER" env -C "$INSTALL_DIR" "$@"; }
+have_systemd(){ [ "${SERVE_MODE:-}" = "systemd" ] && command -v systemctl >/dev/null 2>&1; }
+
+cmd_version() {
+  local ver commit
+  ver="$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || echo '?')"
+  commit="$(git -C "$INSTALL_DIR" rev-parse --short HEAD 2>/dev/null || echo '?')"
+  echo "ISPConfig REST API $ver ($commit) on branch ${BRANCH:-?}"
+}
+
+cmd_status() {
+  cmd_version
+  echo
+  if have_systemd; then
+    if systemctl is-active --quiet "$SERVICE_NAME"; then
+      ok "service: active ($SERVICE_NAME) on ${BIND_HOST:-?}:${BIND_PORT:-?}"
+    else
+      warn "service: inactive — see 'ispconfig-rest logs'"
+    fi
+  else
+    info "service: not managed by systemd (serve mode '${SERVE_MODE:-none}')"
+  fi
+  if run_as "$PHP_BIN" -r '
+    require "vendor/autoload.php"; $a=require "bootstrap/app.php";
+    $a->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+    Illuminate\Support\Facades\DB::select("select 1"); echo "";' >/dev/null 2>&1; then
+    ok "database: reachable"
+  else
+    warn "database: NOT reachable — check .env credentials"
+  fi
+}
+
+cmd_update() {
+  need_root
+  info "Updating ISPConfig REST API in $INSTALL_DIR"
+  local before after
+  before="$(git -C "$INSTALL_DIR" rev-parse --short HEAD 2>/dev/null || echo '?')"
+
+  git -C "$INSTALL_DIR" fetch --depth 1 origin "${BRANCH:-main}"
+  git -C "$INSTALL_DIR" checkout -f "${BRANCH:-main}"
+  git -C "$INSTALL_DIR" reset --hard "origin/${BRANCH:-main}"
+  chown -R "$RUN_USER":"$RUN_USER" "$INSTALL_DIR"
+  after="$(git -C "$INSTALL_DIR" rev-parse --short HEAD)"
+
+  if [ "$before" = "$after" ]; then ok "Already up to date ($after)"; else info "Updated $before → $after"; fi
+
+  local composer="composer"; command -v composer >/dev/null 2>&1 || composer="$PHP_BIN $INSTALL_DIR/composer.phar"
+  run_as env COMPOSER_HOME="$INSTALL_DIR/.composer" $composer install --no-dev --optimize-autoloader --no-interaction --no-progress
+  run_as "$PHP_BIN" artisan migrate --force
+  run_as "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true
+  run_as "$PHP_BIN" artisan route:cache  >/dev/null 2>&1 || true
+  # refresh the manager itself if it changed
+  if [ -f "$INSTALL_DIR/bin/ispconfig-rest" ]; then install -m 0755 "$INSTALL_DIR/bin/ispconfig-rest" /usr/local/bin/ispconfig-rest; fi
+
+  if have_systemd; then systemctl restart "$SERVICE_NAME"; sleep 1
+    systemctl is-active --quiet "$SERVICE_NAME" && ok "Service restarted" || warn "Service did not come back — check logs"; fi
+  ok "Update complete ($(cat "$INSTALL_DIR/VERSION" 2>/dev/null))"
+}
+
+cmd_service() { # start|stop|restart
+  need_root; have_systemd || die "Service is not managed by systemd (serve mode '${SERVE_MODE:-none}')."
+  systemctl "$1" "$SERVICE_NAME"; ok "service $1"
+}
+
+cmd_logs() {
+  have_systemd || die "No systemd service to show logs for."
+  if [ "${1:-}" = "-f" ]; then journalctl -u "$SERVICE_NAME" -f; else journalctl -u "$SERVICE_NAME" -n "${1:-50}" --no-pager; fi
+}
+
+cmd_key_create() { need_root; shift || true; run_as "$PHP_BIN" artisan api:key:create "$@"; }
+cmd_artisan()    { need_root; shift || true; run_as "$PHP_BIN" artisan "$@"; }
+
+cmd_uninstall() {
+  need_root
+  if have_systemd; then
+    systemctl disable --now "$SERVICE_NAME" >/dev/null 2>&1 || true
+    rm -f "/etc/systemd/system/${SERVICE_NAME}.service"; systemctl daemon-reload
+    ok "Removed systemd service"
+  fi
+  rm -f /usr/local/bin/ispconfig-rest
+  ok "Removed manager. Left in place: $INSTALL_DIR, $STATE_FILE, and the api_keys DB table."
+  echo "  To fully remove:  rm -rf $INSTALL_DIR /etc/ispconfig-rest  (and DROP TABLE api_keys if desired)"
+}
+
+case "${1:-}" in
+  update)        cmd_update;;
+  status)        cmd_status;;
+  version|-v|--version) cmd_version;;
+  start|stop|restart)   cmd_service "$1";;
+  logs)          shift; cmd_logs "$@";;
+  key:create)    cmd_key_create "$@";;
+  artisan)       cmd_artisan "$@";;
+  uninstall)     cmd_uninstall;;
+  ""|help|-h|--help)
+    grep '^#' "$0" | sed -n '3,25p' | sed 's/^# \{0,1\}//';;
+  *) die "Unknown command: $1 (try 'ispconfig-rest help')";;
+esac
