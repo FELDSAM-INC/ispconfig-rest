@@ -1,6 +1,6 @@
 # ISPConfig REST API
 
-A modern, contract-first REST API for [ISPConfig 3.2](https://www.ispconfig.org/), built on Laravel 12. It exposes ISPConfig's full administration surface — clients, DNS, mail, sites, servers, monitoring, and system configuration — as ~270 industry-standard REST endpoints, while remaining a first-class citizen of ISPConfig's own change-management system.
+A modern, contract-first REST API for [ISPConfig 3.3](https://www.ispconfig.org/), built on Laravel 12. It exposes ISPConfig's full administration surface — clients, DNS, mail, sites, servers, monitoring, and system configuration — as ~270 industry-standard REST endpoints, while remaining a first-class citizen of ISPConfig's own change-management system.
 
 ## How it works
 
@@ -12,7 +12,7 @@ The OpenAPI 3 contract in [`api/`](api/) is the source of truth — the PHP impl
 
 - PHP ≥ 8.2 (8.3+ recommended)
 - Composer
-- Network access to an ISPConfig 3.2 MySQL database (`dbispconfig`)
+- Network access to an ISPConfig 3.3 MySQL database (`dbispconfig`) — reverse-engineered against 3.3.0p1, validated live against 3.3.1p1
 
 ## Installation
 
