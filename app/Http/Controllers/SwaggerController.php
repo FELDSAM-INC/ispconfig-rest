@@ -24,7 +24,7 @@ class SwaggerController extends Controller
      *
      * @return Response
      */
-    public function getSpec()
+    public function getSpec(Request $request)
     {
         $yamlFile = base_path('api/openapi.yaml');
 
@@ -33,8 +33,14 @@ class SwaggerController extends Controller
         }
 
         try {
-            // Return the raw YAML content with proper headers
             $content = File::get($yamlFile);
+
+            // Rewrite the servers: block to the absolute request origin so the
+            // Swagger UI "Try it out" targets the actual host/scheme/port the
+            // docs are being viewed from — not a hardcoded localhost:8000.
+            $base = rtrim($request->getSchemeAndHttpHost(), '/').'/api/v1';
+            $servers = "servers:\n  - url: {$base}\n    description: This ISPConfig REST API server\n";
+            $content = preg_replace('/^servers:\n(?:[ \t]+.*\n)*/m', $servers, $content, 1);
 
             return response($content)
                 ->header('Content-Type', 'application/yaml')

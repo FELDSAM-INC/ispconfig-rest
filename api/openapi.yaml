@@ -17,12 +17,11 @@ info:
   version: 1.0.0
 
 servers:
-  - url: http://{hostname}:8000/api/v1
-    description: ISPConfig API server
-    variables:
-      hostname:
-        default: localhost
-        description: Hostname or IP address of the ISPConfig server
+  # Relative to wherever the docs are served. When the spec is fetched through
+  # the app (GET /api/spec) this is rewritten to the absolute request origin so
+  # "Try it out" targets the correct host/scheme/port automatically.
+  - url: /api/v1
+    description: This ISPConfig REST API server
 
 # Default security applied to every operation (API key in X-API-Key header)
 security:
