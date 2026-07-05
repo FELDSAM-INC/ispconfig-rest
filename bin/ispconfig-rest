@@ -77,14 +77,19 @@ cmd_status() {
 cmd_update() {
   need_root
   info "Updating ISPConfig REST API in $INSTALL_DIR"
+  # Ensure root can also read the tree cleanly (status/version) going forward.
+  git config --system --get-all safe.directory 2>/dev/null | grep -qxF "$INSTALL_DIR" \
+    || git config --system --add safe.directory "$INSTALL_DIR"
+  # Run git as the repo owner (not root) — the tree is owned by $RUN_USER, and
+  # git refuses to operate on a repo owned by a different user ("dubious
+  # ownership"). run_as = sudo -u $RUN_USER, so ownership matches.
   local before after
-  before="$(git -C "$INSTALL_DIR" rev-parse --short HEAD 2>/dev/null || echo '?')"
+  before="$(run_as git rev-parse --short HEAD 2>/dev/null || echo '?')"
 
-  git -C "$INSTALL_DIR" fetch --depth 1 origin "${BRANCH:-main}"
-  git -C "$INSTALL_DIR" checkout -f "${BRANCH:-main}"
-  git -C "$INSTALL_DIR" reset --hard "origin/${BRANCH:-main}"
-  chown -R "$RUN_USER":"$RUN_USER" "$INSTALL_DIR"
-  after="$(git -C "$INSTALL_DIR" rev-parse --short HEAD)"
+  run_as git fetch --depth 1 origin "${BRANCH:-main}"
+  run_as git checkout -f "${BRANCH:-main}"
+  run_as git reset --hard "origin/${BRANCH:-main}"
+  after="$(run_as git rev-parse --short HEAD 2>/dev/null || echo '?')"
 
   if [ "$before" = "$after" ]; then ok "Already up to date ($after)"; else info "Updated $before → $after"; fi
 

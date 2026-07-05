@@ -246,6 +246,11 @@ else ok "Using existing user $RUN_USER"; fi
 # Fetch code + dependencies
 # ---------------------------------------------------------------------------
 step "Fetching application code"
+# Trust the tree system-wide: it is owned by $RUN_USER, but root (installer,
+# `ispconfig-rest status`) also runs git against it. Without this, git aborts
+# with "detected dubious ownership".
+git config --system --get-all safe.directory 2>/dev/null | grep -qxF "$INSTALL_DIR" \
+  || git config --system --add safe.directory "$INSTALL_DIR"
 if [ -d "$INSTALL_DIR/.git" ]; then
   git -C "$INSTALL_DIR" fetch --depth 1 origin "$BRANCH"
   git -C "$INSTALL_DIR" checkout -f "$BRANCH"; git -C "$INSTALL_DIR" reset --hard "origin/$BRANCH"
