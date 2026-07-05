@@ -58,9 +58,14 @@ class UpdateMailDomainRequest extends MailDomainRequest
                 'max:63',
                 'regex:/^[a-z0-9]{1,63}(?:\.[a-z0-9]{1,63})?$/',
             ],
+            // #6877 (spec 013 FR-021): relay fields are independently
+            // optional (legacy mail_domain.tform.php:144-167 has no
+            // validators). Omission preserves the stored value, an explicit
+            // "" clears it — documented deviation from legacy's
+            // restore-if-empty (mail_domain_edit.php:315-317).
             'relay_host' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'relay_user' => ['required_with:relay_host', 'nullable', 'string', 'max:255'],
-            'relay_pass' => ['required_with:relay_user', 'nullable', 'string', 'max:255'],
+            'relay_user' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'relay_pass' => ['sometimes', 'nullable', 'string', 'max:255'],
             'active' => ['sometimes', 'boolean'],
             'local_delivery' => ['sometimes', 'boolean'],
         ];

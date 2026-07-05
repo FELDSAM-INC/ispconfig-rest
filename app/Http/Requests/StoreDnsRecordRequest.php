@@ -3,12 +3,15 @@
 namespace App\Http\Requests;
 
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * POST /dns/records (api/modules/dns/records.yaml).
  *
  * The referenced zone must exist (422 via the exists rule); type-specific
- * meta fields are required per the effective record type.
+ * meta fields are required per the effective record type. Zone-level checks
+ * (CNAME conflict/apex/target, A/AAAA/ALIAS/CAA duplicates, DMARC
+ * prerequisites — spec 013 US3) always run on create.
  */
 class StoreDnsRecordRequest extends DnsRecordRequest
 {
@@ -34,5 +37,15 @@ class StoreDnsRecordRequest extends DnsRecordRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * @return array<int, callable>
+     */
+    public function after(): array
+    {
+        return [
+            fn (Validator $validator) => $this->zoneLevelChecks($validator),
+        ];
     }
 }

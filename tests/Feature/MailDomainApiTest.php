@@ -293,7 +293,8 @@ class MailDomainApiTest extends TestCase
             'bad selector' => [$this->validPayload(['dkim_selector' => 'UPPER!']), 'dkim_selector'],
             'dkim without key' => [$this->validPayload(['dkim' => true]), 'dkim_private'],
             'dkim with garbage key' => [$this->validPayload(['dkim' => true, 'dkim_private' => 'not-a-key']), 'dkim_private'],
-            'relay_host without user' => [$this->validPayload(['relay_host' => 'smtp.relay.tld']), 'relay_user'],
+            // 'relay_host without user' is no longer an error — #6877
+            // (spec 013 US5): relay fields are independently optional.
             'non mail server' => [$this->validPayload(['server_id' => 2]), 'server_id'],
             'unknown server' => [$this->validPayload(['server_id' => 99]), 'server_id'],
         ];
@@ -353,6 +354,67 @@ class MailDomainApiTest extends TestCase
         $this->assertSame(date('Ymd').'01', (string) DB::table('dns_soa')->where('id', $zoneId)->value('serial'));
         $this->assertSame(1, DB::table('sys_datalog')->where('dbtable', 'dns_rr')->where('action', 'i')->count());
         $this->assertSame(1, DB::table('sys_datalog')->where('dbtable', 'dns_soa')->where('action', 'u')->count());
+    }
+
+    // ------------------------------------------------------------------
+    // #6877 — per-domain relay without authentication (spec 013 US5)
+    // ------------------------------------------------------------------
+
+    public function test_create_relay_fields_are_independently_optional(): void
+    {
+        // relay_host alone (IP-authorized smarthost, no SASL) — was 422
+        // via the old required_with chain.
+        $response = $this->postJson('/api/v1/mail/domains', $this->validPayload([
+            'domain' => 'relay1.com',
+            'relay_host' => 'smarthost.example.net',
+        ]), $this->authHeaders())->assertStatus(201);
+
+        $this->assertDatabaseHas('mail_domain', [
+            'domain_id' => $response->json('id'),
+            'relay_host' => 'smarthost.example.net',
+            'relay_user' => '',
+            'relay_pass' => '',
+        ]);
+
+        // host + user without pass.
+        $this->postJson('/api/v1/mail/domains', $this->validPayload([
+            'domain' => 'relay2.com',
+            'relay_host' => 'smarthost.example.net',
+            'relay_user' => 'sasl-user',
+        ]), $this->authHeaders())->assertStatus(201);
+
+        // user only (legacy has no validators on any relay field).
+        $this->postJson('/api/v1/mail/domains', $this->validPayload([
+            'domain' => 'relay3.com',
+            'relay_user' => 'sasl-user',
+        ]), $this->authHeaders())->assertStatus(201);
+
+        // explicit empty strings.
+        $this->postJson('/api/v1/mail/domains', $this->validPayload([
+            'domain' => 'relay4.com',
+            'relay_host' => '',
+            'relay_user' => '',
+            'relay_pass' => '',
+        ]), $this->authHeaders())->assertStatus(201);
+    }
+
+    public function test_update_relay_host_without_credentials_and_explicit_empty_clears(): void
+    {
+        $id = $this->seedDomain(['domain' => 'relay.example', 'relay_user' => 'old-user']);
+
+        // Setting relay_host alone succeeds (old chain required relay_user).
+        $this->putJson('/api/v1/mail/domains/'.$id, ['relay_host' => 'smarthost.example.net'], $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('relay_host', 'smarthost.example.net');
+
+        // Omission preserves the stored credential…
+        $this->assertSame('old-user', DB::table('mail_domain')->where('domain_id', $id)->value('relay_user'));
+
+        // …while an explicit "" clears it (documented deviation from
+        // legacy's restore-if-empty, mail_domain_edit.php:315-317).
+        $this->putJson('/api/v1/mail/domains/'.$id, ['relay_user' => ''], $this->authHeaders())
+            ->assertOk();
+        $this->assertSame('', DB::table('mail_domain')->where('domain_id', $id)->value('relay_user'));
     }
 
     // ------------------------------------------------------------------

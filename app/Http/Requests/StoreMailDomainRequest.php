@@ -9,8 +9,9 @@ use Illuminate\Validation\Rule;
  *
  * Mirrors legacy mail_domain.tform.php validation and the contract's rules:
  * unique domain, DKIM private key required (and parseable) when DKIM is
- * enabled, relay credential chain, server restricted to actual mail servers
- * (legacy datasource: mail_server = 1 AND mirror_server_id = 0).
+ * enabled, relay fields independently optional (#6877), server restricted
+ * to actual mail servers (legacy datasource: mail_server = 1 AND
+ * mirror_server_id = 0).
  */
 class StoreMailDomainRequest extends MailDomainRequest
 {
@@ -51,9 +52,13 @@ class StoreMailDomainRequest extends MailDomainRequest
                 'max:63', // DB column varchar(63); contract enforces the DB limit
                 'regex:/^[a-z0-9]{1,63}(?:\.[a-z0-9]{1,63})?$/',
             ],
+            // #6877 (spec 013 FR-021): relay fields are independently
+            // optional — legacy has no validators on any of them
+            // (mail_domain.tform.php:144-167) and Postfix consumes
+            // relay_host alone (IP-authorized smarthosts need no SASL).
             'relay_host' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'relay_user' => ['required_with:relay_host', 'nullable', 'string', 'max:255'],
-            'relay_pass' => ['required_with:relay_user', 'nullable', 'string', 'max:255'],
+            'relay_user' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'relay_pass' => ['sometimes', 'nullable', 'string', 'max:255'],
             'active' => ['sometimes', 'boolean'],
             'local_delivery' => ['sometimes', 'boolean'],
         ];

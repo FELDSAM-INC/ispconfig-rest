@@ -321,6 +321,11 @@ class DnsRecordApiTest extends TestCase
 
     public function test_create_dmarc_record_is_stored_as_txt_with_forced_name(): void
     {
+        // Spec 013 FR-020 (legacy dns_dmarc_edit.php:229-251): DMARC needs
+        // an active DKIM record and exactly one active SPF in the zone.
+        $this->seedRecord(['name' => 'default._domainkey.example.com.', 'type' => 'TXT', 'data' => 'v=DKIM1; t=s; p=MIIBIjANBg']);
+        $this->seedRecord(['name' => 'example.com.', 'type' => 'TXT', 'data' => 'v=spf1 mx ~all']);
+
         $response = $this->postJson('/api/v1/dns/records', [
             'zone' => $this->zoneId,
             'name' => 'example.com.',

@@ -73,8 +73,8 @@
         uniqueness check, mirroring the legacy UNIQUE validator)
       - If DKIM is enabled, a valid private key must be provided; the public
         key is derived server-side
-      - If relay_host is set, relay_user is required; if relay_user is set,
-        relay_pass is required
+      - Relay credentials (relay_user/relay_pass) are optional; leave them
+        empty when the relay host authorizes by IP without SASL (#6877)
     requestBody:
       required: true
       content:
