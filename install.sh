@@ -33,7 +33,7 @@ NONINTERACTIVE="${ISPC_REST_NONINTERACTIVE:-0}"
 SERVICE_NAME="ispconfig-rest"
 STATE_DIR="/etc/ispconfig-rest"
 MANAGER_PATH="/usr/local/bin/ispconfig-rest"
-MIN_PHP="8.2"
+MIN_PHP="8.3"
 PHP_BIN="${ISPC_REST_PHP:-php}"
 
 # DB overrides (default: read from ISPConfig config)

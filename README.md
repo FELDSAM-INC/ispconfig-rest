@@ -10,7 +10,7 @@ The OpenAPI 3 contract in [`api/`](api/) is the source of truth — the PHP impl
 
 ## Requirements
 
-- PHP ≥ 8.2 (8.3+ recommended)
+- PHP ≥ 8.3
 - Composer
 - Network access to an ISPConfig 3.3 MySQL database (`dbispconfig`) — reverse-engineered against 3.3.0p1, validated live against 3.3.1p1
 
