@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Concerns\HandlesListQuery;
+use App\Http\Concerns\ResolvesClientOwnership;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreWebDatabaseUserRequest;
 use App\Http\Requests\UpdateWebDatabaseUserRequest;
@@ -26,6 +27,7 @@ use Illuminate\Validation\ValidationException;
 class WebDatabaseUserController extends Controller
 {
     use HandlesListQuery;
+    use ResolvesClientOwnership;
 
     public function __construct(
         protected SitesConfigService $config,
@@ -90,6 +92,10 @@ class WebDatabaseUserController extends Controller
             'database_user_prefix' => $prefix,
             ...$this->passwordHashes($payload['database_password']),
         ]);
+
+        if ($request->filled('client_id')) {
+            $this->assignOwningClient($user, $request->integer('client_id'));
+        }
 
         DB::transaction(function () use ($user): void {
             $user->save();

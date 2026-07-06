@@ -193,6 +193,14 @@ class MailSchema
             });
         }
 
+        if (! Schema::hasTable('client')) {
+            Schema::create('client', function (Blueprint $table): void {
+                $table->increments('client_id');
+                $table->string('username', 64)->default('');
+                $table->unsignedInteger('parent_client_id')->default(0);
+            });
+        }
+
         if (! Schema::hasTable('server')) {
             Schema::create('server', function (Blueprint $table): void {
                 $table->increments('server_id');

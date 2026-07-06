@@ -44,6 +44,8 @@ class StoreWebDomainRequest extends WebDomainRequest
                 ...$this->quotaRules(),
                 $this->vhostQuotaNotZeroRule($type),
             ],
+            // Optional owning client (resolved to its sys_group on create).
+            'client_id' => ['sometimes', 'integer', Rule::exists('client', 'client_id')],
         ]);
     }
 }

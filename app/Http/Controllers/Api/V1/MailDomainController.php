@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Concerns\HandlesListQuery;
+use App\Http\Concerns\ResolvesClientOwnership;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMailDomainRequest;
 use App\Http\Requests\UpdateMailDomainRequest;
@@ -25,6 +26,7 @@ use Illuminate\Support\Facades\DB;
 class MailDomainController extends Controller
 {
     use HandlesListQuery;
+    use ResolvesClientOwnership;
 
     public function __construct(protected MailDomainService $service) {}
 
@@ -65,6 +67,10 @@ class MailDomainController extends Controller
     {
         $domain = new MailDomain($request->payload());
         $this->service->applyDkimKeys($domain);
+
+        if ($request->filled('client_id')) {
+            $this->assignOwningClient($domain, $request->integer('client_id'));
+        }
 
         DB::transaction(function () use ($domain): void {
             $domain->save();

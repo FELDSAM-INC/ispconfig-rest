@@ -99,6 +99,53 @@ class ScopingDnsModuleTest extends TestCase
         ]);
     }
 
+    /**
+     * Owning-client assignment is the BaseModel scope boundary (the
+     * applySysFieldDefaults keep-if-in-scope change): a non-admin key may not
+     * hand a resource to a client outside its own scope. clientB is
+     * independent of clientA, so its group is out of clientA's scope.
+     */
+    public function test_non_admin_cannot_assign_resource_to_an_out_of_scope_client(): void
+    {
+        $before = DB::table('dns_soa')->count();
+
+        $this->postJson('/api/v1/dns/soa', [
+            'server_id' => 1,
+            'origin' => 'forbidden.test',
+            'ns' => 'ns1.forbidden.test',
+            'mbox' => 'hostmaster@forbidden.test',
+            'client_id' => $this->tenant('clientB')['client_id'],
+        ], $this->tenantHeaders('clientA'))
+            ->assertStatus(403)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('status', 403);
+
+        // The guard fires before any DB write — no row and no datalog.
+        $this->assertSame($before, DB::table('dns_soa')->count());
+        $this->assertDatabaseMissing('dns_soa', ['origin' => 'forbidden.test.']);
+    }
+
+    /**
+     * The in-scope "keep" path: a non-admin assigning a resource to its OWN
+     * client succeeds and the row lands in its own group (201).
+     */
+    public function test_non_admin_may_assign_resource_to_its_own_client(): void
+    {
+        $id = $this->postJson('/api/v1/dns/soa', [
+            'server_id' => 1,
+            'origin' => 'mine.test',
+            'ns' => 'ns1.mine.test',
+            'mbox' => 'hostmaster@mine.test',
+            'client_id' => $this->tenant('clientA')['client_id'],
+        ], $this->tenantHeaders('clientA'))
+            ->assertStatus(201)
+            ->json('id');
+
+        $row = DB::table('dns_soa')->where('id', $id)->first();
+        $this->assertSame($this->tenant('clientA')['groupid'], (int) $row->sys_groupid);
+        $this->assertSame($this->tenant('clientA')['userid'], (int) $row->sys_userid);
+    }
+
     public function test_cross_tenant_zone_mutation_is_impossible(): void
     {
         $zoneB = $this->seedZone('clientB', 'b-zone.test.');

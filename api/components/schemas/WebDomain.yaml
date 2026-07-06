@@ -642,6 +642,19 @@ properties:
     description: System user ID that owns the record
     example: 1
 
+  client_id:
+    type: integer
+    minimum: 1
+    writeOnly: true
+    description: >-
+      Optional owning client. On create, resolved to the client's sys_group and
+      set as the record's owner (sys_groupid) — mirroring the ISPConfig "Client"
+      select. Admin keys may assign any client; a client/reseller key only a
+      client within its own scope (otherwise 403). Write-only; not returned.
+      Ignored for vhostsubdomain/vhostalias, whose group is inherited from the
+      parent vhost.
+    example: 5
+
   sys_groupid:
     type: integer
     description: |

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\Support\MailSchema;
 use Tests\TestCase;
 
@@ -308,6 +309,32 @@ class MailDomainApiTest extends TestCase
             ->assertStatus(201)
             ->assertJsonPath('active', false)
             ->assertJsonPath('local_delivery', true);
+    }
+
+    public function test_create_with_client_id_assigns_owning_group(): void
+    {
+        // Admin creating for a client: sys_groupid becomes the client's group,
+        // sys_userid stays the acting user, perms default (client-select parity).
+        DB::table('client')->insert(['client_id' => 5, 'username' => 'acme']);
+        DB::table('sys_group')->insert(['groupid' => 12, 'name' => 'acme', 'client_id' => 5]);
+
+        $id = $this->postJson('/api/v1/mail/domains', $this->validPayload(['client_id' => 5]), $this->authHeaders())
+            ->assertStatus(201)
+            ->json('id');
+
+        $row = DB::table('mail_domain')->where('domain_id', $id)->first();
+        $this->assertSame(12, (int) $row->sys_groupid);   // client's group
+        $this->assertSame(1, (int) $row->sys_userid);     // acting admin
+        $this->assertSame('riud', $row->sys_perm_user);
+        // client_id is not a mail_domain column and must not be persisted anywhere.
+        $this->assertFalse(Schema::hasColumn('mail_domain', 'client_id'));
+    }
+
+    public function test_create_with_unknown_client_id_returns_422(): void
+    {
+        $this->postJson('/api/v1/mail/domains', $this->validPayload(['client_id' => 999]), $this->authHeaders())
+            ->assertStatus(422)
+            ->assertJsonPath('errors.client_id.0', fn ($m) => is_string($m));
     }
 
     public function test_create_validation_failures_return_422_problem(): void

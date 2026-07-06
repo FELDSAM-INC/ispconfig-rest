@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Concerns\HandlesListQuery;
+use App\Http\Concerns\ResolvesClientOwnership;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreDnsSoaRequest;
 use App\Http\Requests\UpdateDnsSoaRequest;
@@ -31,6 +32,7 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 class DnsSoaController extends Controller
 {
     use HandlesListQuery;
+    use ResolvesClientOwnership;
 
     public function __construct(protected DnsSerialService $serial) {}
 
@@ -77,6 +79,10 @@ class DnsSoaController extends Controller
         $zone = new DnsSoa($payload);
         // Server-side serial generation (contract; legacy YYYYMMDDnn form).
         $zone->serial = $this->serial->increaseSerial(null);
+
+        if ($request->filled('client_id')) {
+            $this->assignOwningClient($zone, $request->integer('client_id'));
+        }
 
         DB::transaction(function () use ($zone): void {
             $zone->save();

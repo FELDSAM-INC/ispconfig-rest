@@ -27,6 +27,9 @@ class StoreDnsSlaveRequest extends DnsSlaveRequest
                 ->where('mirror_server_id', 0),
         ];
 
+        // Optional owning client (resolved to its sys_group on create).
+        $rules['client_id'] = ['sometimes', 'integer', Rule::exists('client', 'client_id')];
+
         return $rules;
     }
 }

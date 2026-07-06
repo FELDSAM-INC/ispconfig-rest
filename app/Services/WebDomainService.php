@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Http\Concerns\ResolvesClientOwnership;
 use App\Models\WebDomain;
 use App\Support\IspContext;
 use App\Support\LegacyCrypt;
@@ -37,6 +38,8 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
  */
 class WebDomainService
 {
+    use ResolvesClientOwnership;
+
     public function __construct(
         protected DatalogService $datalog,
         protected SitesConfigService $config,
@@ -49,8 +52,12 @@ class WebDomainService
      * fresh model. Must run inside a DB transaction.
      *
      * @param  array<string, mixed>  $payload  validated request payload
+     * @param  int|null  $clientId  optional owning client (admin
+     *                              "Client" select); resolved to
+     *                              its sys_group and authorized
+     *                              before the raw insert
      */
-    public function create(array $payload): WebDomain
+    public function create(array $payload, ?int $clientId = null): WebDomain
     {
         $domain = new WebDomain;
         $userProvidedAllowOverride = array_key_exists('allow_override', $payload);
@@ -97,6 +104,16 @@ class WebDomainService
         $record['sys_perm_user'] = $record['sys_perm_user'] ?? 'riud';
         $record['sys_perm_group'] = $record['sys_perm_group'] ?? 'riud';
         $record['sys_perm_other'] = $record['sys_perm_other'] ?? '';
+
+        // Owning-client override (ISPConfig "Client" select). The raw insert
+        // bypasses BaseModel::applySysFieldDefaults, so the same admin-any /
+        // non-admin-in-scope-else-403 guard is enforced here explicitly, before
+        // the limit check (which resolves the owning client from sys_groupid)
+        // and the insert. A child vhost's group is later re-forced from its
+        // parent, so this override only takes effect for top-level vhosts.
+        if ($clientId !== null && ! $isChildVhost) {
+            $record['sys_groupid'] = $this->resolveOwningClientGroup($clientId);
+        }
 
         // Legacy Let's Encrypt two-step create: insert with both flags 'n'.
         $letsencryptOnInsert = ($record['ssl'] ?? 'n') === 'y' && ($record['ssl_letsencrypt'] ?? 'n') === 'y';

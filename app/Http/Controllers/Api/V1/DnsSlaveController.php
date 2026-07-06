@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Concerns\HandlesListQuery;
+use App\Http\Concerns\ResolvesClientOwnership;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreDnsSlaveRequest;
 use App\Http\Requests\UpdateDnsSlaveRequest;
@@ -23,6 +24,7 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 class DnsSlaveController extends Controller
 {
     use HandlesListQuery;
+    use ResolvesClientOwnership;
 
     /**
      * GET /dns/slaves — filtered, sorted, paginated list.
@@ -63,6 +65,10 @@ class DnsSlaveController extends Controller
         $this->guardUniqueOrigin($payload['origin'], (int) $payload['server_id']);
 
         $slave = new DnsSlave($payload);
+
+        if ($request->filled('client_id')) {
+            $this->assignOwningClient($slave, $request->integer('client_id'));
+        }
 
         DB::transaction(function () use ($slave): void {
             $slave->save();

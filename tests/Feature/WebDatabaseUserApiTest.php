@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\Support\SitesApiTestCase;
 
 class WebDatabaseUserApiTest extends SitesApiTestCase
@@ -130,6 +131,44 @@ class WebDatabaseUserApiTest extends SitesApiTestCase
         $data = unserialize($rows[0]->data);
         $this->assertSame('c0appuser', $data['new']['database_user']);
         $this->assertSame('0', $data['new']['server_id']);
+    }
+
+    public function test_create_with_client_id_assigns_owning_group(): void
+    {
+        // SitesApiTestCase seeds client 4 -> sys_group groupid 6. Admin
+        // creating for that client: sys_groupid becomes the client's group,
+        // sys_userid stays the acting admin, perms default.
+        $response = $this->postJson('/api/v1/sites/database-users', [
+            'database_user' => 'appuser',
+            'database_password' => 'Sup3rSecret',
+            'client_id' => 4,
+        ], $this->authHeaders())
+            ->assertStatus(201)
+            ->assertJsonPath('sys_groupid', 6)
+            ->assertJsonPath('sys_userid', 1)
+            ->assertJsonMissingPath('database_password');
+
+        $id = (int) $response->json('id');
+        $row = DB::table('web_database_user')->where('database_user_id', $id)->first();
+        $this->assertSame(6, (int) $row->sys_groupid);   // client 4's group
+        $this->assertSame(1, (int) $row->sys_userid);    // acting admin
+        $this->assertSame('riud', $row->sys_perm_user);
+        $this->assertSame('c0appuser', $row->database_user);
+        // client_id is not a web_database_user column and must not be persisted.
+        $this->assertFalse(Schema::hasColumn('web_database_user', 'client_id'));
+    }
+
+    public function test_create_with_unknown_client_id_returns_422(): void
+    {
+        $this->postJson('/api/v1/sites/database-users', [
+            'database_user' => 'appuser',
+            'database_password' => 'Sup3rSecret',
+            'client_id' => 999,
+        ], $this->authHeaders())
+            ->assertStatus(422)
+            ->assertJsonPath('errors.client_id.0', fn ($m) => is_string($m));
+
+        $this->assertSame(0, DB::table('web_database_user')->count());
     }
 
     public function test_create_validation_failures(): void

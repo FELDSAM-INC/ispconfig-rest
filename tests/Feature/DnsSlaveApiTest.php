@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\Support\DnsSchema;
 use Tests\TestCase;
 
@@ -204,6 +205,32 @@ class DnsSlaveApiTest extends TestCase
         $this->assertSame('slave.example.com.', $data['new']['origin']);
         $this->assertSame('Y', $data['new']['active']); // UPPERCASE enum (dns_slave DDL)
         $this->assertNull($data['old']['origin']);
+    }
+
+    public function test_create_with_client_id_assigns_owning_group(): void
+    {
+        // Admin creating for a client: sys_groupid becomes the client's group,
+        // sys_userid stays the acting user, perms default (client-select parity).
+        DB::table('client')->insert(['client_id' => 5, 'username' => 'acme']);
+        DB::table('sys_group')->insert(['groupid' => 12, 'name' => 'acme', 'client_id' => 5]);
+
+        $id = $this->postJson('/api/v1/dns/slaves', $this->validPayload(['client_id' => 5]), $this->authHeaders())
+            ->assertStatus(201)
+            ->json('id');
+
+        $row = DB::table('dns_slave')->where('id', $id)->first();
+        $this->assertSame(12, (int) $row->sys_groupid);   // client's group
+        $this->assertSame(1, (int) $row->sys_userid);     // acting admin
+        $this->assertSame('riud', $row->sys_perm_user);
+        // client_id is not a dns_slave column and must not be persisted anywhere.
+        $this->assertFalse(Schema::hasColumn('dns_slave', 'client_id'));
+    }
+
+    public function test_create_with_unknown_client_id_returns_422(): void
+    {
+        $this->postJson('/api/v1/dns/slaves', $this->validPayload(['client_id' => 999]), $this->authHeaders())
+            ->assertStatus(422)
+            ->assertJsonPath('errors.client_id.0', fn ($m) => is_string($m));
     }
 
     public function test_create_validation_failures_return_422_problem(): void

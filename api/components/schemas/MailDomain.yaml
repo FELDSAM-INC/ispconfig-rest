@@ -122,6 +122,17 @@ properties:
       (disable for relay-only domains)
     x-db-field: local_delivery
 
+  client_id:
+    type: integer
+    minimum: 1
+    writeOnly: true
+    description: >-
+      Optional owning client. On create, resolved to the client's sys_group and
+      set as the record's owner (sys_groupid) — mirroring the ISPConfig "Client"
+      select. Admin keys may assign any client; a client/reseller key only a
+      client within its own scope (otherwise 403). Write-only; not returned.
+    example: 5
+
   # System fields (readonly)
   sys_userid:
     type: integer

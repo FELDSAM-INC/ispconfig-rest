@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\Support\SitesApiTestCase;
 
 class WebDomainApiTest extends SitesApiTestCase
@@ -177,6 +178,41 @@ class WebDomainApiTest extends SitesApiTestCase
         $this->postJson('/api/v1/sites/web-domains', $this->validPayload(['domain' => 'MüLLER.De']), $this->authHeaders())
             ->assertStatus(201)
             ->assertJsonPath('domain', 'xn--mller-kva.de');
+    }
+
+    public function test_create_with_client_id_assigns_owning_group(): void
+    {
+        // SitesApiTestCase seeds client 4 -> sys_group groupid 6. Admin
+        // creating for that client: the raw insert resolves client_id to the
+        // client's group and the override wins over the request sys_groupid.
+        $response = $this->postJson(
+            '/api/v1/sites/web-domains',
+            $this->validPayload(['domain' => 'forclient.com', 'client_id' => 4]),
+            $this->authHeaders()
+        )->assertStatus(201)
+            ->assertJsonPath('sys_groupid', 6)          // client 4's group
+            ->assertJsonPath('sys_userid', 1)           // acting admin
+            ->assertJsonPath('system_group', 'client4') // derived from the group's client
+            ->assertJsonPath('sys_perm_user', 'riud');
+
+        $id = (int) $response->json('id');
+        $row = DB::table('web_domain')->where('domain_id', $id)->first();
+        $this->assertSame(6, (int) $row->sys_groupid);
+        $this->assertSame(1, (int) $row->sys_userid);
+        // client_id is not a web_domain column and must not be persisted.
+        $this->assertFalse(Schema::hasColumn('web_domain', 'client_id'));
+    }
+
+    public function test_create_with_unknown_client_id_returns_422(): void
+    {
+        $this->postJson(
+            '/api/v1/sites/web-domains',
+            $this->validPayload(['client_id' => 999]),
+            $this->authHeaders()
+        )->assertStatus(422)
+            ->assertJsonPath('errors.client_id.0', fn ($m) => is_string($m));
+
+        $this->assertSame(0, DB::table('web_domain')->count());
     }
 
     public function test_create_validation_failures_return_422(): void

@@ -61,6 +61,8 @@ class StoreMailDomainRequest extends MailDomainRequest
             'relay_pass' => ['sometimes', 'nullable', 'string', 'max:255'],
             'active' => ['sometimes', 'boolean'],
             'local_delivery' => ['sometimes', 'boolean'],
+            // Optional owning client (resolved to its sys_group on create).
+            'client_id' => ['sometimes', 'integer', Rule::exists('client', 'client_id')],
         ];
     }
 }

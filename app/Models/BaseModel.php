@@ -267,7 +267,14 @@ abstract class BaseModel extends Model
 
         if (! $scope->isAdmin) {
             $this->setAttribute('sys_userid', $scope->sysUserId);
-            $this->setAttribute('sys_groupid', $scope->sysGroupId);
+            // Keep an explicitly-assigned owning group only if the actor may
+            // own it (its own group, or a managed sub-client's for resellers);
+            // otherwise force the actor's own group. A non-admin can never
+            // forge ownership outside its scope.
+            $assigned = $this->getAttributes()['sys_groupid'] ?? null;
+            if ($assigned === null || ! in_array((int) $assigned, $scope->groupIds, true)) {
+                $this->setAttribute('sys_groupid', $scope->sysGroupId);
+            }
         }
 
         $defaults = [

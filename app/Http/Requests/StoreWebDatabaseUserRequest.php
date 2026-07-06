@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Validation\Rule;
+
 /**
  * POST /sites/database-users (api/modules/sites/database-users.yaml;
  * legacy form/database_user.tform.php + database_user_edit.php). The
@@ -19,6 +21,8 @@ class StoreWebDatabaseUserRequest extends SitesRequest
         return [
             'database_user' => ['required', 'string', 'regex:/^[a-zA-Z0-9_]{2,64}$/'],
             'database_password' => ['required', 'string', 'max:64'],
+            // Optional owning client (resolved to its sys_group on create).
+            'client_id' => ['sometimes', 'integer', Rule::exists('client', 'client_id')],
         ];
     }
 }

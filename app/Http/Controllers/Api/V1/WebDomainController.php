@@ -70,7 +70,9 @@ class WebDomainController extends Controller
      */
     public function store(StoreWebDomainRequest $request): JsonResponse
     {
-        $domain = DB::transaction(fn () => $this->service->create($request->payload()));
+        $clientId = $request->filled('client_id') ? $request->integer('client_id') : null;
+
+        $domain = DB::transaction(fn () => $this->service->create($request->payload(), $clientId));
 
         return response()->json($domain, 201);
     }
