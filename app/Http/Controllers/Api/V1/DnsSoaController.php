@@ -47,6 +47,7 @@ class DnsSoaController extends Controller
             filters: [
                 'origin' => 'wildcard',
                 'active' => 'boolean',
+                'client_id' => 'owning_client',
             ]
         );
 

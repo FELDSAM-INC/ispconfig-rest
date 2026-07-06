@@ -153,6 +153,33 @@ class DnsSoaApiTest extends TestCase
             ->assertJsonPath('data.0.origin', 'example.org.');
     }
 
+    public function test_list_filters_by_owning_client(): void
+    {
+        DB::table('sys_group')->insert([
+            ['groupid' => 12, 'name' => 'client5', 'client_id' => 5],
+            ['groupid' => 13, 'name' => 'client6', 'client_id' => 6],
+        ]);
+
+        $this->seedZone(['origin' => 'client5.com.', 'sys_groupid' => 12]);
+        $this->seedZone(['origin' => 'client6.com.', 'sys_groupid' => 13]);
+
+        $this->getJson('/api/v1/dns/soa?client_id=5', $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.origin', 'client5.com.');
+
+        // Unknown client resolves to no groups -> empty result.
+        $this->getJson('/api/v1/dns/soa?client_id=999', $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+
+        // Non-integer client id is a 400 problem.
+        $this->getJson('/api/v1/dns/soa?client_id=abc', $this->authHeaders())
+            ->assertStatus(400)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('status', 400);
+    }
+
     public function test_list_rejects_bad_parameters_with_400_problem(): void
     {
         foreach (['sort=evil_column', 'order=upwards', 'limit=0', 'offset=-1', 'active=maybe'] as $param) {

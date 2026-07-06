@@ -51,6 +51,28 @@ class WebDatabaseUserApiTest extends SitesApiTestCase
             ->assertStatus(400);
     }
 
+    public function test_list_filters_by_owning_client(): void
+    {
+        // SitesApiTestCase seeds sys_group client 3 -> groupid 5, client 4
+        // -> groupid 6.
+        $this->seedDatabaseUser(['database_user' => 'c0client3', 'sys_groupid' => 5]);
+        $this->seedDatabaseUser(['database_user' => 'c0client4', 'sys_groupid' => 6]);
+
+        $this->getJson('/api/v1/sites/database-users?client_id=3', $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.database_user', 'client3');
+
+        $this->getJson('/api/v1/sites/database-users?client_id=999', $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+
+        $this->getJson('/api/v1/sites/database-users?client_id=abc', $this->authHeaders())
+            ->assertStatus(400)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('status', 400);
+    }
+
     public function test_show_200_and_404(): void
     {
         $id = $this->seedDatabaseUser();

@@ -46,6 +46,9 @@ class WebDomainController extends Controller
             $request,
             sortable: ['domain_id', 'domain', 'server_id', 'type', 'parent_domain_id', 'active'],
             defaultSort: 'domain',
+            filters: [
+                'client_id' => 'owning_client',
+            ],
             extra: ['search'],
         );
 

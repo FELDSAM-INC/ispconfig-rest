@@ -55,6 +55,24 @@ class FtpUserApiTest extends SitesApiTestCase
             ->assertStatus(400);
     }
 
+    public function test_list_filters_by_parent_domain_id(): void
+    {
+        $parentA = $this->seedVhost(['domain' => 'a.com']);
+        $parentB = $this->seedVhost(['domain' => 'b.com']);
+        $this->seedFtpUser($parentA, ['username' => 'testclientaaa']);
+        $this->seedFtpUser($parentB, ['username' => 'testclientbbb']);
+
+        $this->getJson('/api/v1/sites/ftp-users?parent_domain_id='.$parentA, $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.username_full', 'testclientaaa');
+
+        $this->getJson('/api/v1/sites/ftp-users?parent_domain_id=abc', $this->authHeaders())
+            ->assertStatus(400)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('status', 400);
+    }
+
     public function test_show_200_and_404(): void
     {
         $parentId = $this->seedVhost(['domain' => 'site.com']);

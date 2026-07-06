@@ -43,6 +43,7 @@ class MailDomainController extends Controller
                 'active' => 'boolean',
                 'local_delivery' => 'boolean',
                 'dkim' => 'boolean',
+                'client_id' => 'owning_client',
             ]
         );
 

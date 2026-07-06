@@ -50,6 +50,9 @@ class WebDatabaseUserController extends Controller
             $request,
             sortable: ['database_user_id', 'database_user', 'server_id'],
             defaultSort: 'database_user',
+            filters: [
+                'client_id' => 'owning_client',
+            ],
             extra: ['search'],
         );
 

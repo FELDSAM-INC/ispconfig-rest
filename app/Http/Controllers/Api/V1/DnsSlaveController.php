@@ -38,6 +38,7 @@ class DnsSlaveController extends Controller
                 'origin' => 'wildcard',
                 'active' => 'boolean',
                 'server_id' => 'integer',
+                'client_id' => 'owning_client',
             ]
         );
 

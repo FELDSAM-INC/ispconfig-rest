@@ -6,6 +6,7 @@ use App\Models\BaseModel;
 use App\Support\IspContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 /**
@@ -40,7 +41,7 @@ trait HandlesListQuery
      * @param  Builder  $query  base query (model determines native filter values)
      * @param  array<int, string>  $sortable  whitelisted sort columns
      * @param  string  $defaultSort  column used when no sort parameter is given
-     * @param  array<string, string>  $filters  query param => type (boolean|integer|string|wildcard)
+     * @param  array<string, string>  $filters  query param => type (boolean|integer|string|wildcard|owning_client)
      * @param  array<int, string>  $extra  params the controller consumes itself (e.g. 'search')
      * @return array{data: array<int, mixed>, meta: array{total: int, limit: int, offset: int}}
      */
@@ -144,6 +145,20 @@ trait HandlesListQuery
                         throw new BadRequestHttpException("Invalid integer value for filter '{$column}'.");
                     }
                     $query->where($column, (int) $value);
+                    break;
+
+                case 'owning_client':
+                    // Filter by the owning client: resolve the client's
+                    // sys_group(s) and match the row's sys_groupid. The filter
+                    // parameter is the client_id; the column filtered is
+                    // sys_groupid. An unknown client yields no rows.
+                    if (filter_var($value, FILTER_VALIDATE_INT) === false || (int) $value < 1) {
+                        throw new BadRequestHttpException("Invalid client id for filter '{$column}'.");
+                    }
+                    $groupIds = DB::table('sys_group')->where('client_id', (int) $value)->pluck('groupid')->all();
+                    $groupIds === []
+                        ? $query->whereRaw('1 = 0')
+                        : $query->whereIn('sys_groupid', $groupIds);
                     break;
 
                 case 'wildcard':

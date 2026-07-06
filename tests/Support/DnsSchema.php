@@ -135,6 +135,15 @@ class DnsSchema
             });
         }
 
+        if (! Schema::hasTable('sys_group')) {
+            Schema::create('sys_group', function (Blueprint $table): void {
+                $table->increments('groupid');
+                $table->string('name', 64)->default('');
+                $table->text('description')->nullable();
+                $table->unsignedInteger('client_id')->default(0);
+            });
+        }
+
         if (! Schema::hasTable('server')) {
             Schema::create('server', function (Blueprint $table): void {
                 $table->increments('server_id');

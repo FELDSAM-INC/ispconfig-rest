@@ -71,6 +71,24 @@ class CronJobApiTest extends SitesApiTestCase
             ->assertStatus(400);
     }
 
+    public function test_list_filters_by_parent_domain_id(): void
+    {
+        $parentA = $this->seedVhost(['domain' => 'a.com']);
+        $parentB = $this->seedVhost(['domain' => 'b.com']);
+        $this->seedCronJob($parentA, ['command' => 'https://a.example.com/']);
+        $this->seedCronJob($parentB, ['command' => 'https://b.example.com/']);
+
+        $this->getJson('/api/v1/sites/cron-jobs?parent_domain_id='.$parentA, $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.parent_domain_id', $parentA);
+
+        $this->getJson('/api/v1/sites/cron-jobs?parent_domain_id=abc', $this->authHeaders())
+            ->assertStatus(400)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('status', 400);
+    }
+
     public function test_show_200_and_404(): void
     {
         $parentId = $this->seedVhost(['domain' => 'cronsite.com']);

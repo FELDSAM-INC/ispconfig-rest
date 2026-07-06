@@ -118,6 +118,31 @@ class DnsSlaveApiTest extends TestCase
             ->assertJsonPath('data.0.origin', 'other.net.');
     }
 
+    public function test_list_filters_by_owning_client(): void
+    {
+        DB::table('sys_group')->insert([
+            ['groupid' => 12, 'name' => 'client5', 'client_id' => 5],
+            ['groupid' => 13, 'name' => 'client6', 'client_id' => 6],
+        ]);
+
+        $this->seedSlave(['origin' => 'client5.com.', 'sys_groupid' => 12]);
+        $this->seedSlave(['origin' => 'client6.com.', 'sys_groupid' => 13]);
+
+        $this->getJson('/api/v1/dns/slaves?client_id=5', $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.origin', 'client5.com.');
+
+        $this->getJson('/api/v1/dns/slaves?client_id=999', $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+
+        $this->getJson('/api/v1/dns/slaves?client_id=abc', $this->authHeaders())
+            ->assertStatus(400)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('status', 400);
+    }
+
     public function test_list_rejects_bad_parameters_with_400_problem(): void
     {
         foreach (['sort=evil_column', 'server_id=abc', 'active=maybe'] as $param) {

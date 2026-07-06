@@ -70,6 +70,25 @@ class WebDatabaseApiTest extends SitesApiTestCase
             ->assertStatus(400);
     }
 
+    public function test_list_filters_by_parent_domain_id(): void
+    {
+        $parentA = $this->seedVhost(['domain' => 'a.com']);
+        $parentB = $this->seedVhost(['domain' => 'b.com']);
+        $userId = $this->seedDbUser();
+        $this->seedDatabase($parentA, $userId, ['database_name' => 'c3adb']);
+        $this->seedDatabase($parentB, $userId, ['database_name' => 'c3bdb']);
+
+        $this->getJson('/api/v1/sites/databases?parent_domain_id='.$parentA, $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.database_name_full', 'c3adb');
+
+        $this->getJson('/api/v1/sites/databases?parent_domain_id=abc', $this->authHeaders())
+            ->assertStatus(400)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('status', 400);
+    }
+
     public function test_show_200_and_404(): void
     {
         $parentId = $this->seedVhost(['domain' => 'site.com']);

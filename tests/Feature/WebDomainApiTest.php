@@ -62,6 +62,28 @@ class WebDomainApiTest extends SitesApiTestCase
             ->assertJsonPath('data.0.domain', 'beta.com');
     }
 
+    public function test_list_filters_by_owning_client(): void
+    {
+        // SitesApiTestCase seeds sys_group client 3 -> groupid 5, client 4
+        // -> groupid 6.
+        $this->seedVhost(['domain' => 'client3.com', 'sys_groupid' => 5]);
+        $this->seedVhost(['domain' => 'client4.com', 'sys_groupid' => 6]);
+
+        $this->getJson('/api/v1/sites/web-domains?client_id=3', $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.domain', 'client3.com');
+
+        $this->getJson('/api/v1/sites/web-domains?client_id=999', $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+
+        $this->getJson('/api/v1/sites/web-domains?client_id=abc', $this->authHeaders())
+            ->assertStatus(400)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('status', 400);
+    }
+
     public function test_list_rejects_bad_parameters_with_400_problem(): void
     {
         foreach (['sort=evil_column', 'order=upwards', 'limit=0', 'offset=-1'] as $param) {
