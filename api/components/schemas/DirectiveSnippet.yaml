@@ -32,18 +32,21 @@ properties:
     example: 1
     x-db-field: sys_groupid
   sys_perm_user:
+    readOnly: true
     type: string
     maxLength: 5
     description: User permissions (r = read, i = insert, u = update, d = delete)
     example: "riud"
     x-db-field: sys_perm_user
   sys_perm_group:
+    readOnly: true
     type: string
     maxLength: 5
     description: Group permissions (r = read, i = insert, u = update, d = delete)
     example: "riud"
     x-db-field: sys_perm_group
   sys_perm_other:
+    readOnly: true
     type: string
     maxLength: 5
     description: Other permissions (r = read, i = insert, u = update, d = delete)

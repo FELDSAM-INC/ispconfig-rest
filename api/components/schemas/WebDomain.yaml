@@ -656,6 +656,7 @@ properties:
     example: 5
 
   sys_groupid:
+    readOnly: true
     type: integer
     description: |
       System group ID (client group) that owns the web domain. Defaults to

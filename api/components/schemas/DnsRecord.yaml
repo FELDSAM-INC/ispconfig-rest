@@ -55,6 +55,7 @@ properties:
     example: 1
 
   sys_groupid:
+    readOnly: true
     type: integer
     format: int32
     minimum: 1
@@ -62,6 +63,7 @@ properties:
     example: 10
 
   sys_perm_user:
+    readOnly: true
     type: string
     maxLength: 5
     pattern: '^[riud]*$'
@@ -70,6 +72,7 @@ properties:
     example: "riud"
 
   sys_perm_group:
+    readOnly: true
     type: string
     maxLength: 5
     pattern: '^[riud]*$'
@@ -78,6 +81,7 @@ properties:
     example: "riud"
 
   sys_perm_other:
+    readOnly: true
     type: string
     maxLength: 5
     pattern: '^[riud]*$'
