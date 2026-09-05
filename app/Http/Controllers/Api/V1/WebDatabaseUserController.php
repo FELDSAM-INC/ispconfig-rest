@@ -77,10 +77,17 @@ class WebDatabaseUserController extends Controller
     {
         $payload = $request->payload();
 
-        // The API is admin-scoped: prefix placeholders resolve against the
-        // acting context's group (legacy resolves the selected client).
+        // Prefix placeholders resolve against the record's own group: the
+        // client this user is being created FOR (legacy: the form's
+        // selected client_group_id) when one is given, otherwise the
+        // acting context — this resource has no parent_domain_id to carry
+        // that group the way the other sites/* controllers do.
+        $sysGroupId = $request->filled('client_id')
+            ? $this->resolveOwningClientGroup($request->integer('client_id'))
+            : $this->context->sysGroupId();
+
         $prefix = $this->config->sitesPrefix('dbuser_prefix', [
-            'sys_groupid' => $this->context->sysGroupId(),
+            'sys_groupid' => $sysGroupId,
         ]);
         $fullUsername = $prefix.$payload['database_user'];
         $this->assertPrefixedLength($fullUsername, $prefix);
@@ -94,7 +101,7 @@ class WebDatabaseUserController extends Controller
         ]);
 
         if ($request->filled('client_id')) {
-            $this->assignOwningClient($user, $request->integer('client_id'));
+            $user->setAttribute('sys_groupid', $sysGroupId);
         }
 
         DB::transaction(function () use ($user): void {
