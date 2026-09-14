@@ -241,10 +241,8 @@ different server than W's web server → 422 (legacy marks download unavailable)
 - **FR-013**: System MUST document in the contract that restore replaces current website files (removing newer files)
   or database contents, and that job state `ok` for a manual backup does not by itself prove a backup was created.
 - **FR-014**: Download delivery: a completed download job MUST tell the consumer that the file is in the website's
-  `backup` folder, reachable with the website's FTP/SSH users, and is removed after 3 days.
-  [NEEDS CLARIFICATION: Is folder delivery through FTP/SSH enough for version 1, or must the customer download the file
-  directly from the panel in the browser? Legacy has no HTTP download; the API runs on the master server while backups
-  live on web/backup servers, so direct download needs a new component on those servers or shared backup storage.]
+  `backup` folder, reachable with the website's FTP/SSH users, and is removed after 3 days. Folder delivery is the
+  version 1 behaviour (owner decision 2026-09-14); direct browser download is out of scope.
 - **FR-015**: Every endpoint MUST be defined in the OpenAPI contract first and covered by feature tests for success,
   validation (422), permission (403/404), duplicate (409), `limit_backup` and unconfigured-server cases, including the
   exact `sys_remoteaction` rows written.
@@ -286,3 +284,6 @@ different server than W's web server → 422 (legacy marks download unavailable)
   job history; no cleanup is added.
 - Consumers poll jobs; no push notification is provided. Server processing starts within about a minute
   (`server.sh` cron) and restores can take several minutes.
+- Direct browser download of backups is deferred to a later feature: the API runs on the master server while backups
+  live on web/backup servers, so it needs a component on those servers or shared backup storage (owner decision
+  2026-09-14).

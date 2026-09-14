@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,9 +31,8 @@
 
 ## Notes
 
-- One open clarification (FR-014): whether folder delivery of downloads (legacy behaviour: file placed in the
-  website's `backup` folder for 3 days, reachable via FTP/SSH) is enough for version 1, or direct browser download
-  is required. It only affects User Story 3 (P3); P1 and P2 are ready for planning.
+- FR-014 clarification resolved by the owner on 2026-09-14: version 1 keeps legacy folder delivery (file placed in
+  the website's `backup` folder for 3 days, reachable via FTP/SSH); direct browser download is deferred.
 - The project template requires the API Contract, legacy parity and table/model references (constitution
   Principles I–III), so endpoint paths, legacy file names and table names are intentional, not leaked
   implementation details.
