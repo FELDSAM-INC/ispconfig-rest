@@ -137,6 +137,15 @@ Any valid key can call `GET /me` to read its own identity and scope.
 | `system` | global config panels, directive snippets, DNS CAA policies, resync |
 | `monitor` | datalog journal, per-server status, system logs |
 
+## Client lock and cancel
+
+`locked` and `canceled` on `POST/PUT /clients` and `/resellers` carry ISPConfig's lock and cancel side effects:
+
+- **Lock** (`locked` false → true): every website, mail domain, mailbox (receiving and sending), forward, fetchmail entry, database, FTP/shell/WebDAV user, protected folder and cron job of the client is disabled through the datalog, and the previous states are kept in the client's lock snapshot (`client.tmp_data`, legacy format — locks are interchangeable with the ISPConfig interface). **Unlock** restores them.
+- **Cancel** (`canceled`): disables or enables the client's ISPConfig interface login; services and API keys are not affected. `canceled: true` on create starts with the login disabled.
+- Side effects run only when the value changes. Reseller locks affect only the reseller's own services.
+- While a client is locked, client and reseller keys cannot re-enable its services or add new ones for it (`403`); admin keys can.
+
 ## Testing
 
 ```bash
@@ -155,6 +164,10 @@ Deliberate and documented in code where they occur:
 - **Directive-snippet in-use checks use exact ID matching** — legacy's REGEXP substring-matches (snippet 5 matches "15"); a regression test documents the divergence.
 - **Deleting a DNS zone with records returns `400`** instead of legacy's silent cascade (declared in the contract).
 - **DNS CAA policy writes are datalogged** although legacy writes `dns_ssl_ca` with direct SQL (whose insert is broken upstream) — a documented superset.
+
+- **Client cancel applies on create**: `canceled: true` creates the control-panel login inactive; legacy ignores both flags on insert.
+- **Client lock and cancel run only when the flag changes** (legacy panel behavior); the legacy remote API re-runs them on every update.
+- **Locked clients' services cannot be re-enabled or extended by client and reseller keys** (`403`); legacy allows both.
 
 ## Project governance
 
