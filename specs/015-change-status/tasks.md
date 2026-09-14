@@ -18,7 +18,7 @@ list (`GET /changes`), US3 = P3 record view (`table` + `record_id`). The contrac
 operations is its own bounded phase (Phase 6) with a guard test.
 
 **Owner decisions (2026-09-14)** built into these tasks: change set status and `entry_counts` over all entries
-with entries paginated; header name `X-Change-Set-Id` documented on every write; non-admin visibility = own
+with entries paginated; header name `X-Change-Set-Id` documented on every journaling write (non-journaling 014/018 writes in `NON_JOURNALING_WRITES`); non-admin visibility = own
 writes plus the readable-record view (reseller keys see only their own username's writes); CORS exposure
 deferred.
 
@@ -149,6 +149,9 @@ B's key → 404; deleted record → 404.
 54 module files (counts from `contracts/write-operations-header.md`), guarded by a lint test. Depends only on T001
 and T004; can run in parallel with Phases 3–5.
 
+**Owner decision (2026-09-14)**: write operations that never journal (014 `/system/api-keys`, 018 backup remote
+actions) are exceptions in `NON_JOURNALING_WRITES` and do not document the header.
+
 **Edit rule** (every task below): text edit, never a YAML dump (module files carry comments and hand ordering).
 Insert under each 2xx response of `post`/`put`/`patch`/`delete`, directly after `description:` and before
 `content:` (204 responses get only `description` + `headers`):
@@ -159,7 +162,7 @@ Insert under each 2xx response of `post`/`put`/`patch`/`delete`, directly after 
             $ref: '../../components/headers/ChangeSetId.yaml'
 ```
 
-- [ ] T025 Write failing `tests/Unit/ChangeSetHeaderContractTest.php` (symfony/yaml): parse every `api/modules/*/*.yaml`; for each `post`/`put`/`patch`/`delete` operation, every 2xx response must contain `headers.X-Change-Set-Id.$ref` equal to `../../components/headers/ChangeSetId.yaml`, except operations listed in a `NON_JOURNALING_WRITES` allowlist constant (empty in this feature, see Cross-feature notes); assert at least 148 write operations were checked and that `api/modules/changes/changes.yaml` GET responses carry no such header
+- [ ] T025 Write failing `tests/Unit/ChangeSetHeaderContractTest.php` (symfony/yaml): parse every `api/modules/*/*.yaml`; for each `post`/`put`/`patch`/`delete` operation, every 2xx response must contain `headers.X-Change-Set-Id.$ref` equal to `../../components/headers/ChangeSetId.yaml`, except operations listed in a `NON_JOURNALING_WRITES` exception constant (owner decision 2026-09-14: write operations that never journal — 014 `/system/api-keys` writes, 018 backup remote actions — are listed there once those features are merged; empty until then, see Cross-feature notes); assert at least 148 write operations were checked and that `api/modules/changes/changes.yaml` GET responses carry no such header
 - [ ] T026 [P] Add the header to the 17 write operations in the 6 files of `api/modules/client/*.yaml`
 - [ ] T027 [P] Add the header to the 12 write operations in the 4 files of `api/modules/dns/*.yaml`
 - [ ] T028 [P] Add the header to the 48 write operations in the 19 files of `api/modules/mail/*.yaml` (including `mail/spamfilter/config` PUT, whose legacy write has no journal — the header description already says it is then absent)
@@ -243,9 +246,9 @@ Task: "AttachChangeSetId middleware in app/Http/Middleware/AttachChangeSetId.php
 ## Cross-feature notes
 
 - **014 API key management**: writes only the API-owned `api_keys` table → no journal entry → never emits
-  `X-Change-Set-Id` at runtime. Its new `POST/PUT/DELETE /system/api-keys` operations should be added to
+  `X-Change-Set-Id` at runtime. Its new `POST/PUT/DELETE /system/api-keys` operations are added to
   `NON_JOURNALING_WRITES` in `tests/Unit/ChangeSetHeaderContractTest.php` (T025) rather than document a header
-  that can never appear.
+  that can never appear (owner decision 2026-09-14).
 - **016 client server assignment**: adds no write operations, only validation on existing ones (and fetchmail
   destination scoping) → no contract header edits; its 422 rejections happen before any journal write, so no
   header on those responses.
@@ -253,7 +256,7 @@ Task: "AttachChangeSetId middleware in app/Http/Middleware/AttachChangeSetId.php
 - **018 backups**: the backup settings `PUT` writes `web_domain` through the datalog → it MUST reference the
   header like every other write. Remote-action endpoints (`POST …/backups`, `POST …/backups/{backup_id}/restore`,
   `POST …/backups/{backup_id}/download`, `DELETE …/backups/{backup_id}`) insert `sys_remoteaction` rows without a
-  journal entry → no header at runtime; add them to `NON_JOURNALING_WRITES`. 018's `scope.backup` route middleware
+  journal entry → no header at runtime; add them to `NON_JOURNALING_WRITES` (owner decision 2026-09-14). 018's `scope.backup` route middleware
   runs inside the `['api.key', 'change.set']` group and needs no ordering change for the header.
 - **Merge order guidance**:
   - Recommended: 014 → 016 → 015 → 017 → 018 (provisioning blockers first; 015's 54-file contract edit lands once

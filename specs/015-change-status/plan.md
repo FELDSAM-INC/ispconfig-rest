@@ -107,7 +107,7 @@ tests/Feature/ChangeStatusApiTest.php      # NEW — change set show: pending/ap
 tests/Feature/ChangeListApiTest.php        # NEW — visibility own writes vs admin, filters, since, record view (readable/unreadable/deleted/400), unknown params
 tests/Feature/ChangeSetHeaderTest.php      # NEW — header on create/update/cascading delete matches session rows; absent on no-change update and 422
 tests/Unit/ChangeStatusResolverTest.php    # NEW — derivation matrix from server rows (active/inactive/mirror/deleted server, server_id 0)
-tests/Unit/ChangeSetHeaderContractTest.php # NEW — every write 2xx in api/modules references the header
+tests/Unit/ChangeSetHeaderContractTest.php # NEW — every journaling write 2xx references the header; NON_JOURNALING_WRITES exceptions (owner decision 2026-09-14)
 ```
 
 **Structure Decision**:

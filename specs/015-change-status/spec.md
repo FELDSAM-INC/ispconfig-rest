@@ -144,7 +144,7 @@ With B's key → 404. Deleted records are not reachable through this view.
 |--------|------|---------|--------------|
 | GET | `/api/v1/changes` | List journal entries visible to the key (`{data, meta}`; filters `status`, `table`, `record_id`, `change_set_id`, `since`) | 200 |
 | GET | `/api/v1/changes/{change_set_id}` | Aggregate status of one change set over all entries, with its entries paginated (`limit`/`offset`, `meta`) | 200 |
-| (all writes) | every POST/PUT/DELETE | Response header `X-Change-Set-Id` when at least one journal entry was written | 200/201/204 |
+| (journaling writes) | every POST/PUT/DELETE that journals; non-journaling writes excluded (owner decision 2026-09-14) | Response header `X-Change-Set-Id` when at least one journal entry was written | 200/201/204 |
 
 - **Change entry fields**: `id` (journal id), `change_set_id`, `table`, `record_id`, `action`
   (`create` / `update` / `delete`), `status` (`pending` / `applied` / `failed` / `stalled`), `error`
@@ -215,7 +215,9 @@ With B's key → 404. Deleted records are not reachable through this view.
 - **FR-010**: The status endpoints MUST be available to every valid key (not behind the admin module
   gate); `/monitor/data-logs` behavior MUST remain unchanged.
 - **FR-011**: Status endpoints MUST be read-only and MUST NOT write journal entries.
-- **FR-012**: The contract MUST be authored first, including the header on all write responses, and every
+- **FR-012**: The contract MUST be authored first, including the header on all journaling write responses
+  (write operations that never journal, such as API-owned `api_keys` writes and backup remote actions, do not
+  document it — owner decision 2026-09-14), and every
   endpoint and the header MUST be covered by feature tests for success, 400, 401 and 404 cases and for
   cross-tenant isolation.
 
@@ -238,7 +240,8 @@ With B's key → 404. Deleted records are not reachable through this view.
   payloads or usernames outside the readable-record view (0 leaks across all isolation cases).
 - **SC-003**: 100% of processed entries with an error recorded by ISPConfig are reported as failed with
   that error text.
-- **SC-004**: Every write operation in the contract documents `X-Change-Set-Id`; tests confirm the header
+- **SC-004**: Every journaling write operation in the contract documents `X-Change-Set-Id` (non-journaling
+  writes are listed as exceptions in the contract guard test); tests confirm the header
   on create, update and cascading delete, and its absence on no-change updates.
 - **SC-005**: A status request answers within 1 second on a typical ISPConfig host, including change sets
   with thousands of entries (one page of entries per response).
@@ -257,9 +260,12 @@ With B's key → 404. Deleted records are not reachable through this view.
 - Entries written by the legacy ISPConfig panel (PHP session ids) are visible through the list endpoint
   like any other entry of the same identity, but carry no API response header.
 - Owner decisions (2026-09-14): non-admin visibility stays own writes plus the readable-record view
-  (FR-004..FR-008); the header name stays `X-Change-Set-Id`, consistent with `X-API-Key`; every write
+  (FR-004..FR-008); the header name stays `X-Change-Set-Id`, consistent with `X-API-Key`; every journaling write
   operation in the contract documents the header.
 - Browser access to `X-Change-Set-Id` (CORS exposed headers) is deferred; the first consumers (WHMCS)
   call the API server-side (owner decision 2026-09-14).
 - Reseller keys see only changes written under their own username, as in legacy; changes to their
   clients' records remain available through the readable-record view (owner decision 2026-09-14).
+- Write operations that never journal (feature 014 `/system/api-keys` writes on the API-owned table, feature 018
+  backup remote-action endpoints) are listed in the contract guard test's `NON_JOURNALING_WRITES` exceptions and
+  do not document `X-Change-Set-Id` (owner decision 2026-09-14).

@@ -126,8 +126,10 @@ DataLogController, HandlesListQuery, AuthScope, bootstrap/app.php, tests/Support
     `ChangeSet.yaml`.
   - New components section `headers` with `ChangeSetId.yaml`, referenced from all 149 inline 2xx responses
     of the 148 write operations in 54 files, added by text edit.
-  - Unit test `ChangeSetHeaderContractTest` (symfony/yaml) enforces the reference on every write.
-- **Rationale**: Owner decision (header on every write). All 2xx write responses are inline, so no `$ref`
+  - Unit test `ChangeSetHeaderContractTest` (symfony/yaml) enforces the reference on every journaling write;
+    write operations that never journal (014 `/system/api-keys`, 018 backup remote actions) are listed in its
+    `NON_JOURNALING_WRITES` exceptions and do not document the header (owner decision 2026-09-14).
+- **Rationale**: Owner decision (header on every journaling write). All 2xx write responses are inline, so no `$ref`
   sibling problem. The lint test keeps future features compliant.
 - **Alternatives considered**: documenting the header once in the API description only (not
   machine-readable, rejected by the owner); a YAML dump rewrite (destroys comments and ordering).
