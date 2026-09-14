@@ -10,6 +10,8 @@
 #   ispconfig-rest restart|start|stop     control the service
 #   ispconfig-rest logs [-f]              service logs
 #   ispconfig-rest key:create NAME [--client-id N]   mint an API key
+#   ispconfig-rest key:list [--client-id N]     list API keys (never shows secrets)
+#   ispconfig-rest key:revoke ID                  revoke (deactivate) an API key
 #   ispconfig-rest firewall:allow PORT [--proto tcp]  open a port in the ISPConfig firewall
 #   ispconfig-rest artisan ...            run an artisan command as the run user
 #   ispconfig-rest version                installed version + commit
@@ -121,6 +123,8 @@ cmd_logs() {
 }
 
 cmd_key_create()    { need_root; shift || true; run_as "$PHP_BIN" artisan api:key:create "$@"; }
+cmd_key_list()      { need_root; shift || true; run_as "$PHP_BIN" artisan api:key:list "$@"; }
+cmd_key_revoke()    { need_root; shift || true; run_as "$PHP_BIN" artisan api:key:revoke "$@"; }
 cmd_firewall_allow(){ need_root; shift || true; run_as "$PHP_BIN" artisan firewall:allow "$@"; }
 cmd_artisan()       { need_root; shift || true; run_as "$PHP_BIN" artisan "$@"; }
 
@@ -157,6 +161,8 @@ case "${1:-}" in
   start|stop|restart)   cmd_service "$1";;
   logs)          shift; cmd_logs "$@";;
   key:create)    cmd_key_create "$@";;
+  key:list)      cmd_key_list "$@";;
+  key:revoke)    cmd_key_revoke "$@";;
   firewall:allow) cmd_firewall_allow "$@";;
   artisan)       cmd_artisan "$@";;
   uninstall)     cmd_uninstall;;

@@ -137,14 +137,14 @@ key (`meta.total = 1`); `PUT {active:false}` → next request with that key 401;
 
 ### Tests for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T029 [P] [US3] Create `tests/Feature/MeApiTest.php`: admin, reseller and client A identities (`key_id`, `name`, `scope`, `client_id`, `sys_userid`, `sys_groupid`); dev key (`config('api.dev_key')` in the testing environment) → `key_id: null`, `name: "development key"`, `scope: admin`; client key is not admin-gated (200); revoked key and missing key → 401; no `key`/`key_hash` in the body
+- [x] T029 [P] [US3] Create `tests/Feature/MeApiTest.php`: admin, reseller and client A identities (`key_id`, `name`, `scope`, `client_id`, `sys_userid`, `sys_groupid`); dev key (`config('api.dev_key')` in the testing environment) → `key_id: null`, `name: "development key"`, `scope: admin`; client key is not admin-gated (200); revoked key and missing key → 401; no `key`/`key_hash` in the body
 
 ### Implementation for User Story 3
 
-- [ ] T030 [P] [US3] Add `identity(Request $request): array` to `app/Services/ApiKeyService.php`: built from `IspContext` auth scope and request attribute `api_key_id` (name from the bound `ApiKey` row; reseller via `AuthScope::isReseller()`); dev key (no `api_key_id`) → `key_id: null`, `name: "development key"`
-- [ ] T031 [US3] Create `app/Http/Controllers/Api/V1/MeController.php` with a thin `show(Request)` returning `ApiKeyService::identity()`
-- [ ] T032 [P] [US3] Create `routes/api/me.php` (`Route::get('me', [MeController::class, 'show'])`, header comment: module owned by spec 014, spec 016 appends `GET me/servers`) and add `require __DIR__.'/api/me.php';` to `routes/api.php` inside the `api.key` group but outside every `scope.admin` group
-- [ ] T033 [US3] Run `php artisan test --filter='MeApiTest|ModuleGateTest'` (`tests/Feature/MeApiTest.php`) until green
+- [x] T030 [P] [US3] Add `identity(Request $request): array` to `app/Services/ApiKeyService.php`: built from `IspContext` auth scope and request attribute `api_key_id` (name from the bound `ApiKey` row; reseller via `AuthScope::isReseller()`); dev key (no `api_key_id`) → `key_id: null`, `name: "development key"`
+- [x] T031 [US3] Create `app/Http/Controllers/Api/V1/MeController.php` with a thin `show(Request)` returning `ApiKeyService::identity()`
+- [x] T032 [P] [US3] Create `routes/api/me.php` (`Route::get('me', [MeController::class, 'show'])`, header comment: module owned by spec 014, spec 016 appends `GET me/servers`) and add `require __DIR__.'/api/me.php';` to `routes/api.php` inside the `api.key` group but outside every `scope.admin` group
+- [x] T033 [US3] Run `php artisan test --filter='MeApiTest|ModuleGateTest'` (`tests/Feature/MeApiTest.php`) until green
 
 **Checkpoint**: Integrations can verify stored keys (WHMCS "test connection").
 
@@ -160,14 +160,14 @@ a recovery path without secrets in output.
 
 ### Tests for User Story 4 (REQUIRED) ⚠️
 
-- [ ] T034 [P] [US4] Create `tests/Feature/ApiKeyCommandsTest.php`: `api:key:list` prints id, name, scope, client id, active, last used and never the plaintext or hash; `--client-id` filter; `api:key:revoke {id}` → key inactive and next request 401; unknown id → non-zero exit; already inactive → notice with exit 0
+- [x] T034 [P] [US4] Create `tests/Feature/ApiKeyCommandsTest.php`: `api:key:list` prints id, name, scope, client id, active, last used and never the plaintext or hash; `--client-id` filter; `api:key:revoke {id}` → key inactive and next request 401; unknown id → non-zero exit; already inactive → notice with exit 0
 
 ### Implementation for User Story 4
 
-- [ ] T035 [P] [US4] Create `app/Console/Commands/ListApiKeys.php` (`api:key:list {--client-id=}`) rendering a table through `ApiKeyService::present()`
-- [ ] T036 [P] [US4] Create `app/Console/Commands/RevokeApiKey.php` (`api:key:revoke {id}`): sets `active = false`; unknown id → error, exit 1; already inactive → notice, exit 0
-- [ ] T037 [P] [US4] Add `cmd_key_list` / `cmd_key_revoke` (`need_root`, `run_as "$PHP_BIN" artisan api:key:list|api:key:revoke`), `key:list` / `key:revoke` case entries and header help lines next to `key:create` in `bin/ispconfig-rest`
-- [ ] T038 [US4] Run `php artisan test --filter=ApiKeyCommandsTest` (`tests/Feature/ApiKeyCommandsTest.php`) until green
+- [x] T035 [P] [US4] Create `app/Console/Commands/ListApiKeys.php` (`api:key:list {--client-id=}`) rendering a table through `ApiKeyService::present()`
+- [x] T036 [P] [US4] Create `app/Console/Commands/RevokeApiKey.php` (`api:key:revoke {id}`): sets `active = false`; unknown id → error, exit 1; already inactive → notice, exit 0
+- [x] T037 [P] [US4] Add `cmd_key_list` / `cmd_key_revoke` (`need_root`, `run_as "$PHP_BIN" artisan api:key:list|api:key:revoke`), `key:list` / `key:revoke` case entries and header help lines next to `key:create` in `bin/ispconfig-rest`
+- [x] T038 [US4] Run `php artisan test --filter=ApiKeyCommandsTest` (`tests/Feature/ApiKeyCommandsTest.php`) until green
 
 **Checkpoint**: All four user stories independently functional.
 
