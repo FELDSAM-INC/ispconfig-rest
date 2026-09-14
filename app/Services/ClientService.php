@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ApiKey;
 use App\Models\Client;
+use App\Models\ClientReseller;
 use App\Support\IspContext;
 use App\Support\LegacyCrypt;
 use Illuminate\Support\Facades\DB;
@@ -26,10 +27,14 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
  *    the parent reseller's user, drop sys_group/sys_user (plain DELETEs,
  *    as legacy), datalog-delete every record owned by the client's group,
  *    then the client row itself.
+ *  - lock/cancel (spec 019): a changed `locked` flag locks or unlocks the
+ *    client's services through ClientLockService (func_client_lock), a
+ *    changed `canceled` flag toggles the control-panel login
+ *    (func_client_cancel); `canceled` on create starts the login inactive.
  *
  * Legacy behaviors intentionally NOT ported (out of the API contract's
  * scope): welcome e-mails, customer_no counter templates, ssh key
- * generation, lock/cancel record snapshots (func_client_lock/cancel).
+ * generation.
  */
 class ClientService
 {
@@ -71,6 +76,7 @@ class ClientService
         protected DatalogService $datalog,
         protected ClientTemplateService $templates,
         protected IspContext $context,
+        protected ClientLockService $locks,
     ) {}
 
     /**
@@ -151,6 +157,14 @@ class ClientService
         $old = $client->getRawOriginal();
         $clientId = (int) $client->getKey();
 
+        // Spec 019: the stored lock/cancel flags, read under a row lock inside
+        // the caller's transaction, so concurrent requests cannot both see the
+        // old value and double-snapshot the lock.
+        $storedFlags = DB::table('client')
+            ->where('client_id', $clientId)
+            ->lockForUpdate()
+            ->first(['locked', 'canceled']);
+
         if (array_key_exists('password', $payload) && ($payload['password'] === null || $payload['password'] === '')) {
             unset($payload['password']); // legacy skips empty password fields
         }
@@ -210,11 +224,46 @@ class ClientService
             DB::table('sys_user')->where('client_id', $clientId)->update(['modules' => $modules]);
         }
 
+        $this->applyLockAndCancel($client, $storedFlags);
+
         // Re-apply templates (legacy clients_template_plugin on_after_update;
         // no-op while template_master is 0).
         $this->templates->applyClientTemplates($clientId);
 
         return $client->refresh();
+    }
+
+    /**
+     * Legacy onAfterUpdate lock and cancel (client_edit.php:488-497,
+     * reseller_edit.php:434-548): side effects run only when the stored value
+     * changes. Client form locks write the client's control-panel user as
+     * owner; reseller form locks write the acting user (legacy session user),
+     * unlocks write the reseller's own user.
+     */
+    protected function applyLockAndCancel(Client $client, ?object $storedFlags): void
+    {
+        if ($storedFlags === null) {
+            return;
+        }
+
+        $clientId = (int) $client->getKey();
+        $attributes = $client->getAttributes();
+
+        $locked = (string) ($attributes['locked'] ?? 'n');
+
+        if ($locked !== (string) $storedFlags->locked) {
+            if ($locked === 'y') {
+                $this->locks->lock($clientId, $client instanceof ClientReseller ? $this->context->sysUserId() : null);
+            } elseif ($locked === 'n') {
+                $this->locks->unlock($clientId);
+            }
+        }
+
+        $canceled = (string) ($attributes['canceled'] ?? 'n');
+
+        if ($canceled !== (string) $storedFlags->canceled && in_array($canceled, ['y', 'n'], true)) {
+            $this->locks->setLoginActive($clientId, $canceled === 'n');
+        }
     }
 
     /**
@@ -469,7 +518,9 @@ class ClientService
             'startmodule' => stristr($modules, 'dashboard') !== false ? 'dashboard' : 'client',
             'app_theme' => blank($attributes['usertheme'] ?? null) ? 'default' : (string) $attributes['usertheme'],
             'typ' => 'user',
-            'active' => 1,
+            // Spec 019: canceled on create starts the login inactive
+            // (deviation — legacy ignores the flag on insert).
+            'active' => ($attributes['canceled'] ?? 'n') === 'y' ? 0 : 1,
             'language' => (string) ($attributes['language'] ?? 'en'),
             'groups' => (string) $groupId,
             'default_group' => $groupId,

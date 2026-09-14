@@ -149,7 +149,10 @@ class TenantSchema
                 if (in_array('typ', $missing, true)) {
                     $table->string('typ', 16)->default('user');
                 }
-            }, ['groups', 'client_id', 'default_group', 'typ']);
+                if (in_array('active', $missing, true)) {
+                    $table->boolean('active')->default(true);
+                }
+            }, ['groups', 'client_id', 'default_group', 'typ', 'active']);
         }
 
         if (! Schema::hasTable('sys_group')) {
@@ -181,6 +184,11 @@ class TenantSchema
                 }
 
                 self::addServerAssignmentColumns($table, self::SERVER_ASSIGNMENT_COLUMNS);
+
+                // Spec 019: lock/cancel flags and the lock snapshot.
+                $table->string('locked', 1)->default('n');
+                $table->string('canceled', 1)->default('n');
+                $table->text('tmp_data')->nullable();
             });
         } else {
             self::ensureColumns('client', function (Blueprint $table, array $missing): void {
@@ -199,7 +207,15 @@ class TenantSchema
                     }
                 }
                 self::addServerAssignmentColumns($table, array_values(array_intersect(self::SERVER_ASSIGNMENT_COLUMNS, $missing)));
-            }, array_merge(['username', 'contact_name', 'parent_client_id'], array_keys(self::LIMIT_COLUMNS), self::SERVER_ASSIGNMENT_COLUMNS));
+                foreach (['locked', 'canceled'] as $flag) {
+                    if (in_array($flag, $missing, true)) {
+                        $table->string($flag, 1)->default('n');
+                    }
+                }
+                if (in_array('tmp_data', $missing, true)) {
+                    $table->text('tmp_data')->nullable();
+                }
+            }, array_merge(['username', 'contact_name', 'parent_client_id', 'locked', 'canceled', 'tmp_data'], array_keys(self::LIMIT_COLUMNS), self::SERVER_ASSIGNMENT_COLUMNS));
 
             self::ensureSysFields(['client']);
         }
