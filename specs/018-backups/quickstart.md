@@ -7,7 +7,7 @@ The project requires PHP 8.3; use the official image when the host PHP is older.
 ```bash
 cd ispconfig-rest
 docker run --rm -v "$PWD":/app -w /app composer:2 install --no-interaction
-docker run --rm -v "$PWD":/app -w /app php:8.3-cli vendor/bin/phpunit --filter 'WebBackup|BackupLimitGate|ListQuery'
+docker run --rm -v "$PWD":/app -w /app php:8.3-cli vendor/bin/phpunit --filter 'WebBackup|BackupLimitGate|ListQuery|WebDomainBackupCopies'
 docker run --rm -v "$PWD":/app -w /app php:8.3-cli vendor/bin/phpunit   # full suite
 ```
 

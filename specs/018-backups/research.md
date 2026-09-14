@@ -68,7 +68,9 @@ Source: `plugin_backuplist.inc.php` (`makeBackup()`, `onShow()` action branches)
   compared as strings.
 - **Rationale**: every spec flow stays attributable — restore and download keep their backup row; the
   delete endpoint returns 204 (no job to poll), and consumers see the deletion in the backup list. A
-  completed delete job disappears from the job list together with its backup row; documented.
+  completed delete job disappears from the job list together with its backup row; documented. This also applies to
+  delete jobs queued from the legacy ISPConfig panel, which cannot be matched to their website afterwards —
+  accepted (owner decision 2026-09-14).
 - **Alternatives considered**: an API-owned `backup_jobs` mapping table. Rejected: `ispconfig-rest update`
   runs `artisan migrate` with the runtime DB user, which has no `CREATE` right (the installer creates
   `api_keys` with a privileged login only once), so a new table breaks updates of existing installations.
@@ -167,6 +169,9 @@ Source: `plugin_backuplist.inc.php` (record loop and the three static helpers).
   legacy stores `backup_password` as plain text (TEXT field without encryption), so the API does too.
   `backup_format_*`, `backup_encrypt` and `backup_password` stay hidden on the web-domain resource.
 - **Alternatives considered**: `DatalogService::updateRecord()` (bypasses the model write gate).
+- **Owner decision 2026-09-14**: the same `backup_copies` rule (one shared list, `WebBackupService::BACKUP_COPIES`)
+  replaces the `min:1|max:30` rule of `WebDomainRequest`, so `POST`/`PUT /sites/web-domains` also accept only
+  `1..10, 15, 20, 30` for all keys (spec FR-016); an intentional behaviour change for the release candidate.
 
 ## R12 — `limit_backup` on existing endpoints
 

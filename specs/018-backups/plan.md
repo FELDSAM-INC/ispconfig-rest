@@ -81,7 +81,8 @@ api/
     ├── WebBackupJob.yaml                         # NEW
     ├── WebBackupCreate.yaml                      # NEW
     ├── WebBackupSettings.yaml                    # NEW
-    └── WebBackupSettingsUpdate.yaml              # NEW
+    ├── WebBackupSettingsUpdate.yaml              # NEW
+    └── WebDomain.yaml                            # backup_copies enum 1–10, 15, 20, 30 (FR-016, owner decision 2026-09-14)
 
 app/
 ├── Http/Controllers/Api/V1/
@@ -93,7 +94,7 @@ app/
 │   ├── StoreWebBackupRequest.php                 # NEW type web|mysql
 │   ├── UpdateWebBackupSettingsRequest.php        # NEW legacy validation (R11)
 │   ├── Concerns/EnforcesBackupLimit.php          # NEW 403 on backup_* fields (R12)
-│   ├── WebDomainRequest.php                      # use EnforcesBackupLimit
+│   ├── WebDomainRequest.php                      # use EnforcesBackupLimit; backup_copies Rule::in(BACKUP_COPIES) (FR-016)
 │   ├── StoreWebDatabaseRequest.php               # use EnforcesBackupLimit
 │   └── UpdateWebDatabaseRequest.php              # use EnforcesBackupLimit
 ├── Http/Concerns/HandlesListQuery.php            # + optional defaultOrder, sortAliases (R6)
@@ -101,7 +102,7 @@ app/
 │   ├── WebBackup.php                             # NEW extends BaseModel, read-only
 │   └── RemoteAction.php                          # NEW extends Eloquent Model (exception, R1)
 └── Services/
-    ├── WebBackupService.php                      # NEW visibility, derived fields, availability, settings
+    ├── WebBackupService.php                      # NEW visibility, derived fields, availability, settings; BACKUP_COPIES shared list
     └── RemoteActionService.php                   # NEW locked de-dup + legacy-identical inserts
 
 bootstrap/app.php                                 # + alias 'scope.backup'
@@ -115,6 +116,7 @@ tests/
     ├── WebBackupJobApiTest.php                   # attribution, state mapping ('' → error), download object
     ├── WebBackupSettingsApiTest.php              # validation matrix, datalog u row, password write-only
     ├── BackupLimitGateTest.php                   # limit_backup n/y/no client row, admin exempt, existing endpoints
+    ├── WebDomainBackupCopiesTest.php             # FR-016 regression: 11 and 25 → 422, 30 accepted, admin and client keys
     └── ListQueryAliasTest.php                    # defaultOrder/sortAliases, existing callers unchanged
 ```
 

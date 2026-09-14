@@ -38,3 +38,5 @@
   implementation details.
 - `sys_remoteaction` direct inserts are a documented Principle II exception (legacy inserts remote actions without
   datalog).
+- Owner decisions on 2026-09-14: finished legacy-panel delete jobs that cannot be matched after their backup row is
+  removed are accepted; `backup_copies` on the existing web-domain endpoints is tightened to the legacy values (FR-016).

@@ -62,7 +62,7 @@ Existing model `app/Models/WebDomain.php`. Written with `forceFill()->save()` (d
 | Column | API field | Validation (update) |
 |--------|-----------|---------------------|
 | `backup_interval` | `backup_interval` | `none, daily, weekly, monthly` |
-| `backup_copies` | `backup_copies` | one of `1–10, 15, 20, 30` |
+| `backup_copies` | `backup_copies` | one of `1–10, 15, 20, 30` (same rule on `POST`/`PUT /sites/web-domains`, FR-016, owner decision 2026-09-14) |
 | `backup_excludes` | `backup_excludes` | nullable, max 255, regex `@^(?!.*\.\.)[-a-zA-Z0-9_/.~,*]*$@` |
 | `backup_format_web` | `backup_format_web` | `default, zip, zip_bzip2, tar_gzip, tar_bzip2, tar_xz, tar_7z_lzma2, tar_7z_lzma, tar_7z_ppmd, tar_7z_bzip2` |
 | `backup_format_db` | `backup_format_db` | `zip, zip_bzip2, gzip, bzip2, xz, 7z_lzma2, 7z_lzma, 7z_ppmd, 7z_bzip2` |

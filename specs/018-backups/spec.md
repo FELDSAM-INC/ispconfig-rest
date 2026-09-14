@@ -209,6 +209,9 @@ different server than W's web server → 422 (legacy marks download unavailable)
     an action that the server ignores.
   - `limit_backup = 'n'` is also enforced on the backup fields of the existing web-domain and database endpoints
     (legacy achieves the same by hiding the tab).
+  - The existing web-domain endpoints (`POST`/`PUT /sites/web-domains`) reject `backup_copies` values outside the
+    legacy set 1–10, 15, 20, 30 (previously any value 1–30 was accepted). This is an intentional API behaviour change
+    for the release candidate that restores legacy parity (owner decision 2026-09-14).
 
 ## Requirements *(mandatory)*
 
@@ -246,6 +249,9 @@ different server than W's web server → 422 (legacy marks download unavailable)
 - **FR-015**: Every endpoint MUST be defined in the OpenAPI contract first and covered by feature tests for success,
   validation (422), permission (403/404), duplicate (409), `limit_backup` and unconfigured-server cases, including the
   exact `sys_remoteaction` rows written.
+- **FR-016**: The existing web-domain create and update endpoints MUST accept `backup_copies` only as one of 1–10, 15,
+  20, 30, the same rule as the backup settings endpoint, for every key including admin keys; other values return 422
+  (owner decision 2026-09-14).
 
 ### Key Entities
 
@@ -287,3 +293,5 @@ different server than W's web server → 422 (legacy marks download unavailable)
 - Direct browser download of backups is deferred to a later feature: the API runs on the master server while backups
   live on web/backup servers, so it needs a component on those servers or shared backup storage (owner decision
   2026-09-14).
+- A finished delete job queued from the legacy ISPConfig panel cannot be matched to its website once the server has
+  removed the backup row, so it is not listed in that website's jobs; this is accepted (owner decision 2026-09-14).
