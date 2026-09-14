@@ -151,6 +151,8 @@ the plan-usage need.
   limits `null`, percent against `hd_quota` instead.
 - `client_id` sent by a client key: on the summary it is allowed only when it equals the key's own client
   (otherwise 404); on usage lists it is rejected with 400 (owner decision 2026-09-14); unknown query parameters → 400.
+- Target client without a control-panel identity (no `sys_group`/`sys_user` pair) → the summary answers 404
+  problem+json, identical to an unknown client (owner decision 2026-09-14).
 
 ## API Contract *(mandatory)*
 
@@ -219,8 +221,8 @@ the plan-usage need.
 - **FR-003**: The summary MUST include the resource counts listed in US1 scenario 3 with their limits,
   computed with the spec 012 counting rules.
 - **FR-004**: Client keys MUST receive their own client's summary; reseller keys their own or one of their
-  clients' by `client_id`; admin keys MUST pass `client_id` (422 when missing, 404 when unknown or out of
-  scope).
+  clients' by `client_id`; admin keys MUST pass `client_id` (422 when missing, 404 when unknown, out of
+  scope, or without a control-panel identity — owner decision 2026-09-14).
 - **FR-005**: Website usage MUST report disk usage for vhost sites from the newest `harddisk_quota` blob of
   the site's server, and `null` disk figures for vhost-subdomain and vhost-alias sites together with
   `parent_domain_id`.

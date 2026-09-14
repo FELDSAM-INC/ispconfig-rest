@@ -118,7 +118,7 @@ app/
 │   ├── UsageService.php                           # NEW: web/mail/db row projection, client summary, target-client resolution
 │   └── ClientLimitService.php                     # + public countUsage()/allocatedQuota() over existing LimitSpecs
 └── Support/
-    └── AuthScope.php                              # + static forClient(int $clientId): scope of a client identity
+    └── AuthScope.php                              # + static forClient(int $clientId): ?self — null without control-panel identity → summary 404 (owner decision 2026-09-14)
 
 config/app.php                                     # 'timezone' => env('APP_TIMEZONE', 'UTC')
 config/api.php                                     # + usage.stale_after: harddisk_quota/database_size 1800 s, email_quota 3600 s (owner decision 2026-09-14)

@@ -94,7 +94,8 @@ Verified read-only against ISPConfig 3.3.1p1 on isp-test.feldhost.cz (source in 
   `sys_group.groupid` must be in `$scope->groupIds` (reseller's `sys_user.groups` CSV) else 404. The summary is then
   computed with `AuthScope::forClient($clientId)`: the client's control-panel identity resolved like `ApiKeyAuth`
   (`sys_group.client_id` → `sys_user.default_group`, groups CSV), so counts and sums match what that client itself
-  would see.
+  would see. When the client has no control-panel identity, `forClient()` returns `null` and the summary answers
+  404 problem+json, identical to an unknown client (owner decision 2026-09-14).
 - **Rationale**: Mirrors `dashlets/limits.php`, which counts with `getAuthSQL('r', …, clientid_to_groups_list(
   $client_id))` for the selected client, and reuses the spec 011 identity resolution. 404 rather than 403 avoids
   confirming the existence of other clients.
