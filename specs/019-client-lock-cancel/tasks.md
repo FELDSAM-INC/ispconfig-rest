@@ -133,7 +133,7 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 - [x] T028 [P] Document client lock, cancel, cancel on create, change-only side effects and the locked-client write guard in `README.md` (module section and "Known deviations from legacy ISPConfig")
 - [x] T029 Run pint on all changed PHP files and the full suite in Docker; confirm the suite count grew from 761 with zero failures (`specs/019-client-lock-cancel/quickstart.md` §1)
-- [ ] T030 Deploy to isp-test (`ispconfig-rest update`) and run the manual check with a temporary client from `specs/019-client-lock-cancel/quickstart.md` §2, including cleanup
+- [x] T030 Deploy to isp-test (`ispconfig-rest update`) and run the manual check with a temporary client from `specs/019-client-lock-cancel/quickstart.md` §2, including cleanup
 
 ---
 
