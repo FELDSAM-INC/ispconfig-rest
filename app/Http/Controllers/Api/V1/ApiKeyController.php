@@ -12,7 +12,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
@@ -47,7 +46,7 @@ class ApiKeyController extends Controller
                 throw new BadRequestHttpException("Invalid client id for filter 'client_id'.");
             }
 
-            $query->whereIn('sys_userid', DB::table('sys_user')->where('client_id', (int) $clientId)->pluck('userid')->all());
+            $this->service->whereBoundToClient($query, (int) $clientId);
         }
 
         $result = $this->listQuery(

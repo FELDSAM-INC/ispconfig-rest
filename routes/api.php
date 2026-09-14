@@ -28,6 +28,7 @@ Route::middleware('api.key')->group(function () {
     require __DIR__.'/api/client.php';
     require __DIR__.'/api/dns.php';
     require __DIR__.'/api/mail.php';
+    require __DIR__.'/api/me.php';
 
     Route::middleware('scope.admin')->group(function () {
         require __DIR__.'/api/monitor.php';

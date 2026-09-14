@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use App\Models\ApiKey;
+use App\Support\IspContext;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -137,6 +140,46 @@ class ApiKeyService
                 'last_used_at' => $key->last_used_at?->toJSON(),
             ];
         })->all();
+    }
+
+    /**
+     * Restrict a key query to keys bound to a client's control-panel users
+     * (client or reseller identity); an unknown client yields no rows.
+     *
+     * @param  Builder<ApiKey>  $query
+     * @return Builder<ApiKey>
+     */
+    public function whereBoundToClient(Builder $query, int $clientId): Builder
+    {
+        return $query->whereIn('sys_userid', DB::table('sys_user')->where('client_id', $clientId)->pluck('userid')->all());
+    }
+
+    /**
+     * Identity of the key authenticating a request (GET /me), built from the
+     * AuthScope resolved by ApiKeyAuth and the request attribute api_key_id.
+     * The development key has no row: key_id null, name "development key".
+     *
+     * @return array{key_id: int|null, name: string, scope: string, client_id: int|null, sys_userid: int, sys_groupid: int}
+     */
+    public function identity(Request $request): array
+    {
+        $scope = app(IspContext::class)->authScope();
+        $keyId = $request->attributes->get('api_key_id');
+
+        if ($scope->isAdmin) {
+            $scopeName = 'admin';
+        } else {
+            $scopeName = $scope->isReseller() ? 'reseller' : 'client';
+        }
+
+        return [
+            'key_id' => $keyId === null ? null : (int) $keyId,
+            'name' => $keyId === null ? 'development key' : (string) ApiKey::query()->whereKey($keyId)->value('name'),
+            'scope' => $scopeName,
+            'client_id' => $scope->isAdmin || $scope->clientId < 1 ? null : $scope->clientId,
+            'sys_userid' => $scope->sysUserId,
+            'sys_groupid' => $scope->sysGroupId,
+        ];
     }
 
     /**
