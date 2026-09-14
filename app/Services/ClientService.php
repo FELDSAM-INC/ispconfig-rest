@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ApiKey;
 use App\Models\Client;
 use App\Support\IspContext;
 use App\Support\LegacyCrypt;
@@ -249,8 +250,15 @@ class ClientService
         }
 
         // 2. Drop the client's login artifacts (plain DELETEs, like legacy).
+        //    The client's API keys are deactivated using the user ids read
+        //    before the rows disappear (spec 014 FR-010); this runs in the
+        //    caller's transaction, so a failed delete rolls it back.
+        $userIds = DB::table('sys_user')->where('client_id', $clientId)->pluck('userid')->all();
+
         DB::table('sys_group')->where('client_id', $clientId)->delete();
         DB::table('sys_user')->where('client_id', $clientId)->delete();
+
+        ApiKey::deactivateForClientIdentities($userIds, $groupId);
 
         // 3. Datalog-delete all records owned by the client's group.
         if ($groupId > 1) {

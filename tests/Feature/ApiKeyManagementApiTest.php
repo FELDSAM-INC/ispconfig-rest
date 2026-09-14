@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Requests\StoreApiKeyRequest;
 use App\Models\ApiKey;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -161,5 +162,203 @@ class ApiKeyManagementApiTest extends TestCase
         ], $this->tenantHeaders('admin'))->assertStatus(201);
 
         $this->assertSame(0, DB::table('sys_datalog')->count());
+    }
+
+    // ------------------------------------------------------------------
+    // US2: list, show, update, delete
+    // ------------------------------------------------------------------
+
+    protected function keyId(string $name): int
+    {
+        return (int) ApiKey::query()->where('name', $name)->value('id');
+    }
+
+    public function test_list_returns_the_envelope_with_scopes_and_no_secrets(): void
+    {
+        $response = $this->getJson('/api/v1/system/api-keys', $this->tenantHeaders('admin'))
+            ->assertOk()
+            ->assertJsonStructure(['data' => [['id', 'name', 'scope', 'client_id', 'active', 'created_at', 'last_used_at']], 'meta' => ['total', 'limit', 'offset']])
+            ->assertJsonPath('meta.total', 4);
+
+        $byName = collect($response->json('data'))->keyBy('name');
+        $this->assertSame('admin', $byName['admin key']['scope']);
+        $this->assertNull($byName['admin key']['client_id']);
+        $this->assertSame('reseller', $byName['reseller key']['scope']);
+        $this->assertSame($this->tenant('reseller')['client_id'], $byName['reseller key']['client_id']);
+        $this->assertSame('client', $byName['client A key']['scope']);
+        $this->assertSame($this->tenant('clientA')['client_id'], $byName['client A key']['client_id']);
+
+        foreach ($response->json('data') as $item) {
+            $this->assertArrayNotHasKey('key', $item);
+            $this->assertArrayNotHasKey('key_hash', $item);
+        }
+    }
+
+    public function test_list_paginates_and_sorts(): void
+    {
+        $this->getJson('/api/v1/system/api-keys?limit=2&offset=1&sort=name&order=desc', $this->tenantHeaders('admin'))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 4)
+            ->assertJsonPath('meta.limit', 2)
+            ->assertJsonPath('meta.offset', 1)
+            ->assertJsonPath('data.0.name', 'client B key')
+            ->assertJsonPath('data.1.name', 'client A key');
+    }
+
+    public function test_list_rejects_unknown_parameters_and_invalid_values(): void
+    {
+        foreach (['?foo=1', '?sort=key_hash', '?client_id=abc', '?client_id=0', '?active=maybe'] as $query) {
+            $this->getJson('/api/v1/system/api-keys'.$query, $this->tenantHeaders('admin'))
+                ->assertStatus(400)
+                ->assertHeader('Content-Type', 'application/problem+json');
+        }
+    }
+
+    public function test_list_filters_by_client_active_and_name(): void
+    {
+        $headers = $this->tenantHeaders('admin');
+
+        $this->getJson('/api/v1/system/api-keys?client_id='.$this->tenant('clientA')['client_id'], $headers)
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.name', 'client A key');
+        $this->getJson('/api/v1/system/api-keys?client_id='.$this->tenant('reseller')['client_id'], $headers)
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.name', 'reseller key');
+        $this->getJson('/api/v1/system/api-keys?client_id=99999', $headers)
+            ->assertOk()->assertJsonPath('meta.total', 0);
+
+        $this->getJson('/api/v1/system/api-keys?active=false', $headers)->assertOk()->assertJsonPath('meta.total', 0);
+        ApiKey::query()->whereKey($this->keyId('client B key'))->update(['active' => false]);
+        $this->getJson('/api/v1/system/api-keys?active=false', $headers)
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.name', 'client B key');
+        $this->getJson('/api/v1/system/api-keys?active=true', $headers)->assertOk()->assertJsonPath('meta.total', 3);
+
+        $this->getJson('/api/v1/system/api-keys?name=client*', $headers)->assertOk()->assertJsonPath('meta.total', 2);
+        $this->getJson('/api/v1/system/api-keys?name=client%20A%20key', $headers)->assertOk()->assertJsonPath('meta.total', 1);
+        $this->getJson('/api/v1/system/api-keys?name=client', $headers)->assertOk()->assertJsonPath('meta.total', 0);
+    }
+
+    public function test_show_returns_metadata_and_reports_unbound_keys(): void
+    {
+        $this->getJson('/api/v1/system/api-keys/'.$this->keyId('client A key'), $this->tenantHeaders('admin'))
+            ->assertOk()
+            ->assertJson(['name' => 'client A key', 'scope' => 'client', 'client_id' => $this->tenant('clientA')['client_id'], 'active' => true])
+            ->assertJsonMissingPath('key')
+            ->assertJsonMissingPath('key_hash');
+
+        DB::table('sys_user')->where('userid', $this->tenant('clientB')['userid'])->delete();
+
+        $this->getJson('/api/v1/system/api-keys/'.$this->keyId('client B key'), $this->tenantHeaders('admin'))
+            ->assertOk()
+            ->assertJson(['scope' => 'unbound', 'client_id' => null]);
+    }
+
+    public function test_update_renames_revokes_and_reactivates_a_key(): void
+    {
+        $id = $this->keyId('client A key');
+        $headers = $this->tenantHeaders('admin');
+        $clientKey = $this->tenantHeaders('clientA');
+
+        $this->putJson('/api/v1/system/api-keys/'.$id, ['name' => 'renamed'], $headers)
+            ->assertOk()
+            ->assertJson(['id' => $id, 'name' => 'renamed', 'active' => true])
+            ->assertJsonMissingPath('key')
+            ->assertJsonMissingPath('key_hash');
+
+        $this->putJson('/api/v1/system/api-keys/'.$id, ['active' => false], $headers)
+            ->assertOk()
+            ->assertJson(['active' => false]);
+
+        $this->getJson('/api/v1/ping', $clientKey)
+            ->assertStatus(401)
+            ->assertJson(['title' => 'Unauthorized', 'detail' => 'The provided API key is invalid or has been revoked.']);
+
+        $this->putJson('/api/v1/system/api-keys/'.$id, ['active' => true], $headers)
+            ->assertOk()
+            ->assertJson(['active' => true]);
+
+        $this->getJson('/api/v1/ping', $clientKey)->assertOk();
+    }
+
+    public function test_update_keeps_the_binding_immutable_and_rejects_prohibited_fields(): void
+    {
+        $id = $this->keyId('client A key');
+        $headers = $this->tenantHeaders('admin');
+
+        $this->putJson('/api/v1/system/api-keys/'.$id, ['client_id' => $this->tenant('clientB')['client_id']], $headers)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['client_id']);
+
+        $this->putJson('/api/v1/system/api-keys/'.$id, ['client_id' => $this->tenant('clientA')['client_id']], $headers)
+            ->assertOk();
+
+        $this->putJson('/api/v1/system/api-keys/'.$this->keyId('client B key'), ['client_id' => null], $headers)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['client_id']);
+
+        $this->putJson('/api/v1/system/api-keys/'.$this->keyId('reseller key'), ['client_id' => null, 'name' => 'x'], $headers)
+            ->assertStatus(422);
+
+        foreach (StoreApiKeyRequest::PROHIBITED as $field) {
+            $this->putJson('/api/v1/system/api-keys/'.$id, [$field => 1], $headers)
+                ->assertStatus(422)
+                ->assertJsonValidationErrors([$field]);
+        }
+
+        $this->putJson('/api/v1/system/api-keys/'.$id, ['name' => ''], $headers)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['name']);
+    }
+
+    public function test_the_calling_key_cannot_revoke_or_delete_itself(): void
+    {
+        $adminId = $this->keyId('admin key');
+        $headers = $this->tenantHeaders('admin');
+
+        $this->putJson('/api/v1/system/api-keys/'.$adminId, ['active' => false], $headers)
+            ->assertStatus(409)
+            ->assertHeader('Content-Type', 'application/problem+json');
+
+        $this->deleteJson('/api/v1/system/api-keys/'.$adminId, [], $headers)
+            ->assertStatus(409)
+            ->assertHeader('Content-Type', 'application/problem+json');
+
+        $this->putJson('/api/v1/system/api-keys/'.$adminId, ['name' => 'renamed admin', 'active' => true], $headers)
+            ->assertOk()
+            ->assertJson(['name' => 'renamed admin', 'active' => true]);
+
+        $this->assertTrue((bool) ApiKey::query()->findOrFail($adminId)->active);
+    }
+
+    public function test_delete_removes_the_key(): void
+    {
+        $id = $this->keyId('client A key');
+
+        $this->deleteJson('/api/v1/system/api-keys/'.$id, [], $this->tenantHeaders('admin'))
+            ->assertNoContent();
+
+        $this->getJson('/api/v1/ping', $this->tenantHeaders('clientA'))->assertStatus(401);
+        $this->getJson('/api/v1/system/api-keys/'.$id, $this->tenantHeaders('admin'))->assertStatus(404);
+    }
+
+    public function test_unknown_key_returns_404(): void
+    {
+        $headers = $this->tenantHeaders('admin');
+
+        $this->getJson('/api/v1/system/api-keys/9999', $headers)->assertStatus(404)->assertHeader('Content-Type', 'application/problem+json');
+        $this->putJson('/api/v1/system/api-keys/9999', ['name' => 'x'], $headers)->assertStatus(404);
+        $this->deleteJson('/api/v1/system/api-keys/9999', [], $headers)->assertStatus(404);
+    }
+
+    public function test_client_and_reseller_keys_cannot_manage_keys(): void
+    {
+        $id = $this->keyId('client A key');
+
+        foreach (['clientA', 'reseller'] as $identity) {
+            $headers = $this->tenantHeaders($identity);
+
+            $this->getJson('/api/v1/system/api-keys', $headers)->assertStatus(403);
+            $this->getJson('/api/v1/system/api-keys/'.$id, $headers)->assertStatus(403);
+            $this->putJson('/api/v1/system/api-keys/'.$id, ['name' => 'x'], $headers)->assertStatus(403);
+            $this->deleteJson('/api/v1/system/api-keys/'.$id, [], $headers)->assertStatus(403);
+        }
     }
 }

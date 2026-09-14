@@ -46,4 +46,8 @@ Route::get('system/resync/servers', [ResyncController::class, 'servers']);
 Route::post('system/resync', [ResyncController::class, 'store']);
 
 // API Keys — api/modules/system/api-keys.yaml (static paths before {apiKey})
+Route::get('system/api-keys', [ApiKeyController::class, 'index']);
 Route::post('system/api-keys', [ApiKeyController::class, 'store']);
+Route::get('system/api-keys/{apiKey}', [ApiKeyController::class, 'show'])->whereNumber('apiKey');
+Route::put('system/api-keys/{apiKey}', [ApiKeyController::class, 'update'])->whereNumber('apiKey');
+Route::delete('system/api-keys/{apiKey}', [ApiKeyController::class, 'destroy'])->whereNumber('apiKey');
