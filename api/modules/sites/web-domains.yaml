@@ -75,6 +75,18 @@
         enabling both)
       - A 409 is returned when the (`server_id`, `ip_address`, `domain`)
         combination already exists (database unique key)
+
+      ### Server selection
+      - Admin keys: `server_id` is required and must reference a web server
+      - Client and reseller keys: `server_id` may be omitted; the first web
+        server assigned to the account is used
+      - A `server_id` that is not assigned to the account (including
+        nonexistent servers) returns 422 on `server_id` with
+        `The selected server is not available for this account.`
+      - When no web server is assigned to the account, 422 on `server_id`
+        with `No web server is assigned to this account.`
+      - `vhostsubdomain` and `vhostalias` always use the parent domain's
+        server; client and reseller keys may omit `server_id`
     requestBody:
       required: true
       content:

@@ -27,6 +27,11 @@ class ScopingDnsModuleTest extends TestCase
         TenantSchema::create();
         $this->seedTenants();
 
+        // Spec 016: non-admin keys may only create on servers assigned to their account.
+        foreach (['clientA', 'clientB', 'reseller'] as $tenant) {
+            $this->assignServers($tenant, ['dns' => [1]], 1);
+        }
+
         DB::table('server')->insert([
             'server_id' => 1, 'server_name' => 'ns1', 'dns_server' => 1, 'mirror_server_id' => 0, 'active' => 1,
         ]);

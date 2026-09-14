@@ -48,6 +48,10 @@ properties:
     description: |
       ID of the database server. Must reference a server with the DB role.
       Immutable after creation.
+      Required for admin keys. For client and reseller keys it may be omitted: the
+      first server assigned to the account for this service is used. A server
+      that is not assigned to the account is rejected with 422.
+      The parent website's server is not implied.
     example: 1
 
   parent_domain_id:

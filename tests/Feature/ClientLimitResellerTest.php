@@ -34,6 +34,11 @@ class ClientLimitResellerTest extends TestCase
         TenantSchema::create();
         $this->seedTenants();
 
+        // Spec 016: non-admin keys may only create on servers assigned to their account.
+        foreach (['clientA', 'clientB', 'reseller'] as $tenant) {
+            $this->assignServers($tenant, ['web' => [1], 'mail' => [1], 'db' => [1], 'dns' => [1]], 1);
+        }
+
         DB::table('server')->insert([
             'server_id' => 1, 'server_name' => 'srv1', 'mail_server' => 1, 'web_server' => 1,
             'dns_server' => 1, 'db_server' => 1, 'mirror_server_id' => 0, 'active' => 1,

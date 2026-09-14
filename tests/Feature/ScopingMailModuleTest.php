@@ -29,6 +29,11 @@ class ScopingMailModuleTest extends TestCase
         TenantSchema::create();
         $this->seedTenants();
 
+        // Spec 016: non-admin keys may only create on servers assigned to their account.
+        foreach (['clientA', 'clientB', 'reseller'] as $tenant) {
+            $this->assignServers($tenant, ['mail' => [1]]);
+        }
+
         DB::table('server')->insert([
             'server_id' => 1, 'server_name' => 'mail1', 'mail_server' => 1, 'mirror_server_id' => 0, 'active' => 1,
         ]);

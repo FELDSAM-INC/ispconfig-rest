@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ResolvesAssignedServer;
 use Illuminate\Validation\Rule;
 
 /**
@@ -12,22 +13,44 @@ use Illuminate\Validation\Rule;
  * enabled, relay fields independently optional (#6877), server restricted
  * to actual mail servers (legacy datasource: mail_server = 1 AND
  * mirror_server_id = 0).
+ *
+ * Server selection (spec 016): client and reseller keys get the account's
+ * first assigned mail server when server_id is omitted and may only use
+ * assigned mail servers (legacy mail_domain_edit.php:134-155,
+ * error_not_allowed_server_id).
  */
 class StoreMailDomainRequest extends MailDomainRequest
 {
+    use ResolvesAssignedServer;
+
+    protected function prepareForValidation(): void
+    {
+        parent::prepareForValidation();
+
+        $this->mergeAssignedServerDefault('mail');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return $this->assignedServerMessages('mail');
+    }
+
     /**
      * @return array<string, mixed>
      */
     public function rules(): array
     {
         return [
-            'server_id' => [
+            'server_id' => $this->assignedServerRules('mail', [
                 'required',
                 'integer',
                 Rule::exists('server', 'server_id')
                     ->where('mail_server', 1)
                     ->where('mirror_server_id', 0),
-            ],
+            ]),
             'domain' => [
                 'required',
                 'string',

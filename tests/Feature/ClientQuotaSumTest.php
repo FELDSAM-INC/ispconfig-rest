@@ -33,6 +33,11 @@ class ClientQuotaSumTest extends TestCase
         TenantSchema::create();
         $this->seedTenants();
 
+        // Spec 016: non-admin keys may only create on servers assigned to their account.
+        foreach (['clientA', 'clientB', 'reseller'] as $tenant) {
+            $this->assignServers($tenant, ['web' => [1], 'mail' => [1], 'db' => [1]]);
+        }
+
         DB::table('server')->insert([
             'server_id' => 1,
             'server_name' => 'srv1',

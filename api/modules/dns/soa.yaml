@@ -73,6 +73,16 @@
       The write is journaled to ISPConfig's `sys_datalog` and applied
       asynchronously by the DNS server. The SOA `serial` is generated
       server-side.
+
+      ### Server selection
+      - Admin keys: `server_id` is required and must reference a DNS server
+      - Client and reseller keys: `server_id` may be omitted; the first DNS
+        server assigned to the account is used
+      - A `server_id` that is not assigned to the account (including
+        nonexistent servers) returns 422 on `server_id` with
+        `The selected server is not available for this account.`
+      - When no DNS server is assigned to the account, 422 on `server_id`
+        with `No DNS server is assigned to this account.`
     requestBody:
       required: true
       content:

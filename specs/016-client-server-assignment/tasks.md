@@ -58,16 +58,16 @@ plus fixture updates for existing non-admin tests (research.md R12).
 - [x] T005 Write tests/Feature/ServerAssignmentServiceTest.php (must fail first): CSV parsing (whitespace, duplicates, trailing commas, non-positive values), list order preserved, deleted / mirror (`mirror_server_id > 0`) / wrong-flag servers skipped, `active` ignored, `AuthScope::$clientId = 0` → empty lists, one `client` read per request (memoized), `slaveDnsServerId` valid only for existing non-mirror `dns_server = 1` servers
 - [x] T006 Implement app/Services/ServerAssignmentService.php per data-model.md "Resolution algorithm": `assignedServerIds(AuthScope $scope, string $service)`, `defaultServerId(...)`, `slaveDnsServerId(AuthScope $scope)`, `serviceLabel(string $service)` (`web`, `mail`, `database`, `DNS`), memoized client row and one `server` query per service (read-only query builder, no ISPConfig writes); make T005 pass
 - [x] T007 Implement app/Http/Requests/Concerns/ResolvesAssignedServer.php per research.md R1/R4: (a) `mergeAssignedServerDefault(string $service)` for non-admin scopes in `prepareForValidation()` after base normalization, merging only when `server_id` is absent; (b) `assignedServerRules(string $service)` — admin scopes return the caller's existing rules unchanged; non-admin: `required|integer|min:1` with `server_id.required` message "No {label} server is assigned to this account." plus a closure failing with "The selected server is not available for this account." for any id not in `assignedServerIds`; (c) `slaveDnsServerRules()` (forced default, "No secondary DNS server is assigned to this account."); (d) `immutableServerRule(callable $currentValue)` ("The server cannot be changed after creation.")
-- [ ] T008 [P] Update tests/Feature/ClientLimitDnsTest.php `setUp` to `assignServers(...)` for every non-admin tenant that creates DNS zones (confirm need in T025/T043; revert if the file creates no covered resource)
-- [ ] T009 [P] Update tests/Feature/ClientLimitMailTest.php `setUp` to assign mail servers for non-admin tenants creating mail domains
-- [ ] T010 [P] Update tests/Feature/ClientLimitResellerTest.php `setUp` to assign servers to the reseller rows (reseller keys use their own lists, FR-009)
-- [ ] T011 [P] Update tests/Feature/ClientLimitSitesTest.php `setUp` to assign web and database servers for non-admin tenants creating vhosts and databases
-- [ ] T012 [P] Update tests/Feature/ClientQuotaSumTest.php `setUp` to assign web, mail and database servers for non-admin tenants
-- [ ] T013 [P] Update tests/Feature/ScopingSitesModuleTest.php `setUp` to assign web and database servers for non-admin tenants
-- [ ] T014 [P] Update tests/Feature/ScopingDnsModuleTest.php `setUp` to assign DNS servers (and `default_slave_dnsserver` where secondary zones are created)
-- [ ] T015 [P] Update tests/Feature/ScopingMailModuleTest.php `setUp` to assign mail servers for non-admin tenants (fetchmail destinations stay within the tenant)
-- [ ] T016 [P] Update tests/Feature/ScopedBindingTest.php `setUp` to assign servers where non-admin keys create covered resources
-- [ ] T017 [P] Update tests/Feature/AuthScopeTest.php to assign servers where non-admin keys create covered resources
+- [x] T008 [P] Update tests/Feature/ClientLimitDnsTest.php `setUp` to `assignServers(...)` for every non-admin tenant that creates DNS zones (confirm need in T025/T043; revert if the file creates no covered resource)
+- [x] T009 [P] Update tests/Feature/ClientLimitMailTest.php `setUp` to assign mail servers for non-admin tenants creating mail domains
+- [x] T010 [P] Update tests/Feature/ClientLimitResellerTest.php `setUp` to assign servers to the reseller rows (reseller keys use their own lists, FR-009)
+- [x] T011 [P] Update tests/Feature/ClientLimitSitesTest.php `setUp` to assign web and database servers for non-admin tenants creating vhosts and databases
+- [x] T012 [P] Update tests/Feature/ClientQuotaSumTest.php `setUp` to assign web, mail and database servers for non-admin tenants
+- [x] T013 [P] Update tests/Feature/ScopingSitesModuleTest.php `setUp` to assign web and database servers for non-admin tenants — not required: the suite stayed green without changes (no covered non-admin create)
+- [x] T014 [P] Update tests/Feature/ScopingDnsModuleTest.php `setUp` to assign DNS servers (and `default_slave_dnsserver` where secondary zones are created)
+- [x] T015 [P] Update tests/Feature/ScopingMailModuleTest.php `setUp` to assign mail servers for non-admin tenants (fetchmail destinations stay within the tenant)
+- [x] T016 [P] Update tests/Feature/ScopedBindingTest.php `setUp` to assign servers where non-admin keys create covered resources — not required: the suite stayed green without changes (no covered non-admin create)
+- [x] T017 [P] Update tests/Feature/AuthScopeTest.php to assign servers where non-admin keys create covered resources — not required: the suite stayed green without changes (no covered non-admin create)
 
 **Checkpoint**: Service, request concern and fixtures ready; the existing suite still passes (lists are not yet enforced).
 
@@ -84,20 +84,20 @@ without `server_id` → 422 required (unchanged).
 
 ### Tests for User Story 1 (REQUIRED) ⚠️
 
-- [ ] T018 [P] [US1] Write tests/Feature/ClientServerAssignmentTest.php covering the data-model.md validation matrix for `POST /sites/web-domains` (vhost), `/mail/domains`, `/sites/databases`, `/dns/soa`: one and several assigned servers (list order default), assigned id accepted, unassigned / nonexistent / mirror / wrong-flag ids with byte-identical 422 bodies and unchanged `sys_datalog` count, no valid server → "No {label} server is assigned to this account.", `0`/negative/non-integer → 422, reseller key uses its own lists also when creating for one of its clients, vhost subdomain/alias without `server_id` → parent's server, a resource on a server later removed from the list stays updatable and deletable (FR-011), admin keys unchanged (`required`, existing `exists` message)
+- [x] T018 [P] [US1] Write tests/Feature/ClientServerAssignmentTest.php covering the data-model.md validation matrix for `POST /sites/web-domains` (vhost), `/mail/domains`, `/sites/databases`, `/dns/soa`: one and several assigned servers (list order default), assigned id accepted, unassigned / nonexistent / mirror / wrong-flag ids with byte-identical 422 bodies and unchanged `sys_datalog` count, no valid server → "No {label} server is assigned to this account.", `0`/negative/non-integer → 422, reseller key uses its own lists also when creating for one of its clients, vhost subdomain/alias without `server_id` → parent's server, a resource on a server later removed from the list stays updatable and deletable (FR-011), admin keys unchanged (`required`, existing `exists` message)
 
 ### Contract for User Story 1 (spec-first)
 
-- [ ] T019 [P] [US1] Per contracts/schema-and-operation-changes.md, remove `server_id` from `required` and add the common description in api/components/schemas/WebDomain.yaml (children use the parent's server), api/components/schemas/MailDomain.yaml and api/components/schemas/DnsSoa.yaml, and update only the description in api/components/schemas/Database.yaml
-- [ ] T020 [P] [US1] Append the "Server selection" block to the POST operation descriptions in api/modules/sites/web-domains.yaml, api/modules/mail/domains.yaml, api/modules/sites/databases.yaml and api/modules/dns/soa.yaml (422 cases and messages from the contract changes table)
+- [x] T019 [P] [US1] Per contracts/schema-and-operation-changes.md, remove `server_id` from `required` and add the common description in api/components/schemas/WebDomain.yaml (children use the parent's server), api/components/schemas/MailDomain.yaml and api/components/schemas/DnsSoa.yaml, and update only the description in api/components/schemas/Database.yaml
+- [x] T020 [P] [US1] Append the "Server selection" block to the POST operation descriptions in api/modules/sites/web-domains.yaml, api/modules/mail/domains.yaml, api/modules/sites/databases.yaml and api/modules/dns/soa.yaml (422 cases and messages from the contract changes table)
 
 ### Implementation for User Story 1
 
-- [ ] T021 [P] [US1] Use `ResolvesAssignedServer` in app/Http/Requests/StoreWebDomainRequest.php: service `web` only for type `vhost` (default type); for `vhostsubdomain`/`vhostalias` non-admin keys get `sometimes|integer` so `WebDomainService` keeps forcing the parent's server; admin rules unchanged (if the rules live in app/Http/Requests/WebDomainRequest.php, override them for store only)
-- [ ] T022 [P] [US1] Use `ResolvesAssignedServer` (service `mail`) in app/Http/Requests/StoreMailDomainRequest.php, keeping the admin `Rule::exists(... mirror_server_id = 0)` rule unchanged
-- [ ] T023 [P] [US1] Use `ResolvesAssignedServer` (service `db`) in app/Http/Requests/StoreWebDatabaseRequest.php so `WebDatabaseController::store()` (`assertUniquePerServer`) sees the merged `server_id`
-- [ ] T024 [P] [US1] Use `ResolvesAssignedServer` (service `dns`) in app/Http/Requests/StoreDnsSoaRequest.php so `DnsSoaRequest::after()` origin-collision checks run against the merged `server_id`
-- [ ] T025 [US1] Run tests/Feature/ClientServerAssignmentTest.php and the full suite; confirm which of T008–T017 were required (research.md R12), revert unneeded fixture edits, and confirm admin-key test files are unmodified (SC-004)
+- [x] T021 [P] [US1] Use `ResolvesAssignedServer` in app/Http/Requests/StoreWebDomainRequest.php: service `web` only for type `vhost` (default type); for `vhostsubdomain`/`vhostalias` non-admin keys get `sometimes|integer` so `WebDomainService` keeps forcing the parent's server; admin rules unchanged (if the rules live in app/Http/Requests/WebDomainRequest.php, override them for store only)
+- [x] T022 [P] [US1] Use `ResolvesAssignedServer` (service `mail`) in app/Http/Requests/StoreMailDomainRequest.php, keeping the admin `Rule::exists(... mirror_server_id = 0)` rule unchanged
+- [x] T023 [P] [US1] Use `ResolvesAssignedServer` (service `db`) in app/Http/Requests/StoreWebDatabaseRequest.php so `WebDatabaseController::store()` (`assertUniquePerServer`) sees the merged `server_id`
+- [x] T024 [P] [US1] Use `ResolvesAssignedServer` (service `dns`) in app/Http/Requests/StoreDnsSoaRequest.php so `DnsSoaRequest::after()` origin-collision checks run against the merged `server_id`
+- [x] T025 [US1] Run tests/Feature/ClientServerAssignmentTest.php and the full suite; confirm which of T008–T017 were required (research.md R12), revert unneeded fixture edits, and confirm admin-key test files are unmodified (SC-004)
 
 **Checkpoint**: US1 is fully functional and deliverable as the MVP (a customer panel can create resources with a client key).
 

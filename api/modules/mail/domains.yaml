@@ -82,6 +82,16 @@
         key is derived server-side
       - Relay credentials (relay_user/relay_pass) are optional; leave them
         empty when the relay host authorizes by IP without SASL (#6877)
+
+      ### Server selection
+      - Admin keys: `server_id` is required and must reference a mail server
+      - Client and reseller keys: `server_id` may be omitted; the first mail
+        server assigned to the account is used
+      - A `server_id` that is not assigned to the account (including
+        nonexistent servers) returns 422 on `server_id` with
+        `The selected server is not available for this account.`
+      - When no mail server is assigned to the account, 422 on `server_id`
+        with `No mail server is assigned to this account.`
     requestBody:
       required: true
       content:

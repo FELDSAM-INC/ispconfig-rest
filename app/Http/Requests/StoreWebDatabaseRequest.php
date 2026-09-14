@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ResolvesAssignedServer;
 use Illuminate\Validation\Rule;
 
 /**
@@ -10,9 +11,31 @@ use Illuminate\Validation\Rule;
  * submitted here is the UN-prefixed name; prefixing, the ≤64-char cap,
  * blacklist, per-server uniqueness, remote-access auto-fix and linked-user
  * sync are handled in the controller.
+ *
+ * Server selection (spec 016): client and reseller keys get the account's
+ * first assigned database server when server_id is omitted and may only use
+ * assigned database servers (legacy database_edit.php:79-95, 249-253); the
+ * default is merged before the controller's per-server checks run.
  */
 class StoreWebDatabaseRequest extends SitesRequest
 {
+    use ResolvesAssignedServer;
+
+    protected function prepareForValidation(): void
+    {
+        parent::prepareForValidation();
+
+        $this->mergeAssignedServerDefault('db');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return $this->assignedServerMessages('db');
+    }
+
     protected function booleanFields(): array
     {
         return ['remote_access', 'active'];
@@ -24,13 +47,13 @@ class StoreWebDatabaseRequest extends SitesRequest
     public function rules(): array
     {
         return [
-            'server_id' => [
+            'server_id' => $this->assignedServerRules('db', [
                 'required',
                 'integer',
                 Rule::exists('server', 'server_id')
                     ->where('db_server', 1)
                     ->where('mirror_server_id', 0),
-            ],
+            ]),
             'parent_domain_id' => [
                 // Legacy rejects parent_domain_id = 0 (database_site_error_empty).
                 'required',

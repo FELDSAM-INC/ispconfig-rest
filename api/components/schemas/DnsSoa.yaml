@@ -5,7 +5,6 @@ description: |
   The `origin` is unique across all zones. The SOA `serial` and all DNSSEC
   state fields are managed by the server and are read-only for API consumers.
 required:
-  - server_id
   - origin
   - ns
   - mbox
@@ -69,7 +68,11 @@ properties:
     type: integer
     format: int32
     minimum: 1
-    description: ID of the server where the DNS zone is hosted
+    description: |
+      ID of the server where the DNS zone is hosted.
+      Required for admin keys. For client and reseller keys it may be omitted: the
+      first server assigned to the account for this service is used. A server
+      that is not assigned to the account is rejected with 422.
     example: 1
 
   client_id:
