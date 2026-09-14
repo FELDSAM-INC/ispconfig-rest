@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\ApiKey;
+use App\Services\ApiKeyService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 
 class CreateApiKey extends Command
 {
@@ -15,7 +15,7 @@ class CreateApiKey extends Command
 
     protected $description = 'Mint a new API key (the plaintext is shown once and stored hashed)';
 
-    public function handle(): int
+    public function handle(ApiKeyService $service): int
     {
         $sysUserId = (int) $this->option('sys-userid');
         $sysGroupId = (int) $this->option('sys-groupid');
@@ -30,7 +30,7 @@ class CreateApiKey extends Command
                 return self::FAILURE;
             }
 
-            $identity = $this->resolveClientIdentity((int) $clientIdOption);
+            $identity = $this->resolveClientIdentity($service, (int) $clientIdOption);
 
             if ($identity === null) {
                 return self::FAILURE;
@@ -55,13 +55,12 @@ class CreateApiKey extends Command
     }
 
     /**
-     * Resolve a client's control-panel identity (spec 011 FR-019):
-     * sys_group.groupid by client_id, then sys_user.userid by
-     * default_group = groupid — the pair ISPConfig created for the client.
+     * Resolve a client's control-panel identity (spec 011 FR-019) through
+     * ApiKeyService, reporting which lookup step failed.
      *
      * @return array{0: int, 1: int}|null [sys_userid, sys_groupid]
      */
-    protected function resolveClientIdentity(int $clientId): ?array
+    protected function resolveClientIdentity(ApiKeyService $service, int $clientId): ?array
     {
         if ($clientId < 1) {
             $this->error('--client-id must be a positive integer.');
@@ -69,7 +68,7 @@ class CreateApiKey extends Command
             return null;
         }
 
-        $groupId = DB::table('sys_group')->where('client_id', $clientId)->value('groupid');
+        $groupId = $service->resolveClientGroupId($clientId);
 
         if ($groupId === null) {
             $this->error("Client {$clientId} not found (no sys_group with client_id = {$clientId}).");
@@ -77,7 +76,7 @@ class CreateApiKey extends Command
             return null;
         }
 
-        $userId = DB::table('sys_user')->where('default_group', $groupId)->value('userid');
+        $userId = $service->resolveGroupUserId($groupId);
 
         if ($userId === null) {
             $this->error("Client {$clientId} has no control-panel user (no sys_user with default_group = {$groupId}).");
@@ -85,6 +84,6 @@ class CreateApiKey extends Command
             return null;
         }
 
-        return [(int) $userId, (int) $groupId];
+        return [$userId, $groupId];
     }
 }

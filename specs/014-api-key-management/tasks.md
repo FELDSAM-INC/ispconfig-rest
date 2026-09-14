@@ -43,16 +43,16 @@ PHP (Principle I). No ISPConfig table is written and no migration is added (`api
 
 **Purpose**: The OpenAPI contract for all six operations exists and renders before any PHP is written.
 
-- [ ] T001 [P] Author `api/components/schemas/ApiKey.yaml` from the `ApiKey` block of `specs/014-api-key-management/contracts/schemas.yaml` (`x-db-table: api_keys`, no `key_hash`, `scope` enum incl. `unbound`)
-- [ ] T002 [P] Author `api/components/schemas/ApiKeyCreate.yaml` from the `ApiKeyCreate` block of `specs/014-api-key-management/contracts/schemas.yaml`
-- [ ] T003 [P] Author `api/components/schemas/ApiKeyUpdate.yaml` from the `ApiKeyUpdate` block of `specs/014-api-key-management/contracts/schemas.yaml`
-- [ ] T004 [P] Author `api/components/schemas/ApiKeyCreated.yaml` (`allOf` `./ApiKey.yaml` + one-time `key`) from `specs/014-api-key-management/contracts/schemas.yaml`
-- [ ] T005 [P] Author `api/components/schemas/ApiKeyIdentity.yaml` from the `ApiKeyIdentity` block of `specs/014-api-key-management/contracts/schemas.yaml`
-- [ ] T006 Register `ApiKey`, `ApiKeyCreate`, `ApiKeyUpdate`, `ApiKeyCreated`, `ApiKeyIdentity` in `api/components/schemas/_index.yaml` and under `components.schemas` in `api/openapi.yaml`
-- [ ] T007 [P] Author `api/modules/system/api-keys.yaml` from `specs/014-api-key-management/contracts/api-keys.yaml` and add an `api-keys` entry to `api/modules/system/_index.yaml`
-- [ ] T008 [P] Create the `me` module: `api/modules/me/_index.yaml` (entry `me` → `./me.yaml`, comment that spec 016 adds `servers.yaml`) and `api/modules/me/me.yaml` from `specs/014-api-key-management/contracts/me.yaml`
-- [ ] T009 Register paths `/system/api-keys`, `/system/api-keys/{id}` (after the other `/system/*` entries) and `/me` in `api/openapi.yaml` `paths` using JSON-pointer refs (`./modules/system/api-keys.yaml#/~1system~1api-keys`, `…#/~1system~1api-keys~1{id}`, `./modules/me/me.yaml#/~1me`)
-- [ ] T010 Verify the contract parses and renders: load `GET /api/spec` and `/api/documentation` (see `specs/014-api-key-management/quickstart.md` §1) and confirm the API Keys and Me operations appear with every documented response code
+- [x] T001 [P] Author `api/components/schemas/ApiKey.yaml` from the `ApiKey` block of `specs/014-api-key-management/contracts/schemas.yaml` (`x-db-table: api_keys`, no `key_hash`, `scope` enum incl. `unbound`)
+- [x] T002 [P] Author `api/components/schemas/ApiKeyCreate.yaml` from the `ApiKeyCreate` block of `specs/014-api-key-management/contracts/schemas.yaml`
+- [x] T003 [P] Author `api/components/schemas/ApiKeyUpdate.yaml` from the `ApiKeyUpdate` block of `specs/014-api-key-management/contracts/schemas.yaml`
+- [x] T004 [P] Author `api/components/schemas/ApiKeyCreated.yaml` (`allOf` `./ApiKey.yaml` + one-time `key`) from `specs/014-api-key-management/contracts/schemas.yaml`
+- [x] T005 [P] Author `api/components/schemas/ApiKeyIdentity.yaml` from the `ApiKeyIdentity` block of `specs/014-api-key-management/contracts/schemas.yaml`
+- [x] T006 Register `ApiKey`, `ApiKeyCreate`, `ApiKeyUpdate`, `ApiKeyCreated`, `ApiKeyIdentity` in `api/components/schemas/_index.yaml` and under `components.schemas` in `api/openapi.yaml`
+- [x] T007 [P] Author `api/modules/system/api-keys.yaml` from `specs/014-api-key-management/contracts/api-keys.yaml` and add an `api-keys` entry to `api/modules/system/_index.yaml`
+- [x] T008 [P] Create the `me` module: `api/modules/me/_index.yaml` (entry `me` → `./me.yaml`, comment that spec 016 adds `servers.yaml`) and `api/modules/me/me.yaml` from `specs/014-api-key-management/contracts/me.yaml`
+- [x] T009 Register paths `/system/api-keys`, `/system/api-keys/{id}` (after the other `/system/*` entries) and `/me` in `api/openapi.yaml` `paths` using JSON-pointer refs (`./modules/system/api-keys.yaml#/~1system~1api-keys`, `…#/~1system~1api-keys~1{id}`, `./modules/me/me.yaml#/~1me`)
+- [x] T010 Verify the contract parses and renders: load `GET /api/spec` and `/api/documentation` (see `specs/014-api-key-management/quickstart.md` §1) and confirm the API Keys and Me operations appear with every documented response code
 
 **Checkpoint**: Contract complete — PHP work may start.
 
@@ -64,9 +64,9 @@ PHP (Principle I). No ISPConfig table is written and no migration is added (`api
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T011 Create `app/Services/ApiKeyService.php` with: `resolveClientGroupId(int $clientId): ?int` and `resolveClientIdentity(int $clientId): ?array` (moved verbatim from `app/Console/Commands/CreateApiKey.php`: `sys_group.client_id` → `groupid`, `sys_user.default_group` → `userid`, returns `[userid, groupid]` or `null`); `mint(string $name, ?int $clientId): array` (admin `1/1` without client, wraps `ApiKey::mint()` in `DB::transaction`, returns `[ApiKey, plaintext]`); `present(iterable $keys): array` resolving `scope` (`admin` | `reseller` | `client` | `unbound`) and `client_id` for a whole page with one batched `sys_user` `whereIn` read and one batched `client` `whereIn` read (rules in `specs/014-api-key-management/data-model.md` "Derived fields")
-- [ ] T012 Refactor `app/Console/Commands/CreateApiKey.php` to delegate client identity resolution to `ApiKeyService` while keeping both existing error messages ("Client N not found …" / "… has no control-panel user …") and exit codes
-- [ ] T013 Run the regression guards for the refactor: `php artisan test --filter='CreateApiKeyClientIdTest|ApiKeyAuthTest'` (`tests/Feature/CreateApiKeyClientIdTest.php`, `tests/Feature/ApiKeyAuthTest.php`) — must pass unchanged
+- [x] T011 Create `app/Services/ApiKeyService.php` with: `resolveClientGroupId(int $clientId): ?int` and `resolveClientIdentity(int $clientId): ?array` (moved verbatim from `app/Console/Commands/CreateApiKey.php`: `sys_group.client_id` → `groupid`, `sys_user.default_group` → `userid`, returns `[userid, groupid]` or `null`); `mint(string $name, ?int $clientId): array` (admin `1/1` without client, wraps `ApiKey::mint()` in `DB::transaction`, returns `[ApiKey, plaintext]`); `present(iterable $keys): array` resolving `scope` (`admin` | `reseller` | `client` | `unbound`) and `client_id` for a whole page with one batched `sys_user` `whereIn` read and one batched `client` `whereIn` read (rules in `specs/014-api-key-management/data-model.md` "Derived fields")
+- [x] T012 Refactor `app/Console/Commands/CreateApiKey.php` to delegate client identity resolution to `ApiKeyService` while keeping both existing error messages ("Client N not found …" / "… has no control-panel user …") and exit codes
+- [x] T013 Run the regression guards for the refactor: `php artisan test --filter='CreateApiKeyClientIdTest|ApiKeyAuthTest'` (`tests/Feature/CreateApiKeyClientIdTest.php`, `tests/Feature/ApiKeyAuthTest.php`) — must pass unchanged
 
 **Checkpoint**: Foundation ready — US1, US3 and US4 can start in parallel; US2 follows US1 (shared controller, routes and test file).
 
