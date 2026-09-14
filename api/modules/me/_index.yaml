@@ -1,0 +1,7 @@
+# Me module API paths (owned by spec 014)
+# Caller identity endpoints, available to every valid API key.
+# Spec 016 adds servers.yaml (GET /me/servers) to this module.
+
+# Identity of the calling key
+me:
+  $ref: './me.yaml'

@@ -1,0 +1,19 @@
+# API Key create body (spec 014) — POST /system/api-keys.
+# `key`, `key_hash`, `sys_userid`, `sys_groupid`, `id` and `scope` are
+# rejected with 422: the secret and the identity are never client-supplied.
+
+type: object
+required:
+  - name
+properties:
+  name:
+    type: string
+    minLength: 1
+    maxLength: 255
+    description: Label identifying the key holder (duplicates allowed)
+    example: whmcs service 17
+  client_id:
+    type: integer
+    minimum: 1
+    description: Bind the key to this client's control-panel identity; omit for an admin key
+    example: 42

@@ -56,6 +56,16 @@ components:
       $ref: './components/schemas/DatabaseUser.yaml'
     DataLog:
       $ref: './components/schemas/DataLog.yaml'
+    ApiKey:
+      $ref: './components/schemas/ApiKey.yaml'
+    ApiKeyCreate:
+      $ref: './components/schemas/ApiKeyCreate.yaml'
+    ApiKeyCreated:
+      $ref: './components/schemas/ApiKeyCreated.yaml'
+    ApiKeyIdentity:
+      $ref: './components/schemas/ApiKeyIdentity.yaml'
+    ApiKeyUpdate:
+      $ref: './components/schemas/ApiKeyUpdate.yaml'
     DirectiveSnippet:
       $ref: './components/schemas/DirectiveSnippet.yaml'
     DnsCaConfig:
@@ -394,6 +404,14 @@ paths:
     $ref: './modules/system/resync.yaml#/~1system~1resync'
   /system/resync/servers:
     $ref: './modules/system/resync.yaml#/~1system~1resync~1servers'
+  /system/api-keys:
+    $ref: './modules/system/api-keys.yaml#/~1system~1api-keys'
+  /system/api-keys/{id}:
+    $ref: './modules/system/api-keys.yaml#/~1system~1api-keys~1{id}'
+
+  # Me module paths (caller identity, any valid key)
+  /me:
+    $ref: './modules/me/me.yaml#/~1me'
 
   # Sites module paths
   /sites/web-domains:

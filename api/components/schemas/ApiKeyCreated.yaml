@@ -1,0 +1,15 @@
+# API Key create response (spec 014): key metadata plus the plaintext key.
+# Returned only by POST /system/api-keys; no other response contains `key`.
+
+description: API key metadata plus the plaintext key, returned only by the create operation
+allOf:
+  - $ref: './ApiKey.yaml'
+  - type: object
+    required:
+      - key
+    properties:
+      key:
+        type: string
+        readOnly: true
+        description: Plaintext API key for the X-API-Key header. Shown once; store it securely.
+        example: isp_0123456789abcdefghijABCDEFGHIJ0123456789

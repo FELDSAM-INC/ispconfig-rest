@@ -35,3 +35,7 @@ directive-snippets:
 # Service resynchronization
 resync:
   $ref: './resync.yaml'
+
+# API keys (API-owned api_keys table, spec 014)
+api-keys:
+  $ref: './api-keys.yaml'

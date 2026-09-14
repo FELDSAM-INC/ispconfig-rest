@@ -1,0 +1,41 @@
+# Caller identity (spec 014) — GET /me.
+# Identity and scope of the API key making the request. The local
+# development key reports `key_id: null` and `name: development key`.
+
+type: object
+required:
+  - key_id
+  - name
+  - scope
+  - client_id
+  - sys_userid
+  - sys_groupid
+properties:
+  key_id:
+    type: integer
+    format: int64
+    nullable: true
+    description: Id of the calling key; null for the local development key
+    example: 17
+  name:
+    type: string
+    description: Label of the calling key
+    example: whmcs service 17
+  scope:
+    type: string
+    enum: [admin, reseller, client]
+    description: Authorization scope of the calling key
+    example: client
+  client_id:
+    type: integer
+    nullable: true
+    description: Bound ISPConfig client id; null for admin keys
+    example: 42
+  sys_userid:
+    type: integer
+    description: ISPConfig user the key acts as
+    example: 57
+  sys_groupid:
+    type: integer
+    description: ISPConfig group the key acts as
+    example: 61

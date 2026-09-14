@@ -170,6 +170,21 @@ ServerRescueConfig:
 DirectiveSnippet:
   $ref: './DirectiveSnippet.yaml'
 
+ApiKey:
+  $ref: './ApiKey.yaml'
+
+ApiKeyCreate:
+  $ref: './ApiKeyCreate.yaml'
+
+ApiKeyUpdate:
+  $ref: './ApiKeyUpdate.yaml'
+
+ApiKeyCreated:
+  $ref: './ApiKeyCreated.yaml'
+
+ApiKeyIdentity:
+  $ref: './ApiKeyIdentity.yaml'
+
 ResyncRequest:
   $ref: './ResyncRequest.yaml'
 

@@ -1,0 +1,186 @@
+# API Keys — management of the API-owned `api_keys` table (spec 014).
+# Admin-only (system module, scope.admin gate). Writes only the API-owned
+# table; nothing is journaled to sys_datalog.
+
+/system/api-keys:
+  get:
+    tags:
+      - API Keys
+    summary: List API keys
+    description: |
+      Returns a paginated list of API keys. Secrets are never returned.
+      Requires an administrator API key (client and reseller keys receive 403).
+    parameters:
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - name: sort
+        in: query
+        description: Column to sort by
+        schema:
+          type: string
+          enum: [id, name, active, created_at, last_used_at]
+          default: id
+      - $ref: '../../components/parameters/order.yaml'
+      - name: client_id
+        in: query
+        description: Only keys bound to this ISPConfig client (client or reseller identity)
+        schema:
+          type: integer
+          minimum: 1
+      - name: active
+        in: query
+        description: Filter by active (true) or revoked (false) keys
+        schema:
+          type: boolean
+      - name: name
+        in: query
+        description: Filter by key label; `*` is a wildcard (for example `whmcs*`), without `*` the label must match exactly
+        schema:
+          type: string
+    responses:
+      '200':
+        description: A paginated list of API keys
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+                - meta
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/ApiKey.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - API Keys
+    summary: Create an API key
+    description: |
+      Creates an API key bound to the ISPConfig admin identity (no `client_id`) or to a client's
+      control-panel identity (`client_id`, resolved exactly like `api:key:create --client-id`).
+
+      The plaintext `key` is returned **only in this response**; only its SHA-256 hash is stored.
+
+      ### Validation rules
+      - `name` is required (1–255 characters, duplicates allowed)
+      - `client_id` must reference an existing client with a control-panel user (422 otherwise)
+      - `key`, `key_hash`, `sys_userid`, `sys_groupid`, `id` and `scope` must not be sent (422)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/ApiKeyCreate.yaml'
+    responses:
+      '201':
+        description: Key created; the plaintext key is shown once
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ApiKeyCreated.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+/system/api-keys/{id}:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      description: API key id
+      schema:
+        type: integer
+        minimum: 1
+  get:
+    tags:
+      - API Keys
+    summary: Show an API key
+    description: Returns the key's metadata. The plaintext key and its hash are never returned.
+    responses:
+      '200':
+        description: API key metadata (no secret)
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ApiKey.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+  put:
+    tags:
+      - API Keys
+    summary: Rename, revoke or re-activate an API key
+    description: |
+      Updates the label and/or the active flag. The key's binding (`client_id` / identity) is
+      immutable: sending a different `client_id` returns 422, sending the current value is accepted.
+      A deactivated key is rejected with 401 on its next request.
+      Deactivating the key that authenticates this request returns 409.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/ApiKeyUpdate.yaml'
+    responses:
+      '200':
+        description: Updated API key metadata
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ApiKey.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - API Keys
+    summary: Delete an API key
+    description: |
+      Permanently deletes the key; it is rejected with 401 on its next request.
+      Deleting the key that authenticates this request returns 409.
+    responses:
+      '204':
+        description: Key deleted
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

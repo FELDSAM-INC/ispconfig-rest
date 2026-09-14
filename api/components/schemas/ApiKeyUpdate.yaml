@@ -1,0 +1,22 @@
+# API Key update body (spec 014) — PUT /system/api-keys/{id}.
+# The key's binding is immutable: `client_id` is accepted only when equal to
+# the current binding. `key`, `key_hash`, `sys_userid`, `sys_groupid`, `id`
+# and `scope` are rejected with 422.
+
+type: object
+properties:
+  name:
+    type: string
+    minLength: 1
+    maxLength: 255
+    description: New label
+    example: whmcs service 17
+  active:
+    type: boolean
+    description: Set false to revoke the key, true to re-activate it
+    example: false
+  client_id:
+    type: integer
+    nullable: true
+    description: Accepted only when equal to the current binding (binding is immutable)
+    example: 42
