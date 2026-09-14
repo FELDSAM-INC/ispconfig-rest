@@ -40,6 +40,9 @@ curl -si -X POST "$API/mail/domains" -H "X-API-Key: $KEY" -H 'Content-Type: appl
 # 2. poll the set: pending first, then applied within about a minute
 curl -s "$API/changes/<id>" -H "X-API-Key: $KEY"
 
+# 2b. entries are paginated; status and entry_counts always cover the whole set
+curl -s "$API/changes/<id>?limit=1&offset=0" -H "X-API-Key: $KEY"   # meta.total = number of entries in the set
+
 # 3. the customer's pending indicator
 curl -s "$API/changes?status=pending" -H "X-API-Key: $KEY"
 

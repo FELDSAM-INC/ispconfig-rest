@@ -79,10 +79,14 @@ applied | failed ──(ISPConfig log cleanup purges the row)──▶ not found
 
 ### ChangeSet (schema `api/components/schemas/ChangeSet.yaml`)
 
-- `id` = the shared `session_id`; `entries` = visible entries with that `session_id`, oldest first.
-- `created_at` = earliest entry's `tstamp`.
-- `status` (FR-005): `pending` if any entry pending → else `stalled` if any stalled → else `failed` if any
-  failed → else `applied`.
+- `id` = the shared `session_id`.
+- `status` (FR-005) and `entry_counts` (`pending`, `applied`, `failed`, `stalled`) are computed over **all**
+  visible entries with that `session_id`: `pending` if any entry pending → else `stalled` if any stalled →
+  else `failed` if any failed → else `applied`.
+- `created_at` = earliest visible entry's `tstamp`.
+- `entries` = one page of the visible entries, oldest first, selected with the shared `limit`/`offset`;
+  `meta` = `{total, limit, offset}`, where `total` is the number of visible entries in the set (owner
+  decision 2026-09-14).
 - Not found (404): no visible entry with that id, or id longer than 64 characters / outside
   `[A-Za-z0-9,-]`.
 
@@ -92,6 +96,9 @@ applied | failed ──(ISPConfig log cleanup purges the row)──▶ not found
 |-----------|-----------------------------------|-------------------------------------|
 | admin (`AuthScope::isAdmin`) | all entries | all entries of the record; the record need not exist |
 | client / reseller | `sys_datalog.user = IspContext::username()` | entries of the record from any writer, only if the record exists and passes `AuthScope::applyReadPredicate('r')`; otherwise 404 |
+
+Reseller keys follow the non-admin rule: only entries written under the reseller's own username, not its
+clients' (legacy parity, owner decision 2026-09-14); clients' records are reachable through the record view.
 
 Record view table map (tables exposed as API resources with sys fields; `web_domain` covers vhosts and
 child domains):

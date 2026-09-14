@@ -38,3 +38,5 @@
 - No clarification markers: writer-identity visibility, the readable-record view, the `stalled` status
   and the change set precedence were chosen as defaults and recorded in FR-004..FR-008 and Assumptions.
 - Owner confirmed these defaults on 2026-09-14 (visibility, header name, header on every write).
+- Owner decisions on 2026-09-14 applied: change set status over all entries with paginated entries (FR-002,
+  SC-005), CORS exposure of the header deferred, reseller keys limited to their own writes (Assumptions).

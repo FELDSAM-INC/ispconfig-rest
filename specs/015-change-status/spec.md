@@ -57,6 +57,10 @@ written by the status calls.
    **Then** that entry is `failed` with the error text, and the set is `failed` once nothing is pending.
 6. **Given** a change set written by another identity that the key may not see, or an unknown id,
    **When** status is requested, **Then** 404 problem+json.
+7. **Given** a change set with more entries than one page (for example an admin resync), **When** its
+   status is requested with `limit`/`offset`, **Then** the set status and per-status entry counts cover all
+   visible entries, while `entries` holds only the requested page and `meta` reports `total`, `limit` and
+   `offset` (owner decision 2026-09-14).
 
 ---
 
@@ -121,6 +125,8 @@ With B's key → 404. Deleted records are not reachable through this view.
 - Processed entries purged by ISPConfig's log cleanup (`cron.d/200-logfiles.inc.php`) → the change set
   is no longer found (404); only processed entries are ever purged.
 - A change set id longer than 64 characters → 404.
+- A change set with thousands of entries (admin resync) → status computed over all entries, entries
+  returned one page at a time.
 - Writes to API-owned tables only (for example API keys, feature 014) → no journal entry, no header.
 - Error text recorded by ISPConfig may be multi-line output of a configuration test; it is returned
   verbatim.
@@ -137,13 +143,14 @@ With B's key → 404. Deleted records are not reachable through this view.
 | Method | Path | Purpose | Success code |
 |--------|------|---------|--------------|
 | GET | `/api/v1/changes` | List journal entries visible to the key (`{data, meta}`; filters `status`, `table`, `record_id`, `change_set_id`, `since`) | 200 |
-| GET | `/api/v1/changes/{change_set_id}` | Aggregate status and entries of one change set | 200 |
+| GET | `/api/v1/changes/{change_set_id}` | Aggregate status of one change set over all entries, with its entries paginated (`limit`/`offset`, `meta`) | 200 |
 | (all writes) | every POST/PUT/DELETE | Response header `X-Change-Set-Id` when at least one journal entry was written | 200/201/204 |
 
 - **Change entry fields**: `id` (journal id), `change_set_id`, `table`, `record_id`, `action`
   (`create` / `update` / `delete`), `status` (`pending` / `applied` / `failed` / `stalled`), `error`
   (present only when `failed`), `created_at` (ISO 8601).
-- **Change set fields**: `id`, `status`, `created_at` (earliest entry), `entries[]`.
+- **Change set fields**: `id`, `status` and `entry_counts` (per status, over all visible entries), `created_at`
+  (earliest entry), `entries[]` (one page, oldest first) and `meta` (`total`, `limit`, `offset`).
 
 ## ISPConfig Parity & Datalog Impact *(mandatory)*
 
@@ -182,8 +189,11 @@ With B's key → 404. Deleted records are not reachable through this view.
 - **FR-001**: Every successful write request that journals at least one entry MUST return the header
   `X-Change-Set-Id` whose value identifies all entries written by that request; requests that journal
   nothing MUST NOT return it.
-- **FR-002**: `GET /changes/{change_set_id}` MUST return the change set's status, earliest creation time
-  and entries, and MUST return 404 when the set does not exist or is not visible to the key.
+- **FR-002**: `GET /changes/{change_set_id}` MUST return the change set's status and per-status entry counts
+  computed over all its visible entries, its earliest creation time, and its entries paginated with the
+  shared `limit`/`offset` parameters and a `meta` object (`total`, `limit`, `offset`); unknown query
+  parameters return 400. It MUST return 404 when the set does not exist or is not visible to the key
+  (owner decision 2026-09-14: status over all entries, entries paginated).
 - **FR-003**: An entry MUST be considered processed when every responsible server has a watermark at or
   above the entry id. Responsible servers are the active target server and its active mirror servers,
   or all active servers when the entry's `server_id` is 0.
@@ -230,8 +240,8 @@ With B's key → 404. Deleted records are not reachable through this view.
   that error text.
 - **SC-004**: Every write operation in the contract documents `X-Change-Set-Id`; tests confirm the header
   on create, update and cascading delete, and its absence on no-change updates.
-- **SC-005**: A status request for a change set of up to 50 entries answers within 1 second on a typical
-  ISPConfig host.
+- **SC-005**: A status request answers within 1 second on a typical ISPConfig host, including change sets
+  with thousands of entries (one page of entries per response).
 
 ## Assumptions
 
@@ -249,3 +259,7 @@ With B's key → 404. Deleted records are not reachable through this view.
 - Owner decisions (2026-09-14): non-admin visibility stays own writes plus the readable-record view
   (FR-004..FR-008); the header name stays `X-Change-Set-Id`, consistent with `X-API-Key`; every write
   operation in the contract documents the header.
+- Browser access to `X-Change-Set-Id` (CORS exposed headers) is deferred; the first consumers (WHMCS)
+  call the API server-side (owner decision 2026-09-14).
+- Reseller keys see only changes written under their own username, as in legacy; changes to their
+  clients' records remain available through the readable-record view (owner decision 2026-09-14).

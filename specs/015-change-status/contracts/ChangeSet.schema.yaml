@@ -4,8 +4,10 @@ description: All journal entries written by one API request and their aggregate 
 required:
   - id
   - status
+  - entry_counts
   - created_at
   - entries
+  - meta
 properties:
   id:
     type: string
@@ -20,14 +22,38 @@ properties:
       - failed
       - stalled
     description: |
+      Computed over all entries of the set visible to the key, not only the returned page:
       `pending` if any entry is pending, otherwise `stalled` if any entry is stalled,
       otherwise `failed` if any entry failed, otherwise `applied` (FR-005).
+  entry_counts:
+    type: object
+    description: Number of visible entries of the set per status, over all entries.
+    required:
+      - pending
+      - applied
+      - failed
+      - stalled
+    properties:
+      pending:
+        type: integer
+        minimum: 0
+      applied:
+        type: integer
+        minimum: 0
+      failed:
+        type: integer
+        minimum: 0
+      stalled:
+        type: integer
+        minimum: 0
   created_at:
     type: string
     format: date-time
     description: Journal time of the earliest entry in the set.
   entries:
     type: array
-    description: Entries of the set visible to the key, oldest first.
+    description: One page of the set's entries visible to the key, oldest first (see `meta`).
     items:
       $ref: './Change.yaml'
+  meta:
+    $ref: './Meta.yaml'

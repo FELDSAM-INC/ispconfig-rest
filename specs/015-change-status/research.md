@@ -67,8 +67,8 @@ DataLogController, HandlesListQuery, AuthScope, bootstrap/app.php, tests/Support
   query listener on `sys_datalog` inserts (couples to SQL text); computing it in `ApiKeyAuth` after
   `$next()` (mixes auth with response decoration).
 - **Note**: there is no `config/cors.php`, so browsers cannot read the header cross-origin unless it is
-  added to exposed headers. The first consumer (WHMCS) calls the API server-side, so this is a follow-up,
-  not part of this feature.
+  added to exposed headers. Browser access is deferred: the first consumers (WHMCS) call the API
+  server-side (owner decision 2026-09-14).
 
 ## R5 — Visibility
 
@@ -82,7 +82,9 @@ DataLogController, HandlesListQuery, AuthScope, bootstrap/app.php, tests/Support
   - A missing record gives 404, and a table outside the map with `record_id` gives 400.
 - **Rationale**: Legacy `datalogStatus()` scopes by username; `DatalogService` writes the same
   `IspContext::username()`, so API and legacy panel writes of one identity are both visible (owner
-  decision 2026-09-14). The record check reuses spec 011's single predicate source.
+  decision 2026-09-14). Reseller keys are non-admin and see only entries written under their own username,
+  not their clients' (legacy parity, owner decision 2026-09-14); their clients' readable records are
+  covered by the record view. The record check reuses spec 011's single predicate source.
 - **Alternatives considered**: all entries of every readable record in the general list (needs a
   per-table permission join over the journal; rejected by the owner); scoping by `sys_groupid` (the
   journal has no permission columns).
@@ -114,8 +116,8 @@ DataLogController, HandlesListQuery, AuthScope, bootstrap/app.php, tests/Support
   - Status computation is one extra query for the server table.
 - **Alternatives considered**: an index on `session_id` (schema change, overwritten by ISPConfig
   updates); caching status (stale by design, the watermark changes every minute).
-- **Risk**: very large sets (admin resync writes thousands of entries with one id) return all entries;
-  acceptable for admin-only tooling and noted in the contract description of the change set response.
+- **Large sets**: an admin resync writes thousands of entries with one id; the change set endpoint pages
+  its entries (R12), so the response size stays bounded.
 
 ## R8 — Contract mechanics
 
@@ -157,3 +159,19 @@ DataLogController, HandlesListQuery, AuthScope, bootstrap/app.php, tests/Support
   API entries of the same identity and can be looked up by their session id; the path parameter accepts
   `[A-Za-z0-9,-]{1,64}`.
 - **Rationale**: Live data has both 26- and 32-character ids; PHP session ids use that character set.
+
+## R12 — Change set entry pagination
+
+- **Decision** (owner decision 2026-09-14): `GET /changes/{change_set_id}` computes `status` and
+  `entry_counts` over all visible entries of the set, and returns the entries paginated with the shared
+  `limit`/`offset` parameters (oldest first) with `meta {total, limit, offset}` next to them. Unknown query
+  parameters return 400 through `HandlesListQuery`.
+- **Queries**: one aggregate query over the set (`COUNT(*)`, conditional sums of the R6 status predicates,
+  `MIN(tstamp)`) under the same visibility constraint, one page query (`ORDER BY datalog_id ASC` with
+  `LIMIT`/`OFFSET`), and the existing single `server` query; no per-entry queries. `total = 0` → 404.
+- **Rationale**: an admin resync can write thousands of entries under one id, so returning all of them makes
+  responses unbounded; the status must still reflect every entry, so a set is never reported applied while
+  an entry outside the returned page is pending.
+- **Alternatives considered**: capping entries without paging (hides entries); returning only the status and
+  listing entries through `GET /changes?change_set_id=` (two calls for the common small case); wrapping the
+  set in `{data, meta}` (the set is a single resource; `meta` describes its `entries`).

@@ -8,7 +8,8 @@
 Give every API key a truthful view of whether its writes have been applied by ISPConfig.
 Every successful write that journals at least one `sys_datalog` entry returns `X-Change-Set-Id` (the
 request's existing journal `session_id`). Two read-only endpoints report status:
-- `GET /changes/{change_set_id}` — aggregate status and entries of one change set.
+- `GET /changes/{change_set_id}` — aggregate status over all entries of one change set, with its entries
+  paginated (owner decision 2026-09-14).
 - `GET /changes` — scoped, filterable list, including the customer's pending and failed changes and a
   record view for readable records.
 
@@ -26,7 +27,7 @@ in `IspContext`, and it is documented on all 148 write operations of the contrac
 **Testing**: PHPUnit (`vendor/bin/phpunit`), feature tests in `tests/Feature/` plus unit tests in `tests/Unit/` — REQUIRED per constitution v2  
 **Target Platform**: Linux server alongside an ISPConfig installation  
 **Project Type**: Contract-first REST API (monolith)  
-**Performance Goals**: a change set of up to 50 entries answers within 1 s (SC-005); one extra `server` query per status request; no per-entry queries  
+**Performance Goals**: a status request answers within 1 s for change sets of any size, one page of entries per response (SC-005); one aggregate query, one page query and one `server` query per change set request; no per-entry queries  
 **Constraints**: async write semantics via `sys_datalog` (201 create / 200 update / 204 delete); behavioral parity with legacy ISPConfig 3.3.1p1 datalog processing; no indexes may be added to `sys_datalog` (research R7); journal payloads and usernames never exposed  
 **Scale/Scope**: 2 new endpoints; 1 new module (`changes`); 2 schemas + 1 header component; 148 write operations in 54 contract files gain a header reference; 1 middleware, 1 controller, 2 services; `IspContext` and `DatalogService` touched
 
@@ -48,6 +49,7 @@ Pre-research gate: **PASS**. Post-design re-check (after research.md, data-model
 - [x] **Route discipline (IV)**: new `routes/api/changes.php` is required from `routes/api.php` inside the `api.key` group, outside every `scope.admin` group. `changes` is registered before `changes/{changeSetId}`. The flow is thin `ChangeController` → `ChangeStatusResolver` / `ChangeRecordResolver` services. (The template's `routes/web.php` / `api.auth` wording predates the Laravel 12 port; `routes/api.php` is the constitution v2 target.)
 - [x] **HTTP contract (V)**:
   - The list returns `{data, meta:{total,limit,offset}}` through `HandlesListQuery`, and unknown parameters give 400.
+  - The change set returns the `ChangeSet` resource with its entries paged by the shared `limit`/`offset` and a `meta` object next to `entries`; unknown parameters give 400 (owner decision 2026-09-14).
   - Errors are RFC 9457 problem+json: 400 for bad filters, 401 without a key, and 404 for unknown or invisible sets and for unreadable records.
   - Only 200 responses are added. Existing write status codes are unchanged; they only gain a response header.
 - [x] **No schema changes**: no migrations and no indexes on ISPConfig tables. The index alternative is explicitly rejected in R7.
@@ -60,7 +62,7 @@ Pre-research gate: **PASS**. Post-design re-check (after research.md, data-model
 ```text
 specs/015-change-status/
 ├── plan.md              # This file
-├── research.md          # Phase 0: decisions R1–R11
+├── research.md          # Phase 0: decisions R1–R12
 ├── data-model.md        # Phase 1: derived entities, status rules, visibility
 ├── quickstart.md        # Phase 1: automated + manual verification
 ├── contracts/
@@ -101,7 +103,7 @@ bootstrap/app.php                          # alias 'change.set'; priority after 
 routes/api.php                             # group middleware ['api.key', 'change.set']; require routes/api/changes.php outside scope.admin
 routes/api/changes.php                     # NEW — changes (list) before changes/{changeSetId} (where: [A-Za-z0-9,-]{1,64})
 
-tests/Feature/ChangeStatusApiTest.php      # NEW — change set show: pending/applied/failed/stalled, mirrors, server_id 0, 401/404, isolation
+tests/Feature/ChangeStatusApiTest.php      # NEW — change set show: pending/applied/failed/stalled, mirrors, server_id 0, entry paging with status over all entries, 400/401/404, isolation
 tests/Feature/ChangeListApiTest.php        # NEW — visibility own writes vs admin, filters, since, record view (readable/unreadable/deleted/400), unknown params
 tests/Feature/ChangeSetHeaderTest.php      # NEW — header on create/update/cascading delete matches session rows; absent on no-change update and 422
 tests/Unit/ChangeStatusResolverTest.php    # NEW — derivation matrix from server rows (active/inactive/mirror/deleted server, server_id 0)
@@ -167,14 +169,19 @@ Done — see research.md.
    - Apply the filters, then `listQuery(DataLog::query(), sortable: ['datalog_id'], defaultSort:
      'datalog_id', filters: ['change_set_id' => ...])` with `order` defaulting to `desc`.
    - Map rows to the `Change` shape (no `data`/`user`/`server_id`).
-7. **`ChangeController@show`**:
-   - Query entries `session_id = id` (plus `user = username` for non-admin), ordered by `datalog_id` asc.
-   - Empty result → 404; otherwise map entries, aggregate status and take the earliest `tstamp`.
+7. **`ChangeController@show`** (owner decision 2026-09-14: status over all entries, entries paginated):
+   - Visibility constraint: `session_id = id` (plus `user = username` for non-admin).
+   - Aggregate query: `COUNT(*)`, conditional sums of the `ChangeStatusResolver` status predicates and
+     `MIN(tstamp)`; `total = 0` → 404; set `status` from the counts (FR-005).
+   - Page query: `ORDER BY datalog_id ASC` with the shared `limit`/`offset` (unknown parameters 400), mapped
+     to `Change`; respond with `id`, `status`, `entry_counts`, `created_at`, `entries` and `meta` (research R12).
 8. **Isolation tests**:
    - Client B never sees A's sets or entries.
-   - A reseller sees only entries written by its own username, not its clients' (legacy parity; the record
-     view covers readable client records).
+   - A reseller sees only entries written by its own username, not its clients' (legacy parity, owner
+     decision 2026-09-14; the record view covers readable client records).
    - The admin sees all.
+9. **Deferred**: CORS exposure of `X-Change-Set-Id` for browser consumers is not part of this feature (owner
+   decision 2026-09-14); WHMCS calls the API server-side.
 
 ## Complexity Tracking
 
