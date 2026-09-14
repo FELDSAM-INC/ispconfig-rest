@@ -61,6 +61,20 @@ class TenantSchema
         'limit_database_quota' => -1,
     ];
 
+    /**
+     * Client server-assignment columns read by spec 016
+     * (ispconfig3.sql client: *_servers CSV lists, default_slave_dnsserver).
+     *
+     * @var array<int, string>
+     */
+    private const SERVER_ASSIGNMENT_COLUMNS = [
+        'web_servers',
+        'mail_servers',
+        'db_servers',
+        'dns_servers',
+        'default_slave_dnsserver',
+    ];
+
     public static function create(): void
     {
         if (! Schema::hasTable('sys_datalog')) {
@@ -90,6 +104,14 @@ class TenantSchema
                 $table->unsignedInteger('mirror_server_id')->default(0);
                 $table->boolean('active')->default(true);
             });
+        } else {
+            // Module schemas (DnsSchema, MailSchema, MailCompletionSchema) omit
+            // the database-server flag the spec 016 assignment filter reads.
+            self::ensureColumns('server', function (Blueprint $table, array $missing): void {
+                if (in_array('db_server', $missing, true)) {
+                    $table->boolean('db_server')->default(false);
+                }
+            }, ['db_server']);
         }
 
         if (! Schema::hasTable('sys_user')) {
@@ -157,6 +179,8 @@ class TenantSchema
                 foreach (self::LIMIT_COLUMNS as $column => $default) {
                     $table->integer($column)->default($default);
                 }
+
+                self::addServerAssignmentColumns($table, self::SERVER_ASSIGNMENT_COLUMNS);
             });
         } else {
             self::ensureColumns('client', function (Blueprint $table, array $missing): void {
@@ -174,7 +198,8 @@ class TenantSchema
                         $table->integer($limit)->default($default);
                     }
                 }
-            }, array_merge(['username', 'contact_name', 'parent_client_id'], array_keys(self::LIMIT_COLUMNS)));
+                self::addServerAssignmentColumns($table, array_values(array_intersect(self::SERVER_ASSIGNMENT_COLUMNS, $missing)));
+            }, array_merge(['username', 'contact_name', 'parent_client_id'], array_keys(self::LIMIT_COLUMNS), self::SERVER_ASSIGNMENT_COLUMNS));
 
             self::ensureSysFields(['client']);
         }
@@ -212,6 +237,20 @@ class TenantSchema
                     }
                 }
             });
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $columns  subset of SERVER_ASSIGNMENT_COLUMNS
+     */
+    private static function addServerAssignmentColumns(Blueprint $table, array $columns): void
+    {
+        foreach ($columns as $column) {
+            if ($column === 'default_slave_dnsserver') {
+                $table->unsignedInteger($column)->default(0);
+            } else {
+                $table->text($column)->nullable();
+            }
         }
     }
 

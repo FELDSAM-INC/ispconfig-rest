@@ -150,6 +150,32 @@ trait TenantFixtures
     }
 
     /**
+     * Assign servers to the tenant's client row (spec 016): $lists maps
+     * 'web' / 'mail' / 'db' / 'dns' to server ids in preference order,
+     * written as the legacy CSV columns; $slaveDns sets
+     * default_slave_dnsserver.
+     *
+     * @param  array<string, array<int, int>>  $lists
+     */
+    protected function assignServers(string $tenant, array $lists, ?int $slaveDns = null): void
+    {
+        $columns = ['web' => 'web_servers', 'mail' => 'mail_servers', 'db' => 'db_servers', 'dns' => 'dns_servers'];
+        $values = [];
+
+        foreach ($lists as $service => $ids) {
+            $values[$columns[$service]] = implode(',', $ids);
+        }
+
+        if ($slaveDns !== null) {
+            $values['default_slave_dnsserver'] = $slaveDns;
+        }
+
+        DB::table('client')
+            ->where('client_id', $this->tenants[$tenant]['client_id'])
+            ->update($values);
+    }
+
+    /**
      * Seed N limit-consuming rows on $table owned by $owner (stamped with the
      * tenant's sys identity), so the next create sees exactly N existing rows.
      * $attrs receives the 0-based index and returns that row's column values
