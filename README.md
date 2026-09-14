@@ -57,6 +57,8 @@ ispconfig-rest status                        # service state, version, DB connec
 ispconfig-rest update                        # pull latest, install deps, migrate, restart
 ispconfig-rest key:create "my integration"   # mint an admin key
 ispconfig-rest key:create "acme" --client-id 42   # mint a client-scoped key
+ispconfig-rest key:list --client-id 42       # list keys (never shows secrets)
+ispconfig-rest key:revoke 17                 # revoke (deactivate) a key
 ispconfig-rest firewall:allow 8090           # open a port in the ISPConfig firewall
 ispconfig-rest restart | logs -f | version | uninstall
 ```
@@ -97,6 +99,21 @@ Each key is bound to an ISPConfig user, and access follows ISPConfig's own `sys_
 - A key bound to a **client or reseller** (`php artisan api:key:create "label" --client-id=N`) sees and mutates only the rows that user's AUTHSQL grants (own rows, rows in its groups, world-readable rows). Rows it cannot read return `404`; rows it can read but not modify return `403`. The admin-only modules — `servers`, `system`, `monitor`, and `resellers` — return `403` in full. On create, the key's identity is stamped onto the row; client-supplied `sys_userid`/`sys_groupid` values are ignored.
 
 Scoped keys are also bound by their client's **resource limits** (`client.limit_*`): creating past a booked cap (e.g. `limit_maildomain`) returns `403`, and quota-sum limits (mailbox/web/database quota) are enforced on create and update. Resellers are additionally capped by their own limits. Admin keys are unaffected.
+
+### Managing keys over HTTP
+
+Admin keys manage keys remotely under `/system/api-keys` (client and reseller keys receive `403`):
+
+- `POST /system/api-keys` with `{"name": "...", "client_id": 42}` creates a key bound to the client's
+  control-panel identity; omit `client_id` for an admin key. The plaintext `key` is returned **only in this
+  response**.
+- `GET /system/api-keys` lists keys (filters `client_id`, `active`, and `name` with `*` wildcards);
+  `GET /system/api-keys/{id}` shows one. The key and its hash are never returned.
+- `PUT /system/api-keys/{id}` renames a key or sets `active` to revoke or re-activate it;
+  `DELETE /system/api-keys/{id}` deletes it. A key cannot revoke or delete itself (`409`).
+- Deleting a client with `DELETE /clients/{id}` deactivates the client's keys.
+
+Any valid key can call `GET /me` to read its own identity and scope.
 
 ## Conventions
 
