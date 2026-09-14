@@ -66,6 +66,10 @@ components:
       $ref: './components/schemas/ApiKeyIdentity.yaml'
     ApiKeyUpdate:
       $ref: './components/schemas/ApiKeyUpdate.yaml'
+    AssignedServers:
+      $ref: './components/schemas/AssignedServers.yaml'
+    AssignedServer:
+      $ref: './components/schemas/AssignedServer.yaml'
     DirectiveSnippet:
       $ref: './components/schemas/DirectiveSnippet.yaml'
     DnsCaConfig:
@@ -412,6 +416,8 @@ paths:
   # Me module paths (caller identity, any valid key)
   /me:
     $ref: './modules/me/me.yaml#/~1me'
+  /me/servers:
+    $ref: './modules/me/servers.yaml#/~1me~1servers'
 
   # Sites module paths
   /sites/web-domains:

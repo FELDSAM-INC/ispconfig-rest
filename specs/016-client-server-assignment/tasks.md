@@ -114,20 +114,20 @@ eligible servers with system-config defaults.
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T026 [P] [US2] Write tests/Feature/MeServersApiTest.php: client and reseller keys (lists in order, first entry `is_default`, invalid entries omitted, empty lists, `dns_slave` object or `null`), admin key (all non-mirror servers per flag ordered by `server_id`, `is_default` from `sys_ini` `sites.default_webserver`/`default_dbserver`, `mail.default_mailserver`, `dns.default_dnsserver`, `dns.default_slave_dnsserver`; no entry marked when the configured default is not eligible), entries contain exactly `server_id`, `server_name`, `is_default` (SC-005), 401 for an invalid key
+- [x] T026 [P] [US2] Write tests/Feature/MeServersApiTest.php: client and reseller keys (lists in order, first entry `is_default`, invalid entries omitted, empty lists, `dns_slave` object or `null`), admin key (all non-mirror servers per flag ordered by `server_id`, `is_default` from `sys_ini` `sites.default_webserver`/`default_dbserver`, `mail.default_mailserver`, `dns.default_dnsserver`, `dns.default_slave_dnsserver`; no entry marked when the configured default is not eligible), entries contain exactly `server_id`, `server_name`, `is_default` (SC-005), 401 for an invalid key
 
 ### Contract for User Story 2 (spec-first)
 
-- [ ] T027 [P] [US2] Create api/components/schemas/AssignedServer.yaml and api/components/schemas/AssignedServers.yaml from specs/016-client-server-assignment/contracts/AssignedServer.yaml and contracts/AssignedServers.yaml (`additionalProperties: false`)
-- [ ] T028 [P] [US2] Create api/modules/me/servers.yaml from specs/016-client-server-assignment/contracts/me-servers.yaml and add the `servers` entry to api/modules/me/_index.yaml (create `_index.yaml` in spec 014's layout if T002 found it absent)
-- [ ] T029 [US2] Register path `/me/servers` (`$ref: './modules/me/servers.yaml#/~1me~1servers'`) and schemas `AssignedServers`, `AssignedServer` in api/openapi.yaml (depends on T027, T028)
+- [x] T027 [P] [US2] Create api/components/schemas/AssignedServer.yaml and api/components/schemas/AssignedServers.yaml from specs/016-client-server-assignment/contracts/AssignedServer.yaml and contracts/AssignedServers.yaml (`additionalProperties: false`)
+- [x] T028 [P] [US2] Create api/modules/me/servers.yaml from specs/016-client-server-assignment/contracts/me-servers.yaml and add the `servers` entry to api/modules/me/_index.yaml (create `_index.yaml` in spec 014's layout if T002 found it absent)
+- [x] T029 [US2] Register path `/me/servers` (`$ref: './modules/me/servers.yaml#/~1me~1servers'`) and schemas `AssignedServers`, `AssignedServer` in api/openapi.yaml (depends on T027, T028)
 
 ### Implementation for User Story 2
 
-- [ ] T030 [US2] Add `assignedServersView(AuthScope $scope): array` to app/Services/ServerAssignmentService.php per research.md R10 (non-admin from assigned lists and `slaveDnsServerId`; admin from all eligible servers with defaults via `App\Services\SystemConfigService::getSection()`), at most one `client` read, one `server` query and one `sys_ini` read
-- [ ] T031 [US2] Create invokable app/Http/Controllers/Api/V1/MeServersController.php returning `assignedServersView()` for the request's AuthScope as a single 200 object (no list envelope)
-- [ ] T032 [US2] Add `Route::get('me/servers', MeServersController::class)` to routes/api/me.php; if T002 found the module absent, create routes/api/me.php and add `require __DIR__.'/api/me.php';` to routes/api.php inside the `api.key` group and outside every `scope.admin` group
-- [ ] T033 [US2] Run tests/Feature/MeServersApiTest.php and tests/Feature/SwaggerSpecServerTest.php; confirm `/me/servers` is served in `/api/spec`
+- [x] T030 [US2] Add `assignedServersView(AuthScope $scope): array` to app/Services/ServerAssignmentService.php per research.md R10 (non-admin from assigned lists and `slaveDnsServerId`; admin from all eligible servers with defaults via `App\Services\SystemConfigService::getSection()`), at most one `client` read, one `server` query and one `sys_ini` read
+- [x] T031 [US2] Create invokable app/Http/Controllers/Api/V1/MeServersController.php returning `assignedServersView()` for the request's AuthScope as a single 200 object (no list envelope)
+- [x] T032 [US2] Add `Route::get('me/servers', MeServersController::class)` to routes/api/me.php; if T002 found the module absent, create routes/api/me.php and add `require __DIR__.'/api/me.php';` to routes/api.php inside the `api.key` group and outside every `scope.admin` group
+- [x] T033 [US2] Run tests/Feature/MeServersApiTest.php and tests/Feature/SwaggerSpecServerTest.php; confirm `/me/servers` is served in `/api/spec`
 
 **Checkpoint**: US1 and US2 both work independently.
 

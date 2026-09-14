@@ -179,6 +179,12 @@ ApiKeyCreate:
 ApiKeyUpdate:
   $ref: './ApiKeyUpdate.yaml'
 
+AssignedServers:
+  $ref: './AssignedServers.yaml'
+
+AssignedServer:
+  $ref: './AssignedServer.yaml'
+
 ApiKeyCreated:
   $ref: './ApiKeyCreated.yaml'
 

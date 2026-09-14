@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\MeController;
+use App\Http\Controllers\Api\V1\MeServersController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -13,3 +14,6 @@ use Illuminate\Support\Facades\Route;
 
 // Caller identity — api/modules/me/me.yaml
 Route::get('me', [MeController::class, 'show']);
+
+// Servers the calling key may use — api/modules/me/servers.yaml (spec 016)
+Route::get('me/servers', MeServersController::class);

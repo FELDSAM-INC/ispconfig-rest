@@ -1,0 +1,35 @@
+type: object
+description: Servers the calling key may use per service (GET /me/servers).
+additionalProperties: false
+required:
+  - web
+  - mail
+  - db
+  - dns
+  - dns_slave
+properties:
+  web:
+    type: array
+    description: Web servers for new websites (vhosts), in preference order.
+    items:
+      $ref: './AssignedServer.yaml'
+  mail:
+    type: array
+    description: Mail servers for new mail domains, in preference order.
+    items:
+      $ref: './AssignedServer.yaml'
+  db:
+    type: array
+    description: Database servers for new databases, in preference order.
+    items:
+      $ref: './AssignedServer.yaml'
+  dns:
+    type: array
+    description: DNS servers for new primary DNS zones, in preference order.
+    items:
+      $ref: './AssignedServer.yaml'
+  dns_slave:
+    description: Server used for new secondary DNS zones, or null when none is assigned.
+    nullable: true
+    allOf:
+      - $ref: './AssignedServer.yaml'

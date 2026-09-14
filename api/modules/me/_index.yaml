@@ -5,3 +5,7 @@
 # Identity of the calling key
 me:
   $ref: './me.yaml'
+
+# Servers the calling key may use (spec 016)
+servers:
+  $ref: './servers.yaml'

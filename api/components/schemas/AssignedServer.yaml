@@ -1,0 +1,20 @@
+type: object
+description: A server the calling key may use. Carries no other server data.
+additionalProperties: false
+required:
+  - server_id
+  - server_name
+  - is_default
+properties:
+  server_id:
+    type: integer
+    format: int64
+    minimum: 1
+    example: 2
+  server_name:
+    type: string
+    example: web2.example.com
+  is_default:
+    type: boolean
+    description: True for the server used when a create request omits `server_id`.
+    example: true
