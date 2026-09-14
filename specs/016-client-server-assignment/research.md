@@ -96,12 +96,16 @@ Sources: this repository at `06dc558` + spec 016; ISPConfig 3.3.1p1 on `isp-test
 
 - **Decision**: Non-admin: the value is `mail_user.server_id` of the destination mailbox (after the
   existing IDN/lower-case normalization). Omitted → merged; a different value → R4 not-available 422. When
-  the mailbox does not exist, the existing `existingMailboxRule` error on `destination` applies and no server
+  the mailbox does not exist or is not readable by the key, the `existingMailboxRule` error on `destination` applies and no server
   is merged. Admin unchanged.
 - **Rationale**: `mail_get_edit.php:97` always copies the destination mailbox's `server_id`.
-- **Out-of-scope observation**: `MailGetRequest::existingMailboxRule()` checks existence without the read
-  predicate, so a non-admin key can target another tenant's mailbox as destination. This predates 016
-  (feature 011 left reference checks out of scope) and is recorded here for a follow-up.
+- **Decision (owner decision 2026-09-14), destination scoping**: `MailGetRequest::existingMailboxRule()` checked existence
+  without the read predicate, so a non-admin key could target another tenant's mailbox (a gap feature 011 left in
+  reference checks). For non-admin keys the rule now checks existence through the key's read predicate
+  (`AuthScope::applyReadPredicate('r')` on `mail_user`), used by both `StoreMailGetRequest` and
+  `UpdateMailGetRequest`. An unreadable mailbox fails with the same message as a nonexistent one, so other tenants'
+  addresses cannot be probed; admin keys are unchanged. Legacy parity: the destination datasource in
+  `mail/form/mail_get.tform.php` selects `email FROM mail_user WHERE {AUTHSQL}`.
 
 ## R9 — Server changes on update
 
@@ -137,8 +141,8 @@ Sources: this repository at `06dc558` + spec 016; ISPConfig 3.3.1p1 on `isp-test
 - **Consequence**: `ClientService` seeds only `default_*` ids for resellers created through the API
   (`reseller_edit.php` parity), not the lists. Such reseller keys get the "no server assigned" 422 until an
   admin sets the lists (`PUT /clients/{id}` or `/resellers/{id}`). This is legacy-consistent (the legacy reseller
-  sees no server options either) and is documented in the operation descriptions; changing reseller seeding is
-  out of scope (open question in the report).
+  sees no server options either) and is documented in the operation descriptions. Owner decision 2026-09-14: keep
+  this legacy seeding; reseller list seeding is not changed.
 
 ## R12 — Test fixtures and regression scope
 

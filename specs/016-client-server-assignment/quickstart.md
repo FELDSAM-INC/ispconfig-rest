@@ -59,6 +59,8 @@ curl -s -H "$ADMIN" $API/me/servers
 # US3: secondary zone forced to server 4; server change on a zone update rejected
 curl -s -H "$A" -H "$J" -X POST $API/dns/slaves -d '{"origin":"slave.test.","ns":"203.0.113.1"}' | grep server_id
 curl -s -H "$A" -H "$J" -X PUT $API/dns/soa/<A zone id> -d '{"server_id":5}'
+# US3 (FR-014): client B's mailbox as fetchmail destination → same 422 as a nonexistent mailbox
+curl -s -H "$A" -H "$J" -X POST $API/mail/fetchmail -d '{...,"destination":"<client B mailbox>"}'
 ```
 
 After each rejected request, confirm no new journal entry:

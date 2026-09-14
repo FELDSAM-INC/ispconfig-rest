@@ -40,7 +40,8 @@ Common description sentence (adapted per resource) for `server_id`:
 | `modules/dns/soa.yaml` | PUT `/dns/soa/{id}` | Client/reseller keys cannot change `server_id` (current value accepted, otherwise 422). |
 | `modules/dns/slave.yaml` | POST `/dns/slaves` | Client/reseller keys: the account's secondary DNS server is used; another value or no assigned secondary DNS server → 422. |
 | `modules/dns/slave.yaml` | PUT `/dns/slaves/{id}` | Client/reseller keys cannot change `server_id`. |
-| `modules/mail/fetchmail.yaml` | POST `/mail/fetchmail` | Client/reseller keys: the destination mailbox's server is used; another value → 422. |
+| `modules/mail/fetchmail.yaml` | POST `/mail/fetchmail` | Client/reseller keys: the destination mailbox's server is used; another value → 422. The destination must be a mailbox the key can read; otherwise the nonexistent-mailbox 422 on `destination`. |
+| `modules/mail/fetchmail.yaml` | PUT `/mail/fetchmail/{id}` | Client/reseller keys: a changed `destination` must be a mailbox the key can read; otherwise the nonexistent-mailbox 422 on `destination`. |
 
 ## 422 messages (for examples in the descriptions)
 

@@ -37,3 +37,4 @@
 - No clarification markers: the default for several assigned servers (first valid list entry, legacy web
   preselection), 422 for unassigned servers, and reseller parity are recorded as defaults in the spec.
 - Owner confirmed the first-valid-server default on 2026-09-14.
+- Owner decisions on 2026-09-14: reseller list seeding stays legacy; fetchmail destination scoping added (FR-014, SC-006).

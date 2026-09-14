@@ -11,7 +11,8 @@ Non-admin keys (client and reseller) may only place web domains (`vhost`), mail 
 DNS zones on servers listed in the acting identity's client row (`web_servers`, `mail_servers`,
 `db_servers`, `dns_servers`), and get the first valid list entry when they omit `server_id`. Secondary
 DNS zones are forced to `default_slave_dnsserver`, fetchmail entries to the destination mailbox's server,
-and non-admin updates cannot move DNS zones or secondary zones. Admin keys are byte-identical to today.
+and non-admin updates cannot move DNS zones or secondary zones. Non-admin fetchmail destinations must be
+mailboxes the key can read (owner decision 2026-09-14). Admin keys are byte-identical to today.
 A new read-only `GET /me/servers` lets any key discover the servers it may use.
 
 Technical approach (research.md R1): resolution and validation live in the **request layer**. A new
@@ -101,6 +102,7 @@ app/
 ├── Http/Requests/StoreDnsSlaveRequest.php        # non-admin: forced default_slave_dnsserver
 ├── Http/Requests/UpdateDnsSlaveRequest.php       # non-admin: server_id immutable
 ├── Http/Requests/StoreMailGetRequest.php         # non-admin: destination mailbox's server
+├── Http/Requests/MailGetRequest.php              # existingMailboxRule: read predicate for non-admin keys (store + update)
 └── Http/Controllers/Api/V1/MeServersController.php     # NEW — invokable, GET /me/servers
 
 routes/
@@ -111,7 +113,7 @@ tests/
 ├── Support/TenantSchema.php                      # client: web_servers, mail_servers, db_servers, dns_servers, default_slave_dnsserver; server: db_server (ensureColumns)
 ├── Support/TenantFixtures.php                    # + assignServers(string $tenant, array $lists, ?int $slaveDns = null)
 ├── Feature/ClientServerAssignmentTest.php        # NEW — US1 matrix (web/mail/db/dns × admin/client/reseller/no-servers)
-├── Feature/ClientServerAssignmentWritesTest.php  # NEW — US3: slaves, fetchmail, SOA/slave PUT immutability
+├── Feature/ClientServerAssignmentWritesTest.php  # NEW — US3: slaves, fetchmail server + destination scoping (A cannot target B's mailbox on create/update; admin unchanged), SOA/slave PUT immutability
 ├── Feature/MeServersApiTest.php                  # NEW — US2 discovery
 └── Feature/{ClientLimitDnsTest,ClientLimitMailTest,ClientLimitResellerTest,ClientLimitSitesTest,
              ClientQuotaSumTest,ScopingSitesModuleTest,ScopingDnsModuleTest,ScopingMailModuleTest,
@@ -144,8 +146,17 @@ Summarized in research.md (R2–R9, R11). Key facts from ISPConfig 3.3.1p1:
   an unlisted server on insert (`server_chosen_not_ok` / `error_not_allowed_server_id`) and silently restore
   the stored `server_id` on update for non-admins.
 - Secondary zones take `client.default_slave_dnsserver`; fetchmail takes the destination mailbox's server.
+- Fetchmail destinations are offered from `mail_user WHERE {AUTHSQL}` (`mail/form/mail_get.tform.php`), so the
+  destination scoping fix (FR-014) is legacy parity.
 - Admins: any server; defaults from `sys_ini` (`sites.default_webserver`, `sites.default_dbserver`,
   `mail.default_mailserver`, `dns.default_dnsserver`, `dns.default_slave_dnsserver`).
+
+## Owner Decisions (2026-09-14)
+
+- Resellers created through the API keep legacy seeding (only `default_*` servers, no `*_servers` lists); their keys
+  get the "no server assigned" 422 until an admin assigns lists (research.md R11).
+- The fetchmail destination scoping fix is in scope: non-admin destinations must be readable mailboxes (FR-014,
+  SC-006, research.md R8).
 
 ## Complexity Tracking
 

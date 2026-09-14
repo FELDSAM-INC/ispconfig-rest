@@ -39,7 +39,8 @@ Read through `SystemConfigService::getSection()`: `sites.default_webserver`, `si
 
 ### Mailbox server — table `mail_user`
 
-`mail_user.server_id` of the row whose `email` equals the normalized fetchmail `destination`.
+`mail_user.server_id` of the row whose `email` equals the normalized fetchmail `destination`. For non-admin keys the
+row must also match the key's read predicate (FR-014); an unreadable row is treated as missing.
 
 ## Derived views
 
@@ -101,7 +102,8 @@ slaveDnsServerId(scope):
 | POST sites/databases | client/reseller | default → 201 | 201 | 422 not available | 422 no database server |
 | POST dns/soa | client/reseller | default → 201 | 201 | 422 not available | 422 no DNS server |
 | POST dns/slaves | client/reseller | slave default → 201 | = slave default: 201 | ≠ slave default: 422 not available | 422 no secondary DNS server |
-| POST mail/fetchmail | client/reseller | mailbox server → 201 | = mailbox server: 201 | ≠ mailbox server: 422 not available | mailbox missing: existing `destination` 422 |
+| POST mail/fetchmail | client/reseller | mailbox server → 201 | = mailbox server: 201 | ≠ mailbox server: 422 not available | mailbox missing or not readable: `destination` 422 (same message) |
+| PUT mail/fetchmail/{id} (`destination`) | client/reseller | unchanged | readable mailbox: 200 | n/a | mailbox missing or not readable: `destination` 422 (same message) |
 | PUT dns/soa/{id}, dns/slaves/{id} | client/reseller | unchanged | = current: 200 | ≠ current: 422 cannot be changed | n/a |
 | any of the above | admin | 422 required (unchanged, except PUT) | unchanged | unchanged `exists` message | n/a |
 

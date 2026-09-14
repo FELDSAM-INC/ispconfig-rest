@@ -102,7 +102,8 @@ the legacy panel does, so no remaining path lets a client choose an unassigned s
 `server_id` → 201 on server 4; with `server_id = 5` → 422. `POST /mail/fetchmail` for destination
 `info@a.example` (mailbox on server 3) without `server_id` → 201 on server 3; with `server_id = 6` → 422.
 `PUT /dns/soa/{A's zone}` with a different `server_id` → 422; with the current value → 200. Admin key:
-`PUT /dns/soa/{id}` with another DNS server → 200 (unchanged).
+`PUT /dns/soa/{id}` with another DNS server → 200 (unchanged). With A's key, `POST /mail/fetchmail` with client B's
+mailbox as destination → 422 identical to a nonexistent mailbox.
 
 **Acceptance Scenarios**:
 
@@ -115,6 +116,9 @@ the legacy panel does, so no remaining path lets a client choose an unassigned s
    the current one, **Then** 422; sending the current value is accepted.
 4. **Given** web domains, mail domains and databases, **When** any key updates them, **Then** `server_id` stays
    immutable as today.
+5. **Given** a non-admin key, **When** it creates or updates a fetchmail entry whose destination is a mailbox the key
+   cannot read (another tenant's), **Then** 422 on `errors.destination` with the same message as for a nonexistent
+   mailbox, and no datalog row is written (owner decision 2026-09-14; legacy offers only readable mailboxes).
 
 ### Edge Cases
 
@@ -131,6 +135,8 @@ the legacy panel does, so no remaining path lets a client choose an unassigned s
 - A server marked inactive but assigned to the client remains usable (legacy does not filter by status).
 - Concurrent change of a client's lists between discovery and create: the create is validated against the
   lists at the time of the create.
+- A fetchmail destination owned by another tenant is treated exactly like a nonexistent mailbox for non-admin keys
+  (no probing of other tenants' mailbox addresses); admin keys may use any existing mailbox.
 
 ## API Contract *(mandatory)*
 
@@ -179,10 +185,11 @@ the legacy panel does, so no remaining path lets a client choose an unassigned s
     `error_not_allowed_server_id`, `server_id` restored on update; admin default `default_dnsserver`.
   - `dns/dns_slave_edit.php` — non-admins: insert forces `client.default_slave_dnsserver`, update restores the
     stored `server_id`; admin default `default_slave_dnsserver` from DNS config.
-  - `mail/mail_get_edit.php` — `server_id` is always taken from the destination mailbox.
+  - `mail/mail_get_edit.php` — `server_id` is always taken from the destination mailbox; the destination datasource
+    (`mail/form/mail_get.tform.php`) lists only mailboxes matching `{AUTHSQL}`.
   - Resellers (`has_clients`) are non-admins: their own client row's lists apply.
 - **Legacy behaviors to mirror**: restriction to the acting identity's lists on insert, the legacy default
-  (first list entry), forced secondary DNS server, fetchmail server derivation, server immutability on update
+  (first list entry), forced secondary DNS server, fetchmail server derivation and readable-only destination mailboxes, server immutability on update
   for non-admins, unrestricted admins.
 - **Tables written (via datalog only)**: no new tables. The feature validates or resolves `server_id` before the
   existing `i`/`u` datalog writes of `web_domain`, `mail_domain`, `web_database`, `dns_soa`, `dns_slave` and
@@ -235,6 +242,9 @@ the legacy panel does, so no remaining path lets a client choose an unassigned s
 - **FR-013**: The OpenAPI contract MUST be updated before implementation, and feature tests MUST cover admin,
   client and reseller keys with one, several and no assigned servers, unassigned, nonexistent and mirror server
   ids, and the absence of datalog rows on rejection.
+- **FR-014**: For non-admin keys, creating or updating a fetchmail entry MUST only accept a `destination` mailbox the
+  key can read; any other mailbox MUST return 422 on `errors.destination` with the same message as a nonexistent
+  mailbox and MUST NOT write a `sys_datalog` row (owner decision 2026-09-14). Admin keys keep accepting any existing mailbox.
 
 ### Key Entities
 
@@ -258,6 +268,7 @@ the legacy panel does, so no remaining path lets a client choose an unassigned s
 - **SC-003**: A caller cannot distinguish an unassigned server id from a nonexistent one in any response.
 - **SC-004**: All existing admin-key feature tests for the covered endpoints pass without modification.
 - **SC-005**: The server discovery response contains no field other than server id, server name and default flag.
+- **SC-006**: Zero fetchmail entries created or updated by non-admin keys deliver into another tenant's mailbox.
 
 ## Assumptions
 
@@ -271,3 +282,5 @@ the legacy panel does, so no remaining path lets a client choose an unassigned s
 - Resources the API does not expose (mailing lists, XMPP, virtual servers, DNS wizard and import) are out of scope.
 - Reseller management is not needed by the first consumer (WHMCS panel), but reseller parity is included because the
   same checks apply to all non-admin keys.
+- Resellers created through the API keep legacy seeding: only `default_*` servers are set and the `*_servers` lists stay
+  empty, so a reseller key gets the "no server assigned" 422 until an admin assigns lists (owner decision 2026-09-14).
