@@ -1,0 +1,231 @@
+# Draft path items for api/modules/usage/*.yaml (to be split per resource file and registered in
+# api/openapi.yaml). References assume the file layout of api/modules/<module>/ (../../components/...).
+# All operations: security apiKeyAuth (global), tag Usage, read-only.
+
+/usage/summary:
+  get:
+    tags: [Usage]
+    summary: Client plan usage summary
+    description: |
+      Totals and resource counts of one client against its limits. Client keys get their own client;
+      reseller keys their own or one of their clients by `client_id`; admin keys must pass `client_id`.
+      Collector-based values are `null` when the collector data is missing, stale or corrupt.
+    parameters:
+      - name: client_id
+        in: query
+        required: false
+        schema: { type: integer, minimum: 1 }
+        description: Target client (required for admin keys).
+    responses:
+      '200':
+        description: Usage summary
+        content:
+          application/json:
+            schema: { $ref: '../../components/schemas/UsageSummary.yaml' }
+      '400': { $ref: '../../components/responses/BadRequest.yaml' }
+      '401': { $ref: '../../components/responses/Unauthorized.yaml' }
+      '404': { $ref: '../../components/responses/NotFound.yaml' }
+      '422': { $ref: '../../components/responses/UnprocessableEntity.yaml' }
+
+/usage/web-domains:
+  get:
+    tags: [Usage]
+    summary: List website disk usage and traffic
+    parameters:
+      - { $ref: '../../components/parameters/limit.yaml' }
+      - { $ref: '../../components/parameters/offset.yaml' }
+      - name: sort
+        in: query
+        schema: { type: string, enum: [domain], default: domain }
+      - { $ref: '../../components/parameters/order.yaml' }
+      - name: domain
+        in: query
+        schema: { type: string }
+        description: Domain filter, `*` wildcard.
+      - name: parent_domain_id
+        in: query
+        schema: { type: integer }
+      - name: client_id
+        in: query
+        schema: { type: integer, minimum: 1 }
+        description: Owning client filter (admin and reseller keys only; 400 for client keys).
+    responses:
+      '200':
+        description: Paginated website usage
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data, meta]
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '../../components/schemas/WebDomainUsage.yaml' }
+                meta: { $ref: '../../components/schemas/Meta.yaml' }
+      '400': { $ref: '../../components/responses/BadRequest.yaml' }
+      '401': { $ref: '../../components/responses/Unauthorized.yaml' }
+
+/usage/web-domains/{id}:
+  get:
+    tags: [Usage]
+    summary: Website usage detail
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    responses:
+      '200':
+        description: Website usage
+        content:
+          application/json:
+            schema: { $ref: '../../components/schemas/WebDomainUsage.yaml' }
+      '401': { $ref: '../../components/responses/Unauthorized.yaml' }
+      '404': { $ref: '../../components/responses/NotFound.yaml' }
+
+/usage/web-domains/{id}/traffic:
+  get:
+    tags: [Usage]
+    summary: Website traffic history
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+      - name: months
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 36, default: 12 }
+      - name: granularity
+        in: query
+        schema: { type: string, enum: [month, day], default: month }
+        description: '`day` returns the current month up to yesterday.'
+    responses:
+      '200':
+        description: Traffic history
+        content:
+          application/json:
+            schema: { $ref: '../../components/schemas/TrafficHistory.yaml' }
+      '401': { $ref: '../../components/responses/Unauthorized.yaml' }
+      '404': { $ref: '../../components/responses/NotFound.yaml' }
+      '422': { $ref: '../../components/responses/UnprocessableEntity.yaml' }
+
+/usage/mail-users:
+  get:
+    tags: [Usage]
+    summary: List mailbox storage and mail traffic
+    parameters:
+      - { $ref: '../../components/parameters/limit.yaml' }
+      - { $ref: '../../components/parameters/offset.yaml' }
+      - name: sort
+        in: query
+        schema: { type: string, enum: [email], default: email }
+      - { $ref: '../../components/parameters/order.yaml' }
+      - name: email
+        in: query
+        schema: { type: string }
+        description: Email filter, `*` wildcard.
+      - name: mail_domain
+        in: query
+        schema: { type: string }
+        description: Only mailboxes of this domain.
+      - name: client_id
+        in: query
+        schema: { type: integer, minimum: 1 }
+        description: Owning client filter (admin and reseller keys only; 400 for client keys).
+    responses:
+      '200':
+        description: Paginated mailbox usage
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data, meta]
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '../../components/schemas/MailUserUsage.yaml' }
+                meta: { $ref: '../../components/schemas/Meta.yaml' }
+      '400': { $ref: '../../components/responses/BadRequest.yaml' }
+      '401': { $ref: '../../components/responses/Unauthorized.yaml' }
+
+/usage/mail-users/{id}:
+  get:
+    tags: [Usage]
+    summary: Mailbox usage detail
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    responses:
+      '200':
+        description: Mailbox usage
+        content:
+          application/json:
+            schema: { $ref: '../../components/schemas/MailUserUsage.yaml' }
+      '401': { $ref: '../../components/responses/Unauthorized.yaml' }
+      '404': { $ref: '../../components/responses/NotFound.yaml' }
+
+/usage/mail-users/{id}/traffic:
+  get:
+    tags: [Usage]
+    summary: Mailbox traffic history (monthly)
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+      - name: months
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 36, default: 12 }
+      - name: granularity
+        in: query
+        schema: { type: string, enum: [month, day], default: month }
+        description: '`day` is rejected with 422 (mail traffic is stored per month).'
+    responses:
+      '200':
+        description: Traffic history
+        content:
+          application/json:
+            schema: { $ref: '../../components/schemas/TrafficHistory.yaml' }
+      '401': { $ref: '../../components/responses/Unauthorized.yaml' }
+      '404': { $ref: '../../components/responses/NotFound.yaml' }
+      '422': { $ref: '../../components/responses/UnprocessableEntity.yaml' }
+
+/usage/databases:
+  get:
+    tags: [Usage]
+    summary: List database sizes
+    parameters:
+      - { $ref: '../../components/parameters/limit.yaml' }
+      - { $ref: '../../components/parameters/offset.yaml' }
+      - name: sort
+        in: query
+        schema: { type: string, enum: [database_name], default: database_name }
+      - { $ref: '../../components/parameters/order.yaml' }
+      - name: database_name
+        in: query
+        schema: { type: string }
+        description: Database name filter, `*` wildcard.
+      - name: client_id
+        in: query
+        schema: { type: integer, minimum: 1 }
+        description: Owning client filter (admin and reseller keys only; 400 for client keys).
+    responses:
+      '200':
+        description: Paginated database usage
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data, meta]
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '../../components/schemas/DatabaseUsage.yaml' }
+                meta: { $ref: '../../components/schemas/Meta.yaml' }
+      '400': { $ref: '../../components/responses/BadRequest.yaml' }
+      '401': { $ref: '../../components/responses/Unauthorized.yaml' }
+
+/usage/databases/{id}:
+  get:
+    tags: [Usage]
+    summary: Database usage detail
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    responses:
+      '200':
+        description: Database usage
+        content:
+          application/json:
+            schema: { $ref: '../../components/schemas/DatabaseUsage.yaml' }
+      '401': { $ref: '../../components/responses/Unauthorized.yaml' }
+      '404': { $ref: '../../components/responses/NotFound.yaml' }

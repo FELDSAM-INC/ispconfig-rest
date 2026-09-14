@@ -1,0 +1,129 @@
+# Draft component schemas (one file each under api/components/schemas/ when implemented).
+# Sizes are bytes; null = unknown (collector data missing/stale/corrupt) or unlimited as described.
+
+UsageMetric:
+  type: object
+  required: [used_bytes, allocated_bytes, limit_bytes, used_percent, measured_at]
+  properties:
+    used_bytes: { type: integer, nullable: true, description: Sum of known usage values. }
+    allocated_bytes: { type: integer, nullable: true, description: Sum of quotas assigned to the client's resources. }
+    limit_bytes: { type: integer, nullable: true, description: Client plan limit; null when unlimited. }
+    used_percent: { type: number, nullable: true, description: used / limit × 100 when both are known. }
+    measured_at: { type: string, format: date-time, nullable: true, description: Oldest collector timestamp among contributing values. }
+
+UsageCount:
+  type: object
+  required: [used, limit]
+  properties:
+    used: { type: integer, minimum: 0 }
+    limit: { type: integer, nullable: true, description: 'null = unlimited, 0 = feature disabled, n = booked.' }
+
+UsageSummary:
+  type: object
+  required: [client_id, web_disk, mail_storage, database_size, web_traffic_this_month, counts, period]
+  properties:
+    client_id: { type: integer }
+    web_disk: { $ref: '#/UsageMetric' }
+    mail_storage: { $ref: '#/UsageMetric' }
+    database_size: { $ref: '#/UsageMetric' }
+    web_traffic_this_month: { $ref: '#/UsageMetric' }
+    counts:
+      type: object
+      required: [web_domains, web_subdomains, web_alias_domains, mail_domains, mailboxes, mail_aliases,
+                 mail_forwards, databases, ftp_users, shell_users, cron_jobs, dns_zones]
+      properties:
+        web_domains: { $ref: '#/UsageCount' }
+        web_subdomains: { $ref: '#/UsageCount' }
+        web_alias_domains: { $ref: '#/UsageCount' }
+        mail_domains: { $ref: '#/UsageCount' }
+        mailboxes: { $ref: '#/UsageCount' }
+        mail_aliases: { $ref: '#/UsageCount' }
+        mail_forwards: { $ref: '#/UsageCount' }
+        databases: { $ref: '#/UsageCount' }
+        ftp_users: { $ref: '#/UsageCount' }
+        shell_users: { $ref: '#/UsageCount' }
+        cron_jobs: { $ref: '#/UsageCount' }
+        dns_zones: { $ref: '#/UsageCount' }
+    period:
+      type: object
+      required: [this_month_start, timezone]
+      properties:
+        this_month_start: { type: string, format: date }
+        timezone: { type: string, example: Europe/Prague }
+
+TrafficPeriods:
+  type: object
+  required: [this_month, last_month, this_year, last_year]
+  properties:
+    this_month: { type: integer, minimum: 0 }
+    last_month: { type: integer, minimum: 0 }
+    this_year: { type: integer, minimum: 0 }
+    last_year: { type: integer, minimum: 0 }
+
+WebDomainUsage:
+  type: object
+  required: [domain_id, domain, type, parent_domain_id, server_id, disk, hd_quota_bytes, traffic, traffic_quota_bytes]
+  properties:
+    domain_id: { type: integer }
+    domain: { type: string }
+    type: { type: string, enum: [vhost, vhostsubdomain, vhostalias] }
+    parent_domain_id: { type: integer, description: 0 for vhost sites. }
+    server_id: { type: integer }
+    disk:
+      type: object
+      required: [used_bytes, soft_limit_bytes, hard_limit_bytes, files, used_percent, measured_at]
+      description: All fields null for vhostsubdomain and vhostalias sites (disk is accounted to the parent vhost).
+      properties:
+        used_bytes: { type: integer, nullable: true }
+        soft_limit_bytes: { type: integer, nullable: true }
+        hard_limit_bytes: { type: integer, nullable: true }
+        files: { type: integer, nullable: true }
+        used_percent: { type: number, nullable: true }
+        measured_at: { type: string, format: date-time, nullable: true }
+    hd_quota_bytes: { type: integer, nullable: true }
+    traffic: { $ref: '#/TrafficPeriods' }
+    traffic_quota_bytes: { type: integer, nullable: true }
+
+MailUserUsage:
+  type: object
+  required: [mailuser_id, email, server_id, used_bytes, quota_bytes, used_percent, measured_at, traffic]
+  properties:
+    mailuser_id: { type: integer }
+    email: { type: string, format: email }
+    server_id: { type: integer }
+    used_bytes: { type: integer, nullable: true }
+    quota_bytes: { type: integer, nullable: true, description: null when unlimited. }
+    used_percent: { type: number, nullable: true }
+    measured_at: { type: string, format: date-time, nullable: true }
+    traffic: { $ref: '#/TrafficPeriods' }
+
+DatabaseUsage:
+  type: object
+  required: [database_id, database_name, type, server_id, parent_domain_id, size_bytes, quota_bytes, used_percent, measured_at]
+  properties:
+    database_id: { type: integer }
+    database_name: { type: string }
+    type: { type: string, example: mysql }
+    server_id: { type: integer }
+    parent_domain_id: { type: integer }
+    size_bytes: { type: integer, nullable: true }
+    quota_bytes: { type: integer, nullable: true, description: null when unlimited. }
+    used_percent: { type: number, nullable: true }
+    measured_at: { type: string, format: date-time, nullable: true }
+
+TrafficHistory:
+  type: object
+  required: [granularity, period_start, period_end, timezone, points]
+  properties:
+    granularity: { type: string, enum: [month, day] }
+    period_start: { type: string, format: date }
+    period_end: { type: string, format: date, description: Exclusive. }
+    timezone: { type: string }
+    points:
+      type: array
+      items:
+        type: object
+        required: [period, bytes]
+        properties:
+          period: { type: string, description: 'YYYY-MM or YYYY-MM-DD' }
+          bytes: { type: integer, minimum: 0 }
