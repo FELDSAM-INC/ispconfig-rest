@@ -151,6 +151,10 @@ class WebDomainService
         $this->limits->checkCreate($domain);
         $this->limits->checkQuotaSum($domain);
 
+        // Locked-client guard (spec 019 FR-013) — also bypassed by the raw
+        // insert, so invoked explicitly like the limit checks.
+        app(LockedClientGuard::class)->check($domain, true);
+
         $id = (int) DB::table('web_domain')->insertGetId($record, 'domain_id');
 
         // Derived provisioning fields (legacy onAfterInsert).

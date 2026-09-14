@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\ClientLimitService;
 use App\Services\DatalogService;
+use App\Services\LockedClientGuard;
 use App\Support\AuthScope;
 use App\Support\IspContext;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -158,6 +159,10 @@ abstract class BaseModel extends Model
             $limits = App::make(ClientLimitService::class);
             $limits->checkCreate($this);
             $limits->checkQuotaSum($this);
+
+            // Locked-client guard (spec 019 FR-013): non-admin scopes cannot add
+            // lock-managed records to a locked client.
+            App::make(LockedClientGuard::class)->check($this, true);
         }
 
         // The 'old' record for updates: raw attributes as originally loaded
@@ -173,6 +178,10 @@ abstract class BaseModel extends Model
             if (! $this->authScope()->allows($oldRecord, 'u')) {
                 throw new AuthorizationException('You do not have permission to update this resource.');
             }
+
+            // Locked-client guard (spec 019 FR-013): non-admin scopes cannot
+            // re-enable lock-managed columns of a locked client's records.
+            App::make(LockedClientGuard::class)->check($this, false, $oldRecord);
 
             // Quota-SUM limits are re-checked on update (spec 012 FR-027): a
             // quota bump alters the sum. Row-count limits are create-only.
