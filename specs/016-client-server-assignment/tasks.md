@@ -145,22 +145,22 @@ unchanged.
 
 ### Tests for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T034 [P] [US3] Write tests/Feature/ClientServerAssignmentWritesTest.php: secondary zones (forced `default_slave_dnsserver`, different id 422, missing/invalid default → "No secondary DNS server is assigned to this account."), fetchmail server derivation (omitted → mailbox server, different id 422), FR-014 destination scoping on create and update (client A with client B's mailbox → 422 on `errors.destination` byte-identical to a nonexistent mailbox, no `sys_datalog` row; admin may use any existing mailbox), `PUT /dns/soa/{id}` and `PUT /dns/slaves/{id}` (different `server_id` → "The server cannot be changed after creation.", current value → 200, admin can change), reseller keys use their own `default_slave_dnsserver`
+- [x] T034 [P] [US3] Write tests/Feature/ClientServerAssignmentWritesTest.php: secondary zones (forced `default_slave_dnsserver`, different id 422, missing/invalid default → "No secondary DNS server is assigned to this account."), fetchmail server derivation (omitted → mailbox server, different id 422), FR-014 destination scoping on create and update (client A with client B's mailbox → 422 on `errors.destination` byte-identical to a nonexistent mailbox, no `sys_datalog` row; admin may use any existing mailbox), `PUT /dns/soa/{id}` and `PUT /dns/slaves/{id}` (different `server_id` → "The server cannot be changed after creation.", current value → 200, admin can change), reseller keys use their own `default_slave_dnsserver`
 
 ### Contract for User Story 3 (spec-first)
 
-- [ ] T035 [P] [US3] Remove `server_id` from `required` and set the non-admin descriptions in api/components/schemas/DnsSlave.yaml and api/components/schemas/MailGet.yaml per contracts/schema-and-operation-changes.md
-- [ ] T036 [P] [US3] Append the "Server selection" blocks to POST and PUT in api/modules/dns/slave.yaml and to POST and PUT (destination scoping) in api/modules/mail/fetchmail.yaml
-- [ ] T037 [US3] Add the non-admin "cannot move the zone" sentence to `server_id` in api/components/schemas/DnsSoa.yaml and the PUT "Server selection" block in api/modules/dns/soa.yaml (same files as T019/T020 — run after them)
+- [x] T035 [P] [US3] Remove `server_id` from `required` and set the non-admin descriptions in api/components/schemas/DnsSlave.yaml and api/components/schemas/MailGet.yaml per contracts/schema-and-operation-changes.md
+- [x] T036 [P] [US3] Append the "Server selection" blocks to POST and PUT in api/modules/dns/slave.yaml and to POST and PUT (destination scoping) in api/modules/mail/fetchmail.yaml
+- [x] T037 [US3] Add the non-admin "cannot move the zone" sentence to `server_id` in api/components/schemas/DnsSoa.yaml and the PUT "Server selection" block in api/modules/dns/soa.yaml (same files as T019/T020 — run after them)
 
 ### Implementation for User Story 3
 
-- [ ] T038 [P] [US3] Use `slaveDnsServerRules()` in app/Http/Requests/StoreDnsSlaveRequest.php for non-admin scopes, merging the default before `DnsSlaveRequest::after()` and `DnsSlaveController::guardUniqueOrigin` run
-- [ ] T039 [P] [US3] Use `immutableServerRule()` against the bound record's stored `server_id` in app/Http/Requests/UpdateDnsSoaRequest.php for non-admin scopes (`sometimes|integer`); admin keeps `sometimes|integer|exists(dns_server, non-mirror)`
-- [ ] T040 [P] [US3] Same immutability change in app/Http/Requests/UpdateDnsSlaveRequest.php
-- [ ] T041 [US3] Change `existingMailboxRule()` in app/Http/Requests/MailGetRequest.php so non-admin scopes check the normalized destination against `mail_user` through `AuthScope::applyReadPredicate('r')`, failing with the existing nonexistent-mailbox message; admin unchanged (used by both StoreMailGetRequest and UpdateMailGetRequest)
-- [ ] T042 [US3] In app/Http/Requests/StoreMailGetRequest.php, for non-admin scopes merge `server_id` from the readable destination mailbox's `mail_user.server_id` when omitted and reject a different value with "The selected server is not available for this account."; merge nothing when the destination is missing or unreadable (depends on T041)
-- [ ] T043 [US3] Run tests/Feature/ClientServerAssignmentWritesTest.php plus tests/Feature/DnsSlaveApiTest.php, tests/Feature/DnsSoaApiTest.php and tests/Feature/MailRoutingApiTest.php (admin tests must pass unmodified) and re-confirm T008–T017
+- [x] T038 [P] [US3] Use `slaveDnsServerRules()` in app/Http/Requests/StoreDnsSlaveRequest.php for non-admin scopes, merging the default before `DnsSlaveRequest::after()` and `DnsSlaveController::guardUniqueOrigin` run
+- [x] T039 [P] [US3] Use `immutableServerRule()` against the bound record's stored `server_id` in app/Http/Requests/UpdateDnsSoaRequest.php for non-admin scopes (`sometimes|integer`); admin keeps `sometimes|integer|exists(dns_server, non-mirror)`
+- [x] T040 [P] [US3] Same immutability change in app/Http/Requests/UpdateDnsSlaveRequest.php
+- [x] T041 [US3] Change `existingMailboxRule()` in app/Http/Requests/MailGetRequest.php so non-admin scopes check the normalized destination against `mail_user` through `AuthScope::applyReadPredicate('r')`, failing with the existing nonexistent-mailbox message; admin unchanged (used by both StoreMailGetRequest and UpdateMailGetRequest)
+- [x] T042 [US3] In app/Http/Requests/StoreMailGetRequest.php, for non-admin scopes merge `server_id` from the readable destination mailbox's `mail_user.server_id` when omitted and reject a different value with "The selected server is not available for this account."; merge nothing when the destination is missing or unreadable (depends on T041)
+- [x] T043 [US3] Run tests/Feature/ClientServerAssignmentWritesTest.php plus tests/Feature/DnsSlaveApiTest.php, tests/Feature/DnsSoaApiTest.php and tests/Feature/MailRoutingApiTest.php (admin tests must pass unmodified) and re-confirm T008–T017
 
 **Checkpoint**: All user stories are independently functional.
 
@@ -168,10 +168,10 @@ unchanged.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T044 [P] Document server assignment for scoped keys and `GET /me/servers` in the "Permission scope" section of README.md (resellers created through the API have no server lists until an admin assigns them — owner decision 2026-09-14)
-- [ ] T045 Run the full suite in Docker `php:8.3-cli` and verify with `git diff --stat` that admin-key test files (tests/Feature/WebDomainApiTest.php, MailDomainApiTest.php, WebDatabaseApiTest.php, DnsSoaApiTest.php, DnsSlaveApiTest.php, MailRoutingApiTest.php) are unchanged (SC-004)
-- [ ] T046 [P] Check route ordering with `php artisan route:list --path=me` (routes/api/me.php literal paths, no shadowing, outside `scope.admin`)
-- [ ] T047 [P] Open `/api/documentation` and confirm `GET /me/servers`, `AssignedServers`, `AssignedServer` render and the six schemas no longer list `server_id` as required (api/openapi.yaml)
+- [x] T044 [P] Document server assignment for scoped keys and `GET /me/servers` in the "Permission scope" section of README.md (resellers created through the API have no server lists until an admin assigns them — owner decision 2026-09-14)
+- [x] T045 Run the full suite in Docker `php:8.3-cli` and verify with `git diff --stat` that admin-key test files (tests/Feature/WebDomainApiTest.php, MailDomainApiTest.php, WebDatabaseApiTest.php, DnsSoaApiTest.php, DnsSlaveApiTest.php, MailRoutingApiTest.php) are unchanged (SC-004)
+- [x] T046 [P] Check route ordering with `php artisan route:list --path=me` (routes/api/me.php literal paths, no shadowing, outside `scope.admin`)
+- [x] T047 [P] Open `/api/documentation` and confirm `GET /me/servers`, `AssignedServers`, `AssignedServer` render and the six schemas no longer list `server_id` as required (api/openapi.yaml)
 - [ ] T048 Execute the manual scenarios of specs/016-client-server-assignment/quickstart.md on a disposable ISPConfig + API installation only (not the shared `/opt/ispconfig-rest` without owner approval), confirming rejected requests add no journal entry
 
 ---

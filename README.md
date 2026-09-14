@@ -100,6 +100,8 @@ Each key is bound to an ISPConfig user, and access follows ISPConfig's own `sys_
 
 Scoped keys are also bound by their client's **resource limits** (`client.limit_*`): creating past a booked cap (e.g. `limit_maildomain`) returns `403`, and quota-sum limits (mailbox/web/database quota) are enforced on create and update. Resellers are additionally capped by their own limits. Admin keys are unaffected.
 
+Scoped keys may only place new websites (vhosts), mail domains, databases and DNS zones on servers assigned to their account (`web_servers`, `mail_servers`, `db_servers`, `dns_servers` on the client row; resellers use their own row). When `server_id` is omitted, the first assigned server is used; an unassigned or nonexistent server returns `422` on `server_id` with the same message. Secondary DNS zones always use the account's `default_slave_dnsserver`, fetchmail jobs the destination mailbox's server, and fetchmail destinations must be mailboxes the key can read. Scoped keys cannot move DNS zones or secondary zones to another server. `GET /api/v1/me/servers` lists the servers a key may use, with the default marked. Resellers created through the API have no server lists until an admin assigns them.
+
 ### Managing keys over HTTP
 
 Admin keys manage keys remotely under `/system/api-keys` (client and reseller keys receive `403`):
