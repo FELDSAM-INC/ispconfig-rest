@@ -63,6 +63,8 @@
     summary: Create a new client
     description: |
       Creates a new client with the specified configuration.
+      `canceled: true` creates the client's control-panel login inactive; `locked: true` is stored
+      without side effects.
     requestBody:
       required: true
       content:
@@ -121,7 +123,10 @@
     tags:
       - Clients
     summary: Update client
-    description: Updates an existing client configuration
+    description: |
+      Updates an existing client configuration. Changing `locked` locks or unlocks all of the
+      client's services (ISPConfig client lock); changing `canceled` disables or enables the
+      control-panel login. Unchanged values have no side effects.
     parameters:
       - name: id
         in: path

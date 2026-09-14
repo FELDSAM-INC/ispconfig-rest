@@ -749,13 +749,21 @@ properties:
 
   locked:
     type: boolean
-    description: Account locked status
+    description: |
+      Account locked (suspended). Changing it to true disables all of the client's services
+      (websites, mail domains, mailboxes receive and send, forwards, fetchmail, databases,
+      FTP/shell/WebDAV users, protected folders, cron jobs) through the datalog and remembers
+      their previous state; changing it back to false restores that state. Setting it on create
+      only stores the flag. While locked, client and reseller keys cannot re-enable or add
+      services of this client (403). Mirrors ISPConfig's client lock.
     default: false
     example: false
 
   canceled:
     type: boolean
-    description: Account canceled status
+    description: |
+      Control-panel login disabled. true makes the client's ISPConfig interface login inactive
+      (also when set on create); false re-enables it. Services and API keys are not affected.
     default: false
     example: false
 

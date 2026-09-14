@@ -66,6 +66,8 @@
       Create a new reseller with the provided details.
       The payload must satisfy the reseller condition (limit_client > 0 or -1);
       other values are rejected with 400.
+      `canceled: true` creates the reseller's control-panel login inactive; `locked: true` is stored
+      without side effects.
     requestBody:
       required: true
       content:
@@ -127,6 +129,9 @@
     description: |
       Update an existing reseller's details.
       Setting limit_client to a non-reseller value (0) is rejected with 400.
+      Changing `locked` locks or unlocks the reseller's own services (not its clients'); changing
+      `canceled` disables or enables the reseller's control-panel login. Unchanged values have no
+      side effects.
     parameters:
       - name: id
         in: path
