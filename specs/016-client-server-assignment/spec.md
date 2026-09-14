@@ -261,8 +261,9 @@ the legacy panel does, so no remaining path lets a client choose an unassigned s
 
 ## Assumptions
 
-- The first valid entry of a client's list is the default for web, mail, database and DNS servers; client rows do
-  not carry per-service defaults except `default_slave_dnsserver`.
+- The first valid entry of a client's list is the default for web, mail, database and DNS servers (owner decision
+  2026-09-14; consumers that need a different assigned server pass `server_id`); client rows do not carry
+  per-service defaults except `default_slave_dnsserver`.
 - Server status (`active`) is not considered when validating or defaulting, matching legacy.
 - Admin keys do not gain defaulting from the system configuration; they only see those defaults through
   `GET /me/servers`.
