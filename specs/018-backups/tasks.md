@@ -151,7 +151,7 @@ database backup stored on another server than the website → 422; an `ok` downl
 - [ ] T043 [US3] Add the download object derivation (research R13) to `app/Services/WebBackupService.php`
 - [ ] T044 [US3] Add `download` (read permission only; 422 when `download_available` is false; delegates to `RemoteActionService`) to `app/Http/Controllers/Api/V1/WebBackupController.php`
 - [ ] T045 [US3] Register `POST sites/web-domains/{webDomain}/backups/{backup}/download` in `routes/api/sites.php` next to restore, above `…/backups/{backup}` (depends on T039, T044)
-- [ ] T046 [US3] Run T041–T042 in Docker and verify download in Swagger UI
+- [ ] T046 [US3] Run T041–T042 in Docker (`vendor/bin/phpunit --filter 'WebBackupActionApi|WebBackupJobApi'`) and verify download in Swagger UI against `api/modules/sites/web-backups.yaml`
 
 **Checkpoint**: All user stories are independently functional
 
