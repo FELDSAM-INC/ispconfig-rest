@@ -1,0 +1,26 @@
+# Contract draft for api/modules/me/me.yaml (spec 014).
+# $refs are relative to the target location api/modules/me/.
+#
+# Caller identity — available to every valid API key (not admin-gated).
+# Spec 016 adds api/modules/me/servers.yaml (GET /me/servers) next to this file.
+
+/me:
+  get:
+    tags:
+      - Me
+    summary: Identify the calling API key
+    description: |
+      Returns the identity and scope of the API key making the request: key id and label, scope
+      (`admin`, `reseller` or `client`), the bound client id, and the ISPConfig user and group the
+      key acts as. The local development key reports `key_id: null`.
+    responses:
+      '200':
+        description: Identity of the calling key
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ApiKeyIdentity.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

@@ -1,0 +1,129 @@
+# Contract draft for five schema files (spec 014). During implementation each top-level key below
+# becomes its own file under api/components/schemas/ (e.g. ApiKey -> ApiKey.yaml) and is registered
+# in api/openapi.yaml components.schemas. $refs are relative to api/components/schemas/.
+
+ApiKey:
+  # ApiKey Schema — API-owned table `api_keys` (not an ISPConfig table).
+  # `key_hash` is intentionally unexposed; `scope` and `client_id` are derived from sys_user/client.
+  type: object
+  x-db-table: api_keys
+  required: [id, name, scope, client_id, active, created_at, last_used_at]
+  properties:
+    id:
+      type: integer
+      format: int64
+      readOnly: true
+      description: Unique identifier of the API key
+      example: 17
+      x-db-field: id
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: Label identifying the key holder
+      example: whmcs service 17
+      x-db-field: name
+    scope:
+      type: string
+      readOnly: true
+      enum: [admin, reseller, client, unbound]
+      description: |
+        Authorization scope of the bound identity. `unbound` means the ISPConfig user the key was bound
+        to no longer exists (the key fails authentication).
+      example: client
+    client_id:
+      type: integer
+      nullable: true
+      readOnly: true
+      description: Bound ISPConfig client id for client and reseller keys; null for admin and unbound keys
+      example: 42
+    active:
+      type: boolean
+      description: False when the key is revoked
+      example: true
+      x-db-field: active
+    created_at:
+      type: string
+      format: date-time
+      readOnly: true
+      x-db-field: created_at
+    last_used_at:
+      type: string
+      format: date-time
+      nullable: true
+      readOnly: true
+      description: Time of the last authenticated request made with the key
+      x-db-field: last_used_at
+
+ApiKeyCreate:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+      example: whmcs service 17
+    client_id:
+      type: integer
+      minimum: 1
+      description: Bind the key to this client's control-panel identity; omit for an admin key
+      example: 42
+
+ApiKeyUpdate:
+  type: object
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+    active:
+      type: boolean
+      description: Set false to revoke the key, true to re-activate it
+    client_id:
+      type: integer
+      nullable: true
+      description: Accepted only when equal to the current binding (binding is immutable)
+
+ApiKeyCreated:
+  description: API key metadata plus the plaintext key, returned only by the create operation
+  allOf:
+    - $ref: './ApiKey.yaml'
+    - type: object
+      required: [key]
+      properties:
+        key:
+          type: string
+          readOnly: true
+          description: Plaintext API key for the X-API-Key header. Shown once; store it securely.
+          example: isp_0123456789abcdefghijABCDEFGHIJ0123456789
+
+ApiKeyIdentity:
+  type: object
+  required: [key_id, name, scope, client_id, sys_userid, sys_groupid]
+  properties:
+    key_id:
+      type: integer
+      format: int64
+      nullable: true
+      description: Id of the calling key; null for the local development key
+      example: 17
+    name:
+      type: string
+      example: whmcs service 17
+    scope:
+      type: string
+      enum: [admin, reseller, client]
+      example: client
+    client_id:
+      type: integer
+      nullable: true
+      example: 42
+    sys_userid:
+      type: integer
+      description: ISPConfig user the key acts as
+      example: 57
+    sys_groupid:
+      type: integer
+      description: ISPConfig group the key acts as
+      example: 61
