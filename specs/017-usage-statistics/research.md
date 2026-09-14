@@ -21,7 +21,8 @@ Verified read-only against ISPConfig 3.3.1p1 on isp-test.feldhost.cz (source in 
 
 - **Decision**: A blob is stale when `now - created` exceeds `config('api.usage.stale_after')` for its type:
   `harddisk_quota` 1800 s, `database_size` 1800 s, `email_quota` 3600 s (≈ 6× and 4× the collector intervals
-  `*/5` and `*/15`). Stale, missing or undecodable blobs make the affected values `null` with `measured_at: null`.
+  `*/5` and `*/15`). Stale, missing or undecodable blobs make the affected values `null` with `measured_at: null`
+  (owner decision 2026-09-14).
 - **Rationale**: Rows survive until the next collector run, so age tells whether the collector still runs; a
   multiple of the schedule tolerates a skipped run and cron jitter without showing hours-old figures as current.
 - **Alternatives considered**: 240 s retention window from `delOldRecords` — too strict, the newest row is
@@ -123,7 +124,7 @@ Verified read-only against ISPConfig 3.3.1p1 on isp-test.feldhost.cz (source in 
   - `mail_storage`: same pattern with mailbox usage, allocated from `limit_mailquota` quota sum.
   - `database_size`: same pattern, allocated from `limit_database_quota`.
   - `web_traffic_this_month`: used = this-month sum over the client's `vhost`, `vhostsubdomain`, `vhostalias`
-    sites with `active = 'y'` (legacy `get_trafficquota_data`), allocated from `limit_traffic_quota` quota sum,
+    sites with `active = 'y'` (legacy `get_trafficquota_data`; owner decision 2026-09-14), allocated from `limit_traffic_quota` quota sum,
     limit = `limit_traffic_quota` × 1024²; `measured_at` = null (daily table, no collector timestamp).
   - `used_percent` = used / limit × 100 (1 decimal) when both known and limit > 0, else null.
 - **Rationale**: Owner decision — client disk total is the sum of sites, not the group quota. Summing known values
@@ -135,10 +136,10 @@ Verified read-only against ISPConfig 3.3.1p1 on isp-test.feldhost.cz (source in 
 - **Decision**: `HandlesListQuery` with filters `domain` / `email` / `database_name` as the project's `wildcard`
   type (`*` → SQL `LIKE`), `mail_domain` (mail users, matched on the email's domain part), `parent_domain_id`
   (web domains), and `client_id` as the existing `owning_client` filter. `client_id` is accepted only for admin
-  and reseller keys; a client key sending it gets 400. Sorting whitelists: `domain`; `email`; `database_name`.
+  and reseller keys; a client key sending it gets 400 (owner decision 2026-09-14). Sorting whitelists: `domain`; `email`; `database_name`.
   Web domain lists include only `vhost`, `vhostsubdomain`, `vhostalias` rows.
-- **Rationale**: Reuses the shared list machinery (strict parameters, read predicate before counting). The spec
-  says "substring"; the project convention for name filters is `*` wildcards (see open question in the report).
+- **Rationale**: Reuses the shared list machinery (strict parameters, read predicate before counting). The project
+  convention for name filters is `*` wildcards; the spec was aligned to it (owner decision 2026-09-14).
 - **Alternatives considered**: bespoke substring matching — diverges from every other list endpoint.
 
 ## R11 — Traffic history (FR-010)

@@ -38,3 +38,5 @@
 - No clarification markers: timezone alignment, client disk total as sum of sites, nulls for unknown data
   and 1024² conversion were chosen as defaults and recorded in Assumptions / Intentional deviations.
 - Owner decisions on 2026-09-14: installer aligns the API timezone with ISPConfig (FR-015); client disk total is the sum of sites.
+- Owner decisions on 2026-09-14: name filters use the `*` wildcard; `client_id` from a client key on usage lists
+  → 400; summary traffic counts only active websites; staleness 30 min (disk, databases) / 60 min (mail).

@@ -121,7 +121,7 @@ app/
     └── AuthScope.php                              # + static forClient(int $clientId): scope of a client identity
 
 config/app.php                                     # 'timezone' => env('APP_TIMEZONE', 'UTC')
-config/api.php                                     # + usage.stale_after (per collector type, seconds)
+config/api.php                                     # + usage.stale_after: harddisk_quota/database_size 1800 s, email_quota 3600 s (owner decision 2026-09-14)
 routes/api.php                                     # + require __DIR__.'/api/usage.php' (outside scope.admin)
 routes/api/usage.php                               # NEW (ordering: literals before {id})
 install.sh                                         # + --timezone / ISPC_REST_TIMEZONE, auto-detect, TIMEZONE_MODE in install.conf

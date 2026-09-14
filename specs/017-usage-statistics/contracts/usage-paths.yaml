@@ -9,7 +9,9 @@
     description: |
       Totals and resource counts of one client against its limits. Client keys get their own client;
       reseller keys their own or one of their clients by `client_id`; admin keys must pass `client_id`.
-      Collector-based values are `null` when the collector data is missing, stale or corrupt.
+      Collector-based values are `null` when the collector data is missing, stale (older than 30 minutes for
+      disk and databases, 60 minutes for mail storage) or corrupt. `web_traffic_this_month` counts only active
+      websites.
     parameters:
       - name: client_id
         in: query

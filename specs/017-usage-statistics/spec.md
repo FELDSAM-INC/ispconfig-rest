@@ -54,7 +54,7 @@ reported as unlimited; website count `2` of `5`. With B's key → B's totals. Wi
 
 1. **Given** a client key, **When** it requests the summary, **Then** 200 returns totals for that client:
    `web_disk` (used bytes, allocated bytes from site quotas, limit bytes), `mail_storage`, `database_size`
-   and `web_traffic_this_month` (used, limit), each with `used_percent` and `measured_at`.
+   and `web_traffic_this_month` (used, limit; active websites only), each with `used_percent` and `measured_at`.
 2. **Given** a client limit of `-1`, **When** the summary is built, **Then** that metric's limit is reported
    as unlimited (`limit_bytes: null`, `used_percent: null`) and usage is still reported.
 3. **Given** count limits (`limit_web_domain`, `limit_web_subdomain`, `limit_web_aliasdomain`,
@@ -104,8 +104,9 @@ lists only mailboxes of that domain. `GET /usage/databases/{id}` of a client B d
    `measured_at`.
 5. **Given** list query parameters, **Then** lists support `limit`/`offset`/`sort`/`order` (sortable by the
    identifying columns: `domain`, `email`, `database_name`) and filters `client_id` (admin and reseller
-   keys only), `domain` / `email` / `database_name` (substring), `mail_domain` (mail users) and
-   `parent_domain_id` (web domains); unknown parameters → 400.
+   keys only; a client key sending it gets 400), `domain` / `email` / `database_name` (`*` wildcard, the
+   project's standard name filter), `mail_domain` (mail users) and `parent_domain_id` (web domains);
+   unknown parameters → 400 (owner decision 2026-09-14).
 6. **Given** a resource id outside the key's read scope, **When** its detail is requested, **Then** 404.
 
 ---
@@ -134,8 +135,9 @@ the plan-usage need.
 
 - Missing or invalid `X-API-Key` → 401; the usage module is available to admin, reseller and client keys
   (unlike `monitor`).
-- Collector blob missing, older than the retention window, or not decodable → the affected values are
-  `null` with `measured_at: null`; never 500 (same defensive decoding as spec 009).
+- Collector blob missing, stale (older than 30 minutes for disk and databases, 60 minutes for mail storage),
+  or not decodable → the affected values are `null` with `measured_at: null`; never 500 (same defensive
+  decoding as spec 009).
 - A mailbox with no entry in the `email_quota` blob → `used_bytes: null` (legacy shows `0`).
 - Several servers: blobs exist per server; a resource is matched only against the blob of its own
   `server_id` (system user names such as `web1` can repeat on different servers).
@@ -147,8 +149,8 @@ the plan-usage need.
   the last collector run.
 - Filesystem quotas disabled on the web server: `du` fallback provides `used` without soft/hard limits →
   limits `null`, percent against `hd_quota` instead.
-- `client_id` sent by a client key: allowed only when it equals the key's own client (otherwise 404);
-  unknown query parameters → 400.
+- `client_id` sent by a client key: on the summary it is allowed only when it equals the key's own client
+  (otherwise 404); on usage lists it is rejected with 400 (owner decision 2026-09-14); unknown query parameters → 400.
 
 ## API Contract *(mandatory)*
 
@@ -212,7 +214,8 @@ the plan-usage need.
   every row and total MUST be restricted by the key's read scope (spec 011).
 - **FR-002**: `GET /usage/summary` MUST return, for one client, `web_disk`, `mail_storage`,
   `database_size` and `web_traffic_this_month` metrics with used bytes, allocated bytes (where quotas are
-  assignable), limit bytes or unlimited, used percent and `measured_at`.
+  assignable), limit bytes or unlimited, used percent and `measured_at`; `web_traffic_this_month` counts only
+  active websites, matching legacy (owner decision 2026-09-14).
 - **FR-003**: The summary MUST include the resource counts listed in US1 scenario 3 with their limits,
   computed with the spec 012 counting rules.
 - **FR-004**: Client keys MUST receive their own client's summary; reseller keys their own or one of their
@@ -232,7 +235,8 @@ the plan-usage need.
 - **FR-010**: Traffic history MUST return monthly points (default 12, allowed 1–36, oldest first, missing
   months as 0) for websites and mailboxes, and daily points of the current month for websites.
 - **FR-011**: Missing, stale or corrupt collector data MUST yield `null` values and `measured_at: null`,
-  never an error response.
+  never an error response. Collector data is stale when older than 30 minutes (disk, databases) or
+  60 minutes (mail storage) (owner decision 2026-09-14).
 - **FR-012**: A list request MUST read each collector blob and traffic table at most once per request
   (no per-row reads), so large clients remain fast.
 - **FR-013**: The feature MUST NOT write to any table and MUST NOT trigger collectors.
@@ -278,7 +282,8 @@ the plan-usage need.
 - The ISPConfig servers of one installation share one timezone; the installer aligns the API with it (FR-015),
   so calendar periods line up with the dates written to `web_traffic` and `mail_traffic`.
 - Data freshness is whatever the ISPConfig collectors provide (5 min disk and databases, 15 min mail
-  storage, daily traffic); the API does not trigger or cache collection.
+  storage, daily traffic); the API does not trigger or cache collection and treats collector data older
+  than 30 minutes (disk, databases) or 60 minutes (mail storage) as missing (owner decision 2026-09-14).
 - FTP traffic (`ftp_traffic`), backup storage statistics, OpenVZ traffic and web statistics pages
   (AWStats/GoAccess) are out of scope; backups are covered by a separate backups feature.
 - Reseller-wide aggregates across all their clients are out of scope; resellers query one client at a
