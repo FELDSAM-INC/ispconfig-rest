@@ -246,3 +246,6 @@ With B's key → 404. Deleted records are not reachable through this view.
   identity share visibility.
 - Entries written by the legacy ISPConfig panel (PHP session ids) are visible through the list endpoint
   like any other entry of the same identity, but carry no API response header.
+- Owner decisions (2026-09-14): non-admin visibility stays own writes plus the readable-record view
+  (FR-004..FR-008); the header name stays `X-Change-Set-Id`, consistent with `X-API-Key`; every write
+  operation in the contract documents the header.
