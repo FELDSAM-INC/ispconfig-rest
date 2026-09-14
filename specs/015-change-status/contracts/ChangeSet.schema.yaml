@@ -1,0 +1,33 @@
+# Draft of api/components/schemas/ChangeSet.yaml (spec 015).
+type: object
+description: All journal entries written by one API request and their aggregate status.
+required:
+  - id
+  - status
+  - created_at
+  - entries
+properties:
+  id:
+    type: string
+    maxLength: 64
+    description: Change set id, as returned in the X-Change-Set-Id response header.
+    example: 3f9c2a1b7e4d5c6a8b9f0e1d2c3b4a59
+  status:
+    type: string
+    enum:
+      - pending
+      - applied
+      - failed
+      - stalled
+    description: |
+      `pending` if any entry is pending, otherwise `stalled` if any entry is stalled,
+      otherwise `failed` if any entry failed, otherwise `applied` (FR-005).
+  created_at:
+    type: string
+    format: date-time
+    description: Journal time of the earliest entry in the set.
+  entries:
+    type: array
+    description: Entries of the set visible to the key, oldest first.
+    items:
+      $ref: './Change.yaml'
