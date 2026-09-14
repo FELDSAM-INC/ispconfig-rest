@@ -68,6 +68,15 @@
       - Source username and password are required
       - `destination` must be the email address of an existing mailbox
       - `server_id` must reference a mail server
+
+      ### Server selection
+      - Admin keys: `server_id` is required
+      - Client and reseller keys: the destination mailbox's server is always
+        used (`server_id` may be omitted); another value returns 422 on
+        `server_id` with `The selected server is not available for this account.`
+      - Client and reseller keys: `destination` must be a mailbox the key can
+        read; otherwise 422 on `destination` with the same message as for a
+        nonexistent mailbox
     requestBody:
       required: true
       content:
@@ -132,6 +141,9 @@
       ### Notes
       - `server_id` cannot be changed after creation
       - `source_password` is only updated when a non-empty value is provided
+      - Client and reseller keys: a changed `destination` must be a mailbox the
+        key can read; otherwise 422 on `destination` with the same message as
+        for a nonexistent mailbox
     parameters:
       - name: id
         in: path

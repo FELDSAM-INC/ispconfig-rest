@@ -151,6 +151,12 @@
 
       The SOA `serial` is bumped automatically on every successful update
       (legacy parity); client-supplied serials are ignored.
+
+      ### Server selection
+      - Client and reseller keys cannot move the zone: re-sending the current
+        `server_id` is accepted, any other value returns 422 with
+        `The server cannot be changed after creation.`
+      - Admin keys may change `server_id` to another DNS server
     parameters:
       - name: id
         in: path

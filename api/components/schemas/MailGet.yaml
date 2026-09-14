@@ -3,7 +3,6 @@
 type: object
 x-db-table: mail_get
 required:
-  - server_id
   - type
   - source_server
   - source_username
@@ -25,6 +24,8 @@ properties:
       Server ID where the fetchmail job runs
       - Must reference a mail server (server.mail_server=1, mirror_server_id=0)
       - Cannot be changed after creation
+      - Required for admin keys. For client and reseller keys the destination
+        mailbox's server is always used; another value is rejected with 422
     example: 1
     x-db-field: server_id
 

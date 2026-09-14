@@ -5,7 +5,6 @@ description: |
   Maps 1:1 to ISPConfig's `dns_slave` table. The combination of `origin` and
   `server_id` is unique.
 required:
-  - server_id
   - origin
   - ns
 properties:
@@ -78,7 +77,11 @@ properties:
     type: integer
     format: int32
     minimum: 1
-    description: ID of the DNS server that acts as secondary for this zone
+    description: |
+      ID of the DNS server that acts as secondary for this zone. Required for
+      admin keys. For client and reseller keys the account's secondary DNS
+      server is always used; another value is rejected with 422, and client
+      and reseller keys cannot change it on update.
     x-db-field: server_id
     example: 1
 

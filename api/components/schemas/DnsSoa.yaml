@@ -72,7 +72,8 @@ properties:
       ID of the server where the DNS zone is hosted.
       Required for admin keys. For client and reseller keys it may be omitted: the
       first server assigned to the account for this service is used. A server
-      that is not assigned to the account is rejected with 422.
+      that is not assigned to the account is rejected with 422. Client and
+      reseller keys cannot move the zone to another server on update.
     example: 1
 
   client_id:

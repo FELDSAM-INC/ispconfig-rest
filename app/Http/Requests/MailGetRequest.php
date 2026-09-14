@@ -4,7 +4,9 @@ namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\NormalizesMailInput;
 use App\Models\MailGet;
+use App\Support\IspContext;
 use Closure;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\DB;
 
@@ -14,7 +16,9 @@ use Illuminate\Support\Facades\DB;
  * source_code/interface/web/mail/form/mail_get.tform.php):
  *
  *  - source_server against the legacy host/IPv4 regex, IDN + lowercase;
- *  - destination must be the email of an existing mail_user (C-3);
+ *  - destination must be the email of an existing mail_user (C-3) that
+ *    client and reseller keys can read (spec 016 FR-014; legacy
+ *    mail_get.tform.php offers `mail_user WHERE {AUTHSQL}`);
  *  - source_password write-only, only re-set when non-empty on update.
  */
 abstract class MailGetRequest extends FormRequest
@@ -65,14 +69,25 @@ abstract class MailGetRequest extends FormRequest
 
     /**
      * Legacy datasource constraint: the delivery destination is picked from
-     * existing mail_user emails (C-3).
+     * existing mail_user emails (C-3). Non-admin keys only see mailboxes they
+     * can read; an unreadable mailbox fails exactly like a nonexistent one,
+     * so other tenants' addresses cannot be probed (spec 016 FR-014).
      */
     protected function existingMailboxRule(): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail): void {
-            if (! DB::table('mail_user')->where('email', (string) $value)->exists()) {
+            if ($this->readableMailboxQuery((string) $value)->doesntExist()) {
                 $fail('The destination must be the email address of an existing mailbox.');
             }
         };
+    }
+
+    /**
+     * mail_user rows with the given email visible to the acting key.
+     */
+    protected function readableMailboxQuery(string $email): Builder
+    {
+        return app(IspContext::class)->authScope()
+            ->applyReadPredicate(DB::table('mail_user')->where('email', $email), 'r');
     }
 }

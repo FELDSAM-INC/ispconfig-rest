@@ -76,6 +76,14 @@
       Creates a new DNS slave (secondary) zone that is transferred from an
       external master server. The write is journaled to `sys_datalog`.
       The combination of `origin` and `server_id` must be unique.
+
+      ### Server selection
+      - Admin keys: `server_id` is required and must reference a DNS server
+      - Client and reseller keys: the account's secondary DNS server is
+        always used (`server_id` may be omitted); another value returns 422
+        on `server_id` with `The selected server is not available for this account.`
+      - When the account has no valid secondary DNS server, 422 on
+        `server_id` with `No secondary DNS server is assigned to this account.`
     requestBody:
       required: true
       content:
@@ -141,6 +149,11 @@
 
       ### Partial Updates
       Only include the fields you want to update. Omitted fields will remain unchanged.
+
+      ### Server selection
+      - Client and reseller keys cannot change `server_id`: re-sending the
+        current value is accepted, any other value returns 422 with
+        `The server cannot be changed after creation.`
     parameters:
       - name: id
         in: path
