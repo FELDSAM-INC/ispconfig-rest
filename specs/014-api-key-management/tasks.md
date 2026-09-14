@@ -180,7 +180,7 @@ a recovery path without secrets in output.
 - [x] T041 Review route ordering and gates in `routes/api/system.php` and `routes/api.php` (static before `{apiKey}`, `me.php` outside `scope.admin`) against constitution Principle IV
 - [x] T042 Run the full suite in PHP 8.3 (`docker run … php:8.3-cli … php artisan test`, `specs/014-api-key-management/quickstart.md` §1) — all tests green, including `tests/Feature/ApiKeyAuthTest.php` and `tests/Feature/CreateApiKeyClientIdTest.php`
 - [x] T043 Verify Swagger UI "Try it out" for all six operations and every documented status code (SC-004) using `api/modules/system/api-keys.yaml` and `api/modules/me/me.yaml`
-- [ ] T044 After deployment to isp-test, run the manual end-to-end check and cleanup from `specs/014-api-key-management/quickstart.md` §2–§3 (shared server: remove QA keys, do not delete existing clients)
+- [x] T044 After deployment to isp-test, run the manual end-to-end check and cleanup from `specs/014-api-key-management/quickstart.md` §2–§3 (shared server: remove QA keys, do not delete existing clients)
 
 ---
 
