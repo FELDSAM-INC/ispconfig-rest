@@ -55,6 +55,7 @@ class ModuleGateTest extends TestCase
             ['GET', '/api/v1/system/directive-snippets'],      // directive-snippets.yaml
             ['POST', '/api/v1/system/resync'],                 // resync.yaml
             ['GET', '/api/v1/system/resync/servers'],          // resync.yaml
+            ['POST', '/api/v1/system/api-keys'],               // api-keys.yaml (write)
             // monitor module (incl. the sys_datalog journal — FR-014)
             ['GET', '/api/v1/monitor/data-logs'],              // data-logs.yaml
             ['GET', '/api/v1/monitor/servers/status'],         // server-status.yaml

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\DirectiveSnippetController;
 use App\Http\Controllers\Api\V1\DnsCaController;
 use App\Http\Controllers\Api\V1\ResyncController;
@@ -43,3 +44,6 @@ Route::delete('system/directive-snippets/{directiveSnippet}', [DirectiveSnippetC
 // Resync — api/modules/system/resync.yaml ('servers' before the action path)
 Route::get('system/resync/servers', [ResyncController::class, 'servers']);
 Route::post('system/resync', [ResyncController::class, 'store']);
+
+// API Keys — api/modules/system/api-keys.yaml (static paths before {apiKey})
+Route::post('system/api-keys', [ApiKeyController::class, 'store']);

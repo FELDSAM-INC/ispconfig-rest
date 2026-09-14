@@ -85,15 +85,15 @@ returned once and works with the bound client's scope.
 
 > Write these tests first and confirm they fail before implementation.
 
-- [ ] T014 [P] [US1] Create `tests/Feature/ApiKeyManagementApiTest.php` (TenantSchema + TenantFixtures) with create cases: client-bound key → 201 with `key`, `scope: client`, `client_id`, no `key_hash`; returned key authenticates with A's scope (`GET /api/v1/mail/domains` only A's rows, `GET /api/v1/servers` 403); no `client_id` → `scope: admin`; reseller `client_id` → `scope: reseller`; 422 matrix (missing name, name > 255, `client_id` 0 / negative / string, unknown client, client without control-panel user, each prohibited field `key`, `key_hash`, `sys_userid`, `sys_groupid`, `id`, `scope`); 403 for client and reseller keys; zero `sys_datalog` rows after create
-- [ ] T015 [P] [US1] Add `['POST', '/api/v1/system/api-keys']` to `adminOnlyOperations()` in `tests/Feature/ModuleGateTest.php`
+- [x] T014 [P] [US1] Create `tests/Feature/ApiKeyManagementApiTest.php` (TenantSchema + TenantFixtures) with create cases: client-bound key → 201 with `key`, `scope: client`, `client_id`, no `key_hash`; returned key authenticates with A's scope (`GET /api/v1/mail/domains` only A's rows, `GET /api/v1/servers` 403); no `client_id` → `scope: admin`; reseller `client_id` → `scope: reseller`; 422 matrix (missing name, name > 255, `client_id` 0 / negative / string, unknown client, client without control-panel user, each prohibited field `key`, `key_hash`, `sys_userid`, `sys_groupid`, `id`, `scope`); 403 for client and reseller keys; zero `sys_datalog` rows after create
+- [x] T015 [P] [US1] Add `['POST', '/api/v1/system/api-keys']` to `adminOnlyOperations()` in `tests/Feature/ModuleGateTest.php`
 
 ### Implementation for User Story 1
 
-- [ ] T016 [P] [US1] Create `app/Http/Requests/StoreApiKeyRequest.php`: `name` required string 1–255; `client_id` sometimes integer min 1; `prohibited` for `key`, `key_hash`, `sys_userid`, `sys_groupid`, `id`, `scope`; after validation resolve `client_id` through `ApiKeyService::resolveClientIdentity()` and add a 422 `errors.client_id` message when it returns `null`
-- [ ] T017 [US1] Create `app/Http/Controllers/Api/V1/ApiKeyController.php` with a thin `store(StoreApiKeyRequest)` → `ApiKeyService::mint()` → 201 JSON = `ApiKeyService::present([$key])[0]` plus `key` (the plaintext appears only here)
-- [ ] T018 [US1] Register `Route::post('system/api-keys', [ApiKeyController::class, 'store'])` in `routes/api/system.php` with a `// API Keys — api/modules/system/api-keys.yaml` comment, placed so static `system/api-keys` routes precede the `{apiKey}` routes added in US2
-- [ ] T019 [US1] Run `php artisan test --filter='ApiKeyManagementApiTest|ModuleGateTest|CreateApiKeyClientIdTest'` (`tests/Feature/ApiKeyManagementApiTest.php`, `tests/Feature/ModuleGateTest.php`) until green
+- [x] T016 [P] [US1] Create `app/Http/Requests/StoreApiKeyRequest.php`: `name` required string 1–255; `client_id` sometimes integer min 1; `prohibited` for `key`, `key_hash`, `sys_userid`, `sys_groupid`, `id`, `scope`; after validation resolve `client_id` through `ApiKeyService::resolveClientIdentity()` and add a 422 `errors.client_id` message when it returns `null`
+- [x] T017 [US1] Create `app/Http/Controllers/Api/V1/ApiKeyController.php` with a thin `store(StoreApiKeyRequest)` → `ApiKeyService::mint()` → 201 JSON = `ApiKeyService::present([$key])[0]` plus `key` (the plaintext appears only here)
+- [x] T018 [US1] Register `Route::post('system/api-keys', [ApiKeyController::class, 'store'])` in `routes/api/system.php` with a `// API Keys — api/modules/system/api-keys.yaml` comment, placed so static `system/api-keys` routes precede the `{apiKey}` routes added in US2
+- [x] T019 [US1] Run `php artisan test --filter='ApiKeyManagementApiTest|ModuleGateTest|CreateApiKeyClientIdTest'` (`tests/Feature/ApiKeyManagementApiTest.php`, `tests/Feature/ModuleGateTest.php`) until green
 
 **Checkpoint**: WHMCS provisioning can obtain client-scoped keys over HTTP (SC-001).
 
