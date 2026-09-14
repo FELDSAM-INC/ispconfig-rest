@@ -1,0 +1,367 @@
+# Draft of api/modules/sites/web-backups.yaml (feature 018).
+# Register each path in api/openapi.yaml after /sites/web-domains/{id}/ssl/renew and add
+# `web-backups: $ref: './web-backups.yaml'` to api/modules/sites/_index.yaml.
+# Schemas are drafted in ./schemas.yaml and become api/components/schemas/<Name>.yaml.
+
+/sites/web-domains/{id}/backups:
+  get:
+    tags:
+      - Web Backups
+    summary: List website backups
+    description: |
+      Backups of the website's files and of its databases, newest first. Only vhost websites have
+      backups. Client and reseller keys need `limit_backup` enabled on their client.
+    parameters:
+      - $ref: '#/components/parameters/WebDomainId'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - name: sort
+        in: query
+        schema:
+          type: string
+          enum: [created_at, id]
+          default: created_at
+      - name: order
+        in: query
+        schema:
+          type: string
+          enum: [asc, desc]
+          default: desc
+      - name: type
+        in: query
+        schema:
+          type: string
+          enum: [web, mysql, mongodb]
+      - name: job
+        in: query
+        schema:
+          type: string
+          enum: [manual, auto]
+    responses:
+      '200':
+        description: Backups of the website
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data, meta]
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/WebBackup.yaml'
+                meta:
+                  type: object
+                  properties:
+                    total: {type: integer}
+                    limit: {type: integer}
+                    offset: {type: integer}
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+  post:
+    tags:
+      - Web Backups
+    summary: Start an on-demand backup
+    description: |
+      Queues a manual backup of the website files (`web`, one job on the website's server) or of the
+      website's databases (`mysql`, one job per database server). Requires update permission on the
+      website. A manual backup job can end in state `ok` without producing a backup; check the backup
+      list for the new backup.
+    parameters:
+      - $ref: '#/components/parameters/WebDomainId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/WebBackupCreate.yaml'
+    responses:
+      '201':
+        description: Queued jobs
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data]
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/WebBackupJob.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        # a backup of this type is already pending, or backups are not configured on a target server
+        $ref: '../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+
+/sites/web-domains/{id}/backups/{backup_id}:
+  get:
+    tags:
+      - Web Backups
+    summary: Show a backup
+    parameters:
+      - $ref: '#/components/parameters/WebDomainId'
+      - $ref: '#/components/parameters/BackupId'
+    responses:
+      '200':
+        description: The backup
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/WebBackup.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+  delete:
+    tags:
+      - Web Backups
+    summary: Delete a backup
+    description: |
+      Queues deletion of the backup on the server that stores it. The backup disappears from the list
+      once the server has removed it. Requires update permission on the website.
+    parameters:
+      - $ref: '#/components/parameters/WebDomainId'
+      - $ref: '#/components/parameters/BackupId'
+    responses:
+      '204':
+        description: Deletion queued
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+
+/sites/web-domains/{id}/backups/{backup_id}/restore:
+  post:
+    tags:
+      - Web Backups
+    summary: Restore a backup
+    description: |
+      Queues a restore on the server that stores the backup. Restoring website files replaces the
+      current files with the backup and removes files created after the backup (except `backup`, `log`,
+      `ssl` and `tmp`); restoring a database overwrites its tables. Requires update permission on the
+      website.
+    parameters:
+      - $ref: '#/components/parameters/WebDomainId'
+      - $ref: '#/components/parameters/BackupId'
+    responses:
+      '201':
+        description: Queued restore job
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/WebBackupJob.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+
+/sites/web-domains/{id}/backups/{backup_id}/download:
+  post:
+    tags:
+      - Web Backups
+    summary: Prepare a backup for download
+    description: |
+      Queues a copy of the backup into the website's `backup` folder, reachable with the website's
+      FTP/SSH users and removed after 3 days. Only for backups stored on the website's server (422
+      otherwise). There is no HTTP download. Requires read permission on the website.
+    parameters:
+      - $ref: '#/components/parameters/WebDomainId'
+      - $ref: '#/components/parameters/BackupId'
+    responses:
+      '201':
+        description: Queued download job
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/WebBackupJob.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+
+/sites/web-domains/{id}/backup-jobs:
+  get:
+    tags:
+      - Web Backups
+    summary: List backup jobs of a website
+    parameters:
+      - $ref: '#/components/parameters/WebDomainId'
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - name: sort
+        in: query
+        schema:
+          type: string
+          enum: [created_at, id]
+          default: created_at
+      - name: order
+        in: query
+        schema:
+          type: string
+          enum: [asc, desc]
+          default: desc
+      - name: state
+        in: query
+        schema:
+          type: string
+          enum: [pending, ok, warning, error]
+      - name: action
+        in: query
+        schema:
+          type: string
+          enum: [backup, restore, download, delete]
+    responses:
+      '200':
+        description: Jobs of the website
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data, meta]
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/WebBackupJob.yaml'
+                meta:
+                  type: object
+                  properties:
+                    total: {type: integer}
+                    limit: {type: integer}
+                    offset: {type: integer}
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+
+/sites/web-domains/{id}/backup-jobs/{job_id}:
+  get:
+    tags:
+      - Web Backups
+    summary: Show a backup job
+    parameters:
+      - $ref: '#/components/parameters/WebDomainId'
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: The job
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/WebBackupJob.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+
+/sites/web-domains/{id}/backup-settings:
+  get:
+    tags:
+      - Web Backups
+    summary: Read backup settings
+    parameters:
+      - $ref: '#/components/parameters/WebDomainId'
+    responses:
+      '200':
+        description: Backup settings of the website
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/WebBackupSettings.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+  put:
+    tags:
+      - Web Backups
+    summary: Update backup settings
+    description: |
+      Partial update of the website's backup schedule and options, written through the datalog
+      (`web_domain` update). Requires update permission on the website.
+    parameters:
+      - $ref: '#/components/parameters/WebDomainId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/WebBackupSettingsUpdate.yaml'
+    responses:
+      '200':
+        description: Updated settings
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/WebBackupSettings.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+
+# Local parameter definitions for this draft; the final file inlines them per operation like
+# web-domains.yaml does (path `id`, integer int64).
+components:
+  parameters:
+    WebDomainId:
+      name: id
+      in: path
+      description: ID of the web domain (vhost website)
+      required: true
+      schema:
+        type: integer
+        format: int64
+    BackupId:
+      name: backup_id
+      in: path
+      description: ID of the backup (`web_backup.backup_id`)
+      required: true
+      schema:
+        type: integer
+        format: int64
