@@ -238,6 +238,9 @@ the plan-usage need.
 - **FR-013**: The feature MUST NOT write to any table and MUST NOT trigger collectors.
 - **FR-014**: Every endpoint MUST be defined in the OpenAPI contract first and covered by feature tests for
   success, scoping (two clients), unlimited limits, missing collector data, 400/401/404/422 cases.
+- **FR-015**: The installer MUST set the API's timezone to the ISPConfig server's system timezone so calendar
+  traffic periods match the dates ISPConfig writes; existing installations get it on the next
+  `ispconfig-rest update` unless the timezone was set explicitly (owner decision 2026-09-14).
 
 ### Key Entities
 
@@ -272,8 +275,8 @@ the plan-usage need.
 
 ## Assumptions
 
-- The API's configured timezone matches the ISPConfig servers' timezone, so calendar periods line up with
-  the dates written to `web_traffic` and `mail_traffic`; installers are expected to set it accordingly.
+- The ISPConfig servers of one installation share one timezone; the installer aligns the API with it (FR-015),
+  so calendar periods line up with the dates written to `web_traffic` and `mail_traffic`.
 - Data freshness is whatever the ISPConfig collectors provide (5 min disk and databases, 15 min mail
   storage, daily traffic); the API does not trigger or cache collection.
 - FTP traffic (`ftp_traffic`), backup storage statistics, OpenVZ traffic and web statistics pages
@@ -281,5 +284,5 @@ the plan-usage need.
 - Reseller-wide aggregates across all their clients are out of scope; resellers query one client at a
   time.
 - Client-level web disk usage is the sum of the client's vhost site usages (always available), not the
-  filesystem group quota value, which exists only when group quotas are enabled.
+  filesystem group quota value, which exists only when group quotas are enabled (owner decision 2026-09-14).
 - Sorting by computed usage values is not required; consumers sort client-side within a page.
