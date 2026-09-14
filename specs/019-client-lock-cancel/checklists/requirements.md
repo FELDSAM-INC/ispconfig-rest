@@ -37,6 +37,7 @@
   `func_client_lock`/`func_client_cancel`, `client_edit.php`, `reseller_edit.php`, remote `client.inc.php`,
   login `index.php`, live `client`/`sys_user` columns.
 - No clarification markers. Defaults recorded: cancel applied on create (deviation), side effects only on
-  flag change (panel parity over remote API), legacy owner rewrite mirrored, no write blocking for locked
-  clients.
+  flag change (panel parity over remote API).
+- Owner decisions on 2026-09-14: legacy owner rewrite mirrored without restoring previous owners; non-admin
+  keys may not re-enable or create records of a locked client (FR-013, 403, no datalog), admin keys unaffected.
 - Committed directly to `main` per the owner's workflow (no feature branch).

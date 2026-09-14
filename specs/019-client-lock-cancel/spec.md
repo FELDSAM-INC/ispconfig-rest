@@ -107,8 +107,9 @@ acting key's `sys_userid`. `canceled=true` → R's control-panel user inactive, 
 
 - `locked: true` on create: the flag is stored; the new client has no records yet, so nothing is disabled.
   Records created later while the client is locked are not disabled automatically (legacy parity).
-- A write that sets `active: true` on a record of a locked client re-enables that record (legacy does not
-  block it); consumers are expected not to modify a suspended client's records.
+- While a client is locked, a non-admin (client or reseller) key that tries to set a lock-managed column of
+  that client's record back to its enabled value, or to create a new record owned by that client, gets 403
+  and no datalog entry is written (owner decision 2026-09-14, FR-013); admin keys are not restricted.
 - Client without `sys_group` or `sys_user` rows (inconsistent data): the flags are stored, lock finds no
   records, cancel updates no login; the request still succeeds.
 - Empty, missing or non-array snapshot: treated as empty (legacy `unserialize` guard); unlock then enables
@@ -187,6 +188,9 @@ acting key's `sys_userid`. `canceled=true` → R's control-panel user inactive, 
   2. Side effects run only when a flag value changes (legacy panel behavior); the legacy remote API runs
      them on every update, which re-snapshots already-locked clients and re-enables manually disabled
      records on unrelated updates.
+  3. While a client is locked, non-admin keys may not re-enable its records or create new records for it
+     (403, no datalog); legacy allows both. Without this a suspended customer could undo the suspension
+     with its own key (owner decision 2026-09-14, FR-013).
 
 ## Requirements *(mandatory)*
 
@@ -215,10 +219,15 @@ acting key's `sys_userid`. `canceled=true` → R's control-panel user inactive, 
 - **FR-010**: `locked` and `canceled` MUST NOT affect API key authentication or scoping.
 - **FR-011**: The `ClientService` note listing lock/cancel as "not ported" and any README deviation text MUST
   be updated to describe the implemented behavior.
+- **FR-013**: While a client is locked, the system MUST refuse with 403 problem+json and without writing any
+  datalog entry: (a) a non-admin key's update that would set a lock-managed column of a record owned by that
+  client back to its enabled value (`active` → true on the lock table list, `postfix` → enabled or
+  `disablesmtp` → false on mailboxes), and (b) a non-admin key's create of a record in the lock table list
+  owned by that client. Admin keys are not restricted (owner decision 2026-09-14).
 - **FR-012**: Feature tests MUST cover lock and unlock with the exact datalog rows and snapshot content, the
   restore matrix (previously active, previously inactive, SMTP already disabled), unlock of a legacy-written
   snapshot, unchanged-flag no-ops, cancel toggle and cancel on create, reseller scope, and API keys of
-  canceled/locked clients.
+  canceled/locked clients, and the FR-013 refusals for client and reseller keys with admin keys unaffected.
 
 ### Key Entities
 
@@ -253,8 +262,9 @@ acting key's `sys_userid`. `canceled=true` → R's control-panel user inactive, 
 - No new endpoints or response fields; consumers read `locked` and `canceled` from the existing client
   representation and track application through feature 015.
 - The legacy owner rewrite on lock/unlock (every affected record ends owned by the client's control-panel
-  user) is mirrored for parity; changing it would need an explicit owner decision.
-- Consumers do not modify a locked client's records; the API does not block such writes (legacy parity).
+  user) is mirrored for parity, and previous owners are not restored (owner decision 2026-09-14).
+- Non-admin keys cannot re-enable or add records of a locked client (FR-013, owner decision 2026-09-14);
+  admin keys can, for support purposes.
 - Welcome e-mails, customer number templates and SSH key generation remain out of scope, as today.
 - Legacy `demo_mode` checks are not applicable to the API.
 - The `openvz_vm` table exists in ISPConfig 3.3 installations; implementations skip it only if the table is
