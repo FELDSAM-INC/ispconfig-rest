@@ -115,7 +115,7 @@ the CLI commands and both controllers share it and controllers stay thin.
 
 | Operation | Controller | Notes |
 |-----------|-----------|-------|
-| `GET /system/api-keys` | `ApiKeyController@index` | `HandlesListQuery` with `sortable: [id, name, active, created_at, last_used_at]`, default `id`; filters `active` (boolean); `client_id` and `name` consumed as `extra` params: `client_id` → `sys_user.userid` set of that client (`whereIn sys_userid`, empty set → no rows, invalid value → 400); `name` → case-insensitive substring `LIKE %…%` with `%`/`_` escaped. Page mapped through `ApiKeyService::present()`. |
+| `GET /system/api-keys` | `ApiKeyController@index` | `HandlesListQuery` with `sortable: [id, name, active, created_at, last_used_at]`, default `id`; filters `active` (boolean) and `name` (shared `wildcard` type: `*` → `LIKE`, exact match otherwise; owner decision 2026-09-14); `client_id` consumed as an `extra` param → `sys_user.userid` set of that client (`whereIn sys_userid`, empty set → no rows, invalid value → 400). Page mapped through `ApiKeyService::present()`. |
 | `GET /system/api-keys/{id}` | `@show` | implicit binding (`{apiKey}` `whereNumber`), 404 problem via existing handler |
 | `POST /system/api-keys` | `@store` | `StoreApiKeyRequest`; `ApiKeyService::mint(name, ?clientId)` in a transaction; 201 `ApiKeyCreated` |
 | `PUT /system/api-keys/{id}` | `@update` | `UpdateApiKeyRequest`; rename and/or `active`; 409 when deactivating the calling key; 422 when `client_id` differs from current binding |
@@ -168,7 +168,7 @@ the CLI commands and both controllers share it and controllers stay thin.
 - `ApiKeyManagementApiTest` (TenantSchema + TenantFixtures): create admin/client/reseller-bound keys
   and use the returned plaintext against a scoped endpoint; 422 matrix (missing name, unknown client,
   client without user, prohibited fields, binding change); 403 for client and reseller keys on all five
-  operations; list filters/sort/pagination/400; plaintext and hash absent from list/show/update bodies;
+  operations; list filters (`name` with `*` wildcard and exact match)/sort/pagination/400; plaintext and hash absent from list/show/update bodies;
   deactivate → 401 on `/ping`, re-activate → 200; delete → 204 then 401; self-deactivate/self-delete
   409 using the fixture's minted admin key; unknown id 404.
 - `MeApiTest`: admin, reseller, client A, dev key identities; revoked key 401.

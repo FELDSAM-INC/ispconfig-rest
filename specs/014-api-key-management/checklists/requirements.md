@@ -36,3 +36,4 @@
   implementation details.
 - No clarification markers: admin-only management, no expiry, client-or-admin binding and 409 on
   self-revocation were chosen as defaults and recorded in Assumptions / FR-009.
+- Owner decisions on 2026-09-14: `name` filter uses the project's `*` wildcard; client deletion deactivates (not deletes) its keys.

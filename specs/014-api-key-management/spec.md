@@ -188,7 +188,8 @@ available remotely.
 - **FR-004**: System MUST restrict all `/system/api-keys` endpoints to admin-scoped keys; client and
   reseller keys receive 403 before any query runs.
 - **FR-005**: System MUST list keys with the shared `{data, meta}` envelope, `limit`/`offset`/`sort`/
-  `order`, and filters `client_id`, `active` and `name` (substring match); unknown parameters return 400.
+  `order`, and filters `client_id`, `active` and `name` (`*` wildcard match like other modules, exact match without `*`; owner decision
+  2026-09-14); unknown parameters return 400.
 - **FR-006**: Key representations MUST include id, name, scope (`admin`, `reseller`, `client`, or
   `unbound` when the bound identity no longer exists), `client_id`, active flag, created time and
   last-used time.

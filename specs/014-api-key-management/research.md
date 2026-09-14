@@ -64,7 +64,7 @@ choices the spec leaves to planning. Each was checked against the current code o
   (only when `groupid > 1`), inside the existing transaction of `ClientController::destroy`.
 - **Rationale**: CLI `--sys-userid/--sys-groupid` can bind keys to either half of the identity; matching
   both covers all client-bound keys while never touching the admin group 1. Deactivation (not deletion)
-  keeps an audit trail and matches the spec wording.
+  keeps an audit trail and matches the spec wording (owner decision 2026-09-14).
 - **Alternatives considered**: deleting the keys (loses `last_used_at` history); relying on fail-closed
   401 only (spec SC-005 requires zero active keys).
 
@@ -79,12 +79,12 @@ choices the spec leaves to planning. Each was checked against the current code o
 
 ## R8 — `name` filter semantics
 
-- **Decision**: case-insensitive substring match with `%`/`_` escaped, consumed as an `extra` list
-  parameter; `active` uses the shared `boolean` filter type; sort whitelist
+- **Decision**: `name` uses the shared `wildcard` filter type (`*` → `LIKE` with `%`/`_` escaped, exact
+  match without `*`); `active` uses the shared `boolean` filter type; sort whitelist
   `id, name, active, created_at, last_used_at`, default `id`.
-- **Rationale**: FR-005 specifies substring matching; other modules' `*` wildcard convention targets
-  hostnames, while key labels are free text.
-- **Alternatives considered**: the shared `wildcard` filter type (would require callers to add `*`).
+- **Rationale**: same filter behaviour as every other list endpoint (owner decision 2026-09-14).
+- **Alternatives considered**: case-insensitive substring match as an `extra` list parameter (rejected by the
+  owner: it would differ from the project convention).
 
 ## R9 — Verification environment
 

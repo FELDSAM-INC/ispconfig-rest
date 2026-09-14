@@ -36,7 +36,7 @@
           type: boolean
       - name: name
         in: query
-        description: Case-insensitive substring match on the key label
+        description: Filter by key label; `*` is a wildcard (for example `whmcs*`), without `*` the label must match exactly
         schema:
           type: string
     responses:
