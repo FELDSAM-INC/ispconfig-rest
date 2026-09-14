@@ -172,7 +172,7 @@ unchanged.
 - [x] T045 Run the full suite in Docker `php:8.3-cli` and verify with `git diff --stat` that admin-key test files (tests/Feature/WebDomainApiTest.php, MailDomainApiTest.php, WebDatabaseApiTest.php, DnsSoaApiTest.php, DnsSlaveApiTest.php, MailRoutingApiTest.php) are unchanged (SC-004)
 - [x] T046 [P] Check route ordering with `php artisan route:list --path=me` (routes/api/me.php literal paths, no shadowing, outside `scope.admin`)
 - [x] T047 [P] Open `/api/documentation` and confirm `GET /me/servers`, `AssignedServers`, `AssignedServer` render and the six schemas no longer list `server_id` as required (api/openapi.yaml)
-- [ ] T048 Execute the manual scenarios of specs/016-client-server-assignment/quickstart.md on a disposable ISPConfig + API installation only (not the shared `/opt/ispconfig-rest` without owner approval), confirming rejected requests add no journal entry
+- [x] T048 Execute the manual scenarios of specs/016-client-server-assignment/quickstart.md on a disposable ISPConfig + API installation only (not the shared `/opt/ispconfig-rest` without owner approval), confirming rejected requests add no journal entry — executed on isp-test (owner workflow 2026-09-14: test server, deploy freely); rejections wrote no journal entry
 
 ---
 
