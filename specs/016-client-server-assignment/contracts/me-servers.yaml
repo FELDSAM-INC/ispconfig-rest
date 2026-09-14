@@ -1,0 +1,60 @@
+# Draft of api/modules/me/servers.yaml (spec 016).
+# Register in api/openapi.yaml:
+#   paths:
+#     /me/servers:
+#       $ref: './modules/me/servers.yaml#/~1me~1servers'
+# and add `servers: $ref: './servers.yaml'` to api/modules/me/_index.yaml (owned by spec 014).
+
+/me/servers:
+  get:
+    tags:
+      - Me
+    summary: Servers the calling key may use
+    description: |
+      Returns, per service, the servers the calling API key may place new resources on,
+      with the server used when `server_id` is omitted marked as default.
+
+      - **Client and reseller keys**: the servers assigned to the key's own account
+        (`web_servers`, `mail_servers`, `db_servers`, `dns_servers` in list order) and the
+        account's secondary DNS server. List entries that reference deleted servers, mirror
+        servers or servers without the matching role are omitted. The first entry of each
+        list is the default.
+      - **Admin keys**: every non-mirror server with the matching role, ordered by id; the
+        defaults are the system configuration defaults (`default_webserver`,
+        `default_dbserver`, `default_mailserver`, `default_dnsserver`,
+        `default_slave_dnsserver`).
+
+      Each entry contains only the server id, name and default flag. Reseller accounts
+      created through the API have no assigned servers until an administrator sets them.
+    responses:
+      '200':
+        description: Assigned servers per service
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/AssignedServers.yaml'
+            example:
+              web:
+                - server_id: 2
+                  server_name: web2.example.com
+                  is_default: true
+                - server_id: 1
+                  server_name: web1.example.com
+                  is_default: false
+              mail:
+                - server_id: 3
+                  server_name: mail1.example.com
+                  is_default: true
+              db: []
+              dns:
+                - server_id: 4
+                  server_name: ns1.example.com
+                  is_default: true
+              dns_slave:
+                server_id: 5
+                server_name: ns2.example.com
+                is_default: true
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
