@@ -17,14 +17,15 @@ and `2a0b:a901::b9ff:feae:aa35` (IPv6), both `virtualhost = n`; `dns_external_sl
 clients only (never clients 1, 2 or `WHMCS-*`); do not change system settings. Temporary `server_ip` rows created for
 the check are removed afterwards.
 
-1. Admin `POST /clients` `qa031a…` (`web_servers=1`, `mail_servers=1`, `dns_servers=1`) and `qa031b…` (no servers);
-   client key for `qa031a`.
+1. Admin `POST /clients` `qa031a…` (`web_servers=1`, `mail_servers=1`, `dns_servers=1`) and `qa031b…` (without
+   server lists — ISPConfig gives every new client the installation's default servers); client key for `qa031a`.
 2. Client A `GET /me/hosting-addresses` → `web[0]`, `mail[0]`, `dns[0]` = server 1 with both shared addresses;
    `dns[0].nameservers` = `[{isp-test.feldhost.cz, same addresses}]`.
-3. Admin `POST /servers/1/ip-addresses` `203.0.113.77` dedicated to client B and `10.10.10.10` shared (temporary);
-   client A read → neither listed.
-4. Admin `GET /me/hosting-addresses?client_id=<B>` → `web`, `mail`, `dns` empty (no servers, no resources); admin
-   without `client_id` → 422; client A with `client_id=<B>` → 404; `?foo=1` → 400.
+3. Admin `POST /servers/1/ip-addresses` `203.0.113.77` dedicated to client B and `10.31.31.31` shared (temporary);
+   client A read → neither listed (dedicated to another client / private).
+4. Admin `GET /me/hosting-addresses?client_id=<B>` → server 1 with the shared addresses **and** B's own
+   `203.0.113.77`; admin without `client_id` → 422; client A with `client_id=<B>` → 404; `?foo=1` → 400. (An account
+   without any servers or resources returns empty lists; that case is covered by the automated tests.)
 5. Cleanup: delete the temporary IP rows and clients (admin), wait until `server.updated` ≥ the last datalog id,
    delete QA keys by SQL, verify no `qa031` rows and that `server_ip` holds only rows 1 and 2.
 

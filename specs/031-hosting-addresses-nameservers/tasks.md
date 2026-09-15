@@ -50,8 +50,37 @@ The three stories share one read-only endpoint; they are tested in one test clas
 
 - [x] T009 [P] Mention `GET /me/hosting-addresses` in `README.md`
 - [x] T010 Run Pint on changed PHP files and the full suite in Docker
-- [ ] T011 Deploy to isp-test and run `specs/031-hosting-addresses-nameservers/quickstart.md` §2 with temporary clients; record results here
+- [x] T011 Deploy to isp-test and run `specs/031-hosting-addresses-nameservers/quickstart.md` §2 with temporary clients; record results here
 
 ## Dependencies
 
 Phase 1 → tests → implementation → Polish. T001/T002 parallel; T007 before T008.
+
+## Results (T010–T011, 2026-09-16)
+
+- T010: Pint clean on the new files; full suite 1148 passed (baseline 1141 + 7 new tests).
+- T011: deployed `acc002e` to isp-test (`ispconfig-rest status`: 1.0.0-rc.3 (acc002e)). Temporary clients
+  `qa031ae7f8b0` (30) and `qa031be7f8b0` (31), QA admin key 69 and client key 70, temporary `server_ip` rows 3 and 4.
+  Keys were never printed. Results:
+
+| Case | Expected | Got |
+|---|---|---|
+| client A `GET /me/hosting-addresses` | `web[0]`/`mail[0]`/`dns[0]` = server 1, `ipv4 ["185.174.170.53"]`, `ipv6 ["2a0b:a901::b9ff:feae:aa35"]`, `is_default true`, mail host `isp-test.feldhost.cz` | as expected |
+| same, `dns[0].nameservers` | `[{isp-test.feldhost.cz, both addresses}]` (no external DNS servers configured) | as expected |
+| admin adds `203.0.113.77` dedicated to client B and shared private `10.31.31.31` | 201, 201 | as expected |
+| client A reads again | addresses unchanged (other client's dedicated and private addresses hidden) | as expected |
+| admin `GET ?client_id=31` | server 1 with the shared addresses **and** B's own `203.0.113.77` | as expected (see note) |
+| admin `GET` without `client_id` | 422 `errors.client_id` | 422 `The client id is required for admin keys.` |
+| client A `GET ?client_id=31` | 404 | 404 |
+| client A `GET ?foo=1` | 400 | 400 `Unknown parameter 'foo'. Allowed: client_id.` |
+
+  Note: the quickstart expected empty lists for client B; ISPConfig gives every new client the installation's default
+  servers (`web_servers = mail_servers = dns_servers = 1` on both temporary clients), so B legitimately gets server 1 —
+  with its own dedicated address, which client A never sees. The quickstart step was corrected; the empty-list case is
+  covered by the automated tests.
+
+- Cleanup: `server_ip` rows 3 and 4 and clients 30, 31 deleted with the QA admin key (204); datalog processed
+  (`server.updated` 784 = last id 784); API keys 69, 70 deleted by SQL (`name LIKE 'qa%'`); no `qa031` client,
+  sys_group or sys_user rows, no pending datalog, `server_ip` back to rows 1 and 2, `/etc/network/interfaces`
+  unchanged (`auto_network_configuration = n`). Remaining keys: 1, 2, 20, 27, 50 (untouched).
+
