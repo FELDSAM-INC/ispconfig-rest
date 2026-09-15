@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\DnsSchema;
+use Tests\Support\MailSchema;
 use Tests\Support\TenantFixtures;
 use Tests\Support\TenantSchema;
 use Tests\TestCase;
@@ -53,6 +54,8 @@ class DnsZoneWizardApiTest extends TestCase
         parent::setUp();
 
         DnsSchema::create();
+        // mail_domain for the optional DKIM record (US4).
+        MailSchema::create();
         TenantSchema::create();
         $this->seedTenants();
 
@@ -470,6 +473,128 @@ class DnsZoneWizardApiTest extends TestCase
             ->assertCreated();
 
         $this->assertSame(7, DB::table('dns_rr')->count());
+    }
+
+    // ------------------------------------------------------------------
+    // US4 — optional DKIM and DNSSEC, as in the panel
+    // ------------------------------------------------------------------
+
+    /**
+     * @param  array<string, mixed>  $attrs
+     */
+    protected function mailDomain(string $owner, array $attrs = []): int
+    {
+        return (int) DB::table('mail_domain')->insertGetId($this->ownedBy($owner, array_merge([
+            'server_id' => 1,
+            'domain' => 'example.com',
+            'active' => 'y',
+            'dkim' => 'y',
+            'dkim_selector' => 'mail',
+            'dkim_public' => "-----BEGIN PUBLIC KEY-----\nMIIBpubkeyLINEONE\nLINETWO\n-----END PUBLIC KEY-----\n",
+        ], $attrs)), 'domain_id');
+    }
+
+    public function test_dkim_flag_adds_the_published_record(): void
+    {
+        $this->mailDomain('clientA');
+
+        $zoneId = (int) $this->postJson('/api/v1/dns/soa/from-template', $this->wizardPayload(['dkim' => true]), $this->tenantHeaders('clientA'))
+            ->assertCreated()->json('id');
+
+        $record = DB::table('dns_rr')->where('zone', $zoneId)->where('name', 'mail._domainkey.example.com.')->first();
+
+        $this->assertNotNull($record, 'the DKIM record is created');
+        $this->assertSame('TXT', $record->type);
+        // PEM headers and line breaks stripped, as legacy composes it.
+        $this->assertSame('v=DKIM1; t=s; p=MIIBpubkeyLINEONELINETWO', $record->data);
+        $this->assertSame(0, (int) $record->aux);
+        // Legacy's own appended row has no TTL and stores 0; the zone's TTL is
+        // used instead (spec 029 deviation 5).
+        $this->assertSame(3600, (int) $record->ttl);
+        $this->assertSame(8, DB::table('dns_rr')->where('zone', $zoneId)->count());
+    }
+
+    public function test_dkim_selector_falls_back_to_default(): void
+    {
+        $this->mailDomain('clientA', ['dkim_selector' => '']);
+
+        $zoneId = (int) $this->postJson('/api/v1/dns/soa/from-template', $this->wizardPayload(['dkim' => true]), $this->tenantHeaders('clientA'))
+            ->assertCreated()->json('id');
+
+        $this->assertSame(
+            1,
+            DB::table('dns_rr')->where('zone', $zoneId)->where('name', 'default._domainkey.example.com.')->count()
+        );
+    }
+
+    public function test_dkim_flag_without_a_readable_mail_domain_is_a_no_op(): void
+    {
+        // No mail domain at all.
+        $this->postJson('/api/v1/dns/soa/from-template', $this->wizardPayload(['dkim' => true]), $this->tenantHeaders('clientA'))
+            ->assertCreated();
+        $this->assertSame(7, DB::table('dns_rr')->count());
+
+        // DKIM switched off, and another client's domain: neither is used.
+        DB::table('dns_rr')->delete();
+        DB::table('dns_soa')->delete();
+        $this->mailDomain('clientA', ['domain' => 'off.example.com', 'dkim' => 'n']);
+        $this->mailDomain('clientB', ['domain' => 'foreign.example.com']);
+
+        foreach (['off.example.com', 'foreign.example.com'] as $domain) {
+            $zoneId = (int) $this->postJson('/api/v1/dns/soa/from-template', $this->wizardPayload([
+                'domain' => $domain,
+                'dkim' => true,
+            ]), $this->tenantHeaders('clientA'))->assertCreated()->json('id');
+
+            $this->assertSame(
+                0,
+                DB::table('dns_rr')->where('zone', $zoneId)->where('name', 'like', '%_domainkey%')->count(),
+                "no DKIM record for {$domain}"
+            );
+        }
+    }
+
+    public function test_dkim_record_counts_towards_the_record_cap(): void
+    {
+        $this->mailDomain('clientA');
+        // Seven template records plus the DKIM record.
+        $this->setClientLimit('clientA', 'limit_dns_record', 7);
+
+        $this->postJson('/api/v1/dns/soa/from-template', $this->wizardPayload(['dkim' => true]), $this->tenantHeaders('clientA'))
+            ->assertStatus(403)
+            ->assertJsonPath('limit.name', 'limit_dns_record');
+
+        $this->assertSame(0, DB::table('dns_soa')->count());
+    }
+
+    public function test_dnssec_flag_requests_signing(): void
+    {
+        // The shipped template sets dnssec_wanted=N; the customer's choice
+        // must win (spec 029 deviation 7 — legacy's injection is overwritten).
+        $this->postJson('/api/v1/dns/soa/from-template', $this->wizardPayload(['dnssec' => true]), $this->tenantHeaders('clientA'))
+            ->assertCreated()
+            ->assertJsonPath('dnssec_wanted', true);
+
+        $this->assertSame('Y', DB::table('dns_soa')->value('dnssec_wanted'));
+    }
+
+    public function test_flags_are_refused_when_the_template_does_not_offer_them(): void
+    {
+        $templateId = $this->template([
+            'name' => 'No flags',
+            'fields' => 'DOMAIN,IP,NS1,NS2,EMAIL',
+        ]);
+
+        foreach (['dkim', 'dnssec'] as $flag) {
+            $this->postJson('/api/v1/dns/soa/from-template', $this->wizardPayload([
+                'template_id' => $templateId,
+                $flag => true,
+            ]), $this->tenantHeaders('clientA'))
+                ->assertStatus(422)
+                ->assertJsonValidationErrors($flag);
+        }
+
+        $this->assertSame(0, DB::table('dns_soa')->count());
     }
 
     public function test_ipv6_placeholder_is_expanded(): void

@@ -85,12 +85,12 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T022 [US4] `dkim: true` with a readable DKIM-enabled mail domain → the zone gains the `<selector>._domainkey.<domain>.` TXT record with the stripped public key and the zone's TTL; selector defaults to `default`; no readable mail domain (none, DKIM off, or another client's) → zone created without the record and no error; the DKIM record counts towards the record cap
-- [ ] T023 [P] [US4] `dnssec: true` → zone created with `dnssec_wanted` true; flags refused when the template does not declare them (covered from T014, asserted here for both flags)
+- [x] T022 [US4] `dkim: true` with a readable DKIM-enabled mail domain → the zone gains the `<selector>._domainkey.<domain>.` TXT record with the stripped public key and the zone's TTL; selector defaults to `default`; no readable mail domain (none, DKIM off, or another client's) → zone created without the record and no error; the DKIM record counts towards the record cap
+- [x] T023 [P] [US4] `dnssec: true` → zone created with `dnssec_wanted` true; flags refused when the template does not declare them (covered from T014, asserted here for both flags)
 
 ### Implementation
 
-- [ ] T024 [US4] Add the DKIM lookup (spec 024 `readableQuery('mail_domain')`, `dkim = 'y'`, public key stripped of PEM headers and line breaks) and the `dnssec_wanted` injection to `app/Services/DnsZoneWizardService.php`; add guarded `mail_domain` creation to `tests/Support/DnsSchema.php` if the DKIM test cannot reuse `MailSchema`
+- [x] T024 [US4] Add the DKIM lookup (spec 024 `readableQuery('mail_domain')`, `dkim = 'y'`, public key stripped of PEM headers and line breaks) and the `dnssec_wanted` injection to `app/Services/DnsZoneWizardService.php`; add guarded `mail_domain` creation to `tests/Support/DnsSchema.php` if the DKIM test cannot reuse `MailSchema`
 
 **Checkpoint**: all user stories green
 
