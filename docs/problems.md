@@ -55,11 +55,13 @@ Extension member `limit`:
 
 **Status**: 403, or as a field type in `error_types` of a 422
 
-The plan does not include the feature. As a 403 it refuses the whole request and carries `feature`, the client
-limit column (`limit_backup`, `limit_ssl`, `limit_ssl_letsencrypt`, `limit_mailrouting`, …). As a field type it marks
-website fields the plan does not allow: SSL, Let's Encrypt, CGI, SSI, Perl, Ruby, Python, custom error documents,
-directive snippets, wildcard subdomains, the forced suEXEC option, PHP modes and versions, and administrator-only
-settings.
+The plan or the installation does not include the feature. As a 403 it refuses the whole request and carries
+`feature`: the client limit column (`limit_backup`, `limit_ssl`, `limit_ssl_letsencrypt`, `limit_mailrouting`, …), or
+the system setting that switched a mailbox option off for client and reseller keys (`mailbox_show_autoresponder_tab`,
+`mailbox_show_mail_filter_tab`). As a field type it marks website fields the plan does not allow: SSL, Let's Encrypt,
+CGI, SSI, Perl, Ruby, Python, custom error documents, directive snippets, wildcard subdomains, the forced suEXEC
+option, PHP modes and versions, and administrator-only settings; and the administrator-only custom mail filter rules
+(`custom_mailfilter`).
 
 ## server-not-assigned
 
