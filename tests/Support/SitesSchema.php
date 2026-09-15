@@ -403,5 +403,31 @@ class SitesSchema
                 $table->integer('limit_cron_frequency')->default(5);
             });
         }
+
+        // PHP versions of web servers (spec 020 client version checks; same
+        // columns as ServerSchema).
+        if (! Schema::hasTable('server_php')) {
+            Schema::create('server_php', function (Blueprint $table): void {
+                $table->increments('server_php_id');
+                $table->unsignedInteger('sys_userid')->default(0);
+                $table->unsignedInteger('sys_groupid')->default(0);
+                $table->string('sys_perm_user', 5)->nullable();
+                $table->string('sys_perm_group', 5)->nullable();
+                $table->string('sys_perm_other', 5)->nullable();
+                $table->unsignedInteger('server_id')->default(0);
+                $table->unsignedInteger('client_id')->default(0);
+                $table->string('name')->nullable();
+                $table->string('php_fastcgi_binary')->nullable();
+                $table->string('php_fastcgi_ini_dir')->nullable();
+                $table->string('php_fpm_init_script')->nullable();
+                $table->string('php_fpm_ini_dir')->nullable();
+                $table->string('php_fpm_pool_dir')->nullable();
+                $table->string('php_fpm_socket_dir')->nullable();
+                $table->string('php_cli_binary')->nullable();
+                $table->string('php_jk_section')->nullable();
+                $table->string('active', 1)->default('y');
+                $table->integer('sortprio')->default(100);
+            });
+        }
     }
 }

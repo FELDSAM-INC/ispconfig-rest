@@ -62,6 +62,28 @@ class TenantSchema
     ];
 
     /**
+     * Client web permission columns read by spec 020/021 with their DDL
+     * defaults (ispconfig3.sql client; live 3.3.1p1 information_schema).
+     *
+     * @var array<string, string>
+     */
+    private const WEB_PERMISSION_COLUMNS = [
+        'limit_cgi' => 'n',
+        'limit_ssi' => 'n',
+        'limit_perl' => 'n',
+        'limit_ruby' => 'n',
+        'limit_python' => 'n',
+        'force_suexec' => 'y',
+        'limit_hterror' => 'n',
+        'limit_wildcard' => 'n',
+        'limit_ssl' => 'n',
+        'limit_ssl_letsencrypt' => 'n',
+        'limit_directive_snippets' => 'n',
+        'limit_backup' => 'y',
+        'web_php_options' => 'no,fast-cgi,cgi,mod,suphp,php-fpm,hhvm',
+    ];
+
+    /**
      * Client server-assignment columns read by spec 016
      * (ispconfig3.sql client: *_servers CSV lists, default_slave_dnsserver).
      *
@@ -185,6 +207,8 @@ class TenantSchema
 
                 self::addServerAssignmentColumns($table, self::SERVER_ASSIGNMENT_COLUMNS);
 
+                self::addWebPermissionColumns($table, array_keys(self::WEB_PERMISSION_COLUMNS));
+
                 // Spec 019: lock/cancel flags and the lock snapshot.
                 $table->string('locked', 1)->default('n');
                 $table->string('canceled', 1)->default('n');
@@ -215,7 +239,8 @@ class TenantSchema
                 if (in_array('tmp_data', $missing, true)) {
                     $table->text('tmp_data')->nullable();
                 }
-            }, array_merge(['username', 'contact_name', 'parent_client_id', 'locked', 'canceled', 'tmp_data'], array_keys(self::LIMIT_COLUMNS), self::SERVER_ASSIGNMENT_COLUMNS));
+                self::addWebPermissionColumns($table, array_values(array_intersect(array_keys(self::WEB_PERMISSION_COLUMNS), $missing)));
+            }, array_merge(['username', 'contact_name', 'parent_client_id', 'locked', 'canceled', 'tmp_data'], array_keys(self::LIMIT_COLUMNS), self::SERVER_ASSIGNMENT_COLUMNS, array_keys(self::WEB_PERMISSION_COLUMNS)));
 
             self::ensureSysFields(['client']);
         }
@@ -253,6 +278,17 @@ class TenantSchema
                     }
                 }
             });
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $columns  subset of WEB_PERMISSION_COLUMNS
+     */
+    private static function addWebPermissionColumns(Blueprint $table, array $columns): void
+    {
+        foreach ($columns as $column) {
+            $default = self::WEB_PERMISSION_COLUMNS[$column];
+            $table->string($column, $column === 'web_php_options' ? 255 : 1)->default($default);
         }
     }
 
