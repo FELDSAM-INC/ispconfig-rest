@@ -549,6 +549,12 @@ abstract class DnsRecordRequest extends FormRequest
             'ALIAS' => $this->checkNameDuplicate($validator, ['A', 'AAAA', 'CNAME', 'DNAME', 'ALIAS'], $zoneId, $name, $excludeId),
             'DNAME' => $this->checkNameDuplicate($validator, ['CNAME', 'DNAME', 'ALIAS'], $zoneId, $name, $excludeId),
             'CAA' => $this->checkCaa($validator, $zoneId, $origin, $name, $excludeId),
+            // Spec 033: the legacy forms refuse an identical record of these
+            // types for every user type (dns_mx_edit.php:50-66,
+            // dns_tlsa_edit.php:110-130, dns_dkim_edit.php:128-131).
+            'MX', 'TLSA', 'DKIM' => $this->checkIdenticalRecord($validator, $type, $zoneId, $origin, $name, $excludeId),
+            // Spec 033: one SPF record per name (dns_spf_edit.php:165-188).
+            'SPF' => $this->checkSpfSingleton($validator, $zoneId, $origin, $name, $excludeId),
             'DMARC' => $this->checkDmarc($validator, $zoneId, $origin, $excludeId),
             default => $this->checkCnameConflict($validator, $zoneId, $origin, $name, $excludeId),
         };
@@ -727,6 +733,63 @@ abstract class DnsRecordRequest extends FormRequest
 
         if ($duplicate) {
             $validator->errors()->add('name', 'An identical CAA record (same name and data) already exists in this zone.');
+        }
+    }
+
+    /**
+     * Spec 033: an identical record of the same type at the same name
+     * (legacy compares zone + name + type + stored data, so MX priority is
+     * not part of the comparison). Self-excluded on update, zone-scoped, and
+     * applied to every key type as the legacy forms do.
+     */
+    protected function checkIdenticalRecord(Validator $validator, string $type, int $zoneId, string $origin, string $name, int $excludeId): void
+    {
+        $this->checkCnameConflict($validator, $zoneId, $origin, $name, $excludeId);
+
+        $service = app(DnsRecordMetaService::class);
+        $record = $this->currentRecord();
+
+        $fields = array_merge(DnsRecordMetaService::metaFieldsFor($type), ['data']);
+
+        $input = array_merge(
+            $record === null ? [] : $service->meta($record->getRawOriginal()),
+            array_intersect_key($this->all(), array_flip($fields))
+        );
+
+        $storage = $service->compose($input, $type, ['origin' => $origin]);
+
+        $duplicate = DB::table('dns_rr')
+            ->where('zone', $zoneId)
+            ->where('id', '!=', $excludeId)
+            ->where('type', $storage['type'])
+            ->where('name', $name)
+            ->where('data', $storage['data'])
+            ->exists();
+
+        if ($duplicate) {
+            $validator->errors()->add('name', "An identical {$type} record already exists for this name in the zone.");
+        }
+    }
+
+    /**
+     * Spec 033: at most one SPF record per name (legacy dns_spf_edit.php
+     * queries TXT rows with data LIKE 'v=spf1%' for zone + name and refuses
+     * when one exists that is not the record being edited).
+     */
+    protected function checkSpfSingleton(Validator $validator, int $zoneId, string $origin, string $name, int $excludeId): void
+    {
+        $this->checkCnameConflict($validator, $zoneId, $origin, $name, $excludeId);
+
+        $duplicate = DB::table('dns_rr')
+            ->where('zone', $zoneId)
+            ->where('id', '!=', $excludeId)
+            ->where('type', 'TXT')
+            ->where('name', $name)
+            ->where('data', 'like', 'v=spf1%')
+            ->exists();
+
+        if ($duplicate) {
+            $validator->errors()->add('name', 'An SPF record already exists for this name in the zone.');
         }
     }
 

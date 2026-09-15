@@ -3,6 +3,9 @@
 namespace App\Http\Requests;
 
 use App\Models\DnsSoa;
+use App\Support\IspContext;
+use App\Support\ProblemType;
+use App\Support\ProblemTypeCollector;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\DB;
@@ -107,6 +110,43 @@ abstract class DnsSoaRequest extends FormRequest
     public function after(): array
     {
         return [
+            // Spec 033: update_acl is administrator-only — legacy
+            // dns_soa.tform.php:344 removes the field from the form for
+            // non-admins, so a posted value is silently ignored. The API
+            // refuses instead, except when the submitted value equals the
+            // stored one (as spec 016 does for server_id).
+            function (Validator $validator): void {
+                if (! $this->exists('update_acl') || app(IspContext::class)->authScope()->isAdmin) {
+                    return;
+                }
+
+                $current = $this->currentZone()?->getRawOriginal() ?? [];
+
+                if ((string) ($this->input('update_acl') ?? '') === (string) ($current['update_acl'] ?? '')) {
+                    return;
+                }
+
+                app(ProblemTypeCollector::class)->tag('update_acl', ProblemType::FEATURE_NOT_ALLOWED);
+                $validator->errors()->add('update_acl', 'The dynamic update ACL can only be changed with an administrator key.');
+            },
+            // Spec 033: renaming a zone needs an administrator or reseller key
+            // (legacy dns_soa_edit.php::onBeforeUpdate restores the origin for
+            // a client user that has no clients of its own — has_clients()).
+            function (Validator $validator): void {
+                $zone = $this->currentZone();
+                $scope = app(IspContext::class)->authScope();
+
+                if ($zone === null || ! $this->exists('origin') || $scope->isAdmin || $scope->isReseller()) {
+                    return;
+                }
+
+                if ((string) $this->input('origin') === (string) $zone->getRawOriginal()['origin']) {
+                    return;
+                }
+
+                app(ProblemTypeCollector::class)->tag('origin', ProblemType::FEATURE_NOT_ALLOWED);
+                $validator->errors()->add('origin', 'The zone name cannot be changed. Please contact your administrator to change the zone.');
+            },
             function (Validator $validator): void {
                 if ($validator->errors()->isNotEmpty()) {
                     return;
