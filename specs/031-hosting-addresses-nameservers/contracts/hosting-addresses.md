@@ -35,10 +35,10 @@ Every valid key. Client keys: own client only; reseller keys: own or child clien
 
 | Status | When |
 |---|---|
-| 400 | unknown query parameter, `client_id` not a positive integer |
+| 400 | unknown query parameter |
 | 401 | missing/invalid key |
 | 404 | client not visible to the key or unknown |
-| 422 | admin key without `client_id` |
+| 422 | admin key without `client_id`; `client_id` not a positive integer (`errors.client_id`) |
 
 ## Consumer mapping (WHMCS module 005)
 

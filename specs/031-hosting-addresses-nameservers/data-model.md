@@ -54,5 +54,5 @@ ORDER BY server_ip_id
 | Case | Status |
 |---|---|
 | unknown query parameter | 400 |
-| admin key without `client_id` | 422 `errors.client_id` |
+| admin key without `client_id`, `client_id` not a positive integer | 422 `errors.client_id` |
 | unknown client, other client's id (client key), non-child id (reseller key) | 404 |
