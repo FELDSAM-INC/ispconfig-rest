@@ -1,0 +1,67 @@
+# Me — website capabilities of the calling key's account (spec 021).
+# Available to every valid API key (not admin-gated). Read-only.
+
+/me/capabilities:
+  get:
+    tags:
+      - Me
+    summary: Website capabilities of the account
+    description: |
+      Returns what the account's own key may do with websites: the plan's website options, the allowed PHP modes and
+      the mode a new website gets, and whether the account is locked or canceled. The values are the rules the
+      website endpoints enforce for client and reseller keys, so a panel can offer only choices that are accepted.
+
+      - Client keys get their own account; `client_id` may only be their own client id (any other → 404).
+      - Reseller keys get their own account, or one of their clients by `client_id` (that client's own view; any
+        other → 404).
+      - Admin keys must pass `client_id` (422 when missing, 404 when unknown).
+
+      Other query parameters → 400. Nothing is written.
+    parameters:
+      - name: client_id
+        in: query
+        required: false
+        description: Target client (required for admin keys).
+        schema:
+          type: integer
+          minimum: 1
+    responses:
+      '200':
+        description: Website capabilities
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/AccountCapabilities.yaml'
+            example:
+              client_id: 42
+              account_type: client
+              locked: false
+              canceled: false
+              web:
+                ssl: true
+                ssl_letsencrypt: true
+                wildcard: false
+                cgi: false
+                ssi: false
+                perl: false
+                ruby: false
+                python: false
+                error_documents: false
+                directive_snippets: false
+                suexec_forced: true
+                backup: true
+                advanced_options: false
+                php_modes:
+                  - 'no'
+                  - php-fpm
+                php_default_mode: php-fpm
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

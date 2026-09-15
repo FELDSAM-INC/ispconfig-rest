@@ -1,0 +1,104 @@
+# Me — PHP versions usable by the calling key's account (spec 021).
+# Available to every valid API key (not admin-gated). Read-only.
+
+/me/php-versions:
+  get:
+    tags:
+      - Me
+    summary: PHP versions the account's websites may use
+    description: |
+      Lists the PHP versions selectable as `server_php_id` for websites of the account, per web server and PHP mode —
+      the versions the website endpoints accept for the account's own key.
+
+      - **Servers**: the account's assigned web servers (in assignment order), then other web servers hosting its
+        websites (by id). `server_id` narrows the list to one of them; any other server → 422.
+      - **Versions**: active versions of the server that are public or belong to the account and have the binaries
+        of at least one allowed mode (`php-fpm`: FPM init script, ini and pool directories; `fast-cgi`: FastCGI
+        binary and ini directory — on nginx servers the FPM ones). `modes` lists the allowed modes each version
+        supports; `mode` narrows the list to one mode. Only `php-fpm` and `fast-cgi` use versions: an account
+        allowing neither gets an empty list.
+      - **Default**: unless the server hides its default version, each server's entries start with `id` 0
+        (`is_default: true`, named after the server's `php_default_name`).
+      - **Order**: server, default entry, `sortprio`, id.
+
+      Target account rules are those of `GET /me/capabilities` (`client_id`; required for admin keys). Other query
+      parameters → 400. Nothing is written.
+    parameters:
+      - name: client_id
+        in: query
+        required: false
+        description: Target client (required for admin keys).
+        schema:
+          type: integer
+          minimum: 1
+      - name: server_id
+        in: query
+        required: false
+        description: Only versions of this web server of the account.
+        schema:
+          type: integer
+          minimum: 1
+      - name: mode
+        in: query
+        required: false
+        description: Only versions supporting this PHP mode.
+        schema:
+          type: string
+          enum:
+            - php-fpm
+            - fast-cgi
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+    responses:
+      '200':
+        description: A paginated list of PHP versions
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+                - meta
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/AccountPhpVersion.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+            example:
+              data:
+                - id: 0
+                  name: Default
+                  server_id: 1
+                  modes:
+                    - php-fpm
+                    - fast-cgi
+                  is_default: true
+                - id: 7
+                  name: PHP 8.3
+                  server_id: 1
+                  modes:
+                    - php-fpm
+                  is_default: false
+                - id: 6
+                  name: PHP 8.2
+                  server_id: 1
+                  modes:
+                    - php-fpm
+                    - fast-cgi
+                  is_default: false
+              meta:
+                total: 3
+                limit: 25
+                offset: 0
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

@@ -453,6 +453,10 @@ paths:
     $ref: './modules/me/me.yaml#/~1me'
   /me/servers:
     $ref: './modules/me/servers.yaml#/~1me~1servers'
+  /me/capabilities:
+    $ref: './modules/me/capabilities.yaml#/~1me~1capabilities'
+  /me/php-versions:
+    $ref: './modules/me/php-versions.yaml#/~1me~1php-versions'
 
   # Changes module paths (spec 015) — specific before general
   /changes:

@@ -1,0 +1,137 @@
+# Website capabilities of an account for its own API key (spec 021).
+# Derived per request from the `client` row and `sys_ini` [sites] with the rules
+# the website endpoints enforce for client and reseller keys (spec 020). Read-only.
+type: object
+description: |
+  What the account's own client or reseller key may do with websites — the same rules the website endpoints
+  enforce for that key.
+additionalProperties: false
+required:
+  - client_id
+  - account_type
+  - locked
+  - canceled
+  - web
+properties:
+  client_id:
+    type: integer
+    format: int64
+    minimum: 1
+    description: The described client.
+    example: 42
+  account_type:
+    type: string
+    enum:
+      - client
+      - reseller
+    description: '`reseller` when the account may have clients (`client.limit_client` is not 0).'
+    example: client
+  locked:
+    type: boolean
+    description: |
+      The account is locked (`client.locked`): client and reseller keys cannot enable or add its services.
+    example: false
+  canceled:
+    type: boolean
+    description: The account's control-panel login is disabled (`client.canceled`).
+    example: false
+  web:
+    type: object
+    description: Website options of the plan.
+    additionalProperties: false
+    required:
+      - ssl
+      - ssl_letsencrypt
+      - wildcard
+      - cgi
+      - ssi
+      - perl
+      - ruby
+      - python
+      - error_documents
+      - directive_snippets
+      - suexec_forced
+      - backup
+      - advanced_options
+      - php_modes
+      - php_default_mode
+    properties:
+      ssl:
+        type: boolean
+        description: SSL can be enabled and certificates uploaded or deleted (`client.limit_ssl`).
+        example: true
+      ssl_letsencrypt:
+        type: boolean
+        description: |
+          Let's Encrypt can be enabled (`client.limit_ssl_letsencrypt`); renewing also needs `ssl`.
+        example: true
+      wildcard:
+        type: boolean
+        description: '`subdomain: "*"` is allowed on websites of type `vhost` (`client.limit_wildcard`).'
+        example: false
+      cgi:
+        type: boolean
+        description: CGI can be enabled (`client.limit_cgi`).
+        example: false
+      ssi:
+        type: boolean
+        description: SSI can be enabled (`client.limit_ssi`).
+        example: false
+      perl:
+        type: boolean
+        description: Perl can be enabled (`client.limit_perl`).
+        example: false
+      ruby:
+        type: boolean
+        description: Ruby can be enabled (`client.limit_ruby`).
+        example: false
+      python:
+        type: boolean
+        description: Python can be enabled (`client.limit_python`).
+        example: false
+      error_documents:
+        type: boolean
+        description: Custom error documents (`errordocs`) can be enabled (`client.limit_hterror`).
+        example: false
+      directive_snippets:
+        type: boolean
+        description: A directive snippet can be selected (`client.limit_directive_snippets`).
+        example: false
+      suexec_forced:
+        type: boolean
+        description: suEXEC is always on and cannot be switched off (`client.force_suexec`).
+        example: true
+      backup:
+        type: boolean
+        description: Website backups can be configured (`client.limit_backup`).
+        example: true
+      advanced_options:
+        type: boolean
+        description: |
+          The administrator-only website settings (PHP-FPM pool, directives, ports, …) can be changed: resellers
+          only, when the system setting `reseller_can_use_options` is enabled.
+        example: false
+      php_modes:
+        type: array
+        description: |
+          PHP modes a website may use: the system list intersected with the client list (client order; an empty
+          system list does not restrict).
+        items:
+          type: string
+          enum:
+            - 'no'
+            - fast-cgi
+            - cgi
+            - mod
+            - suphp
+            - php-fpm
+            - hhvm
+        example:
+          - 'no'
+          - php-fpm
+      php_default_mode:
+        type: string
+        description: |
+          Mode a website created without `php` gets: `fast-cgi` if allowed, else the first allowed mode other than
+          `no`, else `no`.
+        example: php-fpm

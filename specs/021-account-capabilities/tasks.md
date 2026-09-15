@@ -21,9 +21,9 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 1: Setup (contract first)
 
-- [ ] T001 [P] Create `api/components/schemas/AccountCapabilities.yaml` and `api/components/schemas/AccountPhpVersion.yaml` per data-model.md and register both in `api/components/schemas/_index.yaml`
-- [ ] T002 Create `api/modules/me/capabilities.yaml` and `api/modules/me/php-versions.yaml` per `specs/021-account-capabilities/contracts/me-endpoints.md`, register them in `api/modules/me/_index.yaml` and the paths in `api/openapi.yaml`
-- [ ] T003 Verify the YAML parses and the spec is served (`tests/Feature/SwaggerSpecServerTest.php`)
+- [x] T001 [P] Create `api/components/schemas/AccountCapabilities.yaml` and `api/components/schemas/AccountPhpVersion.yaml` per data-model.md and register both in `api/components/schemas/_index.yaml`
+- [x] T002 Create `api/modules/me/capabilities.yaml` and `api/modules/me/php-versions.yaml` per `specs/021-account-capabilities/contracts/me-endpoints.md`, register them in `api/modules/me/_index.yaml` and the paths in `api/openapi.yaml`
+- [x] T003 Verify the YAML parses and the spec is served (`tests/Feature/SwaggerSpecServerTest.php`)
 
 ---
 
@@ -31,7 +31,7 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 - [ ] T004 Add a failing nginx test to `tests/Feature/WebPhpScopedKeyTest.php` (nginx web server: a `fast-cgi` website accepts an FPM-only version and refuses a FastCGI-only one), then map `fast-cgi` to the FPM columns on nginx servers in `PhpVersionService::usable()` (`app/Services/PhpVersionService.php`)
 - [ ] T005 Create `app/Services/AccountCapabilitiesService.php` with `resolveTarget(AuthScope, ?int)` (delegates to `UsageService::resolveTargetClient()`) and `accountWebServers(int $clientId)` (assigned web servers, then non-mirror web servers hosting the client's websites by id)
-- [ ] T006 [P] Ensure `tests/Support/TenantSchema.php` has `client.locked` and `client.canceled` (add with default `'n'` if missing)
+- [x] T006 [P] Ensure `tests/Support/TenantSchema.php` has `client.locked` and `client.canceled` (add with default `'n'` if missing)
 
 **Checkpoint**: full suite green
 

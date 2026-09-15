@@ -185,6 +185,12 @@ AssignedServers:
 AssignedServer:
   $ref: './AssignedServer.yaml'
 
+AccountCapabilities:
+  $ref: './AccountCapabilities.yaml'
+
+AccountPhpVersion:
+  $ref: './AccountPhpVersion.yaml'
+
 ApiKeyCreated:
   $ref: './ApiKeyCreated.yaml'
 

@@ -1,6 +1,7 @@
 # Me module API paths (owned by spec 014)
 # Caller identity endpoints, available to every valid API key.
-# Spec 016 adds servers.yaml (GET /me/servers) to this module.
+# Spec 016 adds servers.yaml (GET /me/servers) to this module; spec 021
+# capabilities.yaml and php-versions.yaml.
 
 # Identity of the calling key
 me:
@@ -9,3 +10,11 @@ me:
 # Servers the calling key may use (spec 016)
 servers:
   $ref: './servers.yaml'
+
+# Website capabilities of the account (spec 021)
+capabilities:
+  $ref: './capabilities.yaml'
+
+# PHP versions the account's websites may use (spec 021)
+php-versions:
+  $ref: './php-versions.yaml'
