@@ -1,0 +1,41 @@
+# Limit that refused a request (spec 023) — extension member `limit` of the
+# `limit-reached` and `quota-exceeded` problem types.
+type: object
+description: |
+  The client limit that refused the request. `name` is the ISPConfig client limit column. For count limits `max` and
+  `used` are numbers of records; for quota sums (`unit` = `MB`) they are megabytes and `requested` is the megabytes the
+  request asked for (null when it asked for an unlimited quota under a finite cap).
+additionalProperties: false
+required:
+  - name
+  - scope
+  - max
+  - used
+properties:
+  name:
+    type: string
+    description: Client limit column.
+    example: limit_web_domain
+  scope:
+    type: string
+    enum: [client, reseller]
+    description: Whether the account's own cap or its reseller's cap applied.
+    example: client
+  max:
+    type: integer
+    description: The cap.
+    example: 5
+  used:
+    type: integer
+    description: Records counted, or megabytes already allocated.
+    example: 5
+  unit:
+    type: string
+    enum: [MB]
+    description: Present for quota sums.
+    example: MB
+  requested:
+    type: integer
+    nullable: true
+    description: Present for quota sums; megabytes requested, null for an unlimited request.
+    example: 200

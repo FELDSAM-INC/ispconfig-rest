@@ -1,0 +1,15 @@
+# RFC 9457 problem details for 403 responses with the extension members of the
+# typed refusals (spec 023).
+description: |
+  Problem details for 403 responses. Typed refusals (see `type`) carry extension members:
+  `limit` for `limit-reached` and `quota-exceeded`, `feature` for `feature-not-allowed`. Other 403s use `about:blank`.
+allOf:
+  - $ref: './Problem.yaml'
+  - type: object
+    properties:
+      limit:
+        $ref: './ProblemLimit.yaml'
+      feature:
+        type: string
+        description: Client limit column of the plan feature that is not enabled (`feature-not-allowed`).
+        example: limit_backup

@@ -3,11 +3,29 @@ content:
   application/problem+json:
     schema:
       $ref: '../schemas/ValidationProblem.yaml'
-    example:
-      type: 'about:blank'
-      title: Unprocessable Entity
-      status: 422
-      detail: The given data was invalid.
-      errors:
-        domain:
-          - The domain field is required.
+    examples:
+      validation-failed:
+        summary: Ordinary validation errors
+        value:
+          type: https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#validation-failed
+          title: Validation failed
+          status: 422
+          detail: One or more fields are invalid.
+          errors:
+            domain:
+              - The domain field is required.
+      typed-field-errors:
+        summary: Fields refused by the plan or the server assignment (spec 023)
+        value:
+          type: https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#validation-failed
+          title: Validation failed
+          status: 422
+          detail: One or more fields are invalid.
+          errors:
+            ssl_letsencrypt:
+              - The Let's Encrypt option is not included in the account's plan.
+            server_id:
+              - The selected server is not available for this account.
+          error_types:
+            ssl_letsencrypt: https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed
+            server_id: https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#server-not-assigned

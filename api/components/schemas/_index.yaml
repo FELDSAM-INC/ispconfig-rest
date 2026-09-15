@@ -279,3 +279,9 @@ WebBackupSettings:
   $ref: './WebBackupSettings.yaml'
 WebBackupSettingsUpdate:
   $ref: './WebBackupSettingsUpdate.yaml'
+
+ProblemLimit:
+  $ref: './ProblemLimit.yaml'
+
+ForbiddenProblem:
+  $ref: './ForbiddenProblem.yaml'

@@ -21,10 +21,10 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 1: Setup (contract first)
 
-- [ ] T001 [P] Create `api/components/schemas/ProblemLimit.yaml` and `api/components/schemas/ForbiddenProblem.yaml`, add `error_types` to `api/components/schemas/ValidationProblem.yaml`, document type names in `api/components/schemas/Problem.yaml`, register new schemas in `api/components/schemas/_index.yaml`
-- [ ] T002 Update `api/components/responses/Forbidden.yaml` (schema `ForbiddenProblem`, examples) and `api/components/responses/UnprocessableEntity.yaml` (examples with/without `error_types`)
-- [ ] T003 [P] Create `docs/problems.md` with one section per type name
-- [ ] T004 Verify every `$ref` resolves and the served spec parses (`tests/Feature/SwaggerSpecServerTest.php`)
+- [x] T001 [P] Create `api/components/schemas/ProblemLimit.yaml` and `api/components/schemas/ForbiddenProblem.yaml`, add `error_types` to `api/components/schemas/ValidationProblem.yaml`, document type names in `api/components/schemas/Problem.yaml`, register new schemas in `api/components/schemas/_index.yaml`
+- [x] T002 Update `api/components/responses/Forbidden.yaml` (schema `ForbiddenProblem`, examples) and `api/components/responses/UnprocessableEntity.yaml` (examples with/without `error_types`)
+- [x] T003 [P] Create `docs/problems.md` with one section per type name
+- [x] T004 Verify every `$ref` resolves and the served spec parses (`tests/Feature/SwaggerSpecServerTest.php`)
 
 ---
 

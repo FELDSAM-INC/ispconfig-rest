@@ -6,7 +6,11 @@ properties:
   type:
     type: string
     format: uri-reference
-    description: A URI reference that identifies the problem type
+    description: |
+      A URI reference that identifies the problem type. Typed refusals use
+      `https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#<name>` with `<name>` one of
+      `account-locked`, `limit-reached`, `quota-exceeded`, `feature-not-allowed`, `validation-failed`
+      (field type `server-not-assigned`, spec 023); all other problems use `about:blank`.
     default: 'about:blank'
     example: 'about:blank'
   title:

@@ -2,9 +2,53 @@ description: Forbidden — the API key is not permitted to perform this action (
 content:
   application/problem+json:
     schema:
-      $ref: '../schemas/Problem.yaml'
-    example:
-      type: 'about:blank'
-      title: Forbidden
-      status: 403
-      detail: You do not have permission to access this resource.
+      $ref: '../schemas/ForbiddenProblem.yaml'
+    examples:
+      forbidden:
+        summary: Permission denied (untyped)
+        value:
+          type: 'about:blank'
+          title: Forbidden
+          status: 403
+          detail: You do not have permission to access this resource.
+      account-locked:
+        summary: The account is locked (spec 019 / 018)
+        value:
+          type: https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#account-locked
+          title: Forbidden
+          status: 403
+          detail: The account is locked; its services cannot be enabled or added.
+      limit-reached:
+        summary: A count limit of the plan is reached (spec 012)
+        value:
+          type: https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#limit-reached
+          title: Forbidden
+          status: 403
+          detail: You have reached the maximum number of websites allowed for your account.
+          limit:
+            name: limit_web_domain
+            scope: client
+            max: 1
+            used: 1
+      quota-exceeded:
+        summary: A quota sum of the plan would be exceeded (spec 012)
+        value:
+          type: https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#quota-exceeded
+          title: Forbidden
+          status: 403
+          detail: You have reached the maximum number of mailbox quota allowed for your account.
+          limit:
+            name: limit_mailquota
+            scope: client
+            unit: MB
+            max: 1000
+            used: 900
+            requested: 200
+      feature-not-allowed:
+        summary: The plan does not include the feature
+        value:
+          type: https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed
+          title: Forbidden
+          status: 403
+          detail: Backups are not enabled for this account.
+          feature: limit_backup

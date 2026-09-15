@@ -1,6 +1,10 @@
 # RFC 9457 problem details extended with a field-level `errors` map.
 # Canonical body for 422 validation failures (Constitution v2.0.0, Principle V).
-description: RFC 9457 problem details for validation failures (422), extended with a field-level `errors` map
+description: |
+  RFC 9457 problem details for validation failures (422), extended with a field-level `errors` map. The `type` is
+  `https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#validation-failed`. Fields refused because
+  the account's plan does not include the option or the server is not assigned to the account are additionally
+  listed in `error_types` (spec 023).
 allOf:
   - $ref: './Problem.yaml'
   - type: object
@@ -17,3 +21,13 @@ allOf:
             - The domain field is required.
           server_id:
             - The selected server_id is invalid.
+      error_types:
+        type: object
+        description: |
+          Map of field name to the problem type URI of its error, for fields refused as `feature-not-allowed` or
+          `server-not-assigned`. Keys are a subset of `errors`; absent when no field has a typed error.
+        additionalProperties:
+          type: string
+          format: uri
+        example:
+          ssl_letsencrypt: https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed
