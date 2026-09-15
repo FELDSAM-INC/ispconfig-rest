@@ -186,7 +186,7 @@ class MailDomainService
      * @return array<string, mixed>|null keys: zone, sys_userid, sys_groupid,
      *                                   sys_perm_*, server_id, ttl, serial
      */
-    protected function findSoaZone(string $domain): ?array
+    public function findSoaZone(string $domain): ?array
     {
         $soaDomain = $domain.'.';
 

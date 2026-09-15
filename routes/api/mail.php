@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\MailAccessController;
 use App\Http\Controllers\Api\V1\MailAliasDomainController;
 use App\Http\Controllers\Api\V1\MailContentFilterController;
 use App\Http\Controllers\Api\V1\MailDomainController;
+use App\Http\Controllers\Api\V1\MailDomainDkimController;
 use App\Http\Controllers\Api\V1\MailForwardingController;
 use App\Http\Controllers\Api\V1\MailGetController;
 use App\Http\Controllers\Api\V1\MailRelayDomainController;
@@ -37,6 +38,10 @@ Route::post('mail/domains', [MailDomainController::class, 'store']);
 Route::get('mail/domains/{mailDomain}', [MailDomainController::class, 'show'])->whereNumber('mailDomain');
 Route::put('mail/domains/{mailDomain}', [MailDomainController::class, 'update'])->whereNumber('mailDomain');
 Route::delete('mail/domains/{mailDomain}', [MailDomainController::class, 'destroy'])->whereNumber('mailDomain');
+
+// Mail domain DKIM — api/modules/mail/domain-dkim.yaml (spec 027)
+Route::get('mail/domains/{mailDomain}/dkim', [MailDomainDkimController::class, 'show'])->whereNumber('mailDomain');
+Route::post('mail/domains/{mailDomain}/dkim', [MailDomainDkimController::class, 'store'])->whereNumber('mailDomain');
 
 // Mail user NESTED sub-resources — MUST precede mail/users/{mailUser}
 // api/modules/mail/user-autoresponder.yaml (writes: autoresponder tab gate, spec 025)
