@@ -23,7 +23,7 @@ No extension members.
 
 **Status**: 403
 
-A count limit of the plan is reached (e.g. number of websites, mail domains, databases, DNS zones).
+A count limit of the plan is reached (e.g. number of websites, mail domains, databases, DNS zones, DNS records).
 
 Extension member `limit`:
 

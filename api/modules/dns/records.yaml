@@ -119,6 +119,14 @@
       reads classify them back via the computed `meta` object.
 
       For client and reseller keys the zone must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
+
+      ### Record limit
+      Client and reseller keys are bound by the account's DNS record limit
+      (`limit_dns_record`, spec 030; legacy `dns_edit_base.php`): the records
+      carrying the key's group are counted and a create at the limit is refused
+      with 403 `limit-reached` (`limit.name` = `limit_dns_record`, `scope` =
+      `client`). Updates and deletions are never refused by the limit; admin
+      keys are not limited.
     requestBody:
       required: true
       content:
