@@ -185,6 +185,17 @@ database backup stored on another server than the website → 422; an `ok` downl
 
 ---
 
+## Phase 7: Follow-up — backups of locked clients (owner-delegated decision 2026-09-15)
+
+**Purpose**: FR-017 — spec 019's locked-client rule also covers backup writes for client and reseller keys.
+
+- [x] T052 Document 403 for locked clients on the on-demand backup, restore, delete and settings update operations in `api/modules/sites/web-backups.yaml`
+- [x] T053 Write `tests/Feature/WebBackupLockedClientTest.php` (client and reseller keys refused with no remote action and no datalog; reads, jobs, settings read and download allowed; admin and other accounts unaffected)
+- [x] T054 Add `LockedClientGuard::checkBackupWrite()` in `app/Services/LockedClientGuard.php` and call it from `app/Http/Controllers/Api/V1/WebBackupController.php` (store, restore, destroy) and `app/Http/Controllers/Api/V1/WebBackupSettingsController.php` (update)
+- [ ] T055 After deployment, verify on isp-test with a temporary locked client (backup and settings update refused, list allowed, no new `sys_remoteaction` row) and clean up
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

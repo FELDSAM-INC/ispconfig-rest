@@ -144,6 +144,9 @@ different server than W's web server → 422 (legacy marks download unavailable)
 - The database named in a database backup no longer exists: restore still runs as legacy does (re-creates
   tables in the database of that name if present) — outcome reported by the job state.
 - Missing/invalid `X-API-Key` → 401; unknown query parameters → 400; `id`/`backup_id` not integers → 404.
+- The website's client is locked and a client or reseller key starts, restores or deletes a backup or changes backup
+  settings → 403 with the locked-account message, no remote action and no datalog (FR-017); reads and download preparation
+  still work, admin keys are unaffected (owner-delegated decision 2026-09-15).
 
 ## API Contract *(mandatory)*
 
@@ -252,6 +255,10 @@ different server than W's web server → 422 (legacy marks download unavailable)
 - **FR-016**: The existing web-domain create and update endpoints MUST accept `backup_copies` only as one of 1–10, 15,
   20, 30, the same rule as the backup settings endpoint, for every key including admin keys; other values return 422
   (owner decision 2026-09-14).
+- **FR-017**: While the website's client is locked (feature 019), client and reseller keys MUST receive 403 problem+json
+  for starting an on-demand backup, restoring a backup, deleting a backup and updating backup settings, and nothing may
+  be queued or journaled; listing and showing backups and jobs, reading settings and preparing a download stay allowed;
+  admin keys are not restricted (owner-delegated decision 2026-09-15).
 
 ### Key Entities
 

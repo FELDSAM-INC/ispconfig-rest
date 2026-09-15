@@ -59,7 +59,7 @@ Computed once per request from all `server` rows (a handful of rows).
 | `action` | `i → create`, `u → update`, `d → delete` |
 | `status` | see state rules below |
 | `error` | `error` verbatim, only when `status = failed` |
-| `created_at` | `tstamp` as ISO 8601 |
+| `created_at` | `tstamp` as ISO 8601 in the API's configured timezone (with offset; decision 2026-09-15) |
 
 **Status rules (FR-003/FR-004)**, evaluated in order:
 

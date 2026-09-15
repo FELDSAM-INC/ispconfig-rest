@@ -58,5 +58,5 @@ properties:
   created_at:
     type: string
     format: date-time
-    description: Time the entry was journaled (sys_datalog.tstamp).
-    example: '2026-09-14T10:15:30+00:00'
+    description: Time the entry was journaled (sys_datalog.tstamp), ISO 8601 with the offset of the API's configured timezone.
+    example: '2026-09-14T12:15:30+02:00'

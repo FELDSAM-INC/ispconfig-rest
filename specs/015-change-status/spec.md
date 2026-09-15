@@ -148,7 +148,8 @@ With B's key → 404. Deleted records are not reachable through this view.
 
 - **Change entry fields**: `id` (journal id), `change_set_id`, `table`, `record_id`, `action`
   (`create` / `update` / `delete`), `status` (`pending` / `applied` / `failed` / `stalled`), `error`
-  (present only when `failed`), `created_at` (ISO 8601).
+  (present only when `failed`), `created_at` (ISO 8601 with the offset of the API's configured timezone, consistent
+  with backups and usage; owner-delegated decision 2026-09-15).
 - **Change set fields**: `id`, `status` and `entry_counts` (per status, over all visible entries), `created_at`
   (earliest entry), `entries[]` (one page, oldest first) and `meta` (`total`, `limit`, `offset`).
 

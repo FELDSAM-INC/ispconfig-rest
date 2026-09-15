@@ -49,7 +49,7 @@ properties:
   created_at:
     type: string
     format: date-time
-    description: Journal time of the earliest entry in the set.
+    description: Journal time of the earliest entry in the set, ISO 8601 with the offset of the API's configured timezone.
   entries:
     type: array
     description: One page of the set's entries visible to the key, oldest first (see `meta`).

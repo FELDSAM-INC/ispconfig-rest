@@ -87,6 +87,9 @@
       Returns 409 when a backup of this type is already pending for the website, or when backups are
       not configured on a target server. Remote actions write no datalog entry, so no
       `X-Change-Set-Id` header is returned.
+
+      Client and reseller keys receive 403 while the website's client is locked; admin keys are not
+      restricted (owner-delegated decision 2026-09-15).
     parameters:
       - name: id
         in: path
@@ -169,6 +172,9 @@
       once the server has removed it; the finished delete job is no longer listed then. Requires update
       permission on the website. Returns 409 when a deletion of this backup is already pending or
       backups are not configured on the server. No `X-Change-Set-Id` header (remote action).
+
+      Client and reseller keys receive 403 while the website's client is locked; admin keys are not
+      restricted (owner-delegated decision 2026-09-15).
     parameters:
       - name: id
         in: path
@@ -207,6 +213,9 @@
       `backup`, `log`, `ssl` and `tmp`); restoring a database overwrites its tables. Requires update
       permission on the website. Returns 409 when a restore of this backup is already pending or
       backups are not configured on the server. No `X-Change-Set-Id` header (remote action).
+
+      Client and reseller keys receive 403 while the website's client is locked; admin keys are not
+      restricted (owner-delegated decision 2026-09-15).
     parameters:
       - name: id
         in: path
@@ -421,6 +430,9 @@
       Partial update of the website's backup schedule and options, written through the datalog
       (`web_domain` update). Requires update permission on the website. Enabling encryption requires a
       stored or supplied password (422 otherwise). `backup_password` is write-only.
+
+      Client and reseller keys receive 403 while the website's client is locked; admin keys are not
+      restricted (owner-delegated decision 2026-09-15).
     parameters:
       - name: id
         in: path

@@ -13,6 +13,11 @@ legacy: vhost websites only, `limit_backup = 'y'` for non-admin keys, read permi
 download, update permission for restore/delete/backup/settings. Download delivery stays the legacy folder
 copy (owner decision 2026-09-14). No new tables and no ISPConfig schema changes.
 
+**Follow-up (owner-delegated decision 2026-09-15)**: backup writes of a locked client are refused for client and
+reseller keys (FR-017) through `LockedClientGuard::checkBackupWrite()`, called by `WebBackupController::store`,
+`restore`, `destroy` and `WebBackupSettingsController::update` before anything is queued or saved; reads and
+download preparation are unchanged. Tests: `tests/Feature/WebBackupLockedClientTest.php`.
+
 ## Technical Context
 
 **Language/Version**: PHP 8.3+ (Laravel 12) — target platform; legacy Lumen 8 code is being ported (reboot Phase 2)  
