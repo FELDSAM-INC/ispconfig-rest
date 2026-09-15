@@ -196,7 +196,6 @@ Deliberate and documented in code where they occur:
 - **`resync_client` does not raise the interface plugin event** `client:client:on_after_update` (un-raisable outside the legacy interface); datalog re-emission is performed.
 - **`server.config` has two write disciplines, both legacy-faithful**: the server-config endpoints datalog their updates (as `server_config_edit.php` does); the mail `spamfilter/config` endpoint writes without datalog (as the legacy spamfilter panel does).
 - **Directive-snippet in-use checks use exact ID matching** — legacy's REGEXP substring-matches (snippet 5 matches "15"); a regression test documents the divergence.
-- **Deleting a DNS zone with records returns `400`** instead of legacy's silent cascade (declared in the contract).
 - **DNS CAA policy writes are datalogged** although legacy writes `dns_ssl_ca` with direct SQL (whose insert is broken upstream) — a documented superset.
 
 - **Client cancel applies on create**: `canceled: true` creates the control-panel login inactive; legacy ignores both flags on insert.

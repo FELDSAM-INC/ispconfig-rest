@@ -185,7 +185,7 @@ An operator maintains the templates used by ISPConfig's zone wizard: `POST /api/
 - **SC-003**: Swagger UI (`/api/documentation`) renders the DNS and DNS Records tags and "Try it out" succeeds for every endpoint with the dev key.
 - **SC-004**: For each of the 10 meta-field record types, a create request using only meta fields produces `aux`/`data` byte-identical to what the legacy ISPConfig form would store for the same input, and `GET` returns a `meta` object that round-trips those inputs (known exceptions recorded in Gaps: NAPTR `pref`, SPF/DMARC type column).
 - **SC-005**: Every record mutation observably increments the parent zone serial (two datalog entries per record write), matching `dns_edit_base.php` semantics.
-- **SC-006**: A zone with N>0 records cannot be deleted (400, message includes N); after deleting all N records it deletes with 204.
+- **SC-006**: *(Superseded by spec 034: `DELETE /dns/soa/{id}` now deletes the zone's records with the zone, as legacy does.)* A zone with N>0 records cannot be deleted (400, message includes N); after deleting all N records it deletes with 204.
 
 ## Assumptions
 
