@@ -1,0 +1,89 @@
+# Request body of the DNS zone wizard (spec 029): the template to expand and the values for its placeholders.
+type: object
+additionalProperties: false
+description: |
+  Values for one zone template. Every placeholder the template declares in `fields` must be supplied, and a value
+  or flag the template does not declare is refused with 422 — the API never writes a literal `{IP}` into a zone.
+required:
+  - template_id
+  - domain
+
+properties:
+  template_id:
+    type: integer
+    format: int64
+    minimum: 1
+    description: |
+      Template to expand (`GET /dns/zone-templates`). Templates that are not visible cannot be used.
+    example: 1
+
+  domain:
+    type: string
+    maxLength: 255
+    description: |
+      The zone's domain (placeholder `{DOMAIN}`). IDN names are accepted and stored ASCII-encoded and lower-cased.
+    example: example.com
+
+  ip:
+    type: string
+    description: IPv4 address for the template's A records (placeholder `{IP}`).
+    example: 192.0.2.10
+
+  ipv6:
+    type: string
+    description: IPv6 address for the template's AAAA records (placeholder `{IPV6}`).
+    example: '2001:db8::10'
+
+  ns1:
+    type: string
+    maxLength: 255
+    description: Primary name server (placeholder `{NS1}`); IDN accepted, stored lower-cased.
+    example: ns1.provider.net
+
+  ns2:
+    type: string
+    maxLength: 255
+    description: Secondary name server (placeholder `{NS2}`).
+    example: ns2.provider.net
+
+  email:
+    type: string
+    format: email
+    maxLength: 255
+    description: |
+      Zone contact address (placeholder `{EMAIL}`). Stored as the SOA `mbox` with `@` replaced by `.`, as the
+      ISPConfig wizard does.
+    example: hostmaster@example.com
+
+  dkim:
+    type: boolean
+    default: false
+    description: |
+      Add the published DKIM record of the domain's mail domain. The record is added only when the key can read a
+      mail domain of this name with DKIM enabled; otherwise the zone is created without it and no error is
+      returned (legacy behaviour).
+    example: false
+
+  dnssec:
+    type: boolean
+    default: false
+    description: Create the zone with DNSSEC signing requested (`dnssec_wanted`).
+    example: false
+
+  server_id:
+    type: integer
+    format: int32
+    minimum: 1
+    description: |
+      DNS server for the zone. Client and reseller keys may only use servers assigned to the account; when omitted
+      the account's first assigned DNS server is used.
+    example: 1
+
+  client_id:
+    type: integer
+    format: int64
+    minimum: 1
+    description: |
+      Owning client. Administrator keys may assign any client, reseller keys one of their own; client keys always
+      own what they create.
+    example: 42

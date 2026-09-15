@@ -1,0 +1,43 @@
+# A zone template as the DNS wizard offers it (spec 029).
+# Read-only projection of dns_template: the values a panel needs to render the wizard, without the template text,
+# its owner or its permissions (those stay in the administrator resource /dns/templates).
+type: object
+x-db-table: dns_template
+description: |
+  A DNS zone template offered by the zone wizard. Every key sees the templates marked visible, whoever owns them —
+  the rule the ISPConfig wizard applies (`dns_wizard.php`). `fields` lists the values the wizard must ask for
+  before the template can be expanded with `POST /dns/soa/from-template`.
+additionalProperties: false
+required:
+  - id
+  - name
+  - fields
+
+properties:
+  id:
+    type: integer
+    format: int64
+    x-db-field: template_id
+    minimum: 1
+    readOnly: true
+    description: Unique identifier of the template.
+    example: 1
+
+  name:
+    type: string
+    maxLength: 64
+    readOnly: true
+    description: Template name shown to the user.
+    example: Default
+
+  fields:
+    type: array
+    readOnly: true
+    description: |
+      The placeholder tokens the template declares (`dns_template.fields`). Each token maps to one field of the
+      wizard request: `DOMAIN` → `domain`, `IP` → `ip`, `IPV6` → `ipv6`, `NS1` → `ns1`, `NS2` → `ns2`,
+      `EMAIL` → `email`, `DKIM` → `dkim`, `DNSSEC` → `dnssec`.
+    items:
+      type: string
+      enum: [DOMAIN, IP, IPV6, NS1, NS2, EMAIL, DKIM, DNSSEC]
+    example: [DOMAIN, IP, NS1, NS2, EMAIL, DKIM, DNSSEC]

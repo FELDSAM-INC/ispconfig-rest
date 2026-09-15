@@ -92,6 +92,12 @@ DnsSoa:
 DnsTemplate:
   $ref: './DnsTemplate.yaml'
 
+DnsZoneTemplate:
+  $ref: './DnsZoneTemplate.yaml'
+
+DnsZoneFromTemplate:
+  $ref: './DnsZoneFromTemplate.yaml'
+
 DnsSlave:
   $ref: './DnsSlave.yaml'
 

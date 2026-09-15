@@ -15,3 +15,7 @@ slaves:
 # DNS Template paths
 templates:
   $ref: './template.yaml'
+
+# DNS zone wizard template list (spec 029)
+zone-templates:
+  $ref: './zone-templates.yaml'

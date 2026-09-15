@@ -254,3 +254,54 @@
         $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
+
+/dns/soa/from-template:
+  post:
+    tags:
+      - DNS
+    summary: Create a DNS zone from a template (zone wizard)
+    description: |
+      Creates a DNS zone and its records from a zone template — the ISPConfig DNS wizard
+      (`dns_wizard.php`, spec 029).
+
+      The template's placeholders are replaced with the submitted values, the zone is written inactive, every record
+      of the template is created, and the zone is activated. All entries share one `X-Change-Set-Id` and the whole
+      creation is one transaction, so a refusal or failure leaves no zone and no records behind.
+
+      Every placeholder the template declares in `fields` (see `GET /dns/zone-templates`) must be supplied; a value
+      or flag the template does not declare is refused. `dkim` adds the published DKIM record of the domain's mail
+      domain when the key can read one, and is a no-op otherwise. `dnssec` creates the zone with signing requested.
+
+      The account's DNS zone limit (`limit_dns_zone`) and DNS record limit (`limit_dns_record`) are both enforced
+      before anything is written, the whole set of template records counted at once — unlike the ISPConfig wizard,
+      which checks only the zone limit.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/DnsZoneFromTemplate.yaml'
+    responses:
+      '201':
+        description: DNS zone and its records created successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/DnsSoa.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

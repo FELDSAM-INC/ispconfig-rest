@@ -295,6 +295,8 @@ paths:
     $ref: './modules/dns/soa.yaml#/~1dns~1soa'
   /dns/soa/{id}:
     $ref: './modules/dns/soa.yaml#/~1dns~1soa~1{id}'
+  /dns/soa/from-template:
+    $ref: './modules/dns/soa.yaml#/~1dns~1soa~1from-template'
   /dns/slaves:
     $ref: './modules/dns/slave.yaml#/~1dns~1slaves'
   /dns/slaves/{id}:
@@ -303,6 +305,8 @@ paths:
     $ref: './modules/dns/template.yaml#/~1dns~1templates'
   /dns/templates/{id}:
     $ref: './modules/dns/template.yaml#/~1dns~1templates~1{id}'
+  /dns/zone-templates:
+    $ref: './modules/dns/zone-templates.yaml#/~1dns~1zone-templates'
   
   # Mail module paths
   /mail/domains:

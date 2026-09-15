@@ -1,0 +1,45 @@
+# DNS zone wizard templates (spec 029)
+/dns/zone-templates:
+  get:
+    tags:
+      - DNS Templates
+    summary: List the zone templates offered by the wizard
+    description: |
+      Returns the DNS zone templates a key may use with `POST /dns/soa/from-template`.
+
+      Unlike `/dns/templates` — the administrator's management resource, which is row-scoped — this list applies the
+      rule the ISPConfig wizard applies (`dns_wizard.php`): every key sees the templates marked visible, whoever
+      owns them. Only the template's name and the values it asks for are returned; the template text, its owner and
+      its permissions stay in `/dns/templates`.
+
+      ### Sorting & Pagination
+      Use the shared `sort` (`name`, `id`; default `name`), `order` (asc/desc, default asc), `limit` (default 25,
+      max 100) and `offset` parameters.
+    parameters:
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - $ref: '../../components/parameters/sort.yaml'
+      - $ref: '../../components/parameters/order.yaml'
+    responses:
+      '200':
+        description: A list of zone templates
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+                - meta
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/DnsZoneTemplate.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
