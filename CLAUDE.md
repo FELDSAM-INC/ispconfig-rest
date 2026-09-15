@@ -13,5 +13,5 @@ Modern, contract-first REST API for ISPConfig. Laravel 12 (PHP 8.3+), MySQL (`db
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/021-account-capabilities/plan.md`
+`specs/022-letsencrypt-outcome/plan.md`
 <!-- SPECKIT END -->
