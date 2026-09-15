@@ -15,6 +15,22 @@ Run with Docker `php:8.3-cli` (local PHP is too old, see quickstart.md).
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
+## Re-baseline (2026-09-15, against `main` with 014, 015, 016, 017, 019 and the client company_name fix)
+
+- **015 change status**: the backup settings `PUT` writes a `web_domain` datalog entry, so its 200 response documents
+  `X-Change-Set-Id` (T001). The four remote-action operations (`POST …/backups`, `POST …/restore`, `POST …/download`,
+  `DELETE …/backups/{backup_id}`) write no datalog and are added to `NON_JOURNALING_WRITES` in
+  `tests/Unit/ChangeSetHeaderContractTest.php` (T006).
+- **017 timezone alignment**: `created_at` and `available_until` (unix `tstamp` columns) serialize in the API timezone
+  (`config('app.timezone')`, e.g. `+02:00` on isp-test) (T021, T043).
+- **019 locked-client guard**: backup settings only touch `backup_*` columns, which are not lock-managed, and remote
+  actions are not model saves — the guard does not apply to any backup endpoint. Locked clients keep backup access with
+  non-admin keys (no new policy; recorded as an open point).
+- **Test base**: backup tests share a new `tests/Support/WebBackupApiTestCase.php` (sites + tenant schema, real tenant
+  keys, `limit_backup` column, two servers with and without `backup_dir`, `sys_remoteaction`/`monitor_data`) instead of
+  extending `SitesApiTestCase`, because the gates need real client/reseller keys (T007, T008).
+- **Contract lint**: `$ref` resolution script plus the contract tests replace `npx @redocly/cli lint` (T006, T050).
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies on incomplete tasks)
@@ -41,12 +57,12 @@ Run with Docker `php:8.3-cli` (local PHP is too old, see quickstart.md).
 
 **Purpose**: The OpenAPI contract is authored and valid before any PHP is written (Principle I)
 
-- [ ] T001 Author `api/modules/sites/web-backups.yaml` from `specs/018-backups/contracts/web-backups.yaml` (10 operations, FR-013 destructive-restore and manual-job caveats, FR-014 download object) and register it in `api/modules/sites/_index.yaml`
+- [ ] T001 Author `api/modules/sites/web-backups.yaml` from `specs/018-backups/contracts/web-backups.yaml` (10 operations, FR-013 destructive-restore and manual-job caveats, FR-014 download object, `X-Change-Set-Id` on the backup-settings `PUT` 200 response) and register it in `api/modules/sites/_index.yaml`
 - [ ] T002 [P] Author `api/components/schemas/WebBackup.yaml`, `WebBackupJob.yaml`, `WebBackupCreate.yaml`, `WebBackupSettings.yaml` and `WebBackupSettingsUpdate.yaml` from `specs/018-backups/contracts/schemas.yaml` and register them in `api/components/schemas/_index.yaml`
 - [ ] T003 [P] Change `backup_copies` in `api/components/schemas/WebDomain.yaml` from `minimum: 1`/`maximum: 30` to `enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30]` (FR-016, owner decision 2026-09-14)
 - [ ] T004 [P] Document the 403 for `backup_*` fields when the client has `limit_backup = 'n'` in `api/modules/sites/web-domains.yaml` and `api/modules/sites/databases.yaml` (FR-009)
 - [ ] T005 Add the seven new path references to `api/openapi.yaml` directly after `/sites/web-domains/{id}/ssl/renew` (depends on T001)
-- [ ] T006 Lint with `npx @redocly/cli lint api/openapi.yaml` and run `tests/Feature/SwaggerSpecServerTest.php` in Docker `php:8.3-cli` (depends on T001–T005)
+- [ ] T006 Add the four remote-action operations to `NON_JOURNALING_WRITES` in `tests/Unit/ChangeSetHeaderContractTest.php`, resolve every `$ref` of `api/openapi.yaml`, and run `ChangeSetHeaderContractTest` and `tests/Feature/SwaggerSpecServerTest.php` in Docker `php:8.3-cli` (depends on T001–T005)
 
 ---
 
@@ -57,7 +73,7 @@ Run with Docker `php:8.3-cli` (local PHP is too old, see quickstart.md).
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
 - [ ] T007 [P] Extend `tests/Support/SitesSchema.php` with the `sys_remoteaction` table (live columns per research R14: `action_id` PK, `server_id`, `tstamp`, `action_type`, `action_param` nullable text, `action_state` default `pending`, `response` nullable text) and a `monitor_data` table when absent
-- [ ] T008 [P] Add fixture helpers to `tests/Support/SitesApiTestCase.php`: `server.config` INI with `[server] backup_dir=/var/backup` and a variant without it, `web_backup` rows (web, mysql, borg, `manual-` filename, empty legacy `backup_format`), a `monitor_data` `backup_utils` row, and an assertion helper for exact `sys_remoteaction` rows
+- [ ] T008 [P] Add fixture helpers to `tests/Support/WebBackupApiTestCase.php` (re-baseline: new base class): `server.config` INI with `[server] backup_dir=/var/backup` and a variant without it, `web_backup` rows (web, mysql, borg, `manual-` filename, empty legacy `backup_format`), a `monitor_data` `backup_utils` row, and an assertion helper for exact `sys_remoteaction` rows
 - [ ] T009 [P] Write `tests/Feature/ListQueryAliasTest.php` for the new `listQuery()` arguments: `defaultOrder: 'desc'` honoured, `sortAliases` map public sort names to columns, unknown sort still 400, existing callers still default to ascending (must fail before T010)
 - [ ] T010 Add optional, backward-compatible named arguments `defaultOrder` (default `'asc'`) and `sortAliases` (default `[]`) to `listQuery()` in `app/Http/Concerns/HandlesListQuery.php` (research R6; depends on T009)
 - [ ] T011 [P] Create read-only `app/Models/WebBackup.php` extending `BaseModel` (`$table = 'web_backup'`, `$primaryKey = 'backup_id'`, integer casts; docblock: the API never saves or deletes these rows, servers own them)
@@ -164,8 +180,8 @@ database backup stored on another server than the website → 422; an `ok` downl
 - [ ] T047 [P] Add backups, backup jobs and backup settings to the `sites` row of the module table in `README.md`
 - [ ] T048 [P] Confirm constitution boundaries by code search: nothing writes `web_backup`; `sys_remoteaction` inserts exist only in `app/Services/RemoteActionService.php`; settings writes go through `app/Models/WebDomain.php`
 - [ ] T049 Re-verify legacy parity read-only on isp-test (`/usr/local/ispconfig/interface/lib/classes/plugin_backuplist.inc.php`, `interface/web/sites/form/web_vhost_domain.tform.php`, `server/plugins-available/backup_plugin.inc.php`) for the R2 action rows, R7 derived fields and R11 validation; record any difference in `specs/018-backups/research.md`
-- [ ] T050 Run the full suite (`vendor/bin/phpunit`) in Docker `php:8.3-cli` and `npx @redocly/cli lint api/openapi.yaml` as in `specs/018-backups/quickstart.md`
-- [ ] T051 Manual end-to-end check on isp-test following the "Manual check on the test server" section of `specs/018-backups/quickstart.md` with a disposable vhost website of a `limit_backup = 'y'` client: list, manual web backup → job `ok` and a new `manual` backup, duplicate → 409, restore, download → file in the website's `backup/` folder. Described only — running it creates remote actions and restore replaces data, so it requires owner approval first
+- [ ] T050 Run the full suite (`vendor/bin/phpunit`) in Docker `php:8.3-cli` and resolve every `$ref` of `api/openapi.yaml` as in `specs/018-backups/quickstart.md`
+- [ ] T051 Manual end-to-end check on isp-test following the "Manual check on the test server" section of `specs/018-backups/quickstart.md` with a disposable vhost website of a temporary `limit_backup = 'y'` client: list, manual web backup → job `ok` and a new `manual` backup, duplicate → 409, restore, download → file in the website's `backup/` folder, delete, `limit_backup = 'n'` → 403, `backup_copies` 11 → 422 (owner workflow 2026-09-15: isp-test is a test server; clean up afterwards)
 
 ---
 
