@@ -70,9 +70,34 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 ## Phase 5: Polish
 
 - [x] T013 [P] Document `GET /me/capabilities` and `GET /me/php-versions` in `README.md`
-- [ ] T014 Run Pint on changed PHP files and the full suite in Docker
-- [ ] T015 Deploy to isp-test and run `specs/021-account-capabilities/quickstart.md` §2 with a temporary client; record results here
+- [x] T014 Run Pint on changed PHP files and the full suite in Docker
+- [x] T015 Deploy to isp-test and run `specs/021-account-capabilities/quickstart.md` §2 with a temporary client; record results here
 
 ## Dependencies
 
 Phase 1 → Phase 2 → US1 → US2 (shares `AccountCapabilitiesService`) → Polish. T001/T002 and T005/T006 parallel.
+
+## Results (T014–T015, 2026-09-15)
+
+- T014: Pint clean on changed files; full suite 1019 passed (baseline 999).
+- T015: deployed `fcc1176` to isp-test (`ispconfig-rest status`: 1.0.0-rc.3 (fcc1176)). Temporary client
+  `qa0213f072e` (client 12: `limit_ssl=y`, `limit_ssl_letsencrypt=n`, `limit_wildcard=n`, `force_suexec=y`,
+  `web_php_options=no,php-fpm`, `web_servers=1`), temporary QA admin key 36 and client key 37. All 18 checks matched:
+
+| Case | Expected | Got |
+|---|---|---|
+| client `GET /me/capabilities` | 200, `ssl` true, `ssl_letsencrypt`/`wildcard` false, `suexec_forced` true, `php_modes` `["no","php-fpm"]`, default `php-fpm`, not locked | 200, as expected |
+| client `?client_id=999999` / `?server_id=1` | 404 / 400 | 404 / 400 |
+| client `GET /me/php-versions?server_id=1` | 200, versions 1–5 `modes=php-fpm`, no id 0 (server hides default) | 200, as expected |
+| `?server_id=1&mode=fast-cgi` (mode not in plan) | 200, empty | 200, total 0 |
+| `?server_id=999` / `?mode=hhvm` | 422 `server_id` / 422 `mode` | 422 / 422 |
+| client `POST /sites/web-domains` with first listed version (1) | 201 | 201 |
+| admin `GET /me/capabilities` without / with `client_id=12` | 422 / 200 identical to the client view | 422 / 200, identical |
+| admin `GET /servers/1/php-versions/5`, `POST` private version for client 12 | 200 / 201 | 200 / 201 (id 6) |
+| client list after the private version | id 6 listed | listed |
+| client `PUT` website `server_php_id=6` | 200 | 200 |
+| admin `PUT /clients/12 locked=true`, client capabilities | 200, `locked` true | 200, `locked=true` |
+
+- Cleanup: website 12, PHP version 6 and client 12 deleted with the QA admin key (204); datalog processed
+  (`server.updated` 458); API keys 36, 37 deleted by SQL (`name LIKE 'qa%'`); no `qa021` client, sys_group, sys_user,
+  web_domain, server_php, api_keys rows, `/var/www` symlinks or client directory remain. Remaining keys: 1, 2, 20, 27.
