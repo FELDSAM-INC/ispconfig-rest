@@ -10,9 +10,10 @@ use Illuminate\Validation\ValidationException;
  * Account capabilities for scoped keys (spec 021; contracts
  * api/modules/me/capabilities.yaml, api/modules/me/php-versions.yaml).
  *
- * Describes what an account's own key may do with websites. The derivation
- * stays in WebPermissionService and PhpVersionService, the rules spec 020
- * enforces, so a panel only offers choices the website endpoints accept.
+ * Describes what an account's own key may do with websites and mailboxes. The
+ * derivation stays in WebPermissionService and PhpVersionService, the rules
+ * spec 020 enforces, and in AccountMailService (spec 025), so a panel only
+ * offers choices the endpoints accept.
  */
 class AccountCapabilitiesService
 {
@@ -21,6 +22,7 @@ class AccountCapabilitiesService
         protected WebPermissionService $permissions,
         protected PhpVersionService $phpVersions,
         protected ServerAssignmentService $servers,
+        protected AccountMailService $mail,
     ) {}
 
     /**
@@ -35,7 +37,8 @@ class AccountCapabilitiesService
 
     /**
      * Website capabilities of a client (FR-003, research R2): the view of the
-     * client's own key (reseller when limit_client != 0).
+     * client's own key (reseller when limit_client != 0), plus the mail block
+     * of spec 025.
      *
      * @return array<string, mixed>
      */
@@ -66,6 +69,7 @@ class AccountCapabilitiesService
                 'php_modes' => $account['php_modes'],
                 'php_default_mode' => $this->permissions->defaultPhpMode($account),
             ],
+            'mail' => $this->mail->capabilities($clientId),
         ];
     }
 

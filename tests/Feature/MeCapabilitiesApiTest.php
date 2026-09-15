@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\MailCompletionSchema;
 use Tests\Support\SitesSchema;
 use Tests\Support\TenantFixtures;
 use Tests\Support\TenantSchema;
@@ -12,7 +13,7 @@ use Tests\TestCase;
 /**
  * GET /me/capabilities (spec 021 US1, api/modules/me/capabilities.yaml): the
  * website plan options, PHP modes and lock state of the key's account or a
- * named client — the rules spec 020 enforces.
+ * named client — the rules spec 020 enforces — and the mail options of spec 025.
  */
 class MeCapabilitiesApiTest extends TestCase
 {
@@ -24,11 +25,16 @@ class MeCapabilitiesApiTest extends TestCase
         'directive_snippets', 'suexec_forced', 'backup', 'advanced_options', 'php_modes', 'php_default_mode',
     ];
 
+    private const MAIL_KEYS = [
+        'autoresponder', 'mail_filters', 'custom_rules', 'spamfilter_policy', 'dkim', 'custom_login', 'password_policy',
+    ];
+
     protected function setUp(): void
     {
         parent::setUp();
 
         SitesSchema::create();
+        MailCompletionSchema::create();
         TenantSchema::create();
         $this->seedTenants();
 
@@ -141,8 +147,18 @@ class MeCapabilitiesApiTest extends TestCase
                 'php_modes' => ['no', 'php-fpm'],
                 'php_default_mode' => 'php-fpm',
             ],
+            'mail' => [
+                'autoresponder' => true,
+                'mail_filters' => true,
+                'custom_rules' => false,
+                'spamfilter_policy' => false,
+                'dkim' => false,
+                'custom_login' => false,
+                'password_policy' => ['min_length' => 8, 'min_strength' => 0, 'ascii_only' => false],
+            ],
         ]);
         $this->assertSame(self::WEB_KEYS, array_keys($response->json('web')));
+        $this->assertSame(self::MAIL_KEYS, array_keys($response->json('mail')));
         $this->assertSame(0, DB::table('sys_datalog')->count());
     }
 
@@ -273,5 +289,136 @@ class MeCapabilitiesApiTest extends TestCase
         $this->setClient('clientA', ['limit_ssl' => 'y']);
         $this->assertTrue($this->getJson('/api/v1/me/capabilities', $headers)->json('web.ssl'));
         $this->putJson("/api/v1/sites/web-domains/{$site}", ['ssl' => true], $headers)->assertStatus(200);
+    }
+
+    /**
+     * sys_ini with the given [mail] and [misc] keys (spec 025).
+     *
+     * @param  array<string, string>  $mail
+     * @param  array<string, string>  $misc
+     */
+    protected function setMailIni(array $mail, array $misc): void
+    {
+        $lines = ['[sites]', 'dbname_prefix=c[CLIENTID]', '[mail]'];
+
+        foreach ($mail as $key => $value) {
+            $lines[] = "{$key}={$value}";
+        }
+
+        $lines[] = '[misc]';
+
+        foreach ($misc as $key => $value) {
+            $lines[] = "{$key}={$value}";
+        }
+
+        DB::table('sys_ini')->updateOrInsert(['sysini_id' => 1], ['config' => implode("\n", $lines)]);
+    }
+
+    protected function mailServer(int $id, string $dkimPath, int $mirrorOf = 0): void
+    {
+        DB::table('server')->insert([
+            'server_id' => $id,
+            'server_name' => "mail{$id}",
+            'web_server' => 0,
+            'db_server' => 0,
+            'mail_server' => 1,
+            'mirror_server_id' => $mirrorOf,
+            'active' => 1,
+            'config' => "[mail]\ndkim_path={$dkimPath}\ndkim_strength=2048\n",
+        ]);
+    }
+
+    public function test_mail_block_reflects_system_settings(): void
+    {
+        $this->setMailIni([
+            'mailbox_show_autoresponder_tab' => 'y',
+            'mailbox_show_mail_filter_tab' => 'n',
+            'mailbox_show_custom_rules_tab' => 'y',
+            'enable_custom_login' => 'y',
+            'mail_password_onlyascii' => 'y',
+        ], ['min_password_length' => '10', 'min_password_strength' => '4']);
+
+        $response = $this->getJson('/api/v1/me/capabilities', $this->tenantHeaders('clientA'))->assertOk();
+
+        $response->assertJsonPath('mail', [
+            'autoresponder' => true,
+            'mail_filters' => false,
+            'custom_rules' => false,
+            'spamfilter_policy' => false,
+            'dkim' => false,
+            'custom_login' => true,
+            'password_policy' => ['min_length' => 10, 'min_strength' => 4, 'ascii_only' => true],
+        ]);
+        $this->assertSame(0, DB::table('sys_datalog')->count());
+    }
+
+    public function test_mail_settings_fall_back_to_ispconfig_defaults(): void
+    {
+        $headers = $this->tenantHeaders('clientA');
+
+        // Missing keys: tabs enabled (form default), length 8 and strength 0 (auth.inc.php).
+        $this->setMailIni([], []);
+        $this->getJson('/api/v1/me/capabilities', $headers)
+            ->assertOk()
+            ->assertJsonPath('mail.autoresponder', true)
+            ->assertJsonPath('mail.mail_filters', true)
+            ->assertJsonPath('mail.custom_login', false)
+            ->assertJsonPath('mail.password_policy', ['min_length' => 8, 'min_strength' => 0, 'ascii_only' => false]);
+
+        // Present but empty: no minimum.
+        $this->setMailIni(
+            ['mailbox_show_autoresponder_tab' => 'n', 'mail_password_onlyascii' => 'n'],
+            ['min_password_length' => '', 'min_password_strength' => '']
+        );
+        $this->getJson('/api/v1/me/capabilities', $headers)
+            ->assertOk()
+            ->assertJsonPath('mail.autoresponder', false)
+            ->assertJsonPath('mail.mail_filters', true)
+            ->assertJsonPath('mail.password_policy', ['min_length' => 0, 'min_strength' => 0, 'ascii_only' => false]);
+    }
+
+    public function test_spamfilter_policy_follows_readable_policies(): void
+    {
+        $this->setSites(null);
+        $url = '/api/v1/me/capabilities';
+
+        $this->getJson($url, $this->tenantHeaders('clientA'))->assertJsonPath('mail.spamfilter_policy', false);
+
+        // Administrator policy without world read.
+        DB::table('spamfilter_policy')->insert($this->ownedBy('admin', ['policy_name' => 'Private']));
+        $this->getJson($url, $this->tenantHeaders('clientA'))->assertJsonPath('mail.spamfilter_policy', false);
+
+        // Client A's own policy: readable by A only.
+        DB::table('spamfilter_policy')->insert($this->ownedBy('clientA', ['policy_name' => 'Own']));
+        $this->getJson($url, $this->tenantHeaders('clientA'))->assertJsonPath('mail.spamfilter_policy', true);
+        $this->getJson($url, $this->tenantHeaders('clientB'))->assertJsonPath('mail.spamfilter_policy', false);
+        $this->getJson($url.'?client_id='.$this->tenant('clientB')['client_id'], $this->tenantHeaders('admin'))
+            ->assertOk()
+            ->assertJsonPath('mail.spamfilter_policy', false);
+
+        // World-readable policy (ISPConfig default).
+        DB::table('spamfilter_policy')->insert($this->ownedBy('admin', ['policy_name' => 'Normal', 'sys_perm_other' => 'r']));
+        $this->getJson($url, $this->tenantHeaders('clientB'))->assertJsonPath('mail.spamfilter_policy', true);
+    }
+
+    public function test_dkim_follows_the_account_mail_servers(): void
+    {
+        $this->setSites(null);
+        $this->mailServer(2, '/var/lib/amavis/dkim');
+        $this->mailServer(3, '/');
+        $this->mailServer(4, '');
+        $this->mailServer(5, '/var/lib/amavis/dkim', 2);
+        $url = '/api/v1/me/capabilities';
+
+        // Unusable paths and a mirror server.
+        $this->assignServers('clientA', ['web' => [1], 'mail' => [3, 4, 5]]);
+        $this->getJson($url, $this->tenantHeaders('clientA'))->assertOk()->assertJsonPath('mail.dkim', false);
+
+        // A mail domain on a signing server adds that server.
+        DB::table('mail_domain')->insert($this->ownedBy('clientA', ['server_id' => 2, 'domain' => 'a.test', 'active' => 'y']));
+        $this->getJson($url, $this->tenantHeaders('clientA'))->assertJsonPath('mail.dkim', true);
+
+        $this->assignServers('clientB', ['web' => [1], 'mail' => [2]]);
+        $this->getJson($url, $this->tenantHeaders('clientB'))->assertJsonPath('mail.dkim', true);
     }
 }

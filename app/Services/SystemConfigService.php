@@ -6,6 +6,7 @@ use App\Models\SysIni;
 use App\Support\IniConfig;
 use Closure;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -224,6 +225,34 @@ class SystemConfigService
         $config = $this->parseBlob((string) $this->singleton()->config);
 
         return $this->presentSection($section, $config[$section] ?? []);
+    }
+
+    /**
+     * The whole blob as stored (no defaults, values as strings) for runtime
+     * readers that must tell a missing key from a default (spec 025 research
+     * R10); [] when the sys_ini table or singleton is absent.
+     *
+     * @return array<string, array<string, string>>
+     */
+    public function rawConfig(): array
+    {
+        if (! Schema::hasTable('sys_ini')) {
+            return [];
+        }
+
+        $blob = SysIni::query()->whereKey(1)->value('config');
+
+        return $blob === null ? [] : $this->parseBlob((string) $blob);
+    }
+
+    /**
+     * One section of rawConfig(), [] when absent.
+     *
+     * @return array<string, string>
+     */
+    public function rawSection(string $section): array
+    {
+        return $this->rawConfig()[$section] ?? [];
     }
 
     /**
