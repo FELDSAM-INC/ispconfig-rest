@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\WebDomain;
 use App\Services\WebDomainService;
+use App\Services\WebPermissionService;
+use App\Support\IspContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -17,11 +19,15 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
  * (contract: api/modules/sites/web-domains.yaml, /sites/web-domains/{id}/ssl
  * + /ssl/renew) — maps to the web_domain ssl_* columns; writes datalog
  * `u` entries with ssl_action save/del, the mechanism the legacy SSL tab
- * uses to drive the server plugin.
+ * uses to drive the server plugin. Client and reseller keys need the plan's
+ * SSL option to upload or delete, and Let's Encrypt to renew (spec 020 FR-008).
  */
 class WebDomainSslController extends Controller
 {
-    public function __construct(protected WebDomainService $service) {}
+    public function __construct(
+        protected WebDomainService $service,
+        protected WebPermissionService $permissions,
+    ) {}
 
     /**
      * GET /sites/web-domains/{id}/ssl — 200 with the stored PEM material,
@@ -49,6 +55,8 @@ class WebDomainSslController extends Controller
      */
     public function store(Request $request, WebDomain $webDomain): JsonResponse
     {
+        $this->assertCertificateOperation('store');
+
         $data = $request->validate([
             'ssl_cert' => ['required', 'string'],
             'ssl_key' => ['required', 'string'],
@@ -93,6 +101,8 @@ class WebDomainSslController extends Controller
      */
     public function destroy(WebDomain $webDomain): Response
     {
+        $this->assertCertificateOperation('destroy');
+
         DB::transaction(function () use ($webDomain): void {
             $this->service->deleteSsl($webDomain);
         });
@@ -107,6 +117,8 @@ class WebDomainSslController extends Controller
      */
     public function renew(WebDomain $webDomain): JsonResponse
     {
+        $this->assertCertificateOperation('renew');
+
         $attributes = $webDomain->getAttributes();
 
         if (($attributes['ssl_letsencrypt'] ?? 'n') !== 'y') {
@@ -125,5 +137,13 @@ class WebDomainSslController extends Controller
             'ssl_letsencrypt' => 'y',
             'queued' => true,
         ]);
+    }
+
+    /**
+     * 403 when the acting account's plan excludes the certificate operation.
+     */
+    protected function assertCertificateOperation(string $operation): void
+    {
+        $this->permissions->assertCertificateOperation(app(IspContext::class)->authScope(), $operation);
     }
 }

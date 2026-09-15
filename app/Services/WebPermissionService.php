@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\AuthScope;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -158,6 +159,10 @@ class WebPermissionService
         }
 
         foreach ($this->phpViolations($scope, $account, $input, $context) as $field => $message) {
+            $violations[$field] = $message;
+        }
+
+        foreach ($this->adminOnlyViolations($account, $input, $context) as $field => $message) {
             $violations[$field] = $message;
         }
 
@@ -382,6 +387,70 @@ class WebPermissionService
     }
 
     /**
+     * Administrator-only settings (FR-007…FR-009; research R5, R6): the
+     * Options tab unless a reseller may use options, the SSL tab without the
+     * SSL option, and the identity fields of an existing vhost for plain
+     * client keys. Only values different from the stored (update) or model
+     * default (create) value count.
+     *
+     * @param  array<string, mixed>  $account
+     * @param  array<string, mixed>  $input
+     * @param  array<string, mixed>  $context
+     * @return array<string, string>
+     */
+    protected function adminOnlyViolations(array $account, array $input, array $context): array
+    {
+        $violations = [];
+        $fields = $account['advanced_options'] ? [] : self::OPTIONS_FIELDS;
+
+        if (! $account['flags']['ssl']) {
+            $fields = array_merge($fields, self::SSL_TAB_FIELDS);
+        }
+
+        foreach ($fields as $field) {
+            if ($this->requests($field, $input, $context)) {
+                $violations[$field] = "The {$field} setting can only be changed by an administrator.";
+            }
+        }
+
+        if (! $account['is_reseller'] && ! $context['is_create'] && $context['type'] === 'vhost') {
+            foreach (self::IDENTITY_FIELDS as $field) {
+                if ($this->requests($field, $input, $context)) {
+                    $violations[$field] = "The {$field} of this website cannot be changed by this account.";
+                }
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * Certificate upload and delete need the SSL option, renewal also the
+     * Let's Encrypt option (FR-008; the legacy SSL tab exists only with
+     * limit_ssl, web_vhost_domain.tform.php:88-95). Admin keys pass.
+     *
+     * @param  string  $operation  store|destroy|renew
+     *
+     * @throws AuthorizationException
+     */
+    public function assertCertificateOperation(AuthScope $scope, string $operation): void
+    {
+        if ($scope->isAdmin) {
+            return;
+        }
+
+        $account = $this->forScope($scope);
+
+        if (! $account['flags']['ssl']) {
+            throw new AuthorizationException("SSL certificates are not included in the account's plan.");
+        }
+
+        if ($operation === 'renew' && ! $account['flags']['ssl_letsencrypt']) {
+            throw new AuthorizationException("Let's Encrypt certificates are not included in the account's plan.");
+        }
+    }
+
+    /**
      * Whether the request sets a field (research R8): on create every sent
      * value counts when $sentOnCreate, otherwise only values different from
      * the model default; on update only values different from the stored raw
@@ -404,7 +473,9 @@ class WebPermissionService
     }
 
     /**
-     * Comparable form of an input or raw value: booleans as y/n, null as ''.
+     * Comparable form of an input or raw value: booleans as y/n, null as '',
+     * scalars trimmed (request strings are trimmed by the middleware). Case is
+     * significant (paths, directives); domains arrive lowercased.
      */
     protected function normalize(mixed $value): string
     {
@@ -416,7 +487,7 @@ class WebPermissionService
             return '';
         }
 
-        return is_scalar($value) ? strtolower(trim((string) $value)) : json_encode($value);
+        return is_scalar($value) ? trim((string) $value) : json_encode($value);
     }
 
     /**

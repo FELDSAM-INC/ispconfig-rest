@@ -73,12 +73,12 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T015 [US3] Create `tests/Feature/WebAdminOptionsScopedKeyTest.php`: each Options-tab field changed by a client key → 422, default/current value accepted; reseller with `reseller_can_use_options = y` accepted and `n` refused; SSL-tab fields without `limit_ssl` → 422; plain client identity fields on a vhost → 422 (reseller allowed, child types allowed); `subdomain = "*"` on `vhostsubdomain` → 422; `POST`/`DELETE /ssl` without SSL → 403, renew without Let's Encrypt → 403, `GET /ssl` allowed; admin unrestricted
+- [x] T015 [US3] Create `tests/Feature/WebAdminOptionsScopedKeyTest.php`: each Options-tab field changed by a client key → 422, default/current value accepted; reseller with `reseller_can_use_options = y` accepted and `n` refused; SSL-tab fields without `limit_ssl` → 422; plain client identity fields on a vhost → 422 (reseller allowed, child types allowed); `subdomain = "*"` on `vhostsubdomain` → 422; `POST`/`DELETE /ssl` without SSL → 403, renew without Let's Encrypt → 403, `GET /ssl` allowed; admin unrestricted
 
 ### Implementation
 
-- [ ] T016 [US3] Implement Options/SSL-tab, identity and child wildcard rules in `app/Services/WebPermissionService.php`
-- [ ] T017 [US3] Add `assertCertificateOperation()` to `app/Services/WebPermissionService.php` and call it from `store`, `destroy`, `renew` in `app/Http/Controllers/Api/V1/WebDomainSslController.php`
+- [x] T016 [US3] Implement Options/SSL-tab, identity and child wildcard rules in `app/Services/WebPermissionService.php`
+- [x] T017 [US3] Add `assertCertificateOperation()` to `app/Services/WebPermissionService.php` and call it from `store`, `destroy`, `renew` in `app/Http/Controllers/Api/V1/WebDomainSslController.php`
 
 **Checkpoint**: all stories green
 
@@ -86,7 +86,7 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 6: Polish
 
-- [ ] T018 [P] Document the client key website restrictions in `README.md`
+- [x] T018 [P] Document the client key website restrictions in `README.md`
 - [ ] T019 Run Pint on changed PHP files and the full suite in Docker
 - [ ] T020 Deploy to isp-test and run `specs/020-web-permissions-scoped-keys/quickstart.md` §2 with a temporary client; record results here
 

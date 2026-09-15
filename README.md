@@ -106,6 +106,15 @@ Scoped keys are also bound by their client's **resource limits** (`client.limit_
 
 Scoped keys may only place new websites (vhosts), mail domains, databases and DNS zones on servers assigned to their account (`web_servers`, `mail_servers`, `db_servers`, `dns_servers` on the client row; resellers use their own row). When `server_id` is omitted, the first assigned server is used; an unassigned or nonexistent server returns `422` on `server_id` with the same message. Secondary DNS zones always use the account's `default_slave_dnsserver`, fetchmail jobs the destination mailbox's server, and fetchmail destinations must be mailboxes the key can read. Scoped keys cannot move DNS zones or secondary zones to another server. `GET /api/v1/me/servers` lists the servers a key may use, with the default marked. Resellers created through the API have no server lists until an admin assigns them.
 
+Scoped keys are also bound by their plan's **website options**, as in the ISPConfig interface (the acting account's own client row; resellers use their own):
+
+- `ssl`, `ssl_letsencrypt`, `cgi`, `ssi`, `perl`, `ruby`, `python`, `errordocs`, `directive_snippets_id` and `subdomain: "*"` need the matching `limit_*` option, and `suexec: false` is refused when `force_suexec` is set (`422` on the field). Options outside the plan are also switched off on every save, as the interface does.
+- `php` must be one of the modes allowed by the system and client `web_php_options`; when omitted on create, `fast-cgi` is used if allowed, else the first allowed mode. `server_php_id` must be an active version on the website's server, public or the account's own, that supports the mode; when the server hides the default version, a real version is required and the first available one is used when omitted.
+- The Options-tab settings (`allow_override`, `pm*`, `php_open_basedir`, `custom_php_ini`, `*_directives`, ports, `log_retention`, jailkit fields…) cannot be changed unless the key is a reseller and `reseller_can_use_options` is enabled; the SSL-tab fields (`ssl_state` … `ssl_domain`) need `limit_ssl`. Plain client keys cannot change `domain`, `ip_address`, `ipv6_address` or `vhost_type` of a website.
+- Uploading or deleting a certificate (`/ssl`) returns `403` without `limit_ssl`; renewing also needs `limit_ssl_letsencrypt`.
+
+Only values that differ from the stored (or default) value are checked, so repeating a website's current settings is accepted. Admin keys are unaffected.
+
 ### Managing keys over HTTP
 
 Admin keys manage keys remotely under `/system/api-keys` (client and reseller keys receive `403`):
@@ -175,6 +184,7 @@ Deliberate and documented in code where they occur:
 - **Client cancel applies on create**: `canceled: true` creates the control-panel login inactive; legacy ignores both flags on insert.
 - **Client lock and cancel run only when the flag changes** (legacy panel behavior); the legacy remote API re-runs them on every update.
 - **Locked clients' services cannot be re-enabled or extended by client and reseller keys** (`403`); legacy allows both.
+- **Website plan options are refused explicitly**: client and reseller keys get `422` for options outside their plan and for administrator-only settings, which the interface only hides or silently resets; PHP mode and version lists, read-only domain fields and the SSL tab are enforced server-side (legacy enforces them in the form only).
 
 ## Project governance
 
