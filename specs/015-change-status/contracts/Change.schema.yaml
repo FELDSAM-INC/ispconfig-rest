@@ -1,0 +1,62 @@
+# Draft of api/components/schemas/Change.yaml (spec 015).
+type: object
+description: |
+  One journal entry (sys_datalog) as seen by an API consumer, with its processing status.
+  Journal payloads, writer usernames and target server ids are never exposed here
+  (FR-009); admins read payloads through /monitor/data-logs.
+required:
+  - id
+  - change_set_id
+  - table
+  - record_id
+  - action
+  - status
+  - created_at
+properties:
+  id:
+    type: integer
+    description: Journal entry id (sys_datalog.datalog_id).
+    example: 347
+  change_set_id:
+    type: string
+    maxLength: 64
+    description: Groups all entries written by one request (sys_datalog.session_id).
+    example: 3f9c2a1b7e4d5c6a8b9f0e1d2c3b4a59
+  table:
+    type: string
+    description: ISPConfig table of the changed record (sys_datalog.dbtable).
+    example: mail_domain
+  record_id:
+    type: integer
+    nullable: true
+    description: |
+      Primary key value of the changed record, parsed from sys_datalog.dbidx
+      ("<pk column>:<value>"); null when the stored value is not an integer.
+    example: 12
+  action:
+    type: string
+    enum:
+      - create
+      - update
+      - delete
+    description: Journal action (i/u/d).
+  status:
+    type: string
+    enum:
+      - pending
+      - applied
+      - failed
+      - stalled
+    description: |
+      `pending` — not yet processed by every responsible server;
+      `applied` — processed without an error;
+      `failed` — processed and ISPConfig recorded an error;
+      `stalled` — no active server is responsible, so it will not be processed.
+  error:
+    type: string
+    description: Processing error recorded by ISPConfig (verbatim, may be multi-line). Present only when status is `failed`.
+  created_at:
+    type: string
+    format: date-time
+    description: Time the entry was journaled (sys_datalog.tstamp).
+    example: '2026-09-14T10:15:30+00:00'
