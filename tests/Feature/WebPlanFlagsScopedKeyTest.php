@@ -122,6 +122,7 @@ class WebPlanFlagsScopedKeyTest extends TestCase
             $response = $this->putJson("/api/v1/sites/web-domains/{$site}", $body, $this->tenantHeaders('clientA'));
             $response->assertStatus(422);
             $this->assertArrayHasKey($field, $response->json('errors'), "field {$field}");
+            $this->assertSame('https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed', $response->json("error_types.{$field}"), "type {$field}");
         }
 
         $this->assertSame($datalog, DB::table('sys_datalog')->count());
@@ -144,6 +145,7 @@ class WebPlanFlagsScopedKeyTest extends TestCase
         }
         $this->assertSame("The SSL option is not included in the account's plan.", $errors['ssl'][0]);
         $this->assertSame("suEXEC is required by the account's plan.", $errors['suexec'][0]);
+        $this->assertEquals(array_fill_keys(['ssl', 'cgi', 'suexec'], 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed'), $response->json('error_types'));
         $this->assertSame(0, DB::table('sys_datalog')->count());
         $this->assertSame(0, DB::table('web_domain')->where('domain', 'flags.test')->count());
     }

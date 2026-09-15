@@ -53,8 +53,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 5: User Story 3 — plan features and servers (P2)
 
-- [ ] T011 [US3] Assert `feature-not-allowed` + `feature` in `tests/Feature/BackupLimitGateTest.php` (endpoint gate and `backup_*` fields), `tests/Feature/WebAdminOptionsScopedKeyTest.php` (certificate operations, options and SSL tab `error_types`), the `scope.limit` gate test in `tests/Feature/ScopingMailModuleTest.php`; `error_types` in `tests/Feature/WebPlanFlagsScopedKeyTest.php` and `tests/Feature/WebPhpScopedKeyTest.php`; `server-not-assigned` in `tests/Feature/ClientServerAssignmentTest.php` and `tests/Feature/ClientServerAssignmentWritesTest.php`; ordinary 422 without `error_types`; identity-field errors untyped
-- [ ] T012 [US3] Type `RequireClientLimit`, `RequireBackupAccess`, `EnforcesBackupLimit`, `WebPermissionService::assertCertificateOperation()`; add `WebPermissionService::typedViolations()` and tag in `EnforcesWebPermissions`; tag in `ResolvesAssignedServer`
+- [x] T011 [US3] Assert `feature-not-allowed` + `feature` in `tests/Feature/BackupLimitGateTest.php` (endpoint gate and `backup_*` fields), `tests/Feature/WebAdminOptionsScopedKeyTest.php` (certificate operations, options and SSL tab `error_types`), the `scope.limit` gate test in `tests/Feature/ScopingMailModuleTest.php`; `error_types` in `tests/Feature/WebPlanFlagsScopedKeyTest.php` and `tests/Feature/WebPhpScopedKeyTest.php`; `server-not-assigned` in `tests/Feature/ClientServerAssignmentTest.php` and `tests/Feature/ClientServerAssignmentWritesTest.php`; ordinary 422 without `error_types`; identity-field errors untyped
+- [x] T012 [US3] Type `RequireClientLimit`, `RequireBackupAccess`, `EnforcesBackupLimit`, `WebPermissionService::assertCertificateOperation()`; add `WebPermissionService::typedViolations()` and tag in `EnforcesWebPermissions`; tag in `ResolvesAssignedServer`
 
 ---
 

@@ -5,6 +5,8 @@ namespace App\Http\Requests\Concerns;
 use App\Services\ServerAssignmentService;
 use App\Support\AuthScope;
 use App\Support\IspContext;
+use App\Support\ProblemType;
+use App\Support\ProblemTypeCollector;
 use Closure;
 
 /**
@@ -55,6 +57,9 @@ trait ResolvesAssignedServer
 
         if ($default !== null) {
             $this->merge(['server_id' => $default]);
+        } else {
+            // server_id stays missing, so `required` reports "no server".
+            $this->tagServerNotAssigned();
         }
     }
 
@@ -72,6 +77,8 @@ trait ResolvesAssignedServer
 
         if ($slave !== null) {
             $this->merge(['server_id' => $slave]);
+        } else {
+            $this->tagServerNotAssigned();
         }
     }
 
@@ -108,8 +115,10 @@ trait ResolvesAssignedServer
 
             if ($slave === null) {
                 $fail(self::NO_SLAVE_DNS_SERVER);
+                $this->tagServerNotAssigned($attribute);
             } elseif ((int) $value !== $slave) {
                 $fail(self::SERVER_NOT_AVAILABLE);
+                $this->tagServerNotAssigned($attribute);
             }
         }];
     }
@@ -171,8 +180,10 @@ trait ResolvesAssignedServer
 
             if ($assigned === []) {
                 $fail($this->noServerMessage($service));
+                $this->tagServerNotAssigned($attribute);
             } elseif (! in_array((int) $value, $assigned, true)) {
                 $fail(self::SERVER_NOT_AVAILABLE);
+                $this->tagServerNotAssigned($attribute);
             }
         };
     }
@@ -180,5 +191,13 @@ trait ResolvesAssignedServer
     protected function noServerMessage(string $service): string
     {
         return 'No '.$this->serverAssignment()->serviceLabel($service).' server is assigned to this account.';
+    }
+
+    /**
+     * Type the server field's error as `server-not-assigned` (spec 023).
+     */
+    protected function tagServerNotAssigned(string $attribute = 'server_id'): void
+    {
+        app(ProblemTypeCollector::class)->tag($attribute, ProblemType::SERVER_NOT_ASSIGNED);
     }
 }

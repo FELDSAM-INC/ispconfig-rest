@@ -168,6 +168,7 @@ class ClientServerAssignmentTest extends TestCase
                 ->assertStatus(422)
                 ->assertHeader('Content-Type', 'application/problem+json')
                 ->assertJsonPath('errors.server_id.0', 'The selected server is not available for this account.')
+                ->assertJsonPath('error_types.server_id', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#server-not-assigned')
                 ->json();
         }
 
@@ -179,7 +180,8 @@ class ClientServerAssignmentTest extends TestCase
             'domain' => 'probe-mail.test', 'server_id' => 4,
         ], $this->tenantHeaders('clientA'))
             ->assertStatus(422)
-            ->assertJsonPath('errors.server_id.0', 'The selected server is not available for this account.');
+            ->assertJsonPath('errors.server_id.0', 'The selected server is not available for this account.')
+            ->assertJsonPath('error_types.server_id', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#server-not-assigned');
 
         $this->assertSame($datalog, DB::table('sys_datalog')->count());
         $this->assertDatabaseMissing('web_domain', ['domain' => 'probe.test']);
@@ -197,11 +199,13 @@ class ClientServerAssignmentTest extends TestCase
 
             $this->postJson($uri, $body, $this->tenantHeaders('clientA'))
                 ->assertStatus(422)
-                ->assertJsonPath('errors.server_id.0', $message);
+                ->assertJsonPath('errors.server_id.0', $message)
+                ->assertJsonPath('error_types.server_id', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#server-not-assigned');
 
             $this->postJson($uri, $body + ['server_id' => 1], $this->tenantHeaders('clientA'))
                 ->assertStatus(422)
-                ->assertJsonPath('errors.server_id.0', $message);
+                ->assertJsonPath('errors.server_id.0', $message)
+                ->assertJsonPath('error_types.server_id', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#server-not-assigned');
         }
 
         $this->assertSame($datalog, DB::table('sys_datalog')->count());
@@ -216,7 +220,8 @@ class ClientServerAssignmentTest extends TestCase
                 'domain' => 'bad-value.test', 'server_id' => $value,
             ], $this->tenantHeaders('clientA'))
                 ->assertStatus(422)
-                ->assertJsonCount(1, 'errors.server_id');
+                ->assertJsonCount(1, 'errors.server_id')
+                ->assertJsonMissingPath('error_types');
         }
     }
 
@@ -238,7 +243,8 @@ class ClientServerAssignmentTest extends TestCase
             'domain' => 'blocked-reseller.test', 'active' => true, 'dkim' => false,
         ], $this->tenantHeaders('reseller'))
             ->assertStatus(422)
-            ->assertJsonPath('errors.server_id.0', 'No mail server is assigned to this account.');
+            ->assertJsonPath('errors.server_id.0', 'No mail server is assigned to this account.')
+            ->assertJsonPath('error_types.server_id', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#server-not-assigned');
     }
 
     public function test_vhost_children_use_the_parent_server_without_server_id(): void
@@ -275,13 +281,15 @@ class ClientServerAssignmentTest extends TestCase
             'domain' => 'admin-no-server.test', 'active' => true, 'dkim' => false,
         ], $this->tenantHeaders('admin'))
             ->assertStatus(422)
-            ->assertJsonPath('errors.server_id.0', 'The server id field is required.');
+            ->assertJsonPath('errors.server_id.0', 'The server id field is required.')
+            ->assertJsonMissingPath('error_types');
 
         $this->postJson('/api/v1/sites/web-domains', [
             'domain' => 'admin-bad-server.test', 'server_id' => 99,
         ], $this->tenantHeaders('admin'))
             ->assertStatus(422)
-            ->assertJsonPath('errors.server_id.0', 'The selected server id is invalid.');
+            ->assertJsonPath('errors.server_id.0', 'The selected server id is invalid.')
+            ->assertJsonMissingPath('error_types');
 
         $this->postJson('/api/v1/mail/domains', [
             'domain' => 'admin-any-server.test', 'server_id' => 3, 'active' => true, 'dkim' => false,

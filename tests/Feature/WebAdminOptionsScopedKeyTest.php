@@ -170,6 +170,10 @@ class WebAdminOptionsScopedKeyTest extends TestCase
         $response->assertStatus(422);
         $this->assertSame(array_keys($this->changedOptions()), array_values(array_intersect(array_keys($this->changedOptions()), array_keys($response->json('errors')))));
 
+        foreach (array_keys($this->changedOptions()) as $field) {
+            $this->assertSame('https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed', $response->json("error_types.{$field}"), "type {$field}");
+        }
+
         $this->assertSame($datalog, DB::table('sys_datalog')->count());
         $this->assertSame('All', DB::table('web_domain')->where('domain_id', $site)->value('allow_override'));
     }
@@ -237,11 +241,9 @@ class WebAdminOptionsScopedKeyTest extends TestCase
         ];
 
         foreach ($fields as $field => $value) {
-            $this->assertFieldError(
-                $this->putJson("/api/v1/sites/web-domains/{$site}", [$field => $value], $headers),
-                $field,
-                "The {$field} setting can only be changed by an administrator."
-            );
+            $response = $this->putJson("/api/v1/sites/web-domains/{$site}", [$field => $value], $headers);
+            $this->assertFieldError($response, $field, "The {$field} setting can only be changed by an administrator.");
+            $this->assertSame('https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed', $response->json("error_types.{$field}"));
         }
 
         $this->putJson("/api/v1/sites/web-domains/{$site}", ['ssl_country' => ''], $headers)->assertStatus(200);
@@ -264,11 +266,9 @@ class WebAdminOptionsScopedKeyTest extends TestCase
         ];
 
         foreach ($cases as $field => $value) {
-            $this->assertFieldError(
-                $this->putJson("/api/v1/sites/web-domains/{$site}", [$field => $value], $headers),
-                $field,
-                "The {$field} of this website cannot be changed by this account."
-            );
+            $response = $this->putJson("/api/v1/sites/web-domains/{$site}", [$field => $value], $headers);
+            $this->assertFieldError($response, $field, "The {$field} of this website cannot be changed by this account.");
+            $this->assertNull($response->json("error_types.{$field}"), "identity field {$field} is untyped");
         }
 
         // Repeating the stored identity is fine.
@@ -305,11 +305,9 @@ class WebAdminOptionsScopedKeyTest extends TestCase
         ]);
 
         foreach (['clientA', 'reseller'] as $tenant) {
-            $this->assertFieldError(
-                $this->putJson("/api/v1/sites/web-domains/{$child}", ['subdomain' => '*'], $this->tenantHeaders($tenant)),
-                'subdomain',
-                'Wildcard subdomains are not available for this website type.'
-            );
+            $response = $this->putJson("/api/v1/sites/web-domains/{$child}", ['subdomain' => '*'], $this->tenantHeaders($tenant));
+            $this->assertFieldError($response, 'subdomain', 'Wildcard subdomains are not available for this website type.');
+            $this->assertNull($response->json('error_types.subdomain'));
         }
 
         $this->putJson("/api/v1/sites/web-domains/{$parent}", ['subdomain' => '*'], $this->tenantHeaders('clientA'))
@@ -324,7 +322,8 @@ class WebAdminOptionsScopedKeyTest extends TestCase
         $leMessage = "Let's Encrypt certificates are not included in the account's plan.";
 
         $this->postJson("/api/v1/sites/web-domains/{$site}/ssl", ['ssl_cert' => 'x', 'ssl_key' => 'y'], $headers)
-            ->assertStatus(403)->assertJsonPath('detail', $sslMessage);
+            ->assertStatus(403)->assertJsonPath('detail', $sslMessage)
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed')->assertJsonPath('feature', 'limit_ssl');
         $this->deleteJson("/api/v1/sites/web-domains/{$site}/ssl", [], $headers)
             ->assertStatus(403)->assertJsonPath('detail', $sslMessage);
         $this->postJson("/api/v1/sites/web-domains/{$site}/ssl/renew", [], $headers)
@@ -335,7 +334,8 @@ class WebAdminOptionsScopedKeyTest extends TestCase
         DB::table('web_domain')->where('domain_id', $site)->update(['ssl' => 'y', 'ssl_letsencrypt' => 'y']);
 
         $this->postJson("/api/v1/sites/web-domains/{$site}/ssl/renew", [], $headers)
-            ->assertStatus(403)->assertJsonPath('detail', $leMessage);
+            ->assertStatus(403)->assertJsonPath('detail', $leMessage)
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed')->assertJsonPath('feature', 'limit_ssl_letsencrypt');
         $this->deleteJson("/api/v1/sites/web-domains/{$site}/ssl", [], $headers)->assertStatus(204);
 
         $this->setFlags('clientA', ['limit_ssl_letsencrypt' => 'y']);

@@ -263,10 +263,18 @@ class ScopingMailModuleTest extends TestCase
 
         $datalogCount = DB::table('sys_datalog')->count();
 
+        $features = [
+            'mail/transports' => 'limit_mailrouting',
+            'mail/access-rules' => 'limit_mail_wblist',
+            'mail/spamfilter/wblist' => 'limit_spamfilter_wblist',
+        ];
+
         foreach ($denied as $route => $payload) {
             $this->postJson("/api/v1/{$route}", $payload, $this->tenantHeaders('clientA'))
                 ->assertStatus(403)
-                ->assertHeader('Content-Type', 'application/problem+json');
+                ->assertHeader('Content-Type', 'application/problem+json')
+                ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed')
+                ->assertJsonPath('feature', $features[$route]);
         }
 
         $this->assertSame($datalogCount, DB::table('sys_datalog')->count());

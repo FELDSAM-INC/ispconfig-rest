@@ -40,6 +40,6 @@ Base: `https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#
 |--------|----------|------|
 | `ResolvesAssignedServer` — not available, no server of the service, no secondary DNS server | `server_id` | `server-not-assigned` |
 | `WebPermissionService` plan flags (`ssl`, `ssl_letsencrypt`, `cgi`, `ssi`, `perl`, `ruby`, `python`), `errordocs`, `directive_snippets_id`, plan wildcard `subdomain`, forced `suexec` | same | `feature-not-allowed` |
-| `WebPermissionService` PHP mode / version rules | `php`, `server_php_id` | `feature-not-allowed` |
+| `WebPermissionService` PHP mode not allowed, PHP version not available | `php`, `server_php_id` | `feature-not-allowed` |
 | `WebPermissionService` administrator-only options and SSL tab fields | each field | `feature-not-allowed` |
-| identity fields, wildcard on child websites, immutable server | — | untyped |
+| identity fields, wildcard on child websites, immutable server, fetchmail server other than the destination mailbox's server, PHP version required, no PHP version on the server | — | untyped |

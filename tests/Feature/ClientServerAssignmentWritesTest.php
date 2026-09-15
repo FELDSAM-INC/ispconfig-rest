@@ -85,7 +85,8 @@ class ClientServerAssignmentWritesTest extends TestCase
 
         $this->postJson('/api/v1/dns/slaves', ['origin' => 'slave-c.test', 'ns' => '203.0.113.1', 'server_id' => 3], $this->tenantHeaders('clientA'))
             ->assertStatus(422)
-            ->assertJsonPath('errors.server_id.0', 'The selected server is not available for this account.');
+            ->assertJsonPath('errors.server_id.0', 'The selected server is not available for this account.')
+            ->assertJsonPath('error_types.server_id', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#server-not-assigned');
 
         $this->assertSame($datalog, DB::table('sys_datalog')->count());
     }
@@ -97,17 +98,20 @@ class ClientServerAssignmentWritesTest extends TestCase
 
             $this->postJson('/api/v1/dns/slaves', ['origin' => 'no-slave.test', 'ns' => '203.0.113.1'], $this->tenantHeaders('clientA'))
                 ->assertStatus(422)
-                ->assertJsonPath('errors.server_id.0', 'No secondary DNS server is assigned to this account.');
+                ->assertJsonPath('errors.server_id.0', 'No secondary DNS server is assigned to this account.')
+                ->assertJsonPath('error_types.server_id', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#server-not-assigned');
 
             $this->postJson('/api/v1/dns/slaves', ['origin' => 'no-slave.test', 'ns' => '203.0.113.1', 'server_id' => 4], $this->tenantHeaders('clientA'))
                 ->assertStatus(422)
-                ->assertJsonPath('errors.server_id.0', 'No secondary DNS server is assigned to this account.');
+                ->assertJsonPath('errors.server_id.0', 'No secondary DNS server is assigned to this account.')
+                ->assertJsonPath('error_types.server_id', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#server-not-assigned');
         }
 
         // Admin keys unchanged: server_id required.
         $this->postJson('/api/v1/dns/slaves', ['origin' => 'admin-slave.test', 'ns' => '203.0.113.1'], $this->tenantHeaders('admin'))
             ->assertStatus(422)
-            ->assertJsonPath('errors.server_id.0', 'The server id field is required.');
+            ->assertJsonPath('errors.server_id.0', 'The server id field is required.')
+            ->assertJsonMissingPath('error_types');
     }
 
     public function test_reseller_uses_its_own_secondary_dns_server(): void
@@ -130,9 +134,12 @@ class ClientServerAssignmentWritesTest extends TestCase
         $this->postJson('/api/v1/mail/fetchmail', $this->fetchmailPayload(['destination' => 'a2@a-dom.test', 'server_id' => 2]), $this->tenantHeaders('clientA'))
             ->assertStatus(201);
 
+        // The destination mailbox decides the server; a mismatch is not an
+        // assignment refusal and stays untyped (spec 023).
         $this->postJson('/api/v1/mail/fetchmail', $this->fetchmailPayload(['server_id' => 1]), $this->tenantHeaders('clientA'))
             ->assertStatus(422)
-            ->assertJsonPath('errors.server_id.0', 'The selected server is not available for this account.');
+            ->assertJsonPath('errors.server_id.0', 'The selected server is not available for this account.')
+            ->assertJsonMissingPath('error_types');
     }
 
     public function test_fetchmail_destination_must_be_readable_by_non_admin_keys(): void
@@ -178,7 +185,8 @@ class ClientServerAssignmentWritesTest extends TestCase
 
         $this->putJson("/api/v1/dns/soa/{$zone}", ['server_id' => 4], $this->tenantHeaders('clientA'))
             ->assertStatus(422)
-            ->assertJsonPath('errors.server_id.0', 'The server cannot be changed after creation.');
+            ->assertJsonPath('errors.server_id.0', 'The server cannot be changed after creation.')
+            ->assertJsonMissingPath('error_types');
 
         $this->putJson("/api/v1/dns/soa/{$zone}", ['server_id' => 3, 'ttl' => 3600], $this->tenantHeaders('clientA'))
             ->assertOk();
@@ -197,7 +205,8 @@ class ClientServerAssignmentWritesTest extends TestCase
 
         $this->putJson("/api/v1/dns/slaves/{$slave}", ['server_id' => 3], $this->tenantHeaders('clientA'))
             ->assertStatus(422)
-            ->assertJsonPath('errors.server_id.0', 'The server cannot be changed after creation.');
+            ->assertJsonPath('errors.server_id.0', 'The server cannot be changed after creation.')
+            ->assertJsonMissingPath('error_types');
 
         $this->putJson("/api/v1/dns/slaves/{$slave}", ['server_id' => 4], $this->tenantHeaders('clientA'))
             ->assertOk();

@@ -2,8 +2,9 @@
 
 namespace App\Services;
 
+use App\Exceptions\ProblemAuthorizationException;
 use App\Support\AuthScope;
-use Illuminate\Auth\Access\AuthorizationException;
+use App\Support\ProblemType;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -44,6 +45,13 @@ class WebPermissionService
 
     /** Domain-tab fields read-only for plain clients on existing vhosts. */
     public const IDENTITY_FIELDS = ['domain', 'ip_address', 'ipv6_address', 'vhost_type'];
+
+    /** Refusal messages that decide the problem type of a violation (spec 023). */
+    public const CHILD_WILDCARD_MESSAGE = 'Wildcard subdomains are not available for this website type.';
+
+    public const PHP_MODE_MESSAGE = 'The selected PHP mode is not available for this account.';
+
+    public const PHP_VERSION_MESSAGE = 'The selected PHP version is not available for this website.';
 
     /** Client columns read for the account permissions, with the legacy "no row" value. */
     protected const CLIENT_COLUMNS = [
@@ -147,23 +155,45 @@ class WebPermissionService
      */
     public function violations(AuthScope $scope, array $input, array $context): array
     {
+        return array_map(
+            fn (array $violation): string => $violation['message'],
+            $this->typedViolations($scope, $input, $context)
+        );
+    }
+
+    /**
+     * violations() with the problem type of each field (spec 023 FR-006):
+     * plan flags, PHP mode and version availability and administrator-only
+     * settings are `feature-not-allowed`; identity fields, wildcards on child
+     * websites and PHP version requirements stay untyped.
+     *
+     * @param  array<string, mixed>  $input
+     * @param  array{is_create: bool, type: string, server_id: int, owner_client_id: int, current: array<string, mixed>}  $context
+     * @return array<string, array{message: string, type: string|null}>
+     */
+    public function typedViolations(AuthScope $scope, array $input, array $context): array
+    {
         if ($scope->isAdmin) {
             return [];
         }
 
         $account = $this->forScope($scope);
         $violations = [];
+        $violation = fn (string $message, bool $typed): array => [
+            'message' => $message,
+            'type' => $typed ? ProblemType::FEATURE_NOT_ALLOWED : null,
+        ];
 
         foreach ($this->planFlagViolations($account, $input, $context) as $field => $message) {
-            $violations[$field] = $message;
+            $violations[$field] = $violation($message, $message !== self::CHILD_WILDCARD_MESSAGE);
         }
 
         foreach ($this->phpViolations($scope, $account, $input, $context) as $field => $message) {
-            $violations[$field] = $message;
+            $violations[$field] = $violation($message, in_array($message, [self::PHP_MODE_MESSAGE, self::PHP_VERSION_MESSAGE], true));
         }
 
         foreach ($this->adminOnlyViolations($account, $input, $context) as $field => $message) {
-            $violations[$field] = $message;
+            $violations[$field] = $violation($message, ! in_array($field, self::IDENTITY_FIELDS, true));
         }
 
         return $violations;
@@ -220,7 +250,7 @@ class WebPermissionService
 
         if ($this->requests('php', $input, $context, true)
             && (! is_string($input['php']) || ! in_array($input['php'], $account['php_modes'], true))) {
-            return ['php' => 'The selected PHP mode is not available for this account.'];
+            return ['php' => self::PHP_MODE_MESSAGE];
         }
 
         $mode = array_key_exists('php', $input) && is_string($input['php'])
@@ -247,7 +277,7 @@ class WebPermissionService
 
         if ($version !== 0 && ($versionRequested || $phpChanged) && ! in_array($version, $usableIds(), true)) {
             if ($versionRequested) {
-                return ['server_php_id' => 'The selected PHP version is not available for this website.'];
+                return ['server_php_id' => self::PHP_VERSION_MESSAGE];
             }
 
             // A kept version that does not fit the new mode is reset
@@ -371,7 +401,7 @@ class WebPermissionService
 
         if ($this->requests('subdomain', $input, $context, true) && $input['subdomain'] === '*') {
             if ($isChild) {
-                $violations['subdomain'] = 'Wildcard subdomains are not available for this website type.';
+                $violations['subdomain'] = self::CHILD_WILDCARD_MESSAGE;
             } elseif (! $account['flags']['wildcard_subdomains']) {
                 $violations['subdomain'] = "The wildcard subdomains option is not included in the account's plan.";
             }
@@ -431,7 +461,7 @@ class WebPermissionService
      *
      * @param  string  $operation  store|destroy|renew
      *
-     * @throws AuthorizationException
+     * @throws ProblemAuthorizationException
      */
     public function assertCertificateOperation(AuthScope $scope, string $operation): void
     {
@@ -442,11 +472,11 @@ class WebPermissionService
         $account = $this->forScope($scope);
 
         if (! $account['flags']['ssl']) {
-            throw new AuthorizationException("SSL certificates are not included in the account's plan.");
+            throw new ProblemAuthorizationException("SSL certificates are not included in the account's plan.", ProblemType::FEATURE_NOT_ALLOWED, ['feature' => 'limit_ssl']);
         }
 
         if ($operation === 'renew' && ! $account['flags']['ssl_letsencrypt']) {
-            throw new AuthorizationException("Let's Encrypt certificates are not included in the account's plan.");
+            throw new ProblemAuthorizationException("Let's Encrypt certificates are not included in the account's plan.", ProblemType::FEATURE_NOT_ALLOWED, ['feature' => 'limit_ssl_letsencrypt']);
         }
     }
 

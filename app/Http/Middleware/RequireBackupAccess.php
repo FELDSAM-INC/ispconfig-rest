@@ -6,6 +6,7 @@ use App\Models\WebDomain;
 use App\Services\WebBackupService;
 use App\Support\IspContext;
 use App\Support\Problem;
+use App\Support\ProblemType;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -36,7 +37,10 @@ class RequireBackupAccess
         }
 
         if (! $this->backups->backupAllowed(app(IspContext::class)->authScope())) {
-            return Problem::response(403, 'Forbidden', 'Backups are not enabled for this account.');
+            return Problem::response(403, 'Forbidden', 'Backups are not enabled for this account.', [
+                'type' => ProblemType::uri(ProblemType::FEATURE_NOT_ALLOWED),
+                'feature' => 'limit_backup',
+            ]);
         }
 
         return $next($request);

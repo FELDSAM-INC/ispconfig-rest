@@ -30,7 +30,9 @@ class BackupLimitGateTest extends WebBackupApiTestCase
 
         $this->getJson($this->url($website, '/backups'), $headers)
             ->assertStatus(403)
-            ->assertHeader('Content-Type', 'application/problem+json');
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed')
+            ->assertJsonPath('feature', 'limit_backup');
         $this->getJson($this->url($website, '/backup-jobs'), $headers)->assertStatus(403);
         $this->postJson($this->url($website, "/backups/{$backup}/restore"), [], $headers)->assertStatus(403);
 
@@ -105,7 +107,10 @@ class BackupLimitGateTest extends WebBackupApiTestCase
 
         $this->putJson("/api/v1/sites/web-domains/{$website}", ['backup_copies' => 7], $headers)
             ->assertStatus(403)
-            ->assertHeader('Content-Type', 'application/problem+json');
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('detail', 'Backups are not enabled for this account.')
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed')
+            ->assertJsonPath('feature', 'limit_backup');
         $this->postJson('/api/v1/sites/web-domains', ['domain' => 'new.example.test', 'backup_interval' => 'daily'], $headers)
             ->assertStatus(403);
 

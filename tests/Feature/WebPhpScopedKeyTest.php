@@ -152,11 +152,9 @@ class WebPhpScopedKeyTest extends TestCase
         $this->setClientModes('clientA', 'no,php-fpm,mod');
         $headers = $this->tenantHeaders('clientA');
 
-        $this->assertFieldError(
-            $this->postJson('/api/v1/sites/web-domains', ['domain' => 'fcgi.test', 'php' => 'fast-cgi'], $headers),
-            'php',
-            'The selected PHP mode is not available for this account.'
-        );
+        $response = $this->postJson('/api/v1/sites/web-domains', ['domain' => 'fcgi.test', 'php' => 'fast-cgi'], $headers);
+        $this->assertFieldError($response, 'php', 'The selected PHP mode is not available for this account.');
+        $this->assertSame('https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed', $response->json('error_types.php'));
         $this->assertFieldError($this->postJson('/api/v1/sites/web-domains', ['domain' => 'mod.test', 'php' => 'mod'], $headers), 'php');
         $this->postJson('/api/v1/sites/web-domains', ['domain' => 'fpm.test', 'php' => 'php-fpm'], $headers)->assertStatus(201);
 
@@ -201,11 +199,9 @@ class WebPhpScopedKeyTest extends TestCase
         $message = 'The selected PHP version is not available for this website.';
 
         foreach ([999, 3, 4, 5] as $version) {
-            $this->assertFieldError(
-                $this->putJson("/api/v1/sites/web-domains/{$site}", ['server_php_id' => $version], $headers),
-                'server_php_id',
-                $message
-            );
+            $response = $this->putJson("/api/v1/sites/web-domains/{$site}", ['server_php_id' => $version], $headers);
+            $this->assertFieldError($response, 'server_php_id', $message);
+            $this->assertSame('https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed', $response->json('error_types.server_php_id'));
         }
 
         $fcgiSite = $this->seedVhost('clientA', ['php' => 'fast-cgi', 'server_php_id' => 1]);
@@ -264,11 +260,9 @@ class WebPhpScopedKeyTest extends TestCase
         $this->postJson('/api/v1/sites/web-domains', ['domain' => 'fcgi-first.test', 'php' => 'fast-cgi'], $headers)->assertStatus(201);
         $this->assertSame(1, (int) DB::table('web_domain')->where('domain', 'fcgi-first.test')->value('server_php_id'));
 
-        $this->assertFieldError(
-            $this->postJson('/api/v1/sites/web-domains', ['domain' => 'zero.test', 'php' => 'php-fpm', 'server_php_id' => 0], $headers),
-            'server_php_id',
-            'A PHP version must be selected for this website.'
-        );
+        $response = $this->postJson('/api/v1/sites/web-domains', ['domain' => 'zero.test', 'php' => 'php-fpm', 'server_php_id' => 0], $headers);
+        $this->assertFieldError($response, 'server_php_id', 'A PHP version must be selected for this website.');
+        $this->assertNull($response->json('error_types.server_php_id'));
 
         $site = $this->seedVhost('clientA', ['php' => 'php-fpm', 'server_php_id' => 1]);
         $this->assertFieldError($this->putJson("/api/v1/sites/web-domains/{$site}", ['server_php_id' => 0], $headers), 'server_php_id');
@@ -283,11 +277,9 @@ class WebPhpScopedKeyTest extends TestCase
         $this->hideDefault();
         DB::table('server_php')->update(['php_fastcgi_binary' => '']);
 
-        $this->assertFieldError(
-            $this->postJson('/api/v1/sites/web-domains', ['domain' => 'none.test', 'php' => 'fast-cgi'], $this->tenantHeaders('clientA')),
-            'server_php_id',
-            'No PHP version is available for the selected PHP mode on this website\'s server.'
-        );
+        $response = $this->postJson('/api/v1/sites/web-domains', ['domain' => 'none.test', 'php' => 'fast-cgi'], $this->tenantHeaders('clientA'));
+        $this->assertFieldError($response, 'server_php_id', 'No PHP version is available for the selected PHP mode on this website\'s server.');
+        $this->assertNull($response->json('error_types.server_php_id'));
     }
 
     public function test_admin_key_is_not_restricted(): void

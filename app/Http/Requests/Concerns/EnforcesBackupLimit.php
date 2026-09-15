@@ -2,9 +2,10 @@
 
 namespace App\Http\Requests\Concerns;
 
+use App\Exceptions\ProblemAuthorizationException;
 use App\Services\WebBackupService;
 use App\Support\IspContext;
-use Illuminate\Auth\Access\AuthorizationException;
+use App\Support\ProblemType;
 
 /**
  * limit_backup on the existing website and database writes (spec 018 FR-009,
@@ -32,6 +33,10 @@ trait EnforcesBackupLimit
 
     protected function failedAuthorization(): void
     {
-        throw new AuthorizationException('Backups are not enabled for this account.');
+        throw new ProblemAuthorizationException(
+            'Backups are not enabled for this account.',
+            ProblemType::FEATURE_NOT_ALLOWED,
+            ['feature' => 'limit_backup']
+        );
     }
 }

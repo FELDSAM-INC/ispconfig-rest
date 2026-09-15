@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Services\ClientLimitService;
 use App\Support\IspContext;
 use App\Support\Problem;
+use App\Support\ProblemType;
 use Closure;
 use Illuminate\Http\Request;
 
@@ -26,7 +27,10 @@ class RequireClientLimit
         $scope = app(IspContext::class)->authScope();
 
         if (! $this->limits->resourceEnabled($scope, $limitColumn)) {
-            return Problem::response(403, 'Forbidden', 'This feature is not enabled for your account.');
+            return Problem::response(403, 'Forbidden', 'This feature is not enabled for your account.', [
+                'type' => ProblemType::uri(ProblemType::FEATURE_NOT_ALLOWED),
+                'feature' => $limitColumn,
+            ]);
         }
 
         return $next($request);

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Concerns;
 
 use App\Services\WebPermissionService;
 use App\Support\IspContext;
+use App\Support\ProblemTypeCollector;
 use Illuminate\Validation\Validator;
 
 /**
@@ -33,10 +34,15 @@ trait EnforcesWebPermissions
                     return;
                 }
 
-                $violations = app(WebPermissionService::class)->violations($scope, $this->all(), $context);
+                $violations = app(WebPermissionService::class)->typedViolations($scope, $this->all(), $context);
+                $types = app(ProblemTypeCollector::class);
 
-                foreach ($violations as $field => $message) {
-                    $validator->errors()->add($field, $message);
+                foreach ($violations as $field => $violation) {
+                    $validator->errors()->add($field, $violation['message']);
+
+                    if ($violation['type'] !== null) {
+                        $types->tag($field, $violation['type']);
+                    }
                 }
             },
         ];
