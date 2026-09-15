@@ -61,6 +61,9 @@
     responses:
       '200':
         description: CC settings updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:

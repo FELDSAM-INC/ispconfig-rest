@@ -81,12 +81,18 @@
     responses:
       '200':
         description: Existing firewall record updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
               $ref: '../../components/schemas/ServerFirewall.yaml'
       '201':
         description: Firewall record created successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -124,6 +130,9 @@
     responses:
       '204':
         description: Firewall record deleted successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

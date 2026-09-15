@@ -92,6 +92,9 @@
     responses:
       '201':
         description: DNS zone created successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -174,6 +177,9 @@
     responses:
       '200':
         description: DNS zone updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -215,6 +221,9 @@
     responses:
       '204':
         description: DNS zone deleted successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
       '400':
         description: |
           Bad Request — the zone cannot be deleted because it still contains

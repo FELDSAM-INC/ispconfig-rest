@@ -88,6 +88,9 @@
     responses:
       '201':
         description: Mail user filter created successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -179,6 +182,9 @@
     responses:
       '200':
         description: Mail user filter updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -225,6 +231,9 @@
     responses:
       '204':
         description: Mail user filter deleted successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

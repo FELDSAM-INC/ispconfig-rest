@@ -79,6 +79,9 @@
     responses:
       '201':
         description: Cron job created successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -152,6 +155,9 @@
     responses:
       '200':
         description: Cron job updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -185,6 +191,9 @@
     responses:
       '204':
         description: Cron job deleted successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

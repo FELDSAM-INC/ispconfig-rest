@@ -51,6 +51,9 @@
     responses:
       '200':
         description: DNS configuration updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:

@@ -43,6 +43,9 @@
         description: >
           Resync completed — all datalog entries were written. The body
           summarizes the emission per table.
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:

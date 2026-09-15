@@ -63,6 +63,9 @@
     responses:
       '201':
         description: Client template created successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -130,6 +133,9 @@
     responses:
       '200':
         description: Client template updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -166,6 +172,9 @@
     responses:
       '204':
         description: Client template deleted successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

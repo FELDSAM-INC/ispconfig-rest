@@ -101,6 +101,9 @@
     responses:
       '201':
         description: Mail domain created successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -177,6 +180,9 @@
     responses:
       '200':
         description: Mail domain updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -219,6 +225,9 @@
     responses:
       '204':
         description: Mail domain deleted successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

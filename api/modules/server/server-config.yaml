@@ -118,6 +118,9 @@
     responses:
       '200':
         description: Server configuration section updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -195,6 +198,9 @@
     responses:
       '200':
         description: Getmail configuration updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -282,6 +288,9 @@
     responses:
       '200':
         description: Mail configuration updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -360,6 +369,9 @@
     responses:
       '200':
         description: Web configuration updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -438,6 +450,9 @@
     responses:
       '200':
         description: DNS configuration updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -515,6 +530,9 @@
     responses:
       '200':
         description: FastCGI configuration updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -593,6 +611,9 @@
     responses:
       '200':
         description: XMPP configuration updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -670,6 +691,9 @@
     responses:
       '200':
         description: Jailkit configuration updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -747,6 +771,9 @@
     responses:
       '200':
         description: Vlogger configuration updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -824,6 +851,9 @@
     responses:
       '200':
         description: Cron configuration updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -902,6 +932,9 @@
     responses:
       '200':
         description: Rescue configuration updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:

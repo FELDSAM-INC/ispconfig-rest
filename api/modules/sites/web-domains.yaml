@@ -96,6 +96,9 @@
     responses:
       '201':
         description: Web domain created successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -174,6 +177,9 @@
     responses:
       '200':
         description: Web domain updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -223,6 +229,9 @@
     responses:
       '204':
         description: Web domain deletion queued successfully (including the cascade described above)
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -324,6 +333,9 @@
     responses:
       '200':
         description: SSL certificate upload queued successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -374,6 +386,9 @@
     responses:
       '204':
         description: SSL certificate removal queued successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
@@ -411,6 +426,9 @@
     responses:
       '200':
         description: Renewal trigger queued successfully (datalog update written)
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:

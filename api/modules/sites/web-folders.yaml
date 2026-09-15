@@ -72,6 +72,9 @@
     responses:
       '201':
         description: Web folder created successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -150,6 +153,9 @@
     responses:
       '200':
         description: Web folder updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -189,6 +195,9 @@
     responses:
       '204':
         description: Web folder deleted successfully (including its folder users)
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':

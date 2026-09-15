@@ -117,6 +117,9 @@
     responses:
       '200':
         description: Spamfilter server configuration updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:

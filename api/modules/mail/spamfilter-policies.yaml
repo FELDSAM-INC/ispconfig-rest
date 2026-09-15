@@ -62,6 +62,9 @@
     responses:
       '201':
         description: Spamfilter policy created successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -133,6 +136,9 @@
     responses:
       '200':
         description: Spamfilter policy updated successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -171,6 +177,9 @@
     responses:
       '204':
         description: Spamfilter policy deleted successfully
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':
