@@ -27,7 +27,8 @@ Use a TEMPORARY client only (never clients 1, 2 or `WHMCS-*`). With a QA admin k
      → 422; `PUT {"server_php_id":999}` → 422; `PUT {"server_php_id":<another version>}` → 200
    - `POST /sites/web-domains/{id}/ssl` → 403
 3. Admin key: `PUT {"pm":"ondemand"}` on the same site → 200 (unchanged behavior).
-4. Cleanup: `DELETE /clients/{id}` (admin), wait until the datalog is processed, delete QA keys by SQL
+4. Cleanup: `DELETE` the websites and `/clients/{id}` (admin), wait until the datalog is processed
+   (`server.updated` ≥ the last datalog id — rows are inserted with status `ok`), delete QA keys by SQL
    (`DELETE FROM api_keys WHERE id IN (…) AND name LIKE 'qa%'`), verify no `qa020` rows remain.
 
 ## 3. Results

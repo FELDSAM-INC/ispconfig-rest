@@ -87,9 +87,36 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 ## Phase 6: Polish
 
 - [x] T018 [P] Document the client key website restrictions in `README.md`
-- [ ] T019 Run Pint on changed PHP files and the full suite in Docker
-- [ ] T020 Deploy to isp-test and run `specs/020-web-permissions-scoped-keys/quickstart.md` §2 with a temporary client; record results here
+- [x] T019 Run Pint on changed PHP files and the full suite in Docker
+- [x] T020 Deploy to isp-test and run `specs/020-web-permissions-scoped-keys/quickstart.md` §2 with a temporary client; record results here
 
 ## Dependencies
 
 Phase 1 → Phase 2 → US1 → US2 (shares `WebPermissionService`) → US3 → Polish. T001/T002, T004/T005 parallel.
+
+## Results (T019–T020, 2026-09-15)
+
+- T019: Pint clean on changed files; full suite 999 passed (baseline 971).
+- T020: deployed `2656fb9` to isp-test (`ispconfig-rest status`: 1.0.0-rc.3 (2656fb9)). Temporary client
+  `qa02057ca8f` (client 11: `limit_ssl=n`, `limit_ssl_letsencrypt=n`, `limit_cgi=n`, `force_suexec=y`,
+  `web_php_options=no,php-fpm`, `web_servers=1`), temporary QA admin key 34 and client key 35. All 28 checks
+  matched:
+
+| Case (client key unless noted) | Expected | Got |
+|---|---|---|
+| create `ssl`+`ssl_letsencrypt` | 422 `ssl`, `ssl_letsencrypt` | 422 |
+| create `php=fast-cgi` | 422 `php` | 422 |
+| create `php=php-fpm` | 201, `server_php_id=1` (hidden default), `suexec=y`, `cgi=n` | 201, datalog `i`: php-fpm/1/y/n |
+| create without `php` | 201, `php=php-fpm`, `server_php_id=1` | 201 |
+| PUT `cgi`, `suexec=false`, `pm`, `domain`, `ssl_country`, `server_php_id=999`, `server_php_id=0`, `php=fast-cgi` | 422 per field | 422 ×8 |
+| PUT `server_php_id=5`; PUT unchanged `pm`/`suexec`/`cgi` + `active` | 200 | 200 ×2 |
+| POST `/ssl`, DELETE `/ssl`, POST `/ssl/renew` | 403 (SSL message) | 403 ×3 |
+| GET `/ssl` | 204 | 204 |
+| admin PUT client `limit_cgi`, `limit_ssl` | 200 | 200 |
+| PUT `cgi=true`, PUT `ssl_country`, DELETE `/ssl` | 200, 200, 204 | 200, 200, 204 |
+| POST `/ssl/renew` without Let's Encrypt | 403 (Let's Encrypt message) | 403 |
+| admin key PUT `pm` + `suexec=false` | 200 | 200 |
+
+- Cleanup: sites 10, 11 and client 11 deleted with the QA admin key (204); datalog 436–448 processed
+  (`server.updated` 448); API keys 34, 35 deleted by SQL (`name LIKE 'qa%'`); no `qa020` client, sys_group,
+  sys_user, web_domain, api_keys rows, `/var/www` symlinks or client directory remain. Remaining keys: 1, 2, 20, 27.
