@@ -49,6 +49,45 @@ final class AuthScope
     }
 
     /**
+     * The scope a client's own control-panel identity would have (spec 017
+     * research R7): sys_group.client_id -> groupid, sys_user.default_group ->
+     * userid and groups CSV — the same resolution ApiKeyAuth and the CLI
+     * `--client-id` use. Returns null when the client has no control-panel
+     * identity (the usage summary answers 404 then, owner decision 2026-09-14).
+     */
+    public static function forClient(int $clientId): ?self
+    {
+        if ($clientId < 1) {
+            return null;
+        }
+
+        $groupId = DB::table('sys_group')->where('client_id', $clientId)->value('groupid');
+
+        if ($groupId === null) {
+            return null;
+        }
+
+        $user = DB::table('sys_user')
+            ->where('default_group', $groupId)
+            ->first(['userid', 'typ', 'groups']);
+
+        if ($user === null) {
+            return null;
+        }
+
+        $groupIds = array_values(array_unique(array_filter(array_map(
+            'intval',
+            explode(',', (string) $user->groups)
+        ), fn (int $id): bool => $id > 0)));
+
+        if (! in_array((int) $groupId, $groupIds, true)) {
+            $groupIds[] = (int) $groupId;
+        }
+
+        return new self((int) $user->userid, (int) $groupId, $groupIds, $user->typ === 'admin', $clientId);
+    }
+
+    /**
      * Reseller detection (legacy auth.inc.php::has_clients — the joined
      * client row's limit_client != 0). Lazy: only the /clients/** module
      * gate needs it. Users without a client row are never resellers.

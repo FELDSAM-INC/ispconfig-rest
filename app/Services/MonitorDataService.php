@@ -130,6 +130,51 @@ class MonitorDataService
     }
 
     /**
+     * Newest decoded blob per (server, type) for several monitor types and
+     * servers, read with ONE query (spec 017 research R1, FR-012). Collector
+     * rows survive only until the next run (delOldRecords), so the first row
+     * seen per (server_id, type) in created-DESC order is the current value.
+     * Undecodable blobs yield `data => null` with their timestamp kept, so the
+     * caller can tell "no data" from "stale data".
+     *
+     * @param  array<int, string>  $types
+     * @param  array<int, int|string>  $serverIds
+     * @return array<int, array<string, array{data: array<mixed>|null, created: int}>>
+     */
+    public function latestBlobs(array $types, array $serverIds): array
+    {
+        $types = array_values(array_unique(array_filter($types, 'is_string')));
+        $serverIds = array_values(array_unique(array_map('intval', $serverIds)));
+
+        if ($types === [] || $serverIds === []) {
+            return [];
+        }
+
+        $rows = DB::table('monitor_data')
+            ->whereIn('type', $types)
+            ->whereIn('server_id', $serverIds)
+            ->orderByDesc('created')
+            ->get(['server_id', 'type', 'created', 'data']);
+
+        $latest = [];
+
+        foreach ($rows as $row) {
+            $serverId = (int) $row->server_id;
+
+            if (isset($latest[$serverId][$row->type])) {
+                continue;
+            }
+
+            $latest[$serverId][$row->type] = [
+                'data' => $this->decode($row->data),
+                'created' => (int) $row->created,
+            ];
+        }
+
+        return $latest;
+    }
+
+    /**
      * unserialize() a collector blob defensively: collectors only ever
      * store plain arrays, so allowed_classes=false closes the PHP
      * object-injection vector, and anything that does not decode to an

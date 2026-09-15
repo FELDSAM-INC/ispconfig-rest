@@ -39,6 +39,9 @@ Route::middleware(['api.key', 'change.set'])->group(function () {
 
     require __DIR__.'/api/sites.php';
 
+    // Usage statistics (spec 017): read-only, every key, scoped rows.
+    require __DIR__.'/api/usage.php';
+
     Route::middleware('scope.admin')->group(function () {
         require __DIR__.'/api/system.php';
     });

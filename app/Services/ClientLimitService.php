@@ -140,6 +140,107 @@ class ClientLimitService
         }
     }
 
+    /**
+     * Summary key => limit column of the resource counts shown by the usage
+     * summary (spec 017 FR-003, data-model UsageCount).
+     *
+     * @var array<string, string>
+     */
+    public const USAGE_COUNT_COLUMNS = [
+        'web_domains' => 'limit_web_domain',
+        'web_subdomains' => 'limit_web_subdomain',
+        'web_alias_domains' => 'limit_web_aliasdomain',
+        'mail_domains' => 'limit_maildomain',
+        'mailboxes' => 'limit_mailbox',
+        'mail_aliases' => 'limit_mailalias',
+        'mail_forwards' => 'limit_mailforward',
+        'databases' => 'limit_database',
+        'ftp_users' => 'limit_ftp_user',
+        'shell_users' => 'limit_shell_user',
+        'cron_jobs' => 'limit_cron',
+        'dns_zones' => 'limit_dns_zone',
+    ];
+
+    /**
+     * Read-only row count for one limit column under a scope, with exactly the
+     * predicate and type filter checkCreate() enforces (spec 017 R8). Unmapped
+     * columns and missing tables count 0. Never throws, never writes.
+     */
+    public function countUsage(AuthScope $scope, string $limitColumn): int
+    {
+        $spec = $this->countSpecForColumn($limitColumn);
+
+        if ($spec === null || ! Schema::hasTable($spec->table)) {
+            return 0;
+        }
+
+        $query = DB::table($spec->table);
+        $this->applySpecPredicate($query, $scope, $spec);
+        $this->applyTypeFilter($query, $spec);
+
+        return $query->count();
+    }
+
+    /**
+     * Sum of the quotas assigned under one quota limit column, in bytes
+     * (spec 017 R8/R9). Resources with an unlimited quota (<= 0) do not
+     * contribute. Unmapped columns and missing tables yield 0.
+     */
+    public function allocatedQuotaBytes(AuthScope $scope, string $limitColumn): int
+    {
+        $spec = $this->quotaSpecForColumn($limitColumn);
+
+        if ($spec === null || $spec->quotaColumn === null || ! Schema::hasTable($spec->table)) {
+            return 0;
+        }
+
+        $query = DB::table($spec->table);
+        $this->applySpecPredicate($query, $scope, $spec);
+        $this->applyTypeFilter($query, $spec);
+
+        $sum = (int) $query->where($spec->quotaColumn, '>', 0)->sum($spec->quotaColumn);
+
+        // mail quotas are stored in bytes (divisor 1024²), web/database quotas in MB
+        return $spec->quotaDivisor > 1 ? $sum : $sum * 1024 * 1024;
+    }
+
+    /**
+     * Row-count LimitSpec by limit column for the usage counts.
+     */
+    protected function countSpecForColumn(string $limitColumn): ?LimitSpec
+    {
+        return match ($limitColumn) {
+            'limit_web_domain' => $this->webDomainCountSpecs('vhost')[0],
+            'limit_web_subdomain' => $this->webDomainCountSpecs('vhostsubdomain')[0],
+            'limit_web_aliasdomain' => $this->webDomainCountSpecs('vhostalias')[0],
+            'limit_maildomain' => $this->simpleCountSpec('mail_domain'),
+            'limit_mailbox' => $this->simpleCountSpec('mail_user'),
+            'limit_mailalias' => $this->mailForwardingCountSpecs('alias')[0],
+            'limit_mailforward' => $this->mailForwardingCountSpecs('forward')[0],
+            'limit_database' => $this->databaseCountSpecs('mysql')[0],
+            'limit_ftp_user' => $this->simpleCountSpec('ftp_user'),
+            'limit_shell_user' => $this->simpleCountSpec('shell_user'),
+            'limit_cron' => $this->simpleCountSpec('cron'),
+            'limit_dns_zone' => $this->simpleCountSpec('dns_soa'),
+            default => null,
+        };
+    }
+
+    /**
+     * The spec's count predicate: 'grp' = sys_groupid of the scope, otherwise
+     * the legacy getAuthSQL('u') triplet.
+     *
+     * @param  Builder  $query
+     */
+    protected function applySpecPredicate($query, AuthScope $scope, LimitSpec $spec): void
+    {
+        if ($spec->predicate === 'grp') {
+            $query->where('sys_groupid', $scope->sysGroupId);
+        } else {
+            $scope->applyReadPredicate($query, 'u');
+        }
+    }
+
     // ------------------------------------------------------------------
     // Client cap
     // ------------------------------------------------------------------
@@ -336,12 +437,12 @@ class ClientLimitService
 
         return match ($table) {
             // --- P1: high-value counts (all 'u' predicate) ---
-            'mail_domain' => [$this->count('limit_maildomain', 'mail_domain', 'domain_id', null, 'mail domains')],
-            'mail_user' => [$this->count('limit_mailbox', 'mail_user', 'mailuser_id', null, 'mailboxes')],
+            'mail_domain' => [$this->simpleCountSpec('mail_domain')],
+            'mail_user' => [$this->simpleCountSpec('mail_user')],
             'web_database' => $this->databaseCountSpecs($type),
-            'ftp_user' => [$this->count('limit_ftp_user', 'ftp_user', 'ftp_user_id', null, 'FTP users')],
-            'shell_user' => [$this->count('limit_shell_user', 'shell_user', 'shell_user_id', null, 'shell users')],
-            'dns_soa' => [$this->count('limit_dns_zone', 'dns_soa', 'id', null, 'DNS zones')],
+            'ftp_user' => [$this->simpleCountSpec('ftp_user')],
+            'shell_user' => [$this->simpleCountSpec('shell_user')],
+            'dns_soa' => [$this->simpleCountSpec('dns_soa')],
             // web_domain covers both WebDomain (vhost*) and WebChildDomain
             // (subdomain/alias) — resolved by the row's type (P1 vhost + P2 child)
             'web_domain' => $this->webDomainCountSpecs($type),
@@ -352,7 +453,7 @@ class ClientLimitService
             'mail_user_filter' => [$this->count('limit_mailfilter', 'mail_user_filter', 'filter_id', null, 'mail filters')],
             'mail_get' => [$this->count('limit_fetchmail', 'mail_get', 'mailget_id', null, 'fetchmail accounts')],
             'webdav_user' => [$this->count('limit_webdav_user', 'webdav_user', 'webdav_user_id', null, 'WebDAV users')],
-            'cron' => [$this->count('limit_cron', 'cron', 'id', null, 'cron jobs')],
+            'cron' => [$this->simpleCountSpec('cron')],
             'web_database_user' => [$this->count('limit_database_user', 'web_database_user', 'database_user_id', null, 'database users')],
             'dns_slave' => [$this->count('limit_dns_slave_zone', 'dns_slave', 'id', null, 'DNS slave zones')],
             // access-gated in 011 (limit == 0 -> RequireClientLimit 403); the
@@ -387,19 +488,46 @@ class ClientLimitService
         $type = (string) ($model->getAttribute('type') ?? '');
 
         return match ($table) {
-            // mail_user.quota is stored in BYTES; limit_mailquota is MB -> /1024/1024
-            'mail_user' => [
-                new LimitSpec('limit_mailquota', 'mail_user', 'mailuser_id', null, 'u', true, 'mailbox quota', 'quota', 1024 * 1024),
-            ],
+            'mail_user' => [$this->quotaSpecForColumn('limit_mailquota')],
             'web_domain' => $type === 'vhost' ? [
-                new LimitSpec('limit_web_quota', 'web_domain', 'domain_id', ['vhost'], 'u', true, 'web disk quota', 'hd_quota', 1),
-                new LimitSpec('limit_traffic_quota', 'web_domain', 'domain_id', null, 'u', true, 'traffic quota', 'traffic_quota', 1),
+                $this->quotaSpecForColumn('limit_web_quota'),
+                $this->quotaSpecForColumn('limit_traffic_quota'),
             ] : [],
-            // limit_database_quota uses the bespoke sys_groupid predicate
-            'web_database' => [
-                new LimitSpec('limit_database_quota', 'web_database', 'database_id', null, 'grp', true, 'database quota', 'database_quota', 1),
-            ],
+            'web_database' => [$this->quotaSpecForColumn('limit_database_quota')],
             default => [],
+        };
+    }
+
+    /**
+     * Quota-SUM LimitSpec by limit column — the single source shared by the
+     * enforcement map above and the read-only usage totals (spec 017 R8).
+     */
+    protected function quotaSpecForColumn(string $limitColumn): ?LimitSpec
+    {
+        return match ($limitColumn) {
+            // mail_user.quota is stored in BYTES; limit_mailquota is MB -> /1024/1024
+            'limit_mailquota' => new LimitSpec('limit_mailquota', 'mail_user', 'mailuser_id', null, 'u', true, 'mailbox quota', 'quota', 1024 * 1024),
+            'limit_web_quota' => new LimitSpec('limit_web_quota', 'web_domain', 'domain_id', ['vhost'], 'u', true, 'web disk quota', 'hd_quota', 1),
+            'limit_traffic_quota' => new LimitSpec('limit_traffic_quota', 'web_domain', 'domain_id', null, 'u', true, 'traffic quota', 'traffic_quota', 1),
+            // limit_database_quota uses the bespoke sys_groupid predicate
+            'limit_database_quota' => new LimitSpec('limit_database_quota', 'web_database', 'database_id', null, 'grp', true, 'database quota', 'database_quota', 1),
+            default => null,
+        };
+    }
+
+    /**
+     * Row-count LimitSpec of the tables counted without a type discriminator
+     * (single source for countSpecsFor and the usage counts).
+     */
+    protected function simpleCountSpec(string $table): LimitSpec
+    {
+        return match ($table) {
+            'mail_domain' => $this->count('limit_maildomain', 'mail_domain', 'domain_id', null, 'mail domains'),
+            'mail_user' => $this->count('limit_mailbox', 'mail_user', 'mailuser_id', null, 'mailboxes'),
+            'ftp_user' => $this->count('limit_ftp_user', 'ftp_user', 'ftp_user_id', null, 'FTP users'),
+            'shell_user' => $this->count('limit_shell_user', 'shell_user', 'shell_user_id', null, 'shell users'),
+            'dns_soa' => $this->count('limit_dns_zone', 'dns_soa', 'id', null, 'DNS zones'),
+            'cron' => $this->count('limit_cron', 'cron', 'id', null, 'cron jobs'),
         };
     }
 
