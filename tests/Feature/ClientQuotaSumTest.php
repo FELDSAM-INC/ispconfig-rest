@@ -123,7 +123,9 @@ class ClientQuotaSumTest extends TestCase
             'email' => 'x@q-dom.test', 'password' => 'Secret123!', 'name' => 'X', 'quota' => $this->mb(200),
         ], $this->tenantHeaders('clientA'))
             ->assertStatus(403)
-            ->assertJsonPath('detail', 'You have reached the maximum number of mailbox quota allowed for your account.');
+            ->assertJsonPath('detail', 'You have reached the maximum number of mailbox quota allowed for your account.')
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#quota-exceeded')
+            ->assertJsonPath('limit', ['name' => 'limit_mailquota', 'scope' => 'client', 'unit' => 'MB', 'max' => 1000, 'used' => 900, 'requested' => 200]);
 
         // 900 + 100 = 1000 -> allowed.
         $this->postJson('/api/v1/mail/users', [
@@ -133,7 +135,10 @@ class ClientQuotaSumTest extends TestCase
         // Unlimited (0) mailbox under a finite cap -> denied.
         $this->postJson('/api/v1/mail/users', [
             'email' => 'unl@q-dom.test', 'password' => 'Secret123!', 'name' => 'Unl', 'quota' => 0,
-        ], $this->tenantHeaders('clientA'))->assertStatus(403);
+        ], $this->tenantHeaders('clientA'))
+            ->assertStatus(403)
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#quota-exceeded')
+            ->assertJsonPath('limit', ['name' => 'limit_mailquota', 'scope' => 'client', 'unit' => 'MB', 'max' => 1000, 'used' => 1000, 'requested' => null]);
 
         // -1 cap: any quota (including unlimited 0) allowed.
         $this->setClientLimit('clientA', 'limit_mailquota', -1);
@@ -179,7 +184,9 @@ class ClientQuotaSumTest extends TestCase
             'email' => 'x@q-dom.test', 'password' => 'Secret123!', 'name' => 'X', 'quota' => $this->mb(200),
         ], $this->tenantHeaders('clientA'))
             ->assertStatus(403)
-            ->assertJsonPath('detail', 'Reseller: You have reached the maximum number of mailbox quota allowed for your account.');
+            ->assertJsonPath('detail', 'Reseller: You have reached the maximum number of mailbox quota allowed for your account.')
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#quota-exceeded')
+            ->assertJsonPath('limit', ['name' => 'limit_mailquota', 'scope' => 'reseller', 'unit' => 'MB', 'max' => 1000, 'used' => 900, 'requested' => 200]);
     }
 
     // ------------------------------------------------------------------
@@ -196,7 +203,9 @@ class ClientQuotaSumTest extends TestCase
             'server_id' => 1, 'domain' => 'over.test', 'hd_quota' => 200,
         ], $this->tenantHeaders('clientA'))
             ->assertStatus(403)
-            ->assertJsonPath('detail', 'You have reached the maximum number of web disk quota allowed for your account.');
+            ->assertJsonPath('detail', 'You have reached the maximum number of web disk quota allowed for your account.')
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#quota-exceeded')
+            ->assertJsonPath('limit', ['name' => 'limit_web_quota', 'scope' => 'client', 'unit' => 'MB', 'max' => 1000, 'used' => 900, 'requested' => 200]);
 
         // 900 + 100 -> allowed.
         $this->postJson('/api/v1/sites/web-domains', [
@@ -207,7 +216,10 @@ class ClientQuotaSumTest extends TestCase
         // hd_quota <= 0 as unlimited, parity web_vhost_domain_edit.php:1122).
         $this->postJson('/api/v1/sites/web-domains', [
             'server_id' => 1, 'domain' => 'unl.test', 'hd_quota' => -1,
-        ], $this->tenantHeaders('clientA'))->assertStatus(403);
+        ], $this->tenantHeaders('clientA'))
+            ->assertStatus(403)
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#quota-exceeded')
+            ->assertJsonPath('limit', ['name' => 'limit_web_quota', 'scope' => 'client', 'unit' => 'MB', 'max' => 1000, 'used' => 1000, 'requested' => null]);
 
         // -1 cap -> any quota allowed.
         $this->setClientLimit('clientA', 'limit_web_quota', -1);

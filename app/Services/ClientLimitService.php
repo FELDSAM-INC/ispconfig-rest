@@ -2,11 +2,12 @@
 
 namespace App\Services;
 
+use App\Exceptions\ProblemAuthorizationException;
 use App\Models\BaseModel;
 use App\Support\AuthScope;
 use App\Support\IspContext;
 use App\Support\LimitSpec;
-use Illuminate\Auth\Access\AuthorizationException;
+use App\Support\ProblemType;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
@@ -266,8 +267,10 @@ class ClientLimitService
 
         $this->applyTypeFilter($query, $spec);
 
-        if ($query->count() >= $limit) {
-            $this->deny($spec->label, false); // 0 -> count >= 0 always (disabled)
+        $used = $query->count();
+
+        if ($used >= $limit) {
+            $this->deny($spec, false, $limit, $used); // 0 -> count >= 0 always (disabled)
         }
     }
 
@@ -320,8 +323,10 @@ class ClientLimitService
         $this->applyResellerPredicate($query, $reseller);
         $this->applyTypeFilter($query, $spec);
 
-        if ($query->count() >= $limit) {
-            $this->deny($spec->label, true);
+        $used = $query->count();
+
+        if ($used >= $limit) {
+            $this->deny($spec, true, $limit, $used);
         }
     }
 
@@ -621,7 +626,7 @@ class ClientLimitService
             : ($newQuota <= 0);      // web/db: <= 0 = unlimited
 
         if (($used + $newQuota > $limit) || $unlimitedRequested) {
-            $this->deny($spec->label, $reseller);
+            $this->deny($spec, $reseller, $limit, $used, true, $unlimitedRequested ? null : $newQuota);
         }
     }
 
@@ -642,20 +647,31 @@ class ClientLimitService
     }
 
     /**
-     * The 403 over-limit denial (spec FR-006). Reuses AuthorizationException —
-     * already mapped to 403 application/problem+json by App\Support\Problem,
+     * The 403 over-limit denial (spec FR-006). An AuthorizationException
+     * subclass mapped to 403 application/problem+json by App\Support\Problem,
      * with the message as the human `detail`. The reseller variant is prefixed
-     * "Reseller:" (parity mail_domain_edit.php:62).
+     * "Reseller:" (parity mail_domain_edit.php:62). Spec 023 adds the type and
+     * the `limit` member: counts are `limit-reached`, quota sums
+     * `quota-exceeded` in MB with the requested MB (null when unlimited).
      */
-    protected function deny(string $label, bool $reseller): void
+    protected function deny(LimitSpec $spec, bool $reseller, int $max, int $used, bool $quota = false, ?int $requested = null): void
     {
-        $detail = "You have reached the maximum number of {$label} allowed for your account.";
+        $detail = "You have reached the maximum number of {$spec->label} allowed for your account.";
 
         if ($reseller) {
             $detail = 'Reseller: '.$detail;
         }
 
-        throw new AuthorizationException($detail);
+        $limit = ['name' => $spec->limitColumn, 'scope' => $reseller ? 'reseller' : 'client'];
+        $limit += $quota
+            ? ['unit' => 'MB', 'max' => $max, 'used' => $used, 'requested' => $requested]
+            : ['max' => $max, 'used' => $used];
+
+        throw new ProblemAuthorizationException(
+            $detail,
+            $quota ? ProblemType::QUOTA_EXCEEDED : ProblemType::LIMIT_REACHED,
+            ['limit' => $limit]
+        );
     }
 
     /**

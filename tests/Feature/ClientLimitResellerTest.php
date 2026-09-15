@@ -67,7 +67,9 @@ class ClientLimitResellerTest extends TestCase
             'server_id' => 1, 'domain' => 'over.test', 'active' => true, 'dkim' => false,
         ], $this->tenantHeaders('clientA'))
             ->assertStatus(403)
-            ->assertJsonPath('detail', 'Reseller: You have reached the maximum number of mail domains allowed for your account.');
+            ->assertJsonPath('detail', 'Reseller: You have reached the maximum number of mail domains allowed for your account.')
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#limit-reached')
+            ->assertJsonPath('limit', ['name' => 'limit_maildomain', 'scope' => 'reseller', 'max' => 1, 'used' => 1]);
 
         $this->assertSame($datalog, DB::table('sys_datalog')->count());
 
@@ -94,7 +96,9 @@ class ClientLimitResellerTest extends TestCase
             'server_id' => 1, 'origin' => 'a-zone.test', 'ns' => 'ns1.a-zone.test', 'mbox' => 'admin@a-zone.test',
         ], $this->tenantHeaders('clientA'))
             ->assertStatus(403)
-            ->assertJsonPath('detail', 'Reseller: You have reached the maximum number of DNS zones allowed for your account.');
+            ->assertJsonPath('detail', 'Reseller: You have reached the maximum number of DNS zones allowed for your account.')
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#limit-reached')
+            ->assertJsonPath('limit', ['name' => 'limit_dns_zone', 'scope' => 'reseller', 'max' => 1, 'used' => 1]);
 
         $this->setClientLimit('reseller', 'limit_dns_zone', 5);
         $this->postJson('/api/v1/dns/soa', [

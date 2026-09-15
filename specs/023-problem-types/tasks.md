@@ -46,8 +46,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 4: User Story 2 — limits (P1)
 
-- [ ] T009 [US2] Assert `limit-reached` + `limit` in `tests/Feature/ClientLimitSitesTest.php` (client website cap) and `tests/Feature/ClientLimitResellerTest.php` (reseller scope); assert `quota-exceeded` + `limit` (client and reseller, unlimited request → `requested = null`) in `tests/Feature/ClientQuotaSumTest.php`
-- [ ] T010 [US2] Pass limit values through `deny()` and throw typed exceptions in `app/Services/ClientLimitService.php`
+- [x] T009 [US2] Assert `limit-reached` + `limit` in `tests/Feature/ClientLimitSitesTest.php` (client website cap) and `tests/Feature/ClientLimitResellerTest.php` (reseller scope); assert `quota-exceeded` + `limit` (client and reseller, unlimited request → `requested = null`) in `tests/Feature/ClientQuotaSumTest.php`
+- [x] T010 [US2] Pass limit values through `deny()` and throw typed exceptions in `app/Services/ClientLimitService.php`
 
 ---
 

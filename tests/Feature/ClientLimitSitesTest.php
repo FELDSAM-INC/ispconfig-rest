@@ -112,7 +112,9 @@ class ClientLimitSitesTest extends TestCase
             'server_id' => 1, 'domain' => 'blocked.test',
         ], $this->tenantHeaders('clientA'))
             ->assertStatus(403)
-            ->assertJsonPath('detail', 'You have reached the maximum number of websites allowed for your account.');
+            ->assertJsonPath('detail', 'You have reached the maximum number of websites allowed for your account.')
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#limit-reached')
+            ->assertJsonPath('limit', ['name' => 'limit_web_domain', 'scope' => 'client', 'max' => 1, 'used' => 1]);
 
         $this->assertSame($datalog, DB::table('sys_datalog')->count());
 
