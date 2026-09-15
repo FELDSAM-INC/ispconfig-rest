@@ -1,0 +1,183 @@
+# Drafts of the new shared schemas (feature 018). Each top-level key becomes
+# api/components/schemas/<Name>.yaml and is registered in api/components/schemas/_index.yaml.
+
+WebBackup:
+  type: object
+  description: A stored backup of a website's files or of one of its databases (table `web_backup`).
+  required: [id, server_id, parent_domain_id, backup_type, backup_mode, filename, filesize_approximate, created_at, job, encrypted, download_available]
+  properties:
+    id:
+      type: integer
+      description: Backup ID (column `backup_id`)
+    server_id:
+      type: integer
+      description: Server that stores the backup
+    parent_domain_id:
+      type: integer
+      description: Website the backup belongs to
+    backup_type:
+      type: string
+      enum: [web, mysql, mongodb]
+    database_name:
+      type: string
+      nullable: true
+      description: Database name for database backups, parsed from the filename
+    backup_mode:
+      type: string
+      description: Server backup mode that produced the backup (for example `rootgz`, `userzip`, `borg`)
+    backup_format:
+      type: string
+      nullable: true
+      description: Compression format, derived like the ISPConfig backup list for borg and old backups
+    filename:
+      type: string
+      description: Backup file name (borg archives include the extension of the download format)
+    filesize:
+      type: integer
+      format: int64
+      nullable: true
+      description: Size in bytes
+    filesize_approximate:
+      type: boolean
+      description: True when the final download size can differ (borg repositories)
+    created_at:
+      type: string
+      format: date-time
+    job:
+      type: string
+      enum: [manual, auto]
+    encrypted:
+      type: boolean
+    download_available:
+      type: boolean
+      description: Whether the backup can be prepared for download (stored on the website's server)
+
+WebBackupJob:
+  type: object
+  description: A queued backup action and its state (table `sys_remoteaction`).
+  required: [id, action, server_id, state, created_at]
+  properties:
+    id:
+      type: integer
+      description: Job ID (column `action_id`)
+    action:
+      type: string
+      enum: [backup, restore, download, delete]
+    backup_type:
+      type: string
+      enum: [web, mysql, mongodb]
+      nullable: true
+      description: Type of the backup made or acted on; null when the backup no longer exists
+    backup_id:
+      type: integer
+      nullable: true
+      description: Backup acted on (restore, download, delete)
+    server_id:
+      type: integer
+      description: Server that processes the job
+    state:
+      type: string
+      enum: [pending, ok, warning, error]
+      description: |
+        `pending` until the server processes the job (within about a minute). `ok` for a manual backup
+        does not prove a backup was created.
+    created_at:
+      type: string
+      format: date-time
+    download:
+      type: object
+      nullable: true
+      description: Present for finished download jobs whose backup still exists
+      properties:
+        path:
+          type: string
+          description: Location relative to the website root, reachable with the website's FTP/SSH users
+          example: backup/web20260914000001.tar.gz
+        filename:
+          type: string
+        available_until:
+          type: string
+          format: date-time
+          description: Earliest time the server removes the file (3 days after the job was queued)
+
+WebBackupCreate:
+  type: object
+  required: [type]
+  properties:
+    type:
+      type: string
+      enum: [web, mysql]
+      description: Back up website files or the website's MySQL databases
+
+WebBackupSettings:
+  type: object
+  description: Backup schedule and options of a website (columns `backup_*` of `web_domain`).
+  properties:
+    backup_interval:
+      type: string
+      enum: [none, daily, weekly, monthly]
+    backup_copies:
+      type: integer
+      enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30]
+    backup_excludes:
+      type: string
+      nullable: true
+      maxLength: 255
+      description: Comma-separated paths to exclude, relative to the website root
+    backup_format_web:
+      type: string
+      enum: [default, zip, zip_bzip2, tar_gzip, tar_bzip2, tar_xz, tar_7z_lzma2, tar_7z_lzma, tar_7z_ppmd, tar_7z_bzip2]
+    backup_format_db:
+      type: string
+      enum: [zip, zip_bzip2, gzip, bzip2, xz, 7z_lzma2, 7z_lzma, 7z_ppmd, 7z_bzip2]
+    backup_encrypt:
+      type: boolean
+      x-db-format: "y/n"
+    backup_password_set:
+      type: boolean
+      readOnly: true
+    backups_available:
+      type: boolean
+      readOnly: true
+      description: Whether backups are configured on the website's server
+    missing_utils:
+      type: array
+      nullable: true
+      readOnly: true
+      items:
+        type: string
+      description: Compression tools missing on the website's server, as reported by the server monitor
+
+WebBackupSettingsUpdate:
+  type: object
+  description: Partial update; unknown fields are rejected.
+  properties:
+    backup_interval:
+      type: string
+      enum: [none, daily, weekly, monthly]
+    backup_copies:
+      type: integer
+      enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30]
+    backup_excludes:
+      type: string
+      nullable: true
+      maxLength: 255
+      pattern: '^(?!.*\.\.)[-a-zA-Z0-9_/.~,*]*$'
+    backup_format_web:
+      type: string
+      enum: [default, zip, zip_bzip2, tar_gzip, tar_bzip2, tar_xz, tar_7z_lzma2, tar_7z_lzma, tar_7z_ppmd, tar_7z_bzip2]
+    backup_format_db:
+      type: string
+      enum: [zip, zip_bzip2, gzip, bzip2, xz, 7z_lzma2, 7z_lzma, 7z_ppmd, 7z_bzip2]
+    backup_encrypt:
+      type: boolean
+      description: Enabling requires a password (stored or supplied), otherwise 422
+    backup_password:
+      type: string
+      writeOnly: true
+      maxLength: 255
+
+# Change to the existing schema api/components/schemas/WebDomain.yaml (spec FR-016, owner decision 2026-09-14):
+# `backup_copies` replaces `minimum: 1` / `maximum: 30` with `enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30]`
+# (default 1 unchanged), the same values as WebBackupSettings above. POST/PUT /sites/web-domains already document
+# 422, which now also covers values such as 11 or 25. Intentional API behaviour change for the release candidate.
