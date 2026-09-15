@@ -56,6 +56,10 @@ components:
       $ref: './components/schemas/DatabaseUser.yaml'
     DataLog:
       $ref: './components/schemas/DataLog.yaml'
+    Change:
+      $ref: './components/schemas/Change.yaml'
+    ChangeSet:
+      $ref: './components/schemas/ChangeSet.yaml'
     ApiKey:
       $ref: './components/schemas/ApiKey.yaml'
     ApiKeyCreate:
@@ -222,6 +226,11 @@ components:
       $ref: './components/responses/InternalServerError.yaml'
     UnprocessableEntity:
       $ref: './components/responses/UnprocessableEntity.yaml'
+
+  # Reusable response headers
+  headers:
+    ChangeSetId:
+      $ref: './components/headers/ChangeSetId.yaml'
 
 # Include all paths from modules
 paths:
@@ -418,6 +427,12 @@ paths:
     $ref: './modules/me/me.yaml#/~1me'
   /me/servers:
     $ref: './modules/me/servers.yaml#/~1me~1servers'
+
+  # Changes module paths (spec 015) — specific before general
+  /changes:
+    $ref: './modules/changes/changes.yaml#/~1changes'
+  /changes/{change_set_id}:
+    $ref: './modules/changes/changes.yaml#/~1changes~1{change_set_id}'
 
   # Sites module paths
   /sites/web-domains:

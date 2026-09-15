@@ -1,0 +1,6 @@
+# Changes module API paths (spec 015)
+# Processing status of journaled writes, available to every valid API key.
+
+# Change list and change set status
+changes:
+  $ref: './changes.yaml'

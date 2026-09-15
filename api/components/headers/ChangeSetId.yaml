@@ -1,0 +1,12 @@
+# X-Change-Set-Id response header (spec 015 FR-001).
+# Referenced from the 2xx responses of every journaling POST/PUT/DELETE operation in api/modules/**.
+description: |
+  Identifies all journal entries (sys_datalog rows) written by this request — a change set.
+  Present only when the request wrote at least one journal entry; absent when nothing changed
+  or when the write only touched API-owned data. Poll `GET /changes/{change_set_id}` to learn
+  when ISPConfig has applied the change.
+schema:
+  type: string
+  maxLength: 64
+  pattern: '^[A-Za-z0-9,-]{1,64}$'
+  example: 3f9c2a1b7e4d5c6a8b9f0e1d2c3b4a59

@@ -236,3 +236,9 @@ Problem:
 
 ValidationProblem:
   $ref: './ValidationProblem.yaml'
+
+Change:
+  $ref: './Change.yaml'
+
+ChangeSet:
+  $ref: './ChangeSet.yaml'

@@ -52,11 +52,11 @@ deferred.
 **Purpose**: Author and register the OpenAPI contract before any PHP (Principle I). Copy from the drafts in
 `specs/015-change-status/contracts/` and drop their `# Draft of …` comment lines.
 
-- [ ] T001 [P] Create `api/components/headers/ChangeSetId.yaml` from `contracts/ChangeSetId.header.yaml` and `api/components/headers/_index.yaml` listing it (mirror the `_index.yaml` style of `api/components/schemas/`)
-- [ ] T002 [P] Create `api/components/schemas/Change.yaml` and `api/components/schemas/ChangeSet.yaml` from `contracts/Change.schema.yaml` and `contracts/ChangeSet.schema.yaml` (`entries.items` → `./Change.yaml`, `meta` → `./Meta.yaml`; `entry_counts` required with the four statuses)
-- [ ] T003 [P] Create `api/modules/changes/changes.yaml` and `api/modules/changes/_index.yaml` from `contracts/changes.yaml`: `GET /changes` (shared `limit`/`offset`, `order` asc|desc default desc, no `sort`, filters `status`, `table`, `record_id`, `change_set_id`, `since`), `GET /changes/{change_set_id}` (path pattern `^[A-Za-z0-9,-]{1,64}$`, shared `limit`/`offset`), 200 plus 400/401/404 problem+json responses
-- [ ] T004 Register the contract in `api/openapi.yaml`: paths `/changes` before `/changes/{change_set_id}` (`$ref: './modules/changes/changes.yaml#/~1changes'` and `#/~1changes~1{change_set_id}`), `components.schemas.Change`/`ChangeSet`, a new `components.headers` section with `ChangeSetId: $ref: './components/headers/ChangeSetId.yaml'`, and a `Changes` tag (depends on T001–T003)
-- [ ] T005 Verify the contract parses and renders: load `/api/spec` and `/api/documentation` (quickstart.md §2, docker `php:8.3-cli` + `php artisan serve`); the Changes tag shows both operations and the schemas resolve
+- [x] T001 [P] Create `api/components/headers/ChangeSetId.yaml` from `contracts/ChangeSetId.header.yaml` and `api/components/headers/_index.yaml` listing it (mirror the `_index.yaml` style of `api/components/schemas/`)
+- [x] T002 [P] Create `api/components/schemas/Change.yaml` and `api/components/schemas/ChangeSet.yaml` from `contracts/Change.schema.yaml` and `contracts/ChangeSet.schema.yaml` (`entries.items` → `./Change.yaml`, `meta` → `./Meta.yaml`; `entry_counts` required with the four statuses)
+- [x] T003 [P] Create `api/modules/changes/changes.yaml` and `api/modules/changes/_index.yaml` from `contracts/changes.yaml`: `GET /changes` (shared `limit`/`offset`, `order` asc|desc default desc, no `sort`, filters `status`, `table`, `record_id`, `change_set_id`, `since`), `GET /changes/{change_set_id}` (path pattern `^[A-Za-z0-9,-]{1,64}$`, shared `limit`/`offset`), 200 plus 400/401/404 problem+json responses
+- [x] T004 Register the contract in `api/openapi.yaml`: paths `/changes` before `/changes/{change_set_id}` (`$ref: './modules/changes/changes.yaml#/~1changes'` and `#/~1changes~1{change_set_id}`), `components.schemas.Change`/`ChangeSet`, a new `components.headers` section with `ChangeSetId: $ref: './components/headers/ChangeSetId.yaml'`, and a `Changes` tag (depends on T001–T003)
+- [x] T005 Verify the contract parses and renders: load `/api/spec` and `/api/documentation` (quickstart.md §2, docker `php:8.3-cli` + `php artisan serve`); the Changes tag shows both operations and the schemas resolve
 
 ---
 
