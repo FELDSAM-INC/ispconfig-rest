@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ScopesReferences;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -15,6 +16,8 @@ use Illuminate\Validation\Validator;
  */
 class StoreDnsRecordRequest extends DnsRecordRequest
 {
+    use ScopesReferences;
+
     /**
      * @return array<string, mixed>
      */
@@ -23,7 +26,7 @@ class StoreDnsRecordRequest extends DnsRecordRequest
         $type = $this->effectiveType();
 
         $rules = [
-            'zone' => ['required', 'integer', Rule::exists('dns_soa', 'id')],
+            'zone' => ['required', 'integer', $this->readable(Rule::exists('dns_soa', 'id'))],
             'type' => ['required', 'string', Rule::in(self::API_TYPES)],
             'name' => $this->nameRules($type, required: true),
             'ttl' => ['sometimes', 'integer', 'min:60', 'max:4294967295'],

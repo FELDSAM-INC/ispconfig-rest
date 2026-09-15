@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\CronJob;
 use Illuminate\Validation\Rule;
 
@@ -11,6 +12,8 @@ use Illuminate\Validation\Rule;
  */
 class UpdateCronJobRequest extends StoreCronJobRequest
 {
+    use ScopesReferences;
+
     /**
      * @return array<string, mixed>
      */
@@ -20,7 +23,7 @@ class UpdateCronJobRequest extends StoreCronJobRequest
             'parent_domain_id' => [
                 'sometimes',
                 'integer',
-                Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias']),
+                $this->readable(Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias'])),
             ],
             'run_min' => ['sometimes', 'string', 'max:100', $this->runTimeRule('run_min')],
             'run_hour' => ['sometimes', 'string', 'max:100', $this->runTimeRule('run_hour')],

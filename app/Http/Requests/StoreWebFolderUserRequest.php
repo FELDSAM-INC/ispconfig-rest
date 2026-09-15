@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ScopesReferences;
 use Illuminate\Validation\Rule;
 
 /**
@@ -12,6 +13,8 @@ use Illuminate\Validation\Rule;
  */
 class StoreWebFolderUserRequest extends SitesRequest
 {
+    use ScopesReferences;
+
     protected function booleanFields(): array
     {
         return ['active'];
@@ -26,7 +29,7 @@ class StoreWebFolderUserRequest extends SitesRequest
             'web_folder_id' => [
                 'required',
                 'integer',
-                Rule::exists('web_folder', 'web_folder_id'),
+                $this->readable(Rule::exists('web_folder', 'web_folder_id')),
             ],
             'username' => ['required', 'string', 'max:64', 'regex:/^[\w\.\-]{1,64}$/'],
             'password' => ['required', 'string', 'max:255'],

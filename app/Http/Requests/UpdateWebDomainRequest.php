@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\EnforcesWebPermissions;
+use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\WebDomain;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -18,6 +19,7 @@ use Illuminate\Validation\Rule;
 class UpdateWebDomainRequest extends WebDomainRequest
 {
     use EnforcesWebPermissions;
+    use ScopesReferences;
 
     /**
      * @return array<string, mixed>
@@ -47,7 +49,7 @@ class UpdateWebDomainRequest extends WebDomainRequest
                 'integer',
                 Rule::when(
                     in_array($type(), ['vhostsubdomain', 'vhostalias'], true),
-                    [Rule::exists('web_domain', 'domain_id')->where('type', 'vhost')]
+                    [$this->readable(Rule::exists('web_domain', 'domain_id')->where('type', 'vhost'))]
                 ),
             ],
             'hd_quota' => [

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\ShellUser;
 use Closure;
 use Illuminate\Validation\Rule;
@@ -14,6 +15,8 @@ use Illuminate\Validation\Rule;
  */
 class StoreShellUserRequest extends SitesRequest
 {
+    use ScopesReferences;
+
     protected function booleanFields(): array
     {
         return ['active'];
@@ -28,7 +31,7 @@ class StoreShellUserRequest extends SitesRequest
             'parent_domain_id' => [
                 'required',
                 'integer',
-                Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias']),
+                $this->readable(Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias'])),
             ],
             'username' => [
                 'required', 'string', 'max:32', 'regex:/^[\w\.\-]{1,32}$/',

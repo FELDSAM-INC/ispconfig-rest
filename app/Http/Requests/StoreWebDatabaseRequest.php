@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\EnforcesBackupLimit;
 use App\Http\Requests\Concerns\ResolvesAssignedServer;
+use App\Http\Requests\Concerns\ScopesReferences;
 use Illuminate\Validation\Rule;
 
 /**
@@ -22,6 +23,7 @@ class StoreWebDatabaseRequest extends SitesRequest
 {
     use EnforcesBackupLimit;
     use ResolvesAssignedServer;
+    use ScopesReferences;
 
     protected function prepareForValidation(): void
     {
@@ -61,7 +63,7 @@ class StoreWebDatabaseRequest extends SitesRequest
                 'required',
                 'integer',
                 'min:1',
-                Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias']),
+                $this->readable(Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias'])),
             ],
             'type' => ['sometimes', Rule::in(['mysql', 'postgresql'])],
             'database_name' => ['required', 'string', 'regex:/^[a-zA-Z0-9_]{2,64}$/'],
@@ -70,14 +72,14 @@ class StoreWebDatabaseRequest extends SitesRequest
                 // Legacy database_user_missing check.
                 'required',
                 'integer',
-                Rule::exists('web_database_user', 'database_user_id'),
+                $this->readable(Rule::exists('web_database_user', 'database_user_id')),
             ],
             'database_ro_user_id' => [
                 'sometimes',
                 'integer',
                 Rule::when(
                     (int) $this->input('database_ro_user_id', 0) !== 0,
-                    [Rule::exists('web_database_user', 'database_user_id')]
+                    [$this->readable(Rule::exists('web_database_user', 'database_user_id'))]
                 ),
             ],
             'database_charset' => ['sometimes', 'nullable', Rule::in(['', 'latin1', 'utf8', 'utf8mb4'])],

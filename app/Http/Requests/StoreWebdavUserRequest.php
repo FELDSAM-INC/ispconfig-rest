@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ScopesReferences;
 use Illuminate\Validation\Rule;
 
 /**
@@ -13,6 +14,8 @@ use Illuminate\Validation\Rule;
  */
 class StoreWebdavUserRequest extends SitesRequest
 {
+    use ScopesReferences;
+
     protected function booleanFields(): array
     {
         return ['active'];
@@ -27,7 +30,7 @@ class StoreWebdavUserRequest extends SitesRequest
             'parent_domain_id' => [
                 'required',
                 'integer',
-                Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias']),
+                $this->readable(Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias'])),
             ],
             'username' => ['required', 'string', 'max:64', 'regex:/^[\w\.\-@]{1,64}$/'],
             'password' => ['required', 'string', 'max:255'],

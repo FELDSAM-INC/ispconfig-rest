@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\CronJob;
 use Closure;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -15,6 +15,8 @@ use Illuminate\Validation\Rule;
  */
 class StoreCronJobRequest extends SitesRequest
 {
+    use ScopesReferences;
+
     protected function booleanFields(): array
     {
         return ['log', 'active'];
@@ -29,7 +31,7 @@ class StoreCronJobRequest extends SitesRequest
             'parent_domain_id' => [
                 'required',
                 'integer',
-                Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias']),
+                $this->readable(Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias'])),
             ],
             'run_min' => ['required', 'string', 'max:100', $this->runTimeRule('run_min')],
             'run_hour' => ['required', 'string', 'max:100', $this->runTimeRule('run_hour')],
@@ -67,7 +69,7 @@ class StoreCronJobRequest extends SitesRequest
                 return;
             }
 
-            $parentDomain = DB::table('web_domain')
+            $parentDomain = $this->readableQuery('web_domain')
                 ->where('domain_id', (int) $this->input('parent_domain_id', $this->currentParentDomainId()))
                 ->value('domain');
 

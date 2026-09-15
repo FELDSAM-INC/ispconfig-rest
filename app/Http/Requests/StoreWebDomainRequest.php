@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\EnforcesWebPermissions;
 use App\Http\Requests\Concerns\ResolvesAssignedServer;
+use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\WebDomain;
 use App\Support\IspContext;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,7 @@ class StoreWebDomainRequest extends WebDomainRequest
 {
     use EnforcesWebPermissions;
     use ResolvesAssignedServer;
+    use ScopesReferences;
 
     protected function prepareForValidation(): void
     {
@@ -81,7 +83,7 @@ class StoreWebDomainRequest extends WebDomainRequest
                 'integer',
                 Rule::when(
                     in_array($type(), ['vhostsubdomain', 'vhostalias'], true),
-                    [Rule::exists('web_domain', 'domain_id')->where('type', 'vhost')]
+                    [$this->readable(Rule::exists('web_domain', 'domain_id')->where('type', 'vhost'))]
                 ),
             ],
             'hd_quota' => [
@@ -113,7 +115,7 @@ class StoreWebDomainRequest extends WebDomainRequest
                 ? (int) $this->input('client_id')
                 : app(IspContext::class)->authScope()->clientId;
         } else {
-            $parent = DB::table('web_domain')
+            $parent = $this->readableQuery('web_domain')
                 ->where('domain_id', (int) $this->input('parent_domain_id', 0))
                 ->first(['server_id', 'sys_groupid']);
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ScopesReferences;
 use Illuminate\Validation\Rule;
 
 /**
@@ -12,6 +13,8 @@ use Illuminate\Validation\Rule;
  */
 class StoreWebFolderRequest extends SitesRequest
 {
+    use ScopesReferences;
+
     protected function booleanFields(): array
     {
         return ['active'];
@@ -26,7 +29,7 @@ class StoreWebFolderRequest extends SitesRequest
             'parent_domain_id' => [
                 'required',
                 'integer',
-                Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias']),
+                $this->readable(Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias'])),
             ],
             'path' => ['required', 'string', 'max:255', 'regex:/^[\w\.\-\/]{1,255}$/'],
             'active' => ['sometimes', 'boolean'],

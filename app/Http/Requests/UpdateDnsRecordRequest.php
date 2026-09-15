@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ScopesReferences;
 use App\Services\DnsRecordMetaService;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -23,6 +24,8 @@ use Illuminate\Validation\Validator;
  */
 class UpdateDnsRecordRequest extends DnsRecordRequest
 {
+    use ScopesReferences;
+
     /**
      * @return array<string, mixed>
      */
@@ -31,7 +34,7 @@ class UpdateDnsRecordRequest extends DnsRecordRequest
         $type = $this->effectiveType();
 
         $rules = [
-            'zone' => ['sometimes', 'integer', Rule::exists('dns_soa', 'id')],
+            'zone' => ['sometimes', 'integer', $this->readable(Rule::exists('dns_soa', 'id'))],
             'type' => ['sometimes', 'string', Rule::in(self::API_TYPES)],
             'name' => $this->nameRules($type, required: false),
             'ttl' => ['sometimes', 'integer', 'min:60', 'max:4294967295'],

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\EnforcesBackupLimit;
+use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\WebDatabase;
 use Illuminate\Validation\Rule;
 
@@ -16,6 +17,7 @@ use Illuminate\Validation\Rule;
 class UpdateWebDatabaseRequest extends SitesRequest
 {
     use EnforcesBackupLimit;
+    use ScopesReferences;
 
     protected function booleanFields(): array
     {
@@ -37,7 +39,7 @@ class UpdateWebDatabaseRequest extends SitesRequest
                 'sometimes',
                 'integer',
                 'min:1',
-                Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias']),
+                $this->readable(Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias'])),
             ],
             'type' => ['sometimes', Rule::in(['mysql', 'postgresql'])],
             'database_name' => [
@@ -50,14 +52,14 @@ class UpdateWebDatabaseRequest extends SitesRequest
             'database_user_id' => [
                 'required',
                 'integer',
-                Rule::exists('web_database_user', 'database_user_id'),
+                $this->readable(Rule::exists('web_database_user', 'database_user_id')),
             ],
             'database_ro_user_id' => [
                 'sometimes',
                 'integer',
                 Rule::when(
                     (int) $this->input('database_ro_user_id', 0) !== 0,
-                    [Rule::exists('web_database_user', 'database_user_id')]
+                    [$this->readable(Rule::exists('web_database_user', 'database_user_id'))]
                 ),
             ],
             'database_charset' => [

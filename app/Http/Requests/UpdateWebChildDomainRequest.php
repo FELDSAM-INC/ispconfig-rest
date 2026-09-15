@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\WebChildDomain;
 use Illuminate\Validation\Rule;
 
@@ -14,6 +15,8 @@ use Illuminate\Validation\Rule;
  */
 class UpdateWebChildDomainRequest extends WebChildDomainRequest
 {
+    use ScopesReferences;
+
     /**
      * @return array<string, mixed>
      */
@@ -23,7 +26,7 @@ class UpdateWebChildDomainRequest extends WebChildDomainRequest
             'parent_domain_id' => [
                 'sometimes',
                 'integer',
-                Rule::exists('web_domain', 'domain_id')->where('type', 'vhost'),
+                $this->readable(Rule::exists('web_domain', 'domain_id')->where('type', 'vhost')),
             ],
             'domain' => [
                 'sometimes',

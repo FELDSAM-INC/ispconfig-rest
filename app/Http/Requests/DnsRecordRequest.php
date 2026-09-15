@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Http\Requests\Concerns\ValidatesDnsRdata;
 use App\Models\DnsRecord;
 use App\Services\DnsRecordMetaService;
+use App\Support\IspContext;
 use Closure;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Http\FormRequest;
@@ -104,7 +105,9 @@ abstract class DnsRecordRequest extends FormRequest
 
         // Legacy onSubmit: '@' -> origin, '*' -> '*.<origin>'.
         if (in_array($this->input('name'), ['@', '*'], true)) {
-            $origin = DB::table('dns_soa')->where('id', (int) $this->effectiveZoneId())->value('origin');
+            $origin = app(IspContext::class)->authScope()
+                ->applyReadPredicate(DB::table('dns_soa')->where('id', (int) $this->effectiveZoneId()), 'r')
+                ->value('origin');
 
             if ($origin !== null) {
                 $input['name'] = $this->input('name') === '@' ? $origin : '*.'.$origin;
@@ -113,7 +116,9 @@ abstract class DnsRecordRequest extends FormRequest
 
         // Legacy dns_cname_edit.php:67-70: CNAME data '@' -> zone origin.
         if ($this->input('data') === '@' && $this->effectiveType() === 'CNAME') {
-            $origin = DB::table('dns_soa')->where('id', (int) $this->effectiveZoneId())->value('origin');
+            $origin = app(IspContext::class)->authScope()
+                ->applyReadPredicate(DB::table('dns_soa')->where('id', (int) $this->effectiveZoneId()), 'r')
+                ->value('origin');
 
             if ($origin !== null) {
                 $input['data'] = $origin;
