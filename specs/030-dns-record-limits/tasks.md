@@ -52,8 +52,33 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 - [x] T008 [P] Update the limits paragraph in `README.md`; add a superseded note to spec 012 FR-021/SC-006 in `specs/012-*/spec.md`
 - [x] T009 Run Pint on changed PHP files and the full suite in Docker
-- [ ] T010 Deploy to isp-test and run `specs/030-dns-record-limits/quickstart.md` §2 with a temporary client; record results here
+- [x] T010 Deploy to isp-test and run `specs/030-dns-record-limits/quickstart.md` §2 with a temporary client; record results here
 
 ## Dependencies
 
 Phase 1 → US1 → US2 → Polish. T001/T002 parallel.
+
+## Results (T009–T010, 2026-09-16)
+
+- T009: Pint clean on changed files; full suite 1141 passed (baseline 1140; the spec 012 "records are never limited"
+  test was replaced by two record cap tests).
+- T010: deployed `8386af0` to isp-test (`ispconfig-rest status`: 1.0.0-rc.3 (8386af0)). Temporary client `qa030d93e00`
+  (client 29: `dns_servers=1`, `limit_dns_zone=1`, `limit_dns_record=2`), QA admin key 67 and client key 68, zone 4
+  `qa030-d93e00.example.test`. Keys were never printed. All checks matched:
+
+| Case | Expected | Got |
+|---|---|---|
+| client `POST /dns/soa` | 201 | 201 |
+| client `GET /usage/summary` before records | `counts.dns_records` `{used: 0, limit: 2}` | as expected |
+| client `POST /dns/records` A `www`, A `mail` | 201, 201; summary `{used: 2, limit: 2}` | as expected |
+| client `POST /dns/records` A `ftp` at the cap | 403 `limit-reached`, `limit {limit_dns_record, client, 2, 2}`, detail `You have reached the maximum number of DNS records allowed for your account.`, no datalog row | as expected |
+| client `PUT /dns/records/{www}` ttl 7200 at the cap | 200 | 200 |
+| admin `POST /dns/records` A `ftp` past the cap | 201; client summary `{used: 3, limit: 2}` | as expected |
+| client `DELETE /dns/records/{www}` at the cap | 204 | 204 |
+| client `POST /dns/records` A `shop` (2 of 2) | 403, `used: 2`, `max: 2` | as expected |
+| admin `GET /usage/summary?client_id=29` | `{used: 2, limit: 2}` | as expected |
+
+- Cleanup: records 37, 38, zone 4 and client 29 deleted with the QA admin key (204); datalog processed
+  (`server.updated` 774 = last id 774); API keys 67, 68 deleted by SQL (`name LIKE 'qa%'`); no `qa030` client,
+  sys_group, sys_user, dns_soa or dns_rr rows, no pending datalog, no zone files in `/etc/bind` or `named.conf*`
+  references. Remaining keys: 1, 2, 20, 27, 50 (untouched).
