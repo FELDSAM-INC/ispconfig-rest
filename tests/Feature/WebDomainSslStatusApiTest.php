@@ -427,4 +427,147 @@ class WebDomainSslStatusApiTest extends TestCase
 
         $this->sslStatus($site)->assertOk()->assertJsonPath('failure.reason', 'issuance_failed');
     }
+    // ------------------------------------------------------------------
+    // US3 — certificate details
+    // ------------------------------------------------------------------
+
+    /** @var array<int, string> */
+    private array $tempDirs = [];
+
+    protected function tearDown(): void
+    {
+        foreach ($this->tempDirs as $dir) {
+            foreach (glob($dir.'/ssl/*') ?: [] as $file) {
+                @unlink($file);
+            }
+            @rmdir($dir.'/ssl');
+            @rmdir($dir);
+        }
+
+        parent::tearDown();
+    }
+
+    /**
+     * Document root with a self-signed certificate at ssl/<file>-le.crt.
+     *
+     * @param  array<int, string>  $sans
+     */
+    protected function documentRootWithCertificate(string $fileDomain, string $commonName, array $sans = [], ?string $content = null): string
+    {
+        $dir = sys_get_temp_dir().'/le022-'.uniqid();
+        mkdir($dir.'/ssl', 0755, true);
+        $this->tempDirs[] = $dir;
+
+        if ($content === null) {
+            $options = ['digest_alg' => 'sha256'];
+
+            if ($sans !== []) {
+                $config = $dir.'/openssl.cnf';
+                file_put_contents($config, implode("\n", [
+                    '[req]', 'distinguished_name=dn', '[dn]', '[v3]',
+                    'subjectAltName='.implode(',', array_map(fn (string $san): string => 'DNS:'.$san, $sans)),
+                ]));
+                $options += ['config' => $config, 'x509_extensions' => 'v3'];
+            }
+
+            $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+            $csr = openssl_csr_new(['commonName' => $commonName, 'organizationName' => 'Test Encrypt'], $key, $options);
+            $x509 = openssl_csr_sign($csr, null, $key, 90, $options);
+            openssl_x509_export($x509, $content);
+            @unlink($dir.'/openssl.cnf');
+        }
+
+        file_put_contents($dir.'/ssl/'.$fileDomain.'-le.crt', $content);
+
+        return $dir;
+    }
+
+    /**
+     * An issued website with the given attributes: returns [site id, domain].
+     *
+     * @param  array<string, mixed>  $attrs
+     */
+    protected function issuedSite(array $attrs): int
+    {
+        $site = $this->site(array_merge(['ssl' => 'y', 'ssl_letsencrypt' => 'y'], $attrs));
+        $this->processedUpTo($this->enableEntry($site));
+
+        return $site;
+    }
+
+    public function test_issued_certificate_details_are_read_from_the_certificate_file(): void
+    {
+        $domain = 'shop'.uniqid().'.example.com';
+        $root = $this->documentRootWithCertificate($domain, $domain, [$domain, "www.{$domain}"]);
+        $site = $this->issuedSite(['domain' => $domain, 'document_root' => $root]);
+
+        $info = openssl_x509_parse((string) file_get_contents($root."/ssl/{$domain}-le.crt"));
+
+        $this->sslStatus($site)->assertOk()->assertJsonPath('certificate', [
+            'valid_from' => $this->iso((int) $info['validFrom_time_t']),
+            'expires_at' => $this->iso((int) $info['validTo_time_t']),
+            'issuer' => 'Test Encrypt',
+            'domains' => [$domain, "www.{$domain}"],
+        ]);
+    }
+
+    public function test_common_name_is_used_without_subject_alternative_names(): void
+    {
+        $domain = 'cn'.uniqid().'.example.com';
+        $root = $this->documentRootWithCertificate($domain, $domain);
+        $site = $this->issuedSite(['domain' => $domain, 'document_root' => $root]);
+
+        $this->sslStatus($site)->assertOk()->assertJsonPath('certificate.domains', [$domain]);
+    }
+
+    public function test_wildcard_domain_reads_the_bare_domain_file(): void
+    {
+        $bare = 'wild'.uniqid().'.example.com';
+        $root = $this->documentRootWithCertificate($bare, $bare);
+        $site = $this->issuedSite(['domain' => '*.'.$bare, 'document_root' => $root]);
+
+        $this->sslStatus($site)->assertOk()->assertJsonPath('certificate.domains', [$bare]);
+    }
+
+    public function test_missing_or_invalid_certificate_file_gives_null(): void
+    {
+        $domain = 'bad'.uniqid().'.example.com';
+        $invalid = $this->documentRootWithCertificate($domain, $domain, [], 'not a certificate');
+        $missing = sys_get_temp_dir().'/le022-missing-'.uniqid();
+
+        $this->sslStatus($this->issuedSite(['domain' => $domain, 'document_root' => $invalid]))
+            ->assertOk()->assertJsonPath('certificate', null);
+        $this->sslStatus($this->issuedSite(['domain' => $domain, 'document_root' => $missing]))
+            ->assertOk()->assertJsonPath('certificate', null);
+    }
+
+    public function test_unsafe_document_roots_are_not_read(): void
+    {
+        $domain = 'safe'.uniqid().'.example.com';
+        $root = $this->documentRootWithCertificate($domain, $domain);
+
+        $this->sslStatus($this->issuedSite(['domain' => $domain, 'document_root' => $root.'/ssl/..']))
+            ->assertOk()->assertJsonPath('certificate', null);
+        $this->sslStatus($this->issuedSite(['domain' => $domain, 'document_root' => ltrim($root, '/')]))
+            ->assertOk()->assertJsonPath('certificate', null);
+    }
+
+    public function test_requested_and_failed_states_never_return_details(): void
+    {
+        $domain = 'old'.uniqid().'.example.com';
+        $root = $this->documentRootWithCertificate($domain, $domain);
+
+        $requested = $this->site(['domain' => $domain, 'document_root' => $root, 'ssl' => 'y', 'ssl_letsencrypt' => 'y']);
+        $entry = $this->enableEntry($requested);
+        $this->processedUpTo($entry - 1);
+        $this->sslStatus($requested)->assertOk()
+            ->assertJsonPath('state', 'requested')
+            ->assertJsonPath('certificate', null);
+
+        $failed = $this->site(['domain' => 'x'.$domain, 'document_root' => $root]);
+        $this->processedUpTo($this->enableEntry($failed));
+        $this->sslStatus($failed)->assertOk()
+            ->assertJsonPath('state', 'failed')
+            ->assertJsonPath('certificate', null);
+    }
 }

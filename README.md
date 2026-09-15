@@ -137,6 +137,7 @@ Any valid key can call `GET /me` to read its own identity and scope.
 - **Lists**: `GET /api/v1/{module}/{resource}?limit=25&offset=0&sort=domain&order=asc` returns `{ "data": [...], "meta": { "total", "limit", "offset" } }`. Unknown query parameters are rejected with `400` — filters are never silently ignored.
 - **Errors**: RFC 9457 `application/problem+json` — `{ "type", "title", "status", "detail" }`, plus an `errors` map on validation failures (`422`).
 - **Status codes**: `200` read/update, `201` create, `204` delete, `400/401/404/409/422` as problem+json.
+- **Let's Encrypt outcome**: `GET /api/v1/sites/web-domains/{id}/ssl/status` reports `none`, `requested`, `issued` or `failed` for a website's free certificate. ISPConfig switches Let's Encrypt back off without a journal entry when issuance fails, so the state is derived from the enabling change, its processing status and the current flags. Failure reasons (`domain_not_reachable`, `issuance_failed`, `certificate_not_found`, `client_unavailable`) need the server log level set to Warning or Debug (System → Server Config → Server → Log level); otherwise the reason is `unknown`. Certificate validity is returned only when the API can read `<document_root>/ssl/<domain>-le.crt` (single-server installations).
 - **Async writes**: a successful write confirms the `sys_datalog` journal entry; ISPConfig's daemons apply it within their next cycle (typically ≤ 1 minute). Every write that journaled at least one entry returns an `X-Change-Set-Id` header; any key polls `GET /api/v1/changes/{id}` until the status is `applied`, `failed` or `stalled`, or lists its pending and failed changes with `GET /api/v1/changes?status=pending`. No-change updates, validation failures and writes to API-owned data (API keys) return no header. `/monitor/data-logs` stays the admin view of journal payloads.
 - **Booleans**: ISPConfig's `y/n` enum columns are exposed as JSON booleans and stored in the column's native case.
 
@@ -147,7 +148,7 @@ Any valid key can call `GET /me` to read its own identity and scope.
 | `clients` | clients, resellers, client domains, templates, template assignments, circles |
 | `dns` | zones (SOA), records (incl. SPF/DKIM/DMARC stored as TXT like legacy), slave zones, templates |
 | `mail` | domains, mailboxes (+ autoresponder/cc/filters/password/spamfilter sub-resources), forwards, alias domains, fetchmail, transports, relay domains/recipients, access rules, content filters, spamfilter config/policies/users/wblist |
-| `sites` | web domains (+ SSL, backups, backup jobs and backup settings sub-resources), child domains, FTP/shell users, databases, database users, cron jobs, web folders/folder users, WebDAV users |
+| `sites` | web domains (+ SSL, Let's Encrypt status, backups, backup jobs and backup settings sub-resources), child domains, FTP/shell users, databases, database users, cron jobs, web folders/folder users, WebDAV users |
 | `servers` | servers, per-section server config, firewall, IP addresses, IP mappings, PHP versions |
 | `system` | global config panels, directive snippets, DNS CAA policies, resync |
 | `changes` | processing status of journaled writes: change sets, pending/failed list, record view (every key) |

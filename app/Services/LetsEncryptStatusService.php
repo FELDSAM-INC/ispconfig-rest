@@ -80,7 +80,7 @@ class LetsEncryptStatusService
             'change_status' => $changeStatus,
             'failure' => $state === 'failed' ? $this->failure($raw, $entry) : null,
             'excluded_domains' => $state === 'issued' && $entry !== null ? $this->excludedDomains($raw, $entry) : [],
-            'certificate' => null,
+            'certificate' => $state === 'issued' ? $this->certificate($raw) : null,
         ];
     }
 
@@ -242,6 +242,62 @@ class LetsEncryptStatusService
         }
 
         return [null, null];
+    }
+
+    /** Largest certificate file read (bytes). */
+    public const CERTIFICATE_MAX_BYTES = 65536;
+
+    /**
+     * Validity of the issued certificate from ISPConfig's public certificate
+     * file <document_root>/ssl/<domain>-le.crt (letsencrypt.inc.php 294-340,
+     * research R4) when the API can read it; the private key is never opened.
+     *
+     * @param  array<string, mixed>  $raw
+     * @return array{valid_from: string, expires_at: string, issuer: string, domains: array<int, string>}|null
+     */
+    protected function certificate(array $raw): ?array
+    {
+        $root = (string) ($raw['document_root'] ?? '');
+        $domain = $this->hostname((string) ($raw['domain'] ?? ''));
+
+        if ($domain === null || ! str_starts_with($root, '/') || preg_match('#(^|/)\.\.(/|$)#', $root) === 1) {
+            return null;
+        }
+
+        $path = rtrim($root, '/').'/ssl/'.(str_starts_with($domain, '*.') ? substr($domain, 2) : $domain).'-le.crt';
+
+        if (! @is_file($path) || ! @is_readable($path)) {
+            return null;
+        }
+
+        $pem = @file_get_contents($path, false, null, 0, self::CERTIFICATE_MAX_BYTES);
+        $info = is_string($pem) ? @openssl_x509_parse($pem) : false;
+
+        if (! is_array($info) || ! isset($info['validFrom_time_t'], $info['validTo_time_t'])) {
+            return null;
+        }
+
+        $issuer = $info['issuer']['O'] ?? $info['issuer']['CN'] ?? '';
+        $domains = [];
+
+        foreach (explode(',', (string) ($info['extensions']['subjectAltName'] ?? '')) as $name) {
+            $name = trim($name);
+
+            if (str_starts_with($name, 'DNS:') && ($host = $this->hostname(substr($name, 4))) !== null) {
+                $domains[] = $host;
+            }
+        }
+
+        if ($domains === [] && ($host = $this->hostname((string) (is_array($info['subject']['CN'] ?? null) ? reset($info['subject']['CN']) : ($info['subject']['CN'] ?? '')))) !== null) {
+            $domains[] = $host;
+        }
+
+        return [
+            'valid_from' => $this->timestamp((int) $info['validFrom_time_t']),
+            'expires_at' => $this->timestamp((int) $info['validTo_time_t']),
+            'issuer' => (string) (is_array($issuer) ? reset($issuer) : $issuer),
+            'domains' => array_values(array_unique($domains)),
+        ];
     }
 
     /**

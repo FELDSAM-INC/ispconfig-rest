@@ -56,8 +56,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 5: User Story 3 — certificate details (P3)
 
-- [ ] T010 [US3] Tests: issued + readable self-signed certificate at `<tmp document_root>/ssl/<domain>-le.crt` → `valid_from`, `expires_at`, `issuer`, `domains`; wildcard domain uses the bare domain file; unreadable/missing/non-PEM file → `certificate = null`; requested/failed never return details; relative or `..` document root ignored
-- [ ] T011 [US3] Implement the guarded certificate read and X.509 parsing in `app/Services/LetsEncryptStatusService.php`
+- [x] T010 [US3] Tests: issued + readable self-signed certificate at `<tmp document_root>/ssl/<domain>-le.crt` → `valid_from`, `expires_at`, `issuer`, `domains`; wildcard domain uses the bare domain file; unreadable/missing/non-PEM file → `certificate = null`; requested/failed never return details; relative or `..` document root ignored
+- [x] T011 [US3] Implement the guarded certificate read and X.509 parsing in `app/Services/LetsEncryptStatusService.php`
 
 **Checkpoint**: US3 tests pass, full suite green
 
@@ -65,8 +65,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 6: Polish
 
-- [ ] T012 [P] README: mention `ssl/status` in the sites module row and the log-level note
-- [ ] T013 Pint on changed PHP files; full suite green
+- [x] T012 [P] README: mention `ssl/status` in the sites module row and the log-level note
+- [x] T013 Pint on changed PHP files; full suite green
 - [ ] T014 Deploy to isp-test and run quickstart.md §2–§3 (temporary client only), record results here
 
 ---
