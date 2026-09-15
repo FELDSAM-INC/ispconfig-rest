@@ -123,6 +123,7 @@ class WebDomainService
             'type' => (string) $record['type'],
             'server_id' => $serverId,
             'owner_client_id' => (int) DB::table('sys_group')->where('groupid', (int) $record['sys_groupid'])->value('client_id'),
+            'php_sent' => array_key_exists('php', $payload),
         ]));
 
         // Legacy Let's Encrypt two-step create: insert with both flags 'n'.
@@ -284,6 +285,7 @@ class WebDomainService
             'type' => (string) ($attributes['type'] ?? 'vhost'),
             'server_id' => (int) ($attributes['server_id'] ?? 0),
             'owner_client_id' => (int) DB::table('sys_group')->where('groupid', (int) ($attributes['sys_groupid'] ?? 0))->value('client_id'),
+            'php_changed' => $domain->isDirty('php'),
         ]);
 
         if ($forced !== []) {

@@ -50,25 +50,31 @@ class WebPermissionService
         'force_suexec', 'limit_hterror', 'limit_wildcard', 'limit_directive_snippets', 'limit_backup', 'web_php_options',
     ];
 
-    /** @var array<string, array<string, mixed>> */
-    protected array $cache = [];
+    /**
+     * Permissions per resolved scope object: one AuthScope is built per
+     * request, so the memo never outlives the request even when the service
+     * instance does (cached controllers, long-running workers).
+     *
+     * @var \WeakMap<AuthScope, array<string, mixed>>
+     */
+    protected \WeakMap $cache;
 
     public function __construct(
         protected SitesConfigService $config,
         protected PhpVersionService $phpVersions,
-    ) {}
+    ) {
+        $this->cache = new \WeakMap;
+    }
 
     /**
      * The acting account's website permissions (data-model.md
-     * AccountWebPermissions). Memoized per scope identity.
+     * AccountWebPermissions). Memoized per scope object.
      *
      * @return array{client_id: int, is_admin: bool, is_reseller: bool, client_found: bool, flags: array<string, bool>, force_suexec: bool, php_modes: array<int, string>, advanced_options: bool, locked: bool, canceled: bool}
      */
     public function forScope(AuthScope $scope): array
     {
-        $key = $scope->sysUserId.':'.$scope->sysGroupId.':'.$scope->clientId.':'.($scope->isAdmin ? 'a' : 'u');
-
-        return $this->cache[$key] ??= $this->resolve($scope->clientId, $scope->isAdmin, $scope->isAdmin ? false : $scope->isReseller());
+        return $this->cache[$scope] ??= $this->resolve($scope->clientId, $scope->isAdmin, $scope->isAdmin ? false : $scope->isReseller());
     }
 
     /**
@@ -151,7 +157,110 @@ class WebPermissionService
             $violations[$field] = $message;
         }
 
+        foreach ($this->phpViolations($scope, $account, $input, $context) as $field => $message) {
+            $violations[$field] = $message;
+        }
+
         return $violations;
+    }
+
+    /**
+     * PHP mode used when a create omits `php` (FR-003): `fast-cgi` if allowed,
+     * else the first allowed mode other than `no`, else `no`.
+     *
+     * @param  array<string, mixed>  $account
+     */
+    public function defaultPhpMode(array $account): string
+    {
+        if (in_array('fast-cgi', $account['php_modes'], true)) {
+            return 'fast-cgi';
+        }
+
+        foreach ($account['php_modes'] as $mode) {
+            if ($mode !== 'no') {
+                return $mode;
+            }
+        }
+
+        return 'no';
+    }
+
+    /**
+     * Clients whose private PHP versions the website may use: the acting
+     * account and the website owner (legacy client_id = 0 OR own).
+     *
+     * @param  array<string, mixed>  $context
+     * @return array<int, int>
+     */
+    protected function phpClientIds(AuthScope $scope, array $context): array
+    {
+        return array_values(array_unique(array_filter(
+            [$scope->clientId, (int) ($context['owner_client_id'] ?? 0)],
+            fn (int $id): bool => $id > 0
+        )));
+    }
+
+    /**
+     * PHP mode and version rules (FR-003, FR-004, FR-006; research R2–R4).
+     *
+     * @param  array<string, mixed>  $account
+     * @param  array<string, mixed>  $input
+     * @param  array<string, mixed>  $context
+     * @return array<string, string>
+     */
+    protected function phpViolations(AuthScope $scope, array $account, array $input, array $context): array
+    {
+        $current = $context['current'];
+        $isCreate = $context['is_create'];
+
+        if ($this->requests('php', $input, $context, true)
+            && (! is_string($input['php']) || ! in_array($input['php'], $account['php_modes'], true))) {
+            return ['php' => 'The selected PHP mode is not available for this account.'];
+        }
+
+        $mode = array_key_exists('php', $input) && is_string($input['php'])
+            ? $input['php']
+            : ($isCreate ? $this->defaultPhpMode($account) : (string) ($current['php'] ?? ''));
+
+        if (! in_array($mode, PhpVersionService::VERSION_MODES, true)) {
+            return [];
+        }
+
+        $serverId = (int) $context['server_id'];
+        $phpChanged = ! $isCreate && array_key_exists('php', $input)
+            && $this->normalize($input['php']) !== $this->normalize($current['php'] ?? null);
+        $versionSent = array_key_exists('server_php_id', $input) && is_numeric($input['server_php_id']);
+        $versionRequested = $versionSent && ($isCreate || $phpChanged || $this->requests('server_php_id', $input, $context));
+        $version = $versionSent ? (int) $input['server_php_id'] : ($isCreate ? 0 : (int) ($current['server_php_id'] ?? 0));
+
+        $usable = null;
+        $usableIds = function () use (&$usable, $serverId, $scope, $context, $mode): array {
+            return $usable ??= $this->phpVersions->usable($serverId, $this->phpClientIds($scope, $context), $mode)
+                ->map(fn (object $row): int => (int) $row->server_php_id)
+                ->all();
+        };
+
+        if ($version !== 0 && ($versionRequested || $phpChanged) && ! in_array($version, $usableIds(), true)) {
+            if ($versionRequested) {
+                return ['server_php_id' => 'The selected PHP version is not available for this website.'];
+            }
+
+            // A kept version that does not fit the new mode is reset
+            // (legacy onSubmit:1286-1304).
+            $version = 0;
+        }
+
+        if ($version === 0 && $this->phpVersions->defaultHidden($serverId)) {
+            if ($versionRequested) {
+                return ['server_php_id' => 'A PHP version must be selected for this website.'];
+            }
+
+            if ($usableIds() === []) {
+                return ['server_php_id' => "No PHP version is available for the selected PHP mode on this website's server."];
+            }
+        }
+
+        return [];
     }
 
     /**
@@ -187,6 +296,38 @@ class WebPermissionService
 
         if (! $account['flags']['directive_snippets']) {
             $forced['directive_snippets_id'] = 0;
+        }
+
+        // PHP mode default on create (FR-003) and version (FR-005/FR-006).
+        $mode = (string) ($record['php'] ?? '');
+
+        if ($context['is_create'] && empty($context['php_sent'])) {
+            $mode = $this->defaultPhpMode($account);
+            $forced['php'] = $mode;
+        }
+
+        if (! in_array($mode, PhpVersionService::VERSION_MODES, true)) {
+            $forced['server_php_id'] = 0;
+
+            return $forced;
+        }
+
+        $serverId = (int) $context['server_id'];
+        $version = (int) ($record['server_php_id'] ?? 0);
+        $clientIds = $this->phpClientIds($scope, $context);
+
+        if ($version !== 0 && ! empty($context['php_changed'])
+            && ! $this->phpVersions->usable($serverId, $clientIds, $mode)->contains(fn (object $row): bool => (int) $row->server_php_id === $version)) {
+            $version = 0;
+            $forced['server_php_id'] = 0;
+        }
+
+        if ($version === 0 && $this->phpVersions->defaultHidden($serverId)) {
+            $first = $this->phpVersions->usable($serverId, $clientIds, $mode)->first();
+
+            if ($first !== null) {
+                $forced['server_php_id'] = (int) $first->server_php_id;
+            }
         }
 
         return $forced;

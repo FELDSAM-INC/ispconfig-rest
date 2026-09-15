@@ -59,11 +59,11 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T013 [US2] Create `tests/Feature/WebPhpScopedKeyTest.php`: system/client mode intersection (sent on create, changed on update, unchanged accepted, empty system list), create default mode, server_php_id unknown/inactive/other server/other client/wrong mode → 422, own private version accepted, child vhost uses parent server, mode without versions stores 0, hidden default: omitted → first usable (sortprio, id), explicit 0 → 422, no usable version → 422, unchanged 0 on unrelated update accepted; admin unrestricted
+- [x] T013 [US2] Create `tests/Feature/WebPhpScopedKeyTest.php`: system/client mode intersection (sent on create, changed on update, unchanged accepted, empty system list), create default mode, server_php_id unknown/inactive/other server/other client/wrong mode → 422, own private version accepted, child vhost uses parent server, mode without versions stores 0, hidden default: omitted → first usable (sortprio, id), explicit 0 → 422, no usable version → 422, unchanged 0 on unrelated update accepted; admin unrestricted
 
 ### Implementation
 
-- [ ] T014 [US2] Implement PHP mode and version rules in `WebPermissionService::violations()` and the create default mode + hidden-default version in `forcedAttributes()` using `PhpVersionService` (`app/Services/WebPermissionService.php`)
+- [x] T014 [US2] Implement PHP mode and version rules in `WebPermissionService::violations()` and the create default mode + hidden-default version in `forcedAttributes()` using `PhpVersionService` (`app/Services/WebPermissionService.php`)
 
 **Checkpoint**: US1 + US2 green
 

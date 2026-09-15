@@ -46,6 +46,7 @@ Ordered by `sortprio`, `server_php_id`. Server `[web]` config: `php_default_hide
 | PHP mode | `The selected PHP mode is not available for this account.` |
 | PHP version | `The selected PHP version is not available for this website.` |
 | Hidden default | `A PHP version must be selected for this website.` |
+| Hidden default, no usable version | `No PHP version is available for the selected PHP mode on this website's server.` |
 | Options/SSL tab | `The :attribute setting can only be changed by an administrator.` |
 | Identity | `The :attribute of this website cannot be changed by this account.` |
 | Wildcard on child | `Wildcard subdomains are not available for this website type.` |
