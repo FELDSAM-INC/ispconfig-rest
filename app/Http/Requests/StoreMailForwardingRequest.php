@@ -21,7 +21,12 @@ class StoreMailForwardingRequest extends MailForwardingRequest
         return [
             'type' => ['required', 'string', Rule::in(MailForwarding::FORWARD_TYPES)],
             'source' => ['required', 'string', 'max:255', $this->sourceFormatRule(), $this->noActiveMailboxRule()],
-            'destination' => ['required', 'string', $this->destinationListRule()],
+            'destination' => [
+                'required',
+                'string',
+                $this->destinationListRule(),
+                $this->aliasDestinationsRule(fn (): string => (string) $this->input('type')),
+            ],
             'active' => ['sometimes', 'boolean'],
             'allow_send_as' => ['sometimes', 'boolean'],
             'greylisting' => ['sometimes', 'boolean'],

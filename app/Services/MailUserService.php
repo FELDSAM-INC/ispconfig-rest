@@ -57,7 +57,10 @@ class MailUserService
     {
         $domainPart = strtolower((string) substr(strrchr($email, '@') ?: '', 1));
 
-        $domain = DB::table('mail_domain')->where('domain', $domainPart)->first();
+        // Spec 024: only mail domains the key can read (legacy mail_user_edit.php:181-185).
+        $domain = $this->context->authScope()
+            ->applyReadPredicate(DB::table('mail_domain')->where('domain', $domainPart), 'r')
+            ->first();
 
         if ($domain === null) {
             throw new BadRequestHttpException("The domain '{$domainPart}' is not an existing mail domain.");

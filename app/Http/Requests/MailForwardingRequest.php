@@ -3,7 +3,9 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\NormalizesMailInput;
+use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\MailForwarding;
+use App\Support\IspContext;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -24,6 +26,7 @@ use Illuminate\Foundation\Http\FormRequest;
 abstract class MailForwardingRequest extends FormRequest
 {
     use NormalizesMailInput;
+    use ScopesReferences;
 
     public const CATCHALL_REGEX = '/^\@[\w\.\-]{1,255}\.[a-zA-Z\-]{2,63}$/';
 
@@ -78,6 +81,33 @@ abstract class MailForwardingRequest extends FormRequest
         $record = $this->route('mailForwarding');
 
         return $record instanceof MailForwarding ? $record : null;
+    }
+
+    /**
+     * Spec 024: for non-admin keys every destination of an alias must be a
+     * mailbox the key can read (legacy mail_alias_edit.php:108-112,
+     * no_destination_perm). Forwarders and catch-alls may still point to
+     * external addresses; admin keys are unchanged.
+     *
+     * @param  Closure(): string  $type  the rule type (input on create, stored on update)
+     */
+    protected function aliasDestinationsRule(Closure $type): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) use ($type): void {
+            if ($type() !== 'alias' || ! is_string($value) || app(IspContext::class)->authScope()->isAdmin) {
+                return;
+            }
+
+            $targets = array_filter(preg_split('/[,;\s]+/', trim($value)) ?: [], fn (string $t): bool => $t !== '');
+
+            foreach ($targets as $target) {
+                if ($this->readableQuery('mail_user')->where('email', $this->idnLowerEmail($target))->doesntExist()) {
+                    $fail('The destination must be the email address of an existing mailbox.');
+
+                    return;
+                }
+            }
+        };
     }
 
     /**

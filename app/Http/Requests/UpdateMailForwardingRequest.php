@@ -20,7 +20,12 @@ class UpdateMailForwardingRequest extends MailForwardingRequest
         return [
             'type' => ['sometimes', 'string', $this->immutableAttributeRule($current, 'type', 'type')],
             'source' => ['sometimes', 'string', $this->immutableAttributeRule($current, 'source', 'source')],
-            'destination' => ['sometimes', 'string', $this->destinationListRule()],
+            'destination' => [
+                'sometimes',
+                'string',
+                $this->destinationListRule(),
+                $this->aliasDestinationsRule(fn (): string => (string) ($current['type'] ?? '')),
+            ],
             'active' => ['sometimes', 'boolean'],
             'allow_send_as' => ['sometimes', 'boolean'],
             'greylisting' => ['sometimes', 'boolean'],

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMailAliasDomainRequest;
 use App\Http\Requests\UpdateMailAliasDomainRequest;
 use App\Models\MailAliasDomain;
+use App\Support\IspContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -123,7 +124,10 @@ class MailAliasDomainController extends Controller
     {
         $domainName = ltrim($value, '@');
 
-        $domain = DB::table('mail_domain')->where('domain', $domainName)->first();
+        // Spec 024: only mail domains the key can read (legacy no_domain_perm).
+        $domain = app(IspContext::class)->authScope()
+            ->applyReadPredicate(DB::table('mail_domain')->where('domain', $domainName), 'r')
+            ->first();
 
         if ($domain === null) {
             throw new BadRequestHttpException("The domain '{$domainName}' is not an existing mail domain.");

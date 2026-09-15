@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSpamfilterWBListRequest;
 use App\Http\Requests\UpdateSpamfilterWBListRequest;
 use App\Models\SpamfilterWBList;
+use App\Support\IspContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -113,7 +114,13 @@ class SpamfilterWBListController extends Controller
             return;
         }
 
-        if (! DB::table('spamfilter_users')->where('id', $rid)->exists()) {
+        // Spec 024: a spam filter user the key cannot read counts as missing
+        // (legacy spamfilter_whitelist.tform.php:84-93 datasource {AUTHSQL}).
+        $visible = app(IspContext::class)->authScope()
+            ->applyReadPredicate(DB::table('spamfilter_users')->where('id', $rid), 'r')
+            ->exists();
+
+        if (! $visible) {
             throw new NotFoundHttpException("Spamfilter user {$rid} does not exist.");
         }
     }

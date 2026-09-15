@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMailForwardingRequest;
 use App\Http\Requests\UpdateMailForwardingRequest;
 use App\Models\MailForwarding;
+use App\Support\IspContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -129,7 +130,10 @@ class MailForwardingController extends Controller
             ? substr($source, 1)
             : substr((string) strrchr($source, '@'), 1);
 
-        $domain = DB::table('mail_domain')->where('domain', $domainPart)->first();
+        // Spec 024: only mail domains the key can read (legacy no_domain_perm).
+        $domain = app(IspContext::class)->authScope()
+            ->applyReadPredicate(DB::table('mail_domain')->where('domain', $domainPart), 'r')
+            ->first();
 
         if ($domain === null) {
             throw new BadRequestHttpException("The domain '{$domainPart}' is not an existing mail domain.");

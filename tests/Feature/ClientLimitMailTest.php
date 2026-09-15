@@ -141,6 +141,10 @@ class ClientLimitMailTest extends TestCase
     public function test_forwarding_types_are_counted_independently(): void
     {
         $this->seedDomain('clientA', 'a-dom.test');
+        // Spec 024: an alias destination must be a mailbox the key can read.
+        DB::table('mail_user')->insert($this->ownedBy('clientA', [
+            'server_id' => 1, 'email' => 'box@a-dom.test', 'login' => 'box@a-dom.test', 'name' => 'Box', 'postfix' => 'y',
+        ]));
 
         // One existing alias, cap limit_mailalias = 1; limit_mailforward is
         // unlimited (-1 default).
