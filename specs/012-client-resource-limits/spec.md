@@ -143,7 +143,7 @@ Three limits are **SUM-of-quota caps**, not row counts: `limit_web_quota` (total
 - **FR-018**: Enforce the count layer for the three access-gated (`scope.limit:*`) resources once booked (limit > 0): `limit_mailrouting` (mail_transport), `limit_mail_wblist` (mail_access), `limit_spamfilter_wblist` (spamfilter_wblist). The 011 middleware gate handles `limit == 0`; `checkCreate` adds the `n > 0` counting.
 - **FR-019**: Enforce `limit_client` on `POST /clients` (reseller keys) with the **bespoke** count `client WHERE sys_groupid = {scope.sysGroupId}` (client_edit.php:68 — NOT `getAuthSQL('u')`), and `limit_domainmodule` on `POST /clients/domains` (domain table, `getAuthSQL('u')`).
 - **FR-020**: Enforce `limit_database_postgresql` on `POST /sites/databases` **only when** the payload `type == 'postgresql'`, with the bespoke count `web_database WHERE type='postgresql' AND sys_groupid = {scope.sysGroupId}` (database_edit.php:273), in addition to the `limit_database` count of FR-010.
-- **FR-021**: The system MUST NOT wire a count limit for `limit_dns_record` (no legacy call site) nor for `limit_spamfilter_policy`/`limit_spamfilter_user` (their create paths are admin-only per 011 FR-017 — unreachable by non-admin keys).
+- **FR-021**: *(Superseded for `limit_dns_record` by spec 030: legacy checks it inline in `dns_edit_base.php` and the record forms.)* The system MUST NOT wire a count limit for `limit_dns_record` (no legacy call site) nor for `limit_spamfilter_policy`/`limit_spamfilter_user` (their create paths are admin-only per 011 FR-017 — unreachable by non-admin keys).
 
 **P3 — quota-sum limits (distinct mechanism; independently deferrable)**
 
@@ -223,7 +223,7 @@ Legend: **count** = row-count limit via `checkClientLimit`; **quota-sum** = SUM(
 - **SC-003**: The reseller double-cap passes: client A under reseller R with `A.limit = -1`, `R.limit = n`, `n` rows across R's group set → A's create 403 ("Reseller:" detail); with fewer rows → 201.
 - **SC-004**: Per-**type** correctness: on `/mail/forwards`, `type='alias'` counts only against `limit_mailalias` (a `type='forward'` create still succeeds under `limit_mailforward`); on `/sites/web-domains`, only `type='vhost'` rows consume `limit_web_domain`.
 - **SC-005**: Every **P2** gated resource passes the same matrix; `limit_client` (reseller `POST /clients`) and `limit_database_postgresql` (postgres only) use their bespoke `sys_groupid` counts.
-- **SC-006**: `POST /dns/records` is **never** count-limited (regression guard against wiring `limit_dns_record`).
+- **SC-006**: `POST /dns/records` is **never** count-limited (regression guard against wiring `limit_dns_record`). *(Superseded by spec 030: records are capped by `limit_dns_record`.)*
 - **SC-007** (P3, if not deferred): the quota-sum matrix passes for `limit_mailquota`, `limit_web_quota`, `limit_database_quota`: `sum + new > limit` → 403; unlimited quota with a finite cap → 403; `-1` cap → any quota allowed; reseller-SUM variant enforced.
 - **SC-008**: The pre-existing suite (admin dev key) passes unchanged; the OpenAPI spec still parses (no shape drift).
 
