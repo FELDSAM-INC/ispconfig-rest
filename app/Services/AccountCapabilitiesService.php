@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Support\AuthScope;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Account capabilities for scoped keys (spec 021; contracts
@@ -66,6 +67,77 @@ class AccountCapabilitiesService
                 'php_default_mode' => $this->permissions->defaultPhpMode($account),
             ],
         ];
+    }
+
+    /**
+     * PHP versions a client's websites may use (FR-005…FR-008, research R3–R5):
+     * per web server of the account (or the named one), the server's default
+     * entry unless hidden, then the usable versions of the allowed version
+     * modes (optionally one mode) ordered by sortprio, id.
+     *
+     * @return array<int, array{id: int, name: string, server_id: int, modes: array<int, string>, is_default: bool}>
+     */
+    public function phpVersions(int $clientId, ?int $serverId, ?string $mode): array
+    {
+        $servers = $this->accountWebServers($clientId);
+
+        if ($serverId !== null) {
+            if (! in_array($serverId, $servers, true)) {
+                throw ValidationException::withMessages([
+                    'server_id' => 'The selected server is not a web server of this account.',
+                ]);
+            }
+
+            $servers = [$serverId];
+        }
+
+        $allowed = $this->permissions->forClient($clientId)['php_modes'];
+        $modes = array_values(array_filter(
+            PhpVersionService::VERSION_MODES,
+            fn (string $candidate): bool => in_array($candidate, $allowed, true) && ($mode === null || $candidate === $mode)
+        ));
+
+        if ($modes === []) {
+            return [];
+        }
+
+        $entries = [];
+
+        foreach ($servers as $id) {
+            if (! $this->phpVersions->defaultHidden($id)) {
+                $entries[] = [
+                    'id' => 0,
+                    'name' => $this->phpVersions->defaultName($id),
+                    'server_id' => $id,
+                    'modes' => $modes,
+                    'is_default' => true,
+                ];
+            }
+
+            $versions = [];
+
+            foreach ($modes as $candidate) {
+                foreach ($this->phpVersions->usable($id, [$clientId], $candidate) as $row) {
+                    $versions[(int) $row->server_php_id] ??= ['row' => $row, 'modes' => []];
+                    $versions[(int) $row->server_php_id]['modes'][] = $candidate;
+                }
+            }
+
+            uasort($versions, fn (array $a, array $b): int => [(int) $a['row']->sortprio, (int) $a['row']->server_php_id]
+                <=> [(int) $b['row']->sortprio, (int) $b['row']->server_php_id]);
+
+            foreach ($versions as $versionId => $version) {
+                $entries[] = [
+                    'id' => $versionId,
+                    'name' => (string) $version['row']->name,
+                    'server_id' => $id,
+                    'modes' => $version['modes'],
+                    'is_default' => false,
+                ];
+            }
+        }
+
+        return $entries;
     }
 
     /**

@@ -115,6 +115,8 @@ Scoped keys are also bound by their plan's **website options**, as in the ISPCon
 
 Only values that differ from the stored (or default) value are checked, so repeating a website's current settings is accepted. Admin keys are unaffected.
 
+A panel can read these rules with the customer's own key: `GET /api/v1/me/capabilities` returns the plan's website options, the allowed PHP modes (and the mode a new website gets) and whether the account is locked or canceled; `GET /api/v1/me/php-versions` lists the PHP versions the account's websites may use per web server and mode (`server_id`, `mode`), starting with the server's default version unless the server hides it. Reseller keys may pass `client_id` for one of their clients; admin keys must pass it.
+
 ### Managing keys over HTTP
 
 Admin keys manage keys remotely under `/system/api-keys` (client and reseller keys receive `403`):

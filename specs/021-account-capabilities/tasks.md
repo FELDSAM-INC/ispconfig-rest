@@ -56,12 +56,12 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T010 [US2] Create `tests/Feature/MePhpVersionsApiTest.php`: order and `modes` per version, `mode` filter, own/other private versions, inactive and binary-less versions excluded, default entry first when not hidden and absent when hidden (name from `php_default_name`), plan without version modes → empty, `server_id` outside the account → 422, invalid `server_id`/`mode` → 422, no `server_id` → assigned servers then hosting servers, admin `client_id` rules, `limit`/`offset` meta and 400 on bad values, unknown parameter 400, entries have exactly `id`, `name`, `server_id`, `modes`, `is_default`; pairing: every listed version accepted by `PUT /sites/web-domains/{id}` with that mode, an unlisted one refused
+- [x] T010 [US2] Create `tests/Feature/MePhpVersionsApiTest.php`: order and `modes` per version, `mode` filter, own/other private versions, inactive and binary-less versions excluded, default entry first when not hidden and absent when hidden (name from `php_default_name`), plan without version modes → empty, `server_id` outside the account → 422, invalid `server_id`/`mode` → 422, no `server_id` → assigned servers then hosting servers, admin `client_id` rules, `limit`/`offset` meta and 400 on bad values, unknown parameter 400, entries have exactly `id`, `name`, `server_id`, `modes`, `is_default`; pairing: every listed version accepted by `PUT /sites/web-domains/{id}` with that mode, an unlisted one refused
 
 ### Implementation
 
-- [ ] T011 [US2] Implement `AccountCapabilitiesService::phpVersions(int $clientId, ?int $serverId, ?string $mode)` in `app/Services/AccountCapabilitiesService.php`
-- [ ] T012 [US2] Create `app/Http/Controllers/Api/V1/MePhpVersionsController.php` (parameters, `HandlesListQuery` limit/offset, slicing) and route `me/php-versions` in `routes/api/me.php`
+- [x] T011 [US2] Implement `AccountCapabilitiesService::phpVersions(int $clientId, ?int $serverId, ?string $mode)` in `app/Services/AccountCapabilitiesService.php`
+- [x] T012 [US2] Create `app/Http/Controllers/Api/V1/MePhpVersionsController.php` (parameters, `HandlesListQuery` limit/offset, slicing) and route `me/php-versions` in `routes/api/me.php`
 
 **Checkpoint**: all stories green
 
@@ -69,7 +69,7 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 5: Polish
 
-- [ ] T013 [P] Document `GET /me/capabilities` and `GET /me/php-versions` in `README.md`
+- [x] T013 [P] Document `GET /me/capabilities` and `GET /me/php-versions` in `README.md`
 - [ ] T014 Run Pint on changed PHP files and the full suite in Docker
 - [ ] T015 Deploy to isp-test and run `specs/021-account-capabilities/quickstart.md` §2 with a temporary client; record results here
 

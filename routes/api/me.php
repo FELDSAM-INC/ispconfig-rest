@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\MeCapabilitiesController;
 use App\Http\Controllers\Api\V1\MeController;
+use App\Http\Controllers\Api\V1\MePhpVersionsController;
 use App\Http\Controllers\Api\V1\MeServersController;
 use Illuminate\Support\Facades\Route;
 
@@ -22,3 +23,6 @@ Route::get('me/servers', MeServersController::class);
 
 // Website capabilities of the account — api/modules/me/capabilities.yaml (spec 021)
 Route::get('me/capabilities', MeCapabilitiesController::class);
+
+// PHP versions the account's websites may use — api/modules/me/php-versions.yaml (spec 021)
+Route::get('me/php-versions', MePhpVersionsController::class);
