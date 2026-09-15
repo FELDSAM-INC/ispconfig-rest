@@ -47,8 +47,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 4: User Story 2 — failure reasons (P2)
 
-- [ ] T008 [US2] Tests: each legacy warning text (research R3 table) → reason code; precedence when several rows exist; rows matched by `datalog_id` and by domain after the request tstamp; rows of other servers/domains, older rows and debug rows ignored; `domains` parsed and validated; no log text or command in the body; `excluded_domains` for issued
-- [ ] T009 [US2] Implement the `sys_log` lookup, pattern parsing, precedence, fixed detail texts and `excluded_domains` in `app/Services/LetsEncryptStatusService.php`
+- [x] T008 [US2] Tests: each legacy warning text (research R3 table) → reason code; precedence when several rows exist; rows matched by `datalog_id` and by domain after the request tstamp; rows of other servers/domains, older rows and debug rows ignored; `domains` parsed and validated; no log text or command in the body; `excluded_domains` for issued
+- [x] T009 [US2] Implement the `sys_log` lookup, pattern parsing, precedence, fixed detail texts and `excluded_domains` in `app/Services/LetsEncryptStatusService.php`
 
 **Checkpoint**: US2 tests pass, full suite green
 

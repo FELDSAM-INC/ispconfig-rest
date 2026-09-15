@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\WebDomain;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -22,6 +23,12 @@ class LetsEncryptStatusService
 {
     /** Newest journal entries of the website scanned for a relevant change. */
     public const SCAN_LIMIT = 50;
+
+    /** Reason precedence (research R3). */
+    public const REASON_ORDER = ['client_unavailable', 'domain_not_reachable', 'issuance_failed', 'certificate_not_found'];
+
+    /** Maximum log rows inspected per request. */
+    public const LOG_LIMIT = 100;
 
     public const REASON_DETAILS = [
         'domain_not_reachable' => 'The domain does not point to this server yet, so the certificate authority could not verify it.',
@@ -72,7 +79,7 @@ class LetsEncryptStatusService
             'change_set_id' => $changeSetId,
             'change_status' => $changeStatus,
             'failure' => $state === 'failed' ? $this->failure($raw, $entry) : null,
-            'excluded_domains' => [],
+            'excluded_domains' => $state === 'issued' && $entry !== null ? $this->excludedDomains($raw, $entry) : [],
             'certificate' => null,
         ];
     }
@@ -127,12 +134,124 @@ class LetsEncryptStatusService
     }
 
     /**
+     * Why the request failed, from the letsencrypt class warnings the server
+     * logged (research R3): rows of the website's server with log level >=
+     * warning tied to the request entry or naming the domain afterwards.
+     *
      * @param  array<string, mixed>  $raw
      * @return array{reason: string, detail: string, domains: array<int, string>}
      */
     protected function failure(array $raw, ?object $entry): array
     {
+        $found = [];
+
+        foreach ($entry !== null ? $this->logRows($raw, $entry) : [] as $message) {
+            [$reason, $domain] = $this->classify((string) $message);
+
+            if ($reason === null) {
+                continue;
+            }
+
+            $found[$reason] ??= [];
+
+            if ($domain !== null) {
+                $found[$reason][] = $domain;
+            }
+        }
+
+        foreach (self::REASON_ORDER as $reason) {
+            if (array_key_exists($reason, $found)) {
+                return [
+                    'reason' => $reason,
+                    'detail' => self::REASON_DETAILS[$reason],
+                    'domains' => array_values(array_unique($found[$reason])),
+                ];
+            }
+        }
+
         return ['reason' => 'unknown', 'detail' => self::REASON_DETAILS['unknown'], 'domains' => []];
+    }
+
+    /**
+     * Domains left out of an issued certificate (letsencrypt.inc.php:390).
+     *
+     * @param  array<string, mixed>  $raw
+     * @return array<int, string>
+     */
+    protected function excludedDomains(array $raw, object $entry): array
+    {
+        $domains = [];
+
+        foreach ($this->logRows($raw, $entry) as $message) {
+            [$reason, $domain] = $this->classify((string) $message);
+
+            if ($reason === 'domain_not_reachable' && $domain !== null) {
+                $domains[] = $domain;
+            }
+        }
+
+        return array_values(array_unique($domains));
+    }
+
+    /**
+     * @param  array<string, mixed>  $raw
+     * @return Collection<int, string|null>
+     */
+    protected function logRows(array $raw, object $entry): Collection
+    {
+        $pattern = '%'.strtr(strtolower((string) ($raw['domain'] ?? '')), ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
+
+        return DB::table('sys_log')
+            ->where('server_id', (int) ($raw['server_id'] ?? 0))
+            ->where('loglevel', '>=', 1)
+            ->where(function ($query) use ($entry, $pattern): void {
+                $query->where('datalog_id', (int) $entry->datalog_id)
+                    ->orWhere(function ($query) use ($entry, $pattern): void {
+                        $query->where('tstamp', '>=', (int) $entry->tstamp)
+                            ->whereRaw("LOWER(message) LIKE ? ESCAPE '!'", [$pattern]);
+                    });
+            })
+            ->orderBy('syslog_id')
+            ->limit(self::LOG_LIMIT)
+            ->pluck('message');
+    }
+
+    /**
+     * Map one legacy warning to a reason code and the domain it names.
+     *
+     * @return array{0: string|null, 1: string|null}
+     */
+    protected function classify(string $message): array
+    {
+        $message = trim($message);
+
+        if (stripos($message, "no Let's Encrypt client found") !== false || stripos($message, 'Unable to install acme.sh') !== false) {
+            return ['client_unavailable', null];
+        }
+
+        if (preg_match("/^Could not verify domain (\\S+), so excluding it from let's encrypt request/i", $message, $match)) {
+            return ['domain_not_reachable', $this->hostname($match[1])];
+        }
+
+        if (preg_match("/^Let's Encrypt SSL Cert for (\\S+) via \\S+ could not be issued/i", $message, $match)) {
+            return ['issuance_failed', $this->hostname($match[1])];
+        }
+
+        if (stripos($message, 'could not find the issued certificate') !== false) {
+            return ['certificate_not_found', null];
+        }
+
+        return [null, null];
+    }
+
+    /**
+     * A lower-cased hostname (optionally wildcard) or null.
+     */
+    protected function hostname(string $value): ?string
+    {
+        $value = strtolower(trim($value));
+
+        return preg_match('/^(\*\.)?([a-z0-9-]{1,63}\.)+[a-z0-9-]{1,63}$/', $value) === 1 ? $value : null;
     }
 
     protected function yes(mixed $value): bool

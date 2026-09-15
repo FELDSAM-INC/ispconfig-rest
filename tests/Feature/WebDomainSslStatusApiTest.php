@@ -296,4 +296,135 @@ class WebDomainSslStatusApiTest extends TestCase
         $this->sslStatus($alias)->assertStatus(404);
         $this->sslStatus(999_999)->assertStatus(404);
     }
+    // ------------------------------------------------------------------
+    // US2 — failure reasons (letsencrypt.inc.php warnings in sys_log)
+    // ------------------------------------------------------------------
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    protected function log(string $message, array $row = []): void
+    {
+        DB::table('sys_log')->insert(array_merge([
+            'server_id' => 1, 'datalog_id' => 0, 'loglevel' => 1, 'tstamp' => 1_789_000_050, 'message' => $message,
+        ], $row));
+    }
+
+    /**
+     * A failed request: returns [site id, domain, entry id].
+     *
+     * @return array{0: int, 1: string, 2: int}
+     */
+    protected function failedRequest(): array
+    {
+        $site = $this->site();
+        $entry = $this->enableEntry($site, ['tstamp' => 1_789_000_000]);
+        $this->processedUpTo($entry);
+        $domain = (string) DB::table('web_domain')->where('domain_id', $site)->value('domain');
+
+        return [$site, $domain, $entry];
+    }
+
+    public function test_unreachable_domains_are_reported(): void
+    {
+        [$site, $domain, $entry] = $this->failedRequest();
+        $this->log("Could not verify domain {$domain}, so excluding it from let's encrypt request.", ['datalog_id' => $entry]);
+        $this->log("Could not verify domain www.{$domain}, so excluding it from let's encrypt request.", ['datalog_id' => $entry]);
+
+        $this->sslStatus($site)->assertOk()->assertJsonPath('failure', [
+            'reason' => 'domain_not_reachable',
+            'detail' => 'The domain does not point to this server yet, so the certificate authority could not verify it.',
+            'domains' => [$domain, "www.{$domain}"],
+        ]);
+    }
+
+    public function test_issuance_failure_matched_by_domain_after_the_request_hides_the_command(): void
+    {
+        [$site, $domain] = $this->failedRequest();
+        $this->log("Let's Encrypt SSL Cert for {$domain} via acme.sh could not be issued. Used command: /root/.acme.sh/acme.sh --issue -w /usr/local/ispconfig/interface/acme -d {$domain} --secret-token");
+
+        $response = $this->sslStatus($site)->assertOk()
+            ->assertJsonPath('failure.reason', 'issuance_failed')
+            ->assertJsonPath('failure.domains', [$domain]);
+
+        foreach (['acme.sh', 'Used command', '/root', '/usr/local', 'secret-token'] as $leak) {
+            $this->assertStringNotContainsString($leak, $response->getContent());
+        }
+    }
+
+    public function test_missing_client_takes_precedence(): void
+    {
+        [$site, $domain, $entry] = $this->failedRequest();
+        $this->log("Let's Encrypt SSL Cert for {$domain} via certbot could not be issued. Used command: certbot certonly", ['datalog_id' => $entry]);
+        $this->log('Unable to install acme.sh.  Cannot proceed, no Let\'s Encrypt client found.', ['datalog_id' => $entry, 'loglevel' => 1]);
+
+        $this->sslStatus($site)->assertOk()
+            ->assertJsonPath('failure.reason', 'client_unavailable')
+            ->assertJsonPath('failure.domains', []);
+    }
+
+    public function test_certificate_not_found_is_reported(): void
+    {
+        [$site, , $entry] = $this->failedRequest();
+        $this->log("Let's Encrypt Cert file: could not find the issued certificate", ['datalog_id' => $entry]);
+
+        $this->sslStatus($site)->assertOk()->assertJsonPath('failure.reason', 'certificate_not_found');
+    }
+
+    public function test_unreachable_domain_takes_precedence_over_issuance_failure(): void
+    {
+        [$site, $domain, $entry] = $this->failedRequest();
+        $this->log("Let's Encrypt SSL Cert for {$domain} via acme.sh could not be issued. Used command: x", ['datalog_id' => $entry]);
+        $this->log("Could not verify domain {$domain}, so excluding it from let's encrypt request.", ['datalog_id' => $entry]);
+
+        $this->sslStatus($site)->assertOk()->assertJsonPath('failure.reason', 'domain_not_reachable');
+    }
+
+    public function test_unrelated_log_rows_are_ignored(): void
+    {
+        [$site, $domain] = $this->failedRequest();
+        $this->log("Could not verify domain {$domain}, so excluding it from let's encrypt request.", ['server_id' => 2]);
+        $this->log("Could not verify domain other.example.org, so excluding it from let's encrypt request.");
+        $this->log("Let's Encrypt SSL Cert for {$domain} via acme.sh could not be issued. Used command: x", ['tstamp' => 1_788_000_000]);
+        $this->log("Let's Encrypt SSL Cert for {$domain} via acme.sh could not be issued. Used command: x", ['loglevel' => 0]);
+
+        $this->sslStatus($site)->assertOk()->assertJsonPath('failure', [
+            'reason' => 'unknown',
+            'detail' => 'The certificate could not be issued. Make sure the domain points to this server and try again.',
+            'domains' => [],
+        ]);
+    }
+
+    public function test_invalid_domain_names_are_not_returned(): void
+    {
+        [$site, , $entry] = $this->failedRequest();
+        $this->log("Could not verify domain ../../etc/passwd, so excluding it from let's encrypt request.", ['datalog_id' => $entry]);
+
+        $this->sslStatus($site)->assertOk()
+            ->assertJsonPath('failure.reason', 'domain_not_reachable')
+            ->assertJsonPath('failure.domains', []);
+    }
+
+    public function test_issued_certificate_lists_excluded_domains(): void
+    {
+        $site = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'y']);
+        $domain = (string) DB::table('web_domain')->where('domain_id', $site)->value('domain');
+        $entry = $this->enableEntry($site);
+        $this->processedUpTo($entry);
+        $this->log("Could not verify domain www.{$domain}, so excluding it from let's encrypt request.", ['datalog_id' => $entry]);
+
+        $this->sslStatus($site)->assertOk()
+            ->assertJsonPath('state', 'issued')
+            ->assertJsonPath('failure', null)
+            ->assertJsonPath('excluded_domains', ["www.{$domain}"]);
+    }
+
+    public function test_later_failure_of_an_issued_certificate_uses_rows_after_the_request(): void
+    {
+        [$site, $domain] = $this->failedRequest();
+        // Written while processing another website's change (no datalog id of this request).
+        $this->log("Let's Encrypt SSL Cert for {$domain} via acme.sh could not be issued. Used command: x", ['tstamp' => 1_789_900_000, 'datalog_id' => 777]);
+
+        $this->sslStatus($site)->assertOk()->assertJsonPath('failure.reason', 'issuance_failed');
+    }
 }
