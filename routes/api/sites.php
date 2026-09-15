@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\V1\CronJobController;
 use App\Http\Controllers\Api\V1\FtpUserController;
 use App\Http\Controllers\Api\V1\ShellUserController;
+use App\Http\Controllers\Api\V1\WebBackupController;
+use App\Http\Controllers\Api\V1\WebBackupJobController;
 use App\Http\Controllers\Api\V1\WebChildDomainController;
 use App\Http\Controllers\Api\V1\WebDatabaseController;
 use App\Http\Controllers\Api\V1\WebDatabaseUserController;
@@ -24,6 +26,16 @@ use Illuminate\Support\Facades\Route;
 | All other sites resources use distinct literal prefixes and cannot shadow
 | each other.
 */
+
+// Website backups — api/modules/sites/web-backups.yaml (feature 018), most specific first.
+// scope.backup (vhost-only 404, limit_backup 403) runs after route-model binding.
+Route::middleware('scope.backup')->group(function (): void {
+    Route::post('sites/web-domains/{webDomain}/backups/{backup}/restore', [WebBackupController::class, 'restore'])->whereNumber(['webDomain', 'backup']);
+    Route::get('sites/web-domains/{webDomain}/backups/{backup}', [WebBackupController::class, 'show'])->whereNumber(['webDomain', 'backup']);
+    Route::get('sites/web-domains/{webDomain}/backups', [WebBackupController::class, 'index'])->whereNumber('webDomain');
+    Route::get('sites/web-domains/{webDomain}/backup-jobs/{job}', [WebBackupJobController::class, 'show'])->whereNumber(['webDomain', 'job']);
+    Route::get('sites/web-domains/{webDomain}/backup-jobs', [WebBackupJobController::class, 'index'])->whereNumber('webDomain');
+});
 
 // Web Domain SSL subresource — api/modules/sites/web-domains.yaml (most specific first)
 Route::post('sites/web-domains/{webDomain}/ssl/renew', [WebDomainSslController::class, 'renew'])->whereNumber('webDomain');
