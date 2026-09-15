@@ -100,16 +100,47 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 - [x] T025 [P] Document both endpoints in the DNS paragraph of `README.md` (template visibility rule, one-call zone creation, both caps enforced for the batch)
 - [x] T026 [P] Mark the "legacy wizard has no REST counterpart" statements in `specs/002-dns-management/spec.md` as superseded by spec 029
-- [ ] T027 Run Pint on the changed files and the full suite in Docker on PHP 8.3 (expect baseline 1158 + the new tests)
+- [x] T027 Run Pint on the changed files and the full suite in Docker on PHP 8.3 (expect baseline 1158 + the new tests)
 
 ---
 
 ## Phase 7: Deployment & verification
 
-- [ ] T028 Deploy to isp-test (`ispconfig-rest update && ispconfig-rest status`) and confirm the running commit
-- [ ] T029 Run quickstart.md §2 with a temporary client (template list, expansion, panel-wizard parity diff, both caps, invisible template, DKIM, DNSSEC, unassigned server), then clean up temporary clients, zones, mail domains and QA keys and verify no leftovers
-- [ ] T030 Record the verification results in this file and commit
+- [x] T028 Deploy to isp-test (`ispconfig-rest update && ispconfig-rest status`) and confirm the running commit
+- [x] T029 Run quickstart.md §2 with a temporary client (template list, expansion, panel-wizard parity diff, both caps, invisible template, DKIM, DNSSEC, unassigned server), then clean up temporary clients, zones, mail domains and QA keys and verify no leftovers
+- [x] T030 Record the verification results in this file and commit
 
 ## Results
 
-_(filled in after T029)_
+Verified on isp-test (deployed commit `d3e3754`) on 2026-09-16 with a temporary client (`QA029-…`, client 34), its
+own client key and a QA admin key. Every row created for the run was deleted afterwards.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `GET /dns/zone-templates` with a client key | 200; the administrator-owned "Default" template listed with its `fields` array |
+| 2 | `GET /dns/templates` with the same key | `meta.total` 0 — spec 011 row scoping unchanged |
+| 3 | Wizard create | 201 + `X-Change-Set-Id`; `origin`/`ns`/`mbox` dot-terminated and lower-cased, `mbox` `@`→`.`, SOA timers from the template, zone active |
+| 4 | Records | exactly the template's seven rows with the placeholders replaced (A apex/www/mail, 2× NS, MX aux 10, SPF TXT) |
+| 5 | Journal | `dns_soa i` → 7× `dns_rr i` → `dns_soa u`, all sharing one change set |
+| 6 | Server side | processed in 1 s; `pri.<zone>` written for all three zones and `named-checkzone` OK for each; the rendered zone body matches the template |
+| 7 | `dnssec: true` | zone created with `dnssec_wanted` true; the server generated KSK + ZSK and a `dsset-` file (deviation 7 — legacy's injected flag is overwritten by the template and does nothing) |
+| 8 | `dkim: true` | `default._domainkey.<domain>.` TXT added with the published key and the zone's TTL 3600 (deviation 5 — legacy stores TTL 0) |
+| 9 | Record cap (`limit_dns_record` 3) | 403 `limit-reached`, `limit.name` `limit_dns_record`, `max` 3, **no journal entry** — refused before any write (deviation 1) |
+| 10 | Zone cap (`limit_dns_zone` 3 with 3 zones) | 403 `limit-reached`, `limit.name` `limit_dns_zone`, no journal entry |
+| 11 | Hidden template | absent from `/dns/zone-templates`; the wizard refuses its id with 422 on `template_id` (deviation 3) |
+| 12 | Missing placeholder (`ip`) | 422 `errors.ip` — a literal `{IP}` is never written (deviation 2) |
+| 13 | `server_id` 99 | 422 with `error_types.server_id` = `server-not-assigned` |
+| 14 | Duplicate origin | 409 |
+
+**Panel-wizard comparison** (quickstart §2 step 7): done at code level (research R1) instead of driving the
+ISPConfig UI, which needs an interactive session. The API writes the same rows, in the same order, from the same
+template text, and the zone file bind rendered was compared against the template line by line.
+
+**Observation, not part of this feature**: `PUT /clients/{id}` rejects `dns_servers`/`mail_servers` sent as JSON
+arrays — `Client.yaml` types them as comma-separated strings, so `"1"` is required. The run therefore used the
+default servers ISPConfig assigns to a new client, which is why the zones still landed on server 1.
+
+**Cleanup**: the three zones, the mail domain, the temporary template and the client were deleted through the API;
+after the server finished processing, no `qa029` rows, bind zone files, DNSSEC key files or `named.conf.local`
+references remained, and the QA keys were deleted by SQL. Keys 1, 2, 20, 27, 50 and clients C1, C2, WHMCS-2 are
+pre-existing and untouched; `dns_template` holds only the shipped "Default" row.
