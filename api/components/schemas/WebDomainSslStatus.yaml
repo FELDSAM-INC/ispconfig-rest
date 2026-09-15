@@ -1,0 +1,127 @@
+# Let's Encrypt issuance outcome of one website (spec 022).
+# Derived read-only from web_domain, the change journal, the server processing watermark and the server's
+# processing log; never contains paths, commands or log text.
+type: object
+description: |
+  Let's Encrypt outcome of a website. `state`:
+  - `none` — Let's Encrypt is not enabled (or was switched off by the newest change);
+  - `requested` — the change enabling Let's Encrypt waits for the web server (`change_status` pending or stalled);
+  - `issued` — the server processed the request and Let's Encrypt is still enabled;
+  - `failed` — the server processed the request and switched Let's Encrypt off (issuance failed).
+additionalProperties: false
+required:
+  - website_id
+  - domain
+  - https_enabled
+  - letsencrypt_enabled
+  - state
+  - requested_at
+  - change_set_id
+  - change_status
+  - failure
+  - excluded_domains
+  - certificate
+properties:
+  website_id:
+    type: integer
+    format: int64
+    description: Website id (`web_domain.domain_id`).
+    example: 12
+  domain:
+    type: string
+    description: Website domain.
+    example: shop.example.com
+  https_enabled:
+    type: boolean
+    description: Current `ssl` flag of the website.
+    example: true
+  letsencrypt_enabled:
+    type: boolean
+    description: Current `ssl_letsencrypt` flag of the website.
+    example: true
+  state:
+    type: string
+    enum: [none, requested, issued, failed]
+    example: issued
+  requested_at:
+    type: string
+    format: date-time
+    nullable: true
+    description: Time of the change that requested the certificate (API timezone); null when unknown.
+    example: '2026-09-15T18:02:11+02:00'
+  change_set_id:
+    type: string
+    nullable: true
+    description: Change set of the requesting change (see `GET /changes/{change_set_id}`); null when unknown.
+    example: 3f2b7c0d9e8a4b1c
+  change_status:
+    type: string
+    enum: [pending, applied, failed, stalled]
+    nullable: true
+    description: Processing status of the requesting change (spec 015); null when unknown.
+    example: applied
+  failure:
+    type: object
+    nullable: true
+    description: Why issuance failed; present only when `state` is `failed`.
+    additionalProperties: false
+    required:
+      - reason
+      - detail
+      - domains
+    properties:
+      reason:
+        type: string
+        enum: [domain_not_reachable, issuance_failed, certificate_not_found, client_unavailable, unknown]
+        description: |
+          `domain_not_reachable` — the domain(s) do not point to the server; `issuance_failed` — the certificate
+          authority refused; `certificate_not_found` — issued but not installed; `client_unavailable` — no ACME client
+          on the server; `unknown` — the server did not log a reason (log level above Warning).
+        example: domain_not_reachable
+      detail:
+        type: string
+        description: Fixed human-readable explanation for the reason.
+        example: The domain does not point to this server yet, so the certificate authority could not verify it.
+      domains:
+        type: array
+        description: Domain names the server reported for this reason (may be empty).
+        items:
+          type: string
+        example: [shop.example.com]
+  excluded_domains:
+    type: array
+    description: Domains the server left out of an issued certificate because they did not point to it.
+    items:
+      type: string
+    example: []
+  certificate:
+    type: object
+    nullable: true
+    description: |
+      Validity of the issued certificate; present only when `state` is `issued` and the certificate file is readable
+      by the API (single-server installations or a shared web root), otherwise null.
+    additionalProperties: false
+    required:
+      - valid_from
+      - expires_at
+      - issuer
+      - domains
+    properties:
+      valid_from:
+        type: string
+        format: date-time
+        example: '2026-09-15T17:03:00+02:00'
+      expires_at:
+        type: string
+        format: date-time
+        example: '2026-12-14T17:02:59+01:00'
+      issuer:
+        type: string
+        description: Issuer organisation (or common name).
+        example: Let's Encrypt
+      domains:
+        type: array
+        description: Domain names covered by the certificate.
+        items:
+          type: string
+        example: [shop.example.com, www.shop.example.com]

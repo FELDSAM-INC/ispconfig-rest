@@ -267,6 +267,45 @@
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
 
+# Let's Encrypt issuance outcome (spec 022) — read-only, registered before /ssl
+/sites/web-domains/{id}/ssl/status:
+  get:
+    tags:
+      - Web Domains
+    summary: Get Let's Encrypt issuance outcome
+    description: |
+      Reports whether a Let's Encrypt certificate for the website is not enabled, requested, issued or failed.
+
+      ISPConfig's web server plugin requests the certificate while it applies the change that enables
+      `ssl` + `ssl_letsencrypt`; when issuance fails it switches `ssl_letsencrypt` (and `ssl`, if HTTPS was off
+      before) back off without a journal entry. The outcome is derived from the newest change that requested or
+      switched off Let's Encrypt, its processing status (see `/changes`) and the current flags. Failure reasons come
+      from the server's processing log and are available only when the server log level is Warning or Debug
+      (`unknown` otherwise). Certificate validity is returned only when the API can read the public certificate file.
+
+      Readable by every key that can read the website (no plan gate). Read-only: no `X-Change-Set-Id` header.
+    parameters:
+      - name: id
+        in: path
+        description: ID of the web domain
+        required: true
+        schema:
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: Let's Encrypt outcome of the website
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/WebDomainSslStatus.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
 # SSL Certificate subresource (maps to the ssl_* columns of web_domain)
 /sites/web-domains/{id}/ssl:
   get:

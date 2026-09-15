@@ -21,9 +21,9 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 1: Setup (contract first)
 
-- [ ] T001 [P] Create `api/components/schemas/WebDomainSslStatus.yaml` per data-model.md (with nested failure and certificate objects) and register it in `api/components/schemas/_index.yaml`
-- [ ] T002 Add the path item `/sites/web-domains/{id}/ssl/status` to `api/modules/sites/web-domains.yaml` per contracts/ssl-status.md and register it in `api/openapi.yaml` above `/sites/web-domains/{id}/ssl`
-- [ ] T003 Verify the YAML parses and every new `$ref` resolves (`tests/Feature/SwaggerSpecServerTest.php` plus a ref check)
+- [x] T001 [P] Create `api/components/schemas/WebDomainSslStatus.yaml` per data-model.md (with nested failure and certificate objects) and register it in `api/components/schemas/_index.yaml`
+- [x] T002 Add the path item `/sites/web-domains/{id}/ssl/status` to `api/modules/sites/web-domains.yaml` per contracts/ssl-status.md and register it in `api/openapi.yaml` above `/sites/web-domains/{id}/ssl`
+- [x] T003 Verify the YAML parses and every new `$ref` resolves (`tests/Feature/SwaggerSpecServerTest.php` plus a ref check)
 
 ---
 

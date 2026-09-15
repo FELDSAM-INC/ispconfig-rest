@@ -262,6 +262,9 @@ TrafficHistory:
   $ref: './TrafficHistory.yaml'
 WebDomainUsage:
   $ref: './WebDomainUsage.yaml'
+
+WebDomainSslStatus:
+  $ref: './WebDomainSslStatus.yaml'
 MailUserUsage:
   $ref: './MailUserUsage.yaml'
 DatabaseUsage:

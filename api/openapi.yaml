@@ -489,6 +489,8 @@ paths:
     $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains'
   /sites/web-domains/{id}:
     $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains~1{id}'
+  /sites/web-domains/{id}/ssl/status:
+    $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains~1{id}~1ssl~1status'
   /sites/web-domains/{id}/ssl:
     $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains~1{id}~1ssl'
   /sites/web-domains/{id}/ssl/renew:
