@@ -194,6 +194,9 @@ AssignedServer:
 AccountCapabilities:
   $ref: './AccountCapabilities.yaml'
 
+AccountSitesCapabilities:
+  $ref: './AccountSitesCapabilities.yaml'
+
 AccountPhpVersion:
   $ref: './AccountPhpVersion.yaml'
 

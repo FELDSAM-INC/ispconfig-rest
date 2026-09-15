@@ -1,0 +1,117 @@
+# Hosting capabilities of an account for its own API key (spec 035).
+# Derived per request from the `client` row, its `sys_group` and the [sites]
+# section of the sys_ini blob, with the rules the sites endpoints enforce for
+# client and reseller keys. Read-only.
+type: object
+description: |
+  What the account may do with databases, database users, FTP accounts, SSH access and scheduled tasks — the name
+  prefixes its entries receive and the plan rules the sites endpoints enforce for its own key.
+additionalProperties: false
+required:
+  - prefixes
+  - databases
+  - shell
+  - cron
+properties:
+  prefixes:
+    type: object
+    description: |
+      The strings ISPConfig prepends to the names of new entries of this account, already resolved
+      (`[CLIENTID]` → the client id, `[CLIENTNAME]` → the normalized client group name). A `[DOMAINID]` placeholder
+      stays unresolved because a capability describes the account, not one website — legacy leaves it in the same
+      situation. Empty when the installation configures no prefix.
+    additionalProperties: false
+    required:
+      - database
+      - database_user
+      - ftp_user
+      - shell_user
+      - webdav_user
+    properties:
+      database:
+        type: string
+        description: Prefix of new database names (`dbname_prefix`).
+        example: c42_
+      database_user:
+        type: string
+        description: Prefix of new database user names (`dbuser_prefix`).
+        example: c42_
+      ftp_user:
+        type: string
+        description: Prefix of new FTP user names (`ftpuser_prefix`).
+        example: webhostingcz_
+      shell_user:
+        type: string
+        description: Prefix of new SSH user names (`shelluser_prefix`).
+        example: webhostingcz_
+      webdav_user:
+        type: string
+        description: Prefix of new WebDAV user names (`webdavuser_prefix`).
+        example: webhostingcz_
+  databases:
+    type: object
+    description: Database options of the plan.
+    additionalProperties: false
+    required:
+      - quota_limit_mb
+      - remote_access
+    properties:
+      quota_limit_mb:
+        type: integer
+        nullable: true
+        description: |
+          Total database size the plan allows in MB (`limit_database_quota`), enforced as a sum over the account's
+          databases. Null when the plan does not limit it.
+        example: 2048
+      remote_access:
+        type: boolean
+        description: |
+          The account may allow connections to its databases from other hosts. Always true — ISPConfig has no
+          permission for remote access, so every client may switch it on.
+        example: true
+  shell:
+    type: object
+    description: SSH (shell) options of the plan.
+    additionalProperties: false
+    required:
+      - available
+      - chroot_options
+    properties:
+      available:
+        type: boolean
+        description: The plan includes SSH access (`limit_shell_user` is not 0).
+        example: true
+      chroot_options:
+        type: array
+        description: |
+          The isolation modes the account may choose for an SSH account (`client.ssh_chroot` intersected with the
+          modes ISPConfig offers). Empty when SSH access is not available.
+        items:
+          type: string
+          enum: [no, jailkit, ssh-chroot]
+        example: [no, jailkit]
+  cron:
+    type: object
+    description: Scheduled task rules of the plan.
+    additionalProperties: false
+    required:
+      - types
+      - min_interval_minutes
+    properties:
+      types:
+        type: array
+        description: |
+          The kinds of scheduled task the account can reach (`limit_cron_type`): `url` calls a web address,
+          `chrooted` runs a command in an isolated environment, `full` runs it as the website's system user. A task
+          whose command is an `http(s)://` address always becomes `url`.
+        items:
+          type: string
+          enum: [url, chrooted, full]
+        example: [url, chrooted]
+      min_interval_minutes:
+        type: integer
+        nullable: true
+        description: |
+          The shortest interval between two runs the plan allows, in minutes (`limit_cron_frequency`). Null when the
+          plan does not constrain it (a value of 0 or 1 never refuses a schedule).
+        example: 5

@@ -13,6 +13,7 @@ required:
   - canceled
   - web
   - mail
+  - sites
 properties:
   client_id:
     type: integer
@@ -179,3 +180,9 @@ properties:
         example: false
       password_policy:
         $ref: './MailPasswordPolicy.yaml'
+  sites:
+    description: |
+      Hosting options of the account for databases, database users, FTP accounts, SSH access and scheduled tasks
+      (spec 035): the name prefixes new entries receive and the plan rules the sites endpoints enforce.
+    allOf:
+      - $ref: './AccountSitesCapabilities.yaml'

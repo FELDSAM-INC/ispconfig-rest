@@ -69,6 +69,11 @@
       - `server_id` is forced to 0 (provisioned on all relevant servers)
       - The plaintext password populates the MySQL, SHA2 and PostgreSQL
         hash columns; plaintext is never stored
+
+      For client and reseller keys the account's `limit_database_user` cap applies (legacy
+      `database_user_edit.php:58-63`): past the cap the request is refused with 403 `limit-reached`
+      (`limit.name = limit_database_user`, plus the reseller's cap with `scope: reseller`) and nothing is journaled.
+      The account's usage is readable from `GET /usage/summary` (`counts.database_users`, spec 035).
     requestBody:
       required: true
       content:

@@ -52,6 +52,7 @@ properties:
       - mail_filters
       - fetchmail_accounts
       - dns_records
+      - database_users
     properties:
       web_domains:
         $ref: './UsageCount.yaml'
@@ -87,6 +88,10 @@ properties:
         $ref: './UsageCount.yaml'
       dns_records:
         description: DNS records carrying the client's group against `limit_dns_record` (spec 030).
+        allOf:
+          - $ref: './UsageCount.yaml'
+      database_users:
+        description: Database users the key may read against `limit_database_user` (spec 035).
         allOf:
           - $ref: './UsageCount.yaml'
   period:
