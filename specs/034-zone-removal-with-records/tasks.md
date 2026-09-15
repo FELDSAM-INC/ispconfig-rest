@@ -51,8 +51,36 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 - [x] T007 [P] Remove the deviation from `README.md` "Known deviations" and add a superseded note to spec 002 SC-006 in `specs/002-dns-management/spec.md`
 - [x] T008 Run Pint on changed PHP files and the full suite in Docker
-- [ ] T009 Deploy to isp-test and run `specs/034-zone-removal-with-records/quickstart.md` §2 with a temporary client, including the bind zone file check; record results here
+- [x] T009 Deploy to isp-test and run `specs/034-zone-removal-with-records/quickstart.md` §2 with a temporary client, including the bind zone file check; record results here
 
 ## Dependencies
 
 Phase 1 → US1 → US2 → Polish. T003/T004 before T005.
+
+## Results (T008–T009, 2026-09-16)
+
+- T008: Pint clean on the changed files; full suite 1158 passed (baseline 1155 + 3 new cascade tests; the
+  `DnsSoaApiTest` 400 test was replaced and its empty-zone test now expects the deactivation entry).
+- T009: deployed `6867d09` to isp-test (`ispconfig-rest status`: 1.0.0-rc.3 (6867d09)). Temporary client
+  `qa034e8c66a` (client 33, `dns_servers=1`, `limit_dns_zone=2`), QA admin key 73 and client key 74, zones 6, 7, 8
+  and 9. Keys were never printed. Results:
+
+| Case | Expected | Got |
+|---|---|---|
+| client creates a zone + 3 records, then `DELETE /dns/soa/6` | 204 with `X-Change-Set-Id` | 204, header `e2df0973…` |
+| journal of that deletion | `dns_soa` `u`, one `dns_rr` `d` per record (ascending), `dns_soa` `d`, one change set | exactly that: `dns_soa id:6 u`, `dns_rr id:45/46/47 d`, `dns_soa id:6 d`, all session `e2df0973…` |
+| rows after the deletion | no `dns_rr` of the zone, no `dns_soa` row | 0 and 0 |
+| repeat the same `DELETE` | 404 | 404 |
+| admin creates a zone for the client, client deletes it | 201 / 204, records gone | as expected (zone 7) |
+| zone with an NS record: bind state before deletion | zone file written and valid | `pri.qa034d-…` present, `named-checkzone` OK, 2 `named.conf.local` references |
+| same zone after the API deletion | zone file and named.conf entries gone | 0 files, 0 references, 0 rows |
+
+  Note: a first probe zone (8) without any NS record produced `pri.<zone>.err` — ISPConfig renames a generated zone
+  file when `named-checkzone` rejects it (a zone needs NS records); unrelated to this feature, and that file was
+  removed by the zone deletion too.
+
+- Cleanup: all four zones deleted through the API (the cascade removed their records), client 33 deleted (204);
+  datalog processed (`server.updated` 854 = last id 854); API keys 73, 74 deleted by SQL (`name LIKE 'qa%'`); no
+  `qa034` client, sys_group, sys_user, dns_soa or dns_rr rows, no pending datalog, no `qa034` zone files in
+  `/etc/bind` and no `named.conf.local` references. Remaining keys: 1, 2, 20, 27, 50 (untouched).
+
