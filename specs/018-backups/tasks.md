@@ -192,7 +192,7 @@ database backup stored on another server than the website → 422; an `ok` downl
 - [x] T052 Document 403 for locked clients on the on-demand backup, restore, delete and settings update operations in `api/modules/sites/web-backups.yaml`
 - [x] T053 Write `tests/Feature/WebBackupLockedClientTest.php` (client and reseller keys refused with no remote action and no datalog; reads, jobs, settings read and download allowed; admin and other accounts unaffected)
 - [x] T054 Add `LockedClientGuard::checkBackupWrite()` in `app/Services/LockedClientGuard.php` and call it from `app/Http/Controllers/Api/V1/WebBackupController.php` (store, restore, destroy) and `app/Http/Controllers/Api/V1/WebBackupSettingsController.php` (update)
-- [ ] T055 After deployment, verify on isp-test with a temporary locked client (backup and settings update refused, list allowed, no new `sys_remoteaction` row) and clean up
+- [x] T055 After deployment, verify on isp-test with a temporary locked client (backup and settings update refused, list allowed, no new `sys_remoteaction` row) and clean up — done 2026-09-15 on 2ed9489: locked client key POST backup / PUT settings 403, GET backups and jobs 200, 0 new remote actions and datalog rows; after unlock backup 201 → ok, delete 204; `/changes` created_at `+02:00`; temporary client, keys and `/var/backup/web9` removed
 
 ---
 
