@@ -21,9 +21,9 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 1: Setup (contract first)
 
-- [ ] T001 [P] Describe the administrator-only `update_acl` and zone rename in `api/components/schemas/DnsSoa.yaml` and `api/modules/dns/soa.yaml`
-- [ ] T002 [P] Describe the MX/TLSA/DKIM duplicate and single-SPF rules in `api/modules/dns/records.yaml`
-- [ ] T003 Verify the YAML parses and the spec is served (`tests/Feature/SwaggerSpecServerTest.php`)
+- [x] T001 [P] Describe the administrator-only `update_acl` and zone rename in `api/components/schemas/DnsSoa.yaml` and `api/modules/dns/soa.yaml`
+- [x] T002 [P] Describe the MX/TLSA/DKIM duplicate and single-SPF rules in `api/modules/dns/records.yaml`
+- [x] T003 Verify the YAML parses and the spec is served (`tests/Feature/SwaggerSpecServerTest.php`)
 
 ---
 
@@ -31,11 +31,11 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T004 [US1] Create `tests/Feature/DnsRuleParityTest.php` zone cases: client and reseller keys changing `update_acl` → 422 with `errors.update_acl` and `error_types.update_acl` = `feature-not-allowed`, nothing journaled; re-sending the stored value (and `null` for an empty value) → 200; client key changing `origin` → 422 with `error_types.origin`; re-sending the stored origin in another spelling → 200; reseller key renaming → 200; admin key both → 200; `POST /dns/soa` with `update_acl` from a client key → 422; `xfer`/`also_notify`/`dnssec_*` still accepted
+- [x] T004 [US1] Create `tests/Feature/DnsRuleParityTest.php` zone cases: client and reseller keys changing `update_acl` → 422 with `errors.update_acl` and `error_types.update_acl` = `feature-not-allowed`, nothing journaled; re-sending the stored value (and `null` for an empty value) → 200; client key changing `origin` → 422 with `error_types.origin`; re-sending the stored origin in another spelling → 200; reseller key renaming → 200; admin key both → 200; `POST /dns/soa` with `update_acl` from a client key → 422; `xfer`/`also_notify`/`dnssec_*` still accepted
 
 ### Implementation
 
-- [ ] T005 [US1] Add the `update_acl` scope check to `app/Http/Requests/DnsSoaRequest.php` and the origin rename check to `app/Http/Requests/UpdateDnsSoaRequest.php` (tagged through `ProblemTypeCollector`)
+- [x] T005 [US1] Add the `update_acl` scope check to `app/Http/Requests/DnsSoaRequest.php` and the origin rename check to `app/Http/Requests/UpdateDnsSoaRequest.php` (tagged through `ProblemTypeCollector`)
 
 **Checkpoint**: US1 tests green
 
@@ -43,15 +43,15 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 3: User Story 2 — Record duplicate rules (P1)
 
-- [ ] T006 [US2] Record cases in `tests/Feature/DnsRuleParityTest.php`: identical MX (including another priority) / TLSA / DKIM → 422 `errors.name`; second SPF for the same name → 422; different name/data and self-updates → 201/200; admin key refused the same way; nothing journaled on refusal
-- [ ] T007 [US2] Add `checkIdenticalRecord()` (MX/TLSA/DKIM) and `checkSpfSingleton()` to `app/Http/Requests/DnsRecordRequest.php` and dispatch them in `zoneLevelChecks()`
+- [x] T006 [US2] Record cases in `tests/Feature/DnsRuleParityTest.php`: identical MX (including another priority) / TLSA / DKIM → 422 `errors.name`; second SPF for the same name → 422; different name/data and self-updates → 201/200; admin key refused the same way; nothing journaled on refusal
+- [x] T007 [US2] Add `checkIdenticalRecord()` (MX/TLSA/DKIM) and `checkSpfSingleton()` to `app/Http/Requests/DnsRecordRequest.php` and dispatch them in `zoneLevelChecks()`
 
 ---
 
 ## Phase 4: Polish
 
-- [ ] T008 [P] Document both rule groups in `README.md`
-- [ ] T009 Run Pint on changed PHP files and the full suite in Docker (spec 013 and 016 suites must stay green)
+- [x] T008 [P] Document both rule groups in `README.md`
+- [x] T009 Run Pint on changed PHP files and the full suite in Docker (spec 013 and 016 suites must stay green)
 - [ ] T010 Deploy to isp-test and run `specs/033-dns-rule-parity/quickstart.md` §2 with a temporary client; record results here
 
 ## Dependencies
