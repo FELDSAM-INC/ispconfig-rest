@@ -127,6 +127,12 @@
       with 403 `limit-reached` (`limit.name` = `limit_dns_record`, `scope` =
       `client`). Updates and deletions are never refused by the limit; admin
       keys are not limited.
+
+      ### Duplicate records
+      As in the ISPConfig forms, and for every key type: an identical MX, TLSA
+      or DKIM record (same name and data in the zone) and a second SPF record
+      (`v=spf1…`) for the same name are refused with 422 naming `name`. The
+      record being updated is excluded from the check.
     requestBody:
       required: true
       content:
@@ -199,6 +205,10 @@
       Only include the fields you want to update. Omitted fields will remain unchanged.
 
       See the POST endpoint for the type-specific fields.
+
+      The duplicate rules of the POST endpoint (MX/TLSA/DKIM identical record,
+      one SPF record per name) apply to updates too, excluding the record
+      itself.
 
       For client and reseller keys the zone must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     parameters:

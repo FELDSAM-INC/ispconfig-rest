@@ -96,6 +96,9 @@ properties:
       Must be a valid lowercase domain name. Unique across all zones.
       Following legacy ISPConfig, origins are stored dot-terminated
       (`example.com.`); a trailing dot is appended by the server if missing.
+      Renaming a zone needs an administrator or reseller key (legacy
+      dns_soa_edit.php::onBeforeUpdate); a client key that changes it gets 422
+      with `error_types.origin` = `feature-not-allowed`.
     example: "example.com."
 
   ns:
@@ -213,6 +216,11 @@ properties:
     description: |
       Access control list for dynamic updates.
       Format: IP-address [key_name]
+
+      Administrator keys only (spec 033): the ISPConfig form hides this field
+      from customers. A client or reseller key that submits a different value
+      than the stored one gets 422 with `error_types.update_acl` =
+      `feature-not-allowed`; re-sending the stored value is accepted.
     example: "192.168.1.0/24"
 
   dnssec_initialized:

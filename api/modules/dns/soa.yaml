@@ -83,6 +83,17 @@
         `The selected server is not available for this account.`
       - When no DNS server is assigned to the account, 422 on `server_id`
         with `No DNS server is assigned to this account.`
+
+      ### Administrator-only fields
+      - `update_acl` (dynamic update ACL) can only be set with an administrator
+        key; client and reseller keys that change it get 422 with
+        `error_types.update_acl` = `feature-not-allowed`.
+      - Renaming a zone (`origin`) needs an administrator or reseller key; a
+        client key that changes it gets 422 with `error_types.origin` =
+        `feature-not-allowed`.
+      - Re-sending the stored value of either field is accepted.
+      - `xfer`, `also_notify` and the DNSSEC fields stay writable for every key
+        (the legacy form shows them to all user types).
     requestBody:
       required: true
       content:
@@ -160,6 +171,17 @@
         `server_id` is accepted, any other value returns 422 with
         `The server cannot be changed after creation.`
       - Admin keys may change `server_id` to another DNS server
+
+      ### Administrator-only fields
+      - `update_acl` (dynamic update ACL) can only be set with an administrator
+        key; client and reseller keys that change it get 422 with
+        `error_types.update_acl` = `feature-not-allowed`.
+      - Renaming a zone (`origin`) needs an administrator or reseller key; a
+        client key that changes it gets 422 with `error_types.origin` =
+        `feature-not-allowed`.
+      - Re-sending the stored value of either field is accepted.
+      - `xfer`, `also_notify` and the DNSSEC fields stay writable for every key
+        (the legacy form shows them to all user types).
     parameters:
       - name: id
         in: path
