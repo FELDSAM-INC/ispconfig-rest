@@ -1,0 +1,47 @@
+type: object
+description: Size of one database (spec 017). Sizes are bytes.
+additionalProperties: false
+required:
+  - database_id
+  - database_name
+  - type
+  - server_id
+  - parent_domain_id
+  - size_bytes
+  - quota_bytes
+  - used_percent
+  - measured_at
+properties:
+  database_id:
+    type: integer
+    example: 1
+  database_name:
+    type: string
+    example: c1example
+  type:
+    type: string
+    example: mysql
+  server_id:
+    type: integer
+    example: 1
+  parent_domain_id:
+    type: integer
+    example: 1
+  size_bytes:
+    type: integer
+    nullable: true
+    description: Database size; null when the collector data is missing, stale (older than 30 minutes) or corrupt.
+    example: 0
+  quota_bytes:
+    type: integer
+    nullable: true
+    description: Database quota; null when unlimited.
+    example: 536870912
+  used_percent:
+    type: number
+    nullable: true
+    example: 0
+  measured_at:
+    type: string
+    format: date-time
+    nullable: true

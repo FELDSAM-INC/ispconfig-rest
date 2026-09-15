@@ -1,0 +1,82 @@
+# Database usage endpoints (read-only, spec 017)
+
+/usage/databases:
+  get:
+    tags:
+      - Usage
+    summary: List database sizes
+    description: |
+      Databases the key may read, with their size from the database's server. `size_bytes` is `null` when the
+      collector data is missing, stale (older than 30 minutes) or corrupt. All sizes are bytes.
+    parameters:
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - name: sort
+        in: query
+        required: false
+        description: Sort column.
+        schema:
+          type: string
+          enum:
+            - database_name
+          default: database_name
+      - $ref: '../../components/parameters/order.yaml'
+      - name: database_name
+        in: query
+        required: false
+        description: Database name filter; `*` is a wildcard.
+        schema:
+          type: string
+      - name: client_id
+        in: query
+        required: false
+        description: Owning client filter (admin and reseller keys only; client keys get 400).
+        schema:
+          type: integer
+          minimum: 1
+    responses:
+      '200':
+        description: Paginated database usage
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+                - meta
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/DatabaseUsage.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+
+/usage/databases/{id}:
+  get:
+    tags:
+      - Usage
+    summary: Database usage detail
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the database
+        schema:
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: Database usage
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/DatabaseUsage.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'

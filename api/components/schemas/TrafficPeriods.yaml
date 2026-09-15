@@ -1,0 +1,25 @@
+type: object
+description: Traffic in bytes for calendar periods in the API timezone; 0 when no traffic was recorded.
+additionalProperties: false
+required:
+  - this_month
+  - last_month
+  - this_year
+  - last_year
+properties:
+  this_month:
+    type: integer
+    minimum: 0
+    example: 0
+  last_month:
+    type: integer
+    minimum: 0
+    example: 0
+  this_year:
+    type: integer
+    minimum: 0
+    example: 0
+  last_year:
+    type: integer
+    minimum: 0
+    example: 747952

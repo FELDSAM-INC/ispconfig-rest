@@ -1,0 +1,90 @@
+type: object
+description: Plan usage summary of one client (GET /usage/summary, spec 017).
+additionalProperties: false
+required:
+  - client_id
+  - web_disk
+  - mail_storage
+  - database_size
+  - web_traffic_this_month
+  - counts
+  - period
+properties:
+  client_id:
+    type: integer
+    description: The client the summary describes.
+    example: 1
+  web_disk:
+    description: Disk usage of the client's websites (vhost sites); limit from the plan's web quota.
+    allOf:
+      - $ref: './UsageMetric.yaml'
+  mail_storage:
+    description: Storage used by the client's mailboxes; limit from the plan's mailbox quota.
+    allOf:
+      - $ref: './UsageMetric.yaml'
+  database_size:
+    description: Size of the client's databases; limit from the plan's database quota.
+    allOf:
+      - $ref: './UsageMetric.yaml'
+  web_traffic_this_month:
+    description: This month's web traffic of the client's active websites; `measured_at` is always null.
+    allOf:
+      - $ref: './UsageMetric.yaml'
+  counts:
+    type: object
+    description: Resource counts against the client's limits.
+    additionalProperties: false
+    required:
+      - web_domains
+      - web_subdomains
+      - web_alias_domains
+      - mail_domains
+      - mailboxes
+      - mail_aliases
+      - mail_forwards
+      - databases
+      - ftp_users
+      - shell_users
+      - cron_jobs
+      - dns_zones
+    properties:
+      web_domains:
+        $ref: './UsageCount.yaml'
+      web_subdomains:
+        $ref: './UsageCount.yaml'
+      web_alias_domains:
+        $ref: './UsageCount.yaml'
+      mail_domains:
+        $ref: './UsageCount.yaml'
+      mailboxes:
+        $ref: './UsageCount.yaml'
+      mail_aliases:
+        $ref: './UsageCount.yaml'
+      mail_forwards:
+        $ref: './UsageCount.yaml'
+      databases:
+        $ref: './UsageCount.yaml'
+      ftp_users:
+        $ref: './UsageCount.yaml'
+      shell_users:
+        $ref: './UsageCount.yaml'
+      cron_jobs:
+        $ref: './UsageCount.yaml'
+      dns_zones:
+        $ref: './UsageCount.yaml'
+  period:
+    type: object
+    additionalProperties: false
+    required:
+      - this_month_start
+      - timezone
+    properties:
+      this_month_start:
+        type: string
+        format: date
+        description: First day of the current month in the API timezone.
+        example: '2026-09-01'
+      timezone:
+        type: string
+        description: The API timezone used for calendar periods.
+        example: Europe/Prague

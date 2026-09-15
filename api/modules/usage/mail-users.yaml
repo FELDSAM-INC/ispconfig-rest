@@ -1,0 +1,138 @@
+# Mailbox usage endpoints (read-only, spec 017)
+
+/usage/mail-users:
+  get:
+    tags:
+      - Usage
+    summary: List mailbox storage and mail traffic
+    description: |
+      Mailboxes the key may read, with storage used from the mailbox's server and mail traffic for this month,
+      last month, this year and last year. `used_bytes` is `null` when the collector data is missing, stale
+      (older than 60 minutes) or corrupt. All sizes are bytes.
+    parameters:
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - name: sort
+        in: query
+        required: false
+        description: Sort column.
+        schema:
+          type: string
+          enum:
+            - email
+          default: email
+      - $ref: '../../components/parameters/order.yaml'
+      - name: email
+        in: query
+        required: false
+        description: Email filter; `*` is a wildcard.
+        schema:
+          type: string
+      - name: mail_domain
+        in: query
+        required: false
+        description: Only mailboxes of this domain.
+        schema:
+          type: string
+      - name: client_id
+        in: query
+        required: false
+        description: Owning client filter (admin and reseller keys only; client keys get 400).
+        schema:
+          type: integer
+          minimum: 1
+    responses:
+      '200':
+        description: Paginated mailbox usage
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+                - meta
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/MailUserUsage.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+
+/usage/mail-users/{id}:
+  get:
+    tags:
+      - Usage
+    summary: Mailbox usage detail
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the mailbox
+        schema:
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: Mailbox usage
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/MailUserUsage.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+
+/usage/mail-users/{id}/traffic:
+  get:
+    tags:
+      - Usage
+    summary: Mailbox traffic history (monthly)
+    description: |
+      Monthly mail traffic points, oldest first, months without traffic as 0. Mail traffic is stored per month,
+      so `granularity=day` is rejected with 422.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the mailbox
+        schema:
+          type: integer
+          format: int64
+      - name: months
+        in: query
+        required: false
+        description: Number of monthly points.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 36
+          default: 12
+      - name: granularity
+        in: query
+        required: false
+        description: '`day` is rejected with 422 (mail traffic is stored per month).'
+        schema:
+          type: string
+          enum:
+            - month
+            - day
+          default: month
+    responses:
+      '200':
+        description: Traffic history
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/TrafficHistory.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'

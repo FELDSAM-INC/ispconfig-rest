@@ -1,0 +1,139 @@
+# Website usage endpoints (read-only, spec 017)
+
+/usage/web-domains:
+  get:
+    tags:
+      - Usage
+    summary: List website disk usage and traffic
+    description: |
+      Websites (`vhost`, `vhostsubdomain`, `vhostalias`) the key may read, with disk usage from the site's own
+      server and traffic for this month, last month, this year and last year. Disk figures are `null` for
+      `vhostsubdomain` and `vhostalias` sites (disk is accounted to the parent website) and when the collector
+      data is missing, stale (older than 30 minutes) or corrupt. All sizes are bytes.
+    parameters:
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+      - name: sort
+        in: query
+        required: false
+        description: Sort column.
+        schema:
+          type: string
+          enum:
+            - domain
+          default: domain
+      - $ref: '../../components/parameters/order.yaml'
+      - name: domain
+        in: query
+        required: false
+        description: Domain filter; `*` is a wildcard.
+        schema:
+          type: string
+      - name: parent_domain_id
+        in: query
+        required: false
+        description: Only child sites of this website.
+        schema:
+          type: integer
+      - name: client_id
+        in: query
+        required: false
+        description: Owning client filter (admin and reseller keys only; client keys get 400).
+        schema:
+          type: integer
+          minimum: 1
+    responses:
+      '200':
+        description: Paginated website usage
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+                - meta
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/WebDomainUsage.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+
+/usage/web-domains/{id}:
+  get:
+    tags:
+      - Usage
+    summary: Website usage detail
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the website
+        schema:
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: Website usage
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/WebDomainUsage.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+
+/usage/web-domains/{id}/traffic:
+  get:
+    tags:
+      - Usage
+    summary: Website traffic history
+    description: |
+      Monthly traffic points (oldest first, months without traffic as 0) or, with `granularity=day`, one point
+      per day of the current month up to yesterday. Periods use the API timezone.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the website
+        schema:
+          type: integer
+          format: int64
+      - name: months
+        in: query
+        required: false
+        description: Number of monthly points.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 36
+          default: 12
+      - name: granularity
+        in: query
+        required: false
+        description: '`day` returns the current month up to yesterday.'
+        schema:
+          type: string
+          enum:
+            - month
+            - day
+          default: month
+    responses:
+      '200':
+        description: Traffic history
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/TrafficHistory.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'

@@ -1,0 +1,43 @@
+type: object
+description: Storage and traffic of one mailbox (spec 017). Sizes are bytes.
+additionalProperties: false
+required:
+  - mailuser_id
+  - email
+  - server_id
+  - used_bytes
+  - quota_bytes
+  - used_percent
+  - measured_at
+  - traffic
+properties:
+  mailuser_id:
+    type: integer
+    example: 1
+  email:
+    type: string
+    format: email
+    example: info@example.com
+  server_id:
+    type: integer
+    example: 1
+  used_bytes:
+    type: integer
+    nullable: true
+    description: Storage used; null when the collector data is missing, stale (older than 60 minutes) or corrupt.
+    example: 1024
+  quota_bytes:
+    type: integer
+    nullable: true
+    description: Mailbox quota; null when unlimited.
+    example: 1073741824
+  used_percent:
+    type: number
+    nullable: true
+    example: 0
+  measured_at:
+    type: string
+    format: date-time
+    nullable: true
+  traffic:
+    $ref: './TrafficPeriods.yaml'

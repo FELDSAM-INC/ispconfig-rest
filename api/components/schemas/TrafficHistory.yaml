@@ -1,0 +1,48 @@
+type: object
+description: Traffic history of a website or mailbox (spec 017).
+additionalProperties: false
+required:
+  - granularity
+  - period_start
+  - period_end
+  - timezone
+  - points
+properties:
+  granularity:
+    type: string
+    enum:
+      - month
+      - day
+    description: '`day` is available for websites only.'
+  period_start:
+    type: string
+    format: date
+    description: First day covered (inclusive).
+    example: '2025-10-01'
+  period_end:
+    type: string
+    format: date
+    description: End of the covered range (exclusive).
+    example: '2026-10-01'
+  timezone:
+    type: string
+    description: The API timezone used for the periods.
+    example: Europe/Prague
+  points:
+    type: array
+    description: Oldest first; periods without traffic have 0 bytes.
+    items:
+      type: object
+      additionalProperties: false
+      required:
+        - period
+        - bytes
+      properties:
+        period:
+          type: string
+          description: '`YYYY-MM` for monthly points, `YYYY-MM-DD` for daily points.'
+          example: 2026-08
+        bytes:
+          type: integer
+          minimum: 0
+          example: 24369

@@ -1,0 +1,17 @@
+type: object
+description: A resource count of a client against its limit (spec 017, counted with the spec 012 rules).
+additionalProperties: false
+required:
+  - used
+  - limit
+properties:
+  used:
+    type: integer
+    minimum: 0
+    description: Number of resources the client owns.
+    example: 2
+  limit:
+    type: integer
+    nullable: true
+    description: 'null = unlimited, 0 = feature disabled, n = booked.'
+    example: 5

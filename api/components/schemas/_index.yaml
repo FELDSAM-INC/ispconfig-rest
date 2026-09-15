@@ -242,3 +242,21 @@ Change:
 
 ChangeSet:
   $ref: './ChangeSet.yaml'
+
+# Usage statistics (spec 017)
+UsageMetric:
+  $ref: './UsageMetric.yaml'
+UsageCount:
+  $ref: './UsageCount.yaml'
+UsageSummary:
+  $ref: './UsageSummary.yaml'
+TrafficPeriods:
+  $ref: './TrafficPeriods.yaml'
+TrafficHistory:
+  $ref: './TrafficHistory.yaml'
+WebDomainUsage:
+  $ref: './WebDomainUsage.yaml'
+MailUserUsage:
+  $ref: './MailUserUsage.yaml'
+DatabaseUsage:
+  $ref: './DatabaseUsage.yaml'

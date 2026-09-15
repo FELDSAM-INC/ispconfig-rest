@@ -1,0 +1,87 @@
+type: object
+description: Disk usage and traffic of one website (spec 017). Sizes are bytes.
+additionalProperties: false
+required:
+  - domain_id
+  - domain
+  - type
+  - parent_domain_id
+  - server_id
+  - disk
+  - hd_quota_bytes
+  - traffic
+  - traffic_quota_bytes
+properties:
+  domain_id:
+    type: integer
+    example: 1
+  domain:
+    type: string
+    example: example.com
+  type:
+    type: string
+    enum:
+      - vhost
+      - vhostsubdomain
+      - vhostalias
+  parent_domain_id:
+    type: integer
+    description: 0 for vhost websites; the parent website for vhostsubdomain and vhostalias sites.
+    example: 0
+  server_id:
+    type: integer
+    example: 1
+  disk:
+    type: object
+    description: |
+      Disk usage from the website's own server. All fields are null for vhostsubdomain and vhostalias sites (disk
+      is accounted to the parent website) and when the collector data is missing, stale (older than 30 minutes) or
+      corrupt.
+    additionalProperties: false
+    required:
+      - used_bytes
+      - soft_limit_bytes
+      - hard_limit_bytes
+      - files
+      - used_percent
+      - measured_at
+    properties:
+      used_bytes:
+        type: integer
+        nullable: true
+        example: 888832
+      soft_limit_bytes:
+        type: integer
+        nullable: true
+        description: Filesystem soft limit; null when quotas are not enforced.
+        example: 1073741824
+      hard_limit_bytes:
+        type: integer
+        nullable: true
+        description: Filesystem hard limit; null when quotas are not enforced.
+        example: 1074790400
+      files:
+        type: integer
+        nullable: true
+        example: 43
+      used_percent:
+        type: number
+        nullable: true
+        description: Against the soft limit, or against `hd_quota_bytes` when no soft limit is known.
+        example: 0.1
+      measured_at:
+        type: string
+        format: date-time
+        nullable: true
+  hd_quota_bytes:
+    type: integer
+    nullable: true
+    description: The website's disk quota; null when unlimited.
+    example: 1073741824
+  traffic:
+    $ref: './TrafficPeriods.yaml'
+  traffic_quota_bytes:
+    type: integer
+    nullable: true
+    description: The website's monthly traffic quota; null when unlimited.
+    example: 10737418240

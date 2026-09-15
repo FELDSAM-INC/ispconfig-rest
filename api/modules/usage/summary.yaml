@@ -1,0 +1,42 @@
+# Usage summary endpoint (read-only, spec 017)
+
+/usage/summary:
+  get:
+    tags:
+      - Usage
+    summary: Client plan usage summary
+    description: |
+      Disk, mail storage, database size and this month's web traffic of one client against its plan limits,
+      plus resource counts (websites, mailboxes, databases, …) against the client's limits, counted with the
+      same rules that enforce them (spec 012).
+
+      - Client keys get their own client; `client_id` may only be their own client id (any other → 404).
+      - Reseller keys get their own client, or one of their clients by `client_id` (any other → 404).
+      - Admin keys must pass `client_id` (422 when missing, 404 when unknown).
+
+      Collector-based values are `null` when the collector data is missing, stale (older than 30 minutes for
+      disk and databases, 60 minutes for mail storage) or corrupt. `web_traffic_this_month` counts only active
+      websites. Calendar periods use the API timezone (`period.timezone`). All sizes are bytes.
+    parameters:
+      - name: client_id
+        in: query
+        required: false
+        description: Target client (required for admin keys).
+        schema:
+          type: integer
+          minimum: 1
+    responses:
+      '200':
+        description: Usage summary
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/UsageSummary.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'

@@ -1,0 +1,19 @@
+# Usage module API paths (spec 017)
+# Read-only usage statistics, available to every valid API key and scoped to
+# the rows the key may read (spec 011).
+
+# Client plan usage summary
+summary:
+  $ref: './summary.yaml'
+
+# Website disk usage, traffic periods and traffic history
+web-domains:
+  $ref: './web-domains.yaml'
+
+# Mailbox storage, mail traffic periods and traffic history
+mail-users:
+  $ref: './mail-users.yaml'
+
+# Database sizes
+databases:
+  $ref: './databases.yaml'

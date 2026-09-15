@@ -120,6 +120,22 @@ components:
       $ref: './components/schemas/MailUserSpamFilter.yaml'
     Meta:
       $ref: './components/schemas/Meta.yaml'
+    UsageMetric:
+      $ref: './components/schemas/UsageMetric.yaml'
+    UsageCount:
+      $ref: './components/schemas/UsageCount.yaml'
+    UsageSummary:
+      $ref: './components/schemas/UsageSummary.yaml'
+    TrafficPeriods:
+      $ref: './components/schemas/TrafficPeriods.yaml'
+    TrafficHistory:
+      $ref: './components/schemas/TrafficHistory.yaml'
+    WebDomainUsage:
+      $ref: './components/schemas/WebDomainUsage.yaml'
+    MailUserUsage:
+      $ref: './components/schemas/MailUserUsage.yaml'
+    DatabaseUsage:
+      $ref: './components/schemas/DatabaseUsage.yaml'
     Problem:
       $ref: './components/schemas/Problem.yaml'
     ValidationProblem:
@@ -433,6 +449,26 @@ paths:
     $ref: './modules/changes/changes.yaml#/~1changes'
   /changes/{change_set_id}:
     $ref: './modules/changes/changes.yaml#/~1changes~1{change_set_id}'
+
+  # Usage module paths (spec 017, read-only)
+  /usage/summary:
+    $ref: './modules/usage/summary.yaml#/~1usage~1summary'
+  /usage/web-domains:
+    $ref: './modules/usage/web-domains.yaml#/~1usage~1web-domains'
+  /usage/web-domains/{id}:
+    $ref: './modules/usage/web-domains.yaml#/~1usage~1web-domains~1{id}'
+  /usage/web-domains/{id}/traffic:
+    $ref: './modules/usage/web-domains.yaml#/~1usage~1web-domains~1{id}~1traffic'
+  /usage/mail-users:
+    $ref: './modules/usage/mail-users.yaml#/~1usage~1mail-users'
+  /usage/mail-users/{id}:
+    $ref: './modules/usage/mail-users.yaml#/~1usage~1mail-users~1{id}'
+  /usage/mail-users/{id}/traffic:
+    $ref: './modules/usage/mail-users.yaml#/~1usage~1mail-users~1{id}~1traffic'
+  /usage/databases:
+    $ref: './modules/usage/databases.yaml#/~1usage~1databases'
+  /usage/databases/{id}:
+    $ref: './modules/usage/databases.yaml#/~1usage~1databases~1{id}'
 
   # Sites module paths
   /sites/web-domains:

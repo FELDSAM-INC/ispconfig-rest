@@ -1,0 +1,37 @@
+type: object
+description: |
+  One usage figure of a client against its plan (spec 017). Sizes are bytes. `null` means unknown (collector data
+  missing, stale or corrupt) or unlimited, as described per field.
+additionalProperties: false
+required:
+  - used_bytes
+  - allocated_bytes
+  - limit_bytes
+  - used_percent
+  - measured_at
+properties:
+  used_bytes:
+    type: integer
+    nullable: true
+    description: Sum of the known usage values; null when no contributing value is known.
+    example: 888832
+  allocated_bytes:
+    type: integer
+    nullable: true
+    description: Sum of the quotas assigned to the client's resources (unlimited resources do not contribute).
+    example: 1073741824
+  limit_bytes:
+    type: integer
+    nullable: true
+    description: The client's plan limit; null when unlimited.
+    example: 15032385536
+  used_percent:
+    type: number
+    nullable: true
+    description: used_bytes / limit_bytes × 100 (one decimal) when both are known and the limit is greater than 0.
+    example: 0.1
+  measured_at:
+    type: string
+    format: date-time
+    nullable: true
+    description: Oldest collector timestamp among the contributing values; always null for traffic.
