@@ -89,9 +89,35 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 - [x] T014 [P] Document the mail capabilities, `GET /me/mail-settings`, the tab gates and the new counts in `README.md`; note setting-name `feature` values and the `custom_mailfilter` field type in `docs/problems.md`
 - [x] T015 Run Pint on changed PHP files and the full suite in Docker
-- [ ] T016 Deploy to isp-test and run `specs/025-mail-capabilities/quickstart.md` §2 with a temporary client; record results here
+- [x] T016 Deploy to isp-test and run `specs/025-mail-capabilities/quickstart.md` §2 with a temporary client; record results here
 
 ## Dependencies
 
 Phase 1 → Phase 2 → US1 → US2 (shares `AccountMailService`) → US3 (uses `tabAllowed`) → US4 → Polish. T001/T002 and
 T012/T014 parallel.
+
+## Results (T015–T016, 2026-09-15)
+
+- T015: Pint clean on changed files; full suite 1092 passed (baseline 1066).
+- T016: deployed `55d15b5` to isp-test (`ispconfig-rest status`: 1.0.0-rc.3 (55d15b5)). Temporary client `qa0257d0ed5`
+  (client 18: `mail_servers=1`, `limit_maildomain=1`, `limit_mailbox=2`, `limit_mailcatchall=1`, `limit_mailfilter=2`),
+  temporary QA admin key 48 and client key 49. System settings unchanged (tabs enabled, `min_password_length=8`,
+  `min_password_strength=3`, `webmail_url=https://[SERVERNAME]:8081/webmail`). All checks matched:
+
+| Case | Expected | Got |
+|---|---|---|
+| client `GET /me/capabilities` | 200, `mail` = autoresponder/mail_filters true, custom_rules false, spamfilter_policy true, dkim true, custom_login false, password policy 8/3/ascii false | 200, as expected |
+| client `GET /me/mail-settings` | 200, server 1 `isp-test.feldhost.cz`, webmail `https://isp-test.feldhost.cz:8081/webmail`, IMAP 993 ssl, POP3 995 ssl, SMTP 587 starttls + 465 ssl, `webmail_link` true | 200, as expected |
+| client `?client_id=1` / `?foo=1` | 404 / 400 | 404 / 400 |
+| admin without `client_id` / `?client_id=18` | 422 / 200 identical to the client view (settings and capabilities) | 422 / 200, identical |
+| client `POST` mail domain, mailbox, catch-all | 201 ×3 | 201 ×3 |
+| client `GET /usage/summary` | `mail_catchalls` 1/1, `mail_filters` 0/2, `mail_alias_domains` 0/null, `fetchmail_accounts` 0/null | as expected |
+| client `PUT …/spamfilter` `custom_mailfilter` | 422 validation-failed, `error_types.custom_mailfilter` feature-not-allowed | as expected |
+| client `PUT …/spamfilter` `move_junk=n` / `PUT …/autoresponder` / `POST …/filters` / `DELETE …/autoresponder` | 200 / 200 / 201 / 204 | 200 / 200 / 201 / 204 |
+| client usage after the filter | `mail_filters` 1/2 | 1/2 |
+| admin `PUT …/spamfilter` `custom_mailfilter` (unchanged value) | 200 | 200 |
+
+- Cleanup: forward 5, mailbox 6, mail domain 7 and client 18 deleted with the QA admin key (204); datalog processed
+  (`server.updated` 545 = last id); API keys 48, 49 deleted by SQL (`name LIKE 'qa%'`); no `qa025` client, sys_group,
+  sys_user, mail_domain, mail_user, mail_forwarding or spamfilter_users rows, no orphan filters, no pending datalog, no
+  `/var/vmail/qa025*` or client directory. Remaining keys: 1, 2, 20, 27.
