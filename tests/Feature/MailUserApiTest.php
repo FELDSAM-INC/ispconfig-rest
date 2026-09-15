@@ -102,7 +102,8 @@ class MailUserApiTest extends MailCompletionApiTestCase
             ->assertJsonPath('sys_perm_user', 'riud')
             ->assertJsonMissingPath('password')
             ->assertJsonMissingPath('mailuser_id')
-            ->assertJsonMissingPath('disableimap')
+            ->assertJsonPath('disableimap', false) // access switches are part of the resource (spec 028)
+            ->assertJsonMissingPath('disablesieve')
             ->assertJsonMissingPath('autoresponder'); // sub-resource view only
 
         $this->assertIsInt($response->json('quota'));

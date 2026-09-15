@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\MailboxPassword;
 use Closure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -10,7 +11,8 @@ use Illuminate\Validation\Rule;
  * POST /mail/users (api/modules/mail/users.yaml).
  *
  * FR-008/FR-011: email valid + unique + normalized, login regex + unique
- * (defaults to the email), password required (minLength 5 per schema),
+ * (defaults to the email), password required and checked against the installation password
+ * policy (spec 028),
  * name required, quota bytes >= 0; an active mail_forwarding source with
  * the same address rejects the mailbox (legacy duplicate_alias_or_forward).
  * The domain-part existence check (400) lives in MailUserService.
@@ -39,7 +41,7 @@ class StoreMailUserRequest extends MailUserRequest
                 'regex:/^[_a-z0-9][\w\.\-\+@]{1,63}$/',
                 Rule::unique('mail_user', 'login'),
             ],
-            'password' => ['required', 'string', 'min:5', 'max:255'],
+            'password' => ['required', 'string', 'max:255', new MailboxPassword],
             'name' => ['required', 'string', 'max:255'],
             'quota' => ['sometimes', 'integer', 'min:0'],
             'cc' => ['sometimes', 'nullable', 'string', 'regex:'.$this->ccRegex()],
@@ -47,6 +49,10 @@ class StoreMailUserRequest extends MailUserRequest
             'sender_cc' => ['sometimes', 'nullable', 'string', 'max:255', 'email:rfc'],
             'postfix' => ['sometimes', 'boolean'],
             'greylisting' => ['sometimes', 'boolean'],
+            'disableimap' => ['sometimes', 'boolean'],
+            'disablepop3' => ['sometimes', 'boolean'],
+            'disablesmtp' => ['sometimes', 'boolean'],
+            'disabledeliver' => ['sometimes', 'boolean'],
         ];
     }
 

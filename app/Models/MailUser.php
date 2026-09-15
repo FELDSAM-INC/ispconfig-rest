@@ -49,6 +49,11 @@ class MailUser extends BaseModel
         'sender_cc',
         'postfix',
         'greylisting',
+        // access switches (spec 028)
+        'disableimap',
+        'disablepop3',
+        'disablesmtp',
+        'disabledeliver',
         // /mail/users/{id}/autoresponder view
         'autoresponder',
         'autoresponder_start_date',
@@ -64,7 +69,8 @@ class MailUser extends BaseModel
 
     /**
      * Only the columns the MailUser contract exposes are serialized; the
-     * dovecot disable* flags, backup settings, usage counters and the
+     * Dovecot companion flags (disablesieve, disablelda, ...), backup settings,
+     * usage counters and the
      * sub-resource columns stay out of the main resource shape. The password
      * hash is never visible anywhere.
      *
@@ -87,6 +93,10 @@ class MailUser extends BaseModel
         'sender_cc',
         'postfix',
         'greylisting',
+        'disableimap',
+        'disablepop3',
+        'disablesmtp',
+        'disabledeliver',
         'sys_userid',
         'sys_groupid',
         'sys_perm_user',
@@ -111,6 +121,10 @@ class MailUser extends BaseModel
         'forward_in_lda' => YesNoBoolean::class,
         'postfix' => YesNoBoolean::class,
         'greylisting' => YesNoBoolean::class,
+        'disableimap' => YesNoBoolean::class,
+        'disablepop3' => YesNoBoolean::class,
+        'disablesmtp' => YesNoBoolean::class,
+        'disabledeliver' => YesNoBoolean::class,
         'autoresponder' => YesNoBoolean::class,
         'quota' => 'integer',
         'uid' => 'integer',
@@ -135,6 +149,10 @@ class MailUser extends BaseModel
         'sender_cc' => '',
         'postfix' => 'y',
         'greylisting' => 'n',
+        'disableimap' => 'n',
+        'disablepop3' => 'n',
+        'disablesmtp' => 'n',
+        'disabledeliver' => 'n',
         'autoresponder' => 'n',
         'autoresponder_subject' => 'Out of office reply',
         'move_junk' => 'y',

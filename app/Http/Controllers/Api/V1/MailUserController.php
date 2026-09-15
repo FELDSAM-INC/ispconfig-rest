@@ -80,6 +80,7 @@ class MailUserController extends Controller
 
         $domain = $this->service->resolveMailDomain((string) $payload['email']); // 400 when missing
         $this->service->applyCreateDerivations($user, $domain);
+        $this->service->applyAccessDerivations($user, $payload, true);
 
         DB::transaction(function () use ($user, $domain): void {
             $user->save();
@@ -106,6 +107,7 @@ class MailUserController extends Controller
 
         $domain = $this->service->resolveMailDomain((string) $mailUser->getRawOriginal('email'));
         $this->service->applyUpdateDerivations($mailUser, $domain);
+        $this->service->applyAccessDerivations($mailUser, $payload, false);
 
         DB::transaction(function () use ($mailUser, $domain): void {
             $mailUser->save();

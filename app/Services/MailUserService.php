@@ -125,6 +125,32 @@ class MailUserService
     }
 
     /**
+     * Dovecot companion columns of the access switches (spec 028,
+     * mail_user_edit.php onAfterInsert/onAfterUpdate): Sieve follows IMAP,
+     * LDA and LMTP follow delivery. Always on create; on update only when the
+     * switch is in the request, so unrelated updates leave existing rows
+     * alone. Written in the same datalog'd save (legacy: direct SQL after it).
+     *
+     * @param  array<string, mixed>  $payload  validated request data
+     */
+    public function applyAccessDerivations(MailUser $user, array $payload, bool $isCreate): void
+    {
+        $raw = $user->getAttributes();
+
+        if ($isCreate || array_key_exists('disableimap', $payload)) {
+            $imap = ($raw['disableimap'] ?? 'n') === 'y' ? 'y' : 'n';
+            $user->setAttribute('disablesieve', $imap);
+            $user->setAttribute('disablesieve-filter', $imap);
+        }
+
+        if ($isCreate || array_key_exists('disabledeliver', $payload)) {
+            $deliver = ($raw['disabledeliver'] ?? 'n') === 'y' ? 'y' : 'n';
+            $user->setAttribute('disablelda', $deliver);
+            $user->setAttribute('disablelmtp', $deliver);
+        }
+    }
+
+    /**
      * Upsert the companion spamfilter_users row (mail_user_edit.php
      * onAfterInsert/onAfterUpdate): existing rows keep their policy_id (the
      * API exposes no policy field), missing rows are datalog-inserted with

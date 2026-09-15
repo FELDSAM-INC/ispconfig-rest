@@ -35,7 +35,7 @@ abstract class MailUserRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        $input = $this->normalizeFlags(['forward_in_lda', 'postfix', 'greylisting']);
+        $input = $this->normalizeFlags(['forward_in_lda', 'postfix', 'greylisting', 'disableimap', 'disablepop3', 'disablesmtp', 'disabledeliver']);
 
         foreach (['email', 'login', 'sender_cc'] as $field) {
             if ($this->has($field) && is_string($this->input($field)) && $this->input($field) !== '') {

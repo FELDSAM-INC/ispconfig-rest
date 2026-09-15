@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\MailboxPassword;
+
 /**
  * PUT /mail/users/{id} (api/modules/mail/users.yaml).
  *
@@ -31,7 +33,7 @@ class UpdateMailUserRequest extends MailUserRequest
                 'string',
                 $this->immutableAttributeRule($current, 'login', 'login'),
             ],
-            'password' => ['sometimes', 'nullable', 'string', 'min:5', 'max:255'],
+            'password' => ['sometimes', 'nullable', 'string', 'max:255', new MailboxPassword],
             'name' => ['sometimes', 'string', 'max:255'],
             'quota' => ['sometimes', 'integer', 'min:0'],
             'cc' => ['sometimes', 'nullable', 'string', 'regex:'.$this->ccRegex()],
@@ -39,6 +41,10 @@ class UpdateMailUserRequest extends MailUserRequest
             'sender_cc' => ['sometimes', 'nullable', 'string', 'max:255', 'email:rfc'],
             'postfix' => ['sometimes', 'boolean'],
             'greylisting' => ['sometimes', 'boolean'],
+            'disableimap' => ['sometimes', 'boolean'],
+            'disablepop3' => ['sometimes', 'boolean'],
+            'disablesmtp' => ['sometimes', 'boolean'],
+            'disabledeliver' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -62,7 +68,7 @@ class UpdateMailUserRequest extends MailUserRequest
 
     /**
      * The empty string counts as "not provided" for the password (legacy
-     * behavior), so min:5 must not fire on it.
+     * behavior), so the password policy must not fire on it.
      */
     protected function prepareForValidation(): void
     {
