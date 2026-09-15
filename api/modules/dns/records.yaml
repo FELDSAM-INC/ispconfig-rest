@@ -117,6 +117,8 @@
 
       SPF, DKIM and DMARC records are stored as `TXT` rows (legacy parity);
       reads classify them back via the computed `meta` object.
+
+      For client and reseller keys the zone must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     requestBody:
       required: true
       content:
@@ -189,6 +191,8 @@
       Only include the fields you want to update. Omitted fields will remain unchanged.
 
       See the POST endpoint for the type-specific fields.
+
+      For client and reseller keys the zone must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     parameters:
       - name: id
         in: path

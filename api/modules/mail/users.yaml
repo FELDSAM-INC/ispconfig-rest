@@ -79,6 +79,8 @@
       - `server_id` and `sys_groupid` are taken from the mail domain
       - `maildir`, `homedir`, `uid`, `gid` and `maildir_format` are derived
         from the server mail configuration
+
+      For client and reseller keys the mail domain of the address must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     requestBody:
       required: true
       content:
@@ -147,6 +149,8 @@
       - `email` and `login` cannot be changed after creation
       - The password is re-hashed only when a non-empty `password` is provided
       - Set `postfix: false` to disable receiving without deleting the account
+
+      For client and reseller keys the mail domain of the address must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     parameters:
       - name: id
         in: path

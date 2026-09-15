@@ -74,6 +74,8 @@
       - Source and destination are automatically prefixed with '@' when the
         prefix is missing
       - Both domains are converted to lowercase punycode
+
+      For client and reseller keys the source and destination mail domains must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     requestBody:
       required: true
       content:
@@ -142,6 +144,8 @@
       - The source domain cannot be changed after creation
       - The destination domain must be an existing mail domain
       - Only `destination` and `active` can be updated
+
+      For client and reseller keys the source and destination mail domains must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     parameters:
       - name: id
         in: path

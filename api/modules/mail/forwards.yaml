@@ -88,6 +88,8 @@
       ### Defaults (legacy parity)
       - `active` true, `greylisting` false
       - `allow_send_as`: true for aliases, false for forwards and catchalls
+
+      For client and reseller keys the mail domain of the source and, for aliases, every destination mailbox must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     requestBody:
       required: true
       content:
@@ -158,6 +160,8 @@
       ### Notes
       - `source` and `type` cannot be changed after creation
       - Only `destination`, `active`, `allow_send_as` and `greylisting` can be updated
+
+      For client and reseller keys the mail domain of the source and, for aliases, every destination mailbox must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     parameters:
       - name: id
         in: path

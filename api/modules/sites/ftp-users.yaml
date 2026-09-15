@@ -67,6 +67,8 @@
       - `server_id`, `dir`, `uid`, `gid` and `sys_groupid` are derived from
         the parent web domain
       - The password is stored as a SHA-512 crypt hash
+
+      For client and reseller keys the parent website (`parent_domain_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     requestBody:
       required: true
       content:
@@ -136,6 +138,8 @@
       - The stored username keeps its original prefix
       - When `parent_domain_id` changes, `server_id`, `dir`, `uid`, `gid`
         and `sys_groupid` are re-derived from the new parent domain
+
+      For client and reseller keys the parent website (`parent_domain_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     parameters:
       - name: id
         in: path

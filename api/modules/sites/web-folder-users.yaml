@@ -65,6 +65,8 @@
         its parent web domain
       - A duplicate (`web_folder_id`, `username`) pair is rejected with 422
       - The password is stored as a SHA-512 crypt hash
+
+      For client and reseller keys the web folder (`web_folder_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     requestBody:
       required: true
       content:

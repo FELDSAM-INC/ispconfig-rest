@@ -70,6 +70,8 @@
       - Depending on the system SSH authentication mode, either `password`
         (key mode) or `ssh_rsa` (password mode) is cleared
       - The password is stored as a SHA-512 crypt hash
+
+      For client and reseller keys the parent website (`parent_domain_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     requestBody:
       required: true
       content:
@@ -141,6 +143,8 @@
         `pgroup` and `sys_groupid` are re-derived from the new parent domain
       - Depending on the system SSH authentication mode, either `password`
         (key mode) or `ssh_rsa` (password mode) is cleared
+
+      For client and reseller keys the parent website (`parent_domain_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     parameters:
       - name: id
         in: path

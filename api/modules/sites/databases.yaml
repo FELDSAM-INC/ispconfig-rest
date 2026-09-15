@@ -84,6 +84,8 @@
         `The selected server is not available for this account.`
       - When no database server is assigned to the account, 422 on `server_id`
         with `No database server is assigned to this account.`
+
+      For client and reseller keys the parent website and the database users (`database_user_id`, `database_ro_user_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     requestBody:
       required: true
       content:
@@ -157,6 +159,8 @@
       — attempts are rejected with 422. `database_user_id` is required.
       The remote-access auto-fix and the linked-user datalog sync run on
       update as well.
+
+      For client and reseller keys the parent website and the database users (`database_user_id`, `database_ro_user_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     parameters:
       - name: id
         in: path

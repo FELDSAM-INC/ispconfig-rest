@@ -100,6 +100,8 @@
         with `No web server is assigned to this account.`
       - `vhostsubdomain` and `vhostalias` always use the parent domain's
         server; client and reseller keys may omit `server_id`
+
+      For client and reseller keys the parent website (`parent_domain_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     requestBody:
       required: true
       content:
@@ -186,6 +188,8 @@
         server-side
       - A 409 is returned when a `domain`/`ip_address` change collides with
         the (`server_id`, `ip_address`, `domain`) database unique key
+
+      For client and reseller keys the parent website (`parent_domain_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     parameters:
       - name: id
         in: path

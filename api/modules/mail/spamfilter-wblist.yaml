@@ -72,6 +72,8 @@
       - `rid=0` is accepted but has no effect on Rspamd systems — use
         /mail/access-rules for global rules
       - `server_id` must reference a mail server
+
+      For client and reseller keys the spam filter user referenced by `rid` must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     requestBody:
       required: true
       content:
