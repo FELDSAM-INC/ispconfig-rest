@@ -50,6 +50,8 @@ properties:
       DKIM private key (PEM)
       - Required when dkim is enabled
       - Must be a parseable private key
+      - `POST /mail/domains/{id}/dkim` generates a key on the server instead (spec 027)
+      - Returned only to admin keys: responses to client and reseller keys omit this field (spec 027)
     example: |
       -----BEGIN PRIVATE KEY-----
       MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQ...

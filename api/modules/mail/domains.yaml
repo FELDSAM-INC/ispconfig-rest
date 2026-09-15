@@ -129,7 +129,11 @@
     tags:
       - Mail Domains
     summary: Get mail domain by ID
-    description: Returns a single mail domain by its ID
+    description: |
+      Returns a single mail domain by its ID.
+
+      Responses to client and reseller keys omit `dkim_private` (also in the list, create and update responses;
+      spec 027). DKIM status and key generation: `GET`/`POST /mail/domains/{id}/dkim`.
     parameters:
       - name: id
         in: path

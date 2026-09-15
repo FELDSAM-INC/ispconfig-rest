@@ -1,0 +1,92 @@
+# Mail domain DKIM (spec 027): status and server-side key generation.
+# Legacy: mail/ajax_get_json.php (create_dkim), mail/mail_domain_edit.php (DKIM section).
+
+/mail/domains/{id}/dkim:
+  get:
+    tags:
+      - Mail Domains
+    summary: Get the DKIM status of a mail domain
+    description: |
+      Returns whether DKIM is switched on, the selector, the public key with its size, the DNS TXT record to publish,
+      whether a DNS zone hosted on this platform maintains the record automatically, and whether the domain's mail
+      server can sign mail. The private key is never returned.
+
+      Available to every key that can read the domain. Nothing is written.
+    operationId: getMailDomainDkim
+    parameters:
+      - name: id
+        in: path
+        description: Mail domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: DKIM status
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/MailDomainDkim.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+  post:
+    tags:
+      - Mail Domains
+    summary: Generate a DKIM key and enable DKIM
+    description: |
+      Generates a new RSA key pair on the server with the key size configured for the domain's mail server
+      (`dkim_strength`: 1024, 2048 or 4096; 2048 otherwise), stores it, switches DKIM on and — when a DNS zone hosted on
+      this platform encloses an active domain — publishes the TXT record (the record of the previous selector is
+      removed and the zone serial increased). Calling it again replaces the key.
+
+      One datalog update of the mail domain (`dkim`, `dkim_private`, `dkim_public`, `dkim_selector`) plus the DNS
+      record changes, all in one change set. The response never contains the private key.
+
+      - 403 when the key can read but not update the domain.
+      - 409 when the domain's mail server has no DKIM key directory (`available: false`); nothing is written.
+      - 422 for an invalid `selector`.
+
+      Switch DKIM off with `PUT /mail/domains/{id}` `{"dkim": false}` (the stored keys are kept).
+    operationId: generateMailDomainDkim
+    parameters:
+      - name: id
+        in: path
+        description: Mail domain ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/MailDomainDkimGenerate.yaml'
+    responses:
+      '200':
+        description: DKIM key generated and DKIM enabled
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/MailDomainDkim.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

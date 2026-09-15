@@ -4,6 +4,10 @@
 domains:
   $ref: './domains.yaml'
 
+# Include mail domain DKIM paths (spec 027)
+domain-dkim:
+  $ref: './domain-dkim.yaml'
+
 # Include mail forwarding paths
 forwards:
   $ref: './forwards.yaml'

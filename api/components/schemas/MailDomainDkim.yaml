@@ -1,0 +1,82 @@
+# DKIM status of a mail domain (spec 027). Derived from the mail_domain DKIM columns, the
+# domain's mail server configuration and hosted DNS zones. Never contains the private key.
+type: object
+description: DKIM status, public key and DNS record of a mail domain. The private key is never included.
+additionalProperties: false
+required:
+  - id
+  - domain
+  - enabled
+  - selector
+  - public_key
+  - key_bits
+  - dns_record
+  - dns_managed
+  - available
+properties:
+  id:
+    type: integer
+    format: int64
+    description: Mail domain ID
+    example: 7
+  domain:
+    type: string
+    example: example.com
+  enabled:
+    type: boolean
+    description: DKIM signing is switched on (`mail_domain.dkim`).
+    example: true
+  selector:
+    type: string
+    description: DKIM selector (`dkim_selector`; `default` when empty).
+    example: default
+  public_key:
+    type: string
+    nullable: true
+    description: PEM public key; null when the domain has no key.
+    example: |
+      -----BEGIN PUBLIC KEY-----
+      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
+      -----END PUBLIC KEY-----
+  key_bits:
+    type: integer
+    nullable: true
+    description: RSA key size of the public key; null without a key.
+    example: 2048
+  dns_record:
+    type: object
+    nullable: true
+    description: |
+      The DNS TXT record that publishes the public key; null without a key. Shown while DKIM is switched off as well
+      (as the ISPConfig form does).
+    additionalProperties: false
+    required:
+      - name
+      - type
+      - value
+    properties:
+      name:
+        type: string
+        description: Fully qualified record name (`<selector>._domainkey.<domain>.`).
+        example: default._domainkey.example.com.
+      type:
+        type: string
+        enum:
+          - TXT
+        example: TXT
+      value:
+        type: string
+        description: Record value (`v=DKIM1; t=s; p=` followed by the public key without PEM armor).
+        example: v=DKIM1; t=s; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
+  dns_managed:
+    type: boolean
+    description: |
+      A DNS zone hosted on this platform encloses the domain: the record is published and updated automatically while
+      the domain is active.
+    example: false
+  available:
+    type: boolean
+    description: |
+      The domain's mail server can sign mail with DKIM (it has a DKIM key directory); generating a key returns 409
+      otherwise.
+    example: true

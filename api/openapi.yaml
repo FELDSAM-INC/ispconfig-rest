@@ -309,6 +309,8 @@ paths:
     $ref: './modules/mail/domains.yaml#/~1mail~1domains'
   /mail/domains/{id}:
     $ref: './modules/mail/domains.yaml#/~1mail~1domains~1{id}'
+  /mail/domains/{id}/dkim:
+    $ref: './modules/mail/domain-dkim.yaml#/~1mail~1domains~1{id}~1dkim'
   /mail/users:
     $ref: './modules/mail/users.yaml#/~1mail~1users'
   /mail/users/{id}:

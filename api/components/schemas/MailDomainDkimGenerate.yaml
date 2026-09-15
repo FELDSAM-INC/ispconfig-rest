@@ -1,0 +1,12 @@
+# Options for generating a DKIM key for a mail domain (spec 027).
+type: object
+description: Options for generating a DKIM key. All fields are optional.
+properties:
+  selector:
+    type: string
+    maxLength: 63
+    pattern: '^[a-z0-9]{1,63}(?:\.[a-z0-9]{1,63})?$'
+    description: |
+      Selector for the new key. Defaults to the domain's current selector (`default` when none). Sending a different
+      selector replaces the DNS record of the previous selector in a hosted zone.
+    example: mail2026

@@ -203,6 +203,12 @@ MailConnection:
 MailPasswordPolicy:
   $ref: './MailPasswordPolicy.yaml'
 
+MailDomainDkim:
+  $ref: './MailDomainDkim.yaml'
+
+MailDomainDkimGenerate:
+  $ref: './MailDomainDkimGenerate.yaml'
+
 ApiKeyCreated:
   $ref: './ApiKeyCreated.yaml'
 
