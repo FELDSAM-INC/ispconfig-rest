@@ -38,6 +38,11 @@ class UsageSummaryApiTest extends UsageApiTestCase
         $this->setClientLimit('clientA', 'limit_mailquota', 100);
         $this->setClientLimit('clientA', 'limit_web_domain', 5);
         $this->setClientLimit('clientA', 'limit_cron', 0);
+        $this->setClientLimit('clientA', 'limit_dns_record', 50);
+
+        // DNS records (spec 030): counted by the records' group.
+        $this->dnsRecords('clientA', 'a1.test.', 2);
+        $this->dnsRecords('clientB', 'b1.test.', 1);
 
         $this->blob(1, 'harddisk_quota', [
             'user' => [
@@ -105,8 +110,9 @@ class UsageSummaryApiTest extends UsageApiTestCase
         $response->assertJsonPath('counts.mailboxes', ['used' => 2, 'limit' => null]);
         $response->assertJsonPath('counts.databases', ['used' => 1, 'limit' => null]);
         $response->assertJsonPath('counts.cron_jobs', ['used' => 0, 'limit' => 0]);
-        $response->assertJsonPath('counts.dns_zones', ['used' => 0, 'limit' => null]);
-        $this->assertCount(16, $response->json('counts'));
+        $response->assertJsonPath('counts.dns_zones', ['used' => 1, 'limit' => null]);
+        $response->assertJsonPath('counts.dns_records', ['used' => 2, 'limit' => 50]);
+        $this->assertCount(17, $response->json('counts'));
 
         $response->assertJsonPath('period', ['this_month_start' => '2026-09-01', 'timezone' => 'Europe/Prague']);
     }
@@ -120,7 +126,8 @@ class UsageSummaryApiTest extends UsageApiTestCase
             ->assertJsonPath('mail_storage.used_bytes', 7)
             ->assertJsonPath('database_size.used_bytes', 99)
             ->assertJsonPath('web_traffic_this_month.used_bytes', 9999)
-            ->assertJsonPath('counts.web_domains.used', 1);
+            ->assertJsonPath('counts.web_domains.used', 1)
+            ->assertJsonPath('counts.dns_records', ['used' => 1, 'limit' => null]);
     }
 
     public function test_admin_must_name_the_client(): void
@@ -133,7 +140,8 @@ class UsageSummaryApiTest extends UsageApiTestCase
         $this->getAs('admin', '/usage/summary?client_id='.$this->tenant('clientA')['client_id'])
             ->assertOk()
             ->assertJsonPath('client_id', $this->tenant('clientA')['client_id'])
-            ->assertJsonPath('web_disk.used_bytes', (868 + 1024 + 10) * 1024);
+            ->assertJsonPath('web_disk.used_bytes', (868 + 1024 + 10) * 1024)
+            ->assertJsonPath('counts.dns_records', ['used' => 2, 'limit' => 50]);
 
         $this->getAs('admin', '/usage/summary?client_id=999999')->assertNotFound();
     }
@@ -239,5 +247,23 @@ class UsageSummaryApiTest extends UsageApiTestCase
             ->assertOk()
             ->assertJsonPath('counts.mail_catchalls', ['used' => 1, 'limit' => null])
             ->assertJsonPath('counts.mail_filters', ['used' => 0, 'limit' => null]);
+    }
+
+    /**
+     * A zone owned by the tenant with $count A records carrying its group.
+     */
+    private function dnsRecords(string $tenant, string $origin, int $count): void
+    {
+        $zoneId = (int) DB::table('dns_soa')->insertGetId($this->ownedBy($tenant, [
+            'server_id' => 1, 'origin' => $origin, 'ns' => 'ns1.'.$origin,
+            'mbox' => 'admin.'.$origin, 'serial' => '1', 'active' => 'Y',
+        ]), 'id');
+
+        for ($i = 1; $i <= $count; $i++) {
+            DB::table('dns_rr')->insert($this->ownedBy($tenant, [
+                'server_id' => 1, 'zone' => $zoneId, 'name' => 'host'.$i, 'type' => 'A',
+                'data' => '192.0.2.'.$i, 'active' => 'Y',
+            ]));
+        }
     }
 }

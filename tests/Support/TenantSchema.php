@@ -54,6 +54,7 @@ class TenantSchema
         'limit_database_postgresql' => -1,
         'limit_dns_zone' => -1,
         'limit_dns_slave_zone' => -1,
+        'limit_dns_record' => -1,
         // P3 quota-sum limits
         'limit_mailquota' => -1,
         'limit_web_quota' => -1,

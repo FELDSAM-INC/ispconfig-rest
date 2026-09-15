@@ -165,6 +165,8 @@ class ClientLimitService
         'mail_alias_domains' => 'limit_mailaliasdomain',
         'mail_filters' => 'limit_mailfilter',
         'fetchmail_accounts' => 'limit_fetchmail',
+        // spec 030
+        'dns_records' => 'limit_dns_record',
     ];
 
     /**
@@ -232,6 +234,7 @@ class ClientLimitService
             'limit_shell_user' => $this->simpleCountSpec('shell_user'),
             'limit_cron' => $this->simpleCountSpec('cron'),
             'limit_dns_zone' => $this->simpleCountSpec('dns_soa'),
+            'limit_dns_record' => $this->dnsRecordCountSpec(),
             default => null,
         };
     }
@@ -437,8 +440,8 @@ class ClientLimitService
     /**
      * Row-count LimitSpecs for a model's create, resolved by table and (for the
      * type-discriminated tables) the row's `type` attribute. Returns [] for
-     * unmapped tables — that is how dns_rr (no limit_dns_record), the
-     * admin-only spamfilter policy/user tables, /clients/domains (NC-1, a
+     * unmapped tables — that is how the admin-only spamfilter policy/user
+     * tables, /clients/domains (NC-1, a
      * behavioral toggle, not a count) and every non-scoped table are excluded
      * by construction.
      *
@@ -478,9 +481,11 @@ class ClientLimitService
             // bespoke: reseller creating a client — sys_groupid predicate, no
             // reseller cap (client_edit.php:68); limit_client cap only
             'client' => [new LimitSpec('limit_client', 'client', 'client_id', null, 'grp', false, 'clients')],
+            // spec 030: records carrying the key's group, no reseller cap
+            // (dns_edit_base.php:105-118 and the CAA/DKIM/DMARC/SPF/TLSA forms)
+            'dns_rr' => [$this->dnsRecordCountSpec()],
 
             // NOT wired (documented, spec Edge Cases / T021):
-            //  - dns_rr: no checkClientLimit('limit_dns_record') call site anywhere
             //  - spamfilter_users / spamfilter_policy: admin-only writes (011 FR-017)
             //  - domain (/clients/domains): limit_domainmodule is a behavioral
             //    toggle, not a count (owner decision NC-1)
@@ -543,6 +548,17 @@ class ClientLimitService
             'dns_soa' => $this->count('limit_dns_zone', 'dns_soa', 'id', null, 'DNS zones'),
             'cron' => $this->count('limit_cron', 'cron', 'id', null, 'cron jobs'),
         };
+    }
+
+    /**
+     * limit_dns_record (spec 030): legacy counts `dns_rr WHERE sys_groupid =
+     * default_group` of the acting user for every non-admin user on insert
+     * and has no reseller check — the bespoke 'grp' predicate without the
+     * reseller cap.
+     */
+    protected function dnsRecordCountSpec(): LimitSpec
+    {
+        return new LimitSpec('limit_dns_record', 'dns_rr', 'id', null, 'grp', false, 'DNS records');
     }
 
     /**
