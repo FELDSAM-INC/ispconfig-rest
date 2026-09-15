@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
+use App\Models\DataLog;
 use App\Services\ChangeStatusResolver;
 use App\Support\IspContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,11 +40,49 @@ class ChangeController extends Controller
     private const ENTRY_COLUMNS = ['datalog_id', 'session_id', 'dbtable', 'dbidx', 'action', 'tstamp', 'server_id', 'error'];
 
     /**
-     * GET /changes — filled by user story 2.
+     * GET /changes — journal entries visible to the key with their status,
+     * newest first by default (research R6/R9).
      */
     public function index(Request $request): JsonResponse
     {
-        return response()->json(['data' => [], 'meta' => ['total' => 0, 'limit' => 25, 'offset' => 0]]);
+        if ($request->query('sort') !== null) {
+            throw new BadRequestHttpException("The 'sort' parameter is not supported; changes are ordered by journal id, use 'order'.");
+        }
+
+        $statuses = app(ChangeStatusResolver::class);
+        $query = $this->restrictToVisible(DataLog::query()->select(self::ENTRY_COLUMNS));
+
+        $this->applyExactFilter($request, $query, 'table', 'dbtable', 255);
+        $this->applyExactFilter($request, $query, 'change_set_id', 'session_id', 64);
+        $this->applySinceFilter($request, $query);
+
+        $status = $request->query('status');
+        if ($status !== null) {
+            if (! is_string($status) || ! in_array($status, ChangeStatusResolver::STATUSES, true)) {
+                throw new BadRequestHttpException('Invalid status value. Allowed: '.implode(', ', ChangeStatusResolver::STATUSES).'.');
+            }
+
+            $statuses->applyStatusFilter($query, $status);
+        }
+
+        if ($request->query('order') === null) {
+            $request->query->set('order', 'desc');
+        }
+
+        $result = $this->listQuery(
+            $query,
+            $request,
+            sortable: ['datalog_id'],
+            defaultSort: 'datalog_id',
+            extra: ['status', 'table', 'change_set_id', 'since'],
+        );
+
+        return response()->json([
+            'data' => $result['data']
+                ->map(fn (DataLog $row): array => $this->toChange((object) $row->getAttributes(), $statuses))
+                ->all(),
+            'meta' => $result['meta'],
+        ]);
     }
 
     /**
@@ -64,7 +104,7 @@ class ChangeController extends Controller
         // One resolver per request: route controllers are cached, the server watermarks are not.
         $statuses = app(ChangeStatusResolver::class);
 
-        $aggregate = (array) $this->visibleEntries()
+        $aggregate = (array) $this->restrictToVisible(DB::table('sys_datalog'))
             ->where('session_id', $changeSetId)
             ->selectRaw('COUNT(*) AS total, MIN(tstamp) AS first_tstamp, '.implode(', ', $statuses->statusCountSelects()))
             ->first();
@@ -80,7 +120,7 @@ class ChangeController extends Controller
             $counts[$status] = (int) $aggregate[$status.'_count'];
         }
 
-        $entries = $this->visibleEntries()
+        $entries = $this->restrictToVisible(DB::table('sys_datalog'))
             ->where('session_id', $changeSetId)
             ->orderBy('datalog_id')
             ->skip($offset)
@@ -104,13 +144,17 @@ class ChangeController extends Controller
     }
 
     /**
-     * Journal entries visible to the acting key (FR-006): admin keys see all,
-     * non-admin keys the entries written under their own username (legacy
-     * datalogStatus() user scope).
+     * Restrict a sys_datalog query to entries visible to the acting key
+     * (FR-006): admin keys see all, non-admin keys the entries written under
+     * their own username (legacy datalogStatus() user scope).
+     *
+     * @template TQuery of Builder|EloquentBuilder
+     *
+     * @param  TQuery  $query
+     * @return TQuery
      */
-    private function visibleEntries(): Builder
+    private function restrictToVisible($query)
     {
-        $query = DB::table('sys_datalog');
         $context = app(IspContext::class);
 
         if (! $context->authScope()->isAdmin) {
@@ -118,6 +162,39 @@ class ChangeController extends Controller
         }
 
         return $query;
+    }
+
+    private function applyExactFilter(Request $request, EloquentBuilder $query, string $parameter, string $column, int $maxLength): void
+    {
+        $value = $request->query($parameter);
+
+        if ($value === null) {
+            return;
+        }
+
+        if (! is_string($value) || $value === '' || strlen($value) > $maxLength) {
+            throw new BadRequestHttpException("Invalid value for filter '{$parameter}'.");
+        }
+
+        $query->where($column, $value);
+    }
+
+    /**
+     * `since` is an ISO 8601 date-time compared with the journal timestamp (tstamp >=).
+     */
+    private function applySinceFilter(Request $request, EloquentBuilder $query): void
+    {
+        $since = $request->query('since');
+
+        if ($since === null) {
+            return;
+        }
+
+        if (! is_string($since) || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/', $since) !== 1) {
+            throw new BadRequestHttpException("Invalid 'since' value. Use an ISO 8601 date-time, for example 2026-09-14T10:00:00Z.");
+        }
+
+        $query->where('tstamp', '>=', CarbonImmutable::parse($since)->getTimestamp());
     }
 
     /**

@@ -111,12 +111,12 @@ entry → `failed` with the text; client B's key → 404; status calls write no 
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T018 [P] [US2] Write failing `tests/Feature/ChangeListApiTest.php`: non-admin keys see only entries with their own username (including legacy-panel rows with 26-character session ids), reseller keys only their own username, admin keys all; newest first by default and `order=asc`; filters `status` (each of the four), `table`, `change_set_id`, `since` (ISO 8601, `tstamp >=`) alone and combined; `meta.total` and paging stay correct with `status` filtering; `sort` parameter, unknown parameter, invalid `status` value and invalid `since` → 400; no key → 401; no `data`, `user` or `server_id` in items; constant query count per page
+- [x] T018 [P] [US2] Write failing `tests/Feature/ChangeListApiTest.php`: non-admin keys see only entries with their own username (including legacy-panel rows with 26-character session ids), reseller keys only their own username, admin keys all; newest first by default and `order=asc`; filters `status` (each of the four), `table`, `change_set_id`, `since` (ISO 8601, `tstamp >=`) alone and combined; `meta.total` and paging stay correct with `status` filtering; `sort` parameter, unknown parameter, invalid `status` value and invalid `since` → 400; no key → 401; no `data`, `user` or `server_id` in items; constant query count per page
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Implement `ChangeController@index` in `app/Http/Controllers/Api/V1/ChangeController.php` (plan note 6, research R9): reject `sort` and validate `status` enum and `since` (400 problem+json); apply visibility (`user = IspContext::username()` for non-admin scopes, none for admin); apply `table`, `change_set_id`, `since` and `ChangeStatusResolver::applyStatusFilter()`; paginate with `HandlesListQuery::listQuery(DataLog::query(), sortable: ['datalog_id'], defaultSort: 'datalog_id', …)` with `order` defaulting to `desc`; map items with `toChange()` (same file as T016 — do not run in parallel with it)
-- [ ] T020 [US2] Run `vendor/bin/phpunit --filter ChangeList` plus the US1 suites; all green
+- [x] T019 [US2] Implement `ChangeController@index` in `app/Http/Controllers/Api/V1/ChangeController.php` (plan note 6, research R9): reject `sort` and validate `status` enum and `since` (400 problem+json); apply visibility (`user = IspContext::username()` for non-admin scopes, none for admin); apply `table`, `change_set_id`, `since` and `ChangeStatusResolver::applyStatusFilter()`; paginate with `HandlesListQuery::listQuery(DataLog::query(), sortable: ['datalog_id'], defaultSort: 'datalog_id', …)` with `order` defaulting to `desc`; map items with `toChange()` (same file as T016 — do not run in parallel with it)
+- [x] T020 [US2] Run `vendor/bin/phpunit --filter ChangeList` plus the US1 suites; all green
 
 **Checkpoint**: dashboard indicator and failure list available; US1 unaffected.
 
