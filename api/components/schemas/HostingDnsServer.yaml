@@ -1,0 +1,31 @@
+# One DNS server of an account with the name servers of its zones (spec 031).
+type: object
+description: A DNS server of the account and the name servers that answer for zones on it.
+additionalProperties: false
+required:
+  - server_id
+  - server_name
+  - is_default
+  - nameservers
+properties:
+  server_id:
+    type: integer
+    format: int64
+    minimum: 1
+    example: 4
+  server_name:
+    type: string
+    description: Server name (`server.server_name`).
+    example: ns1.example.com
+  is_default:
+    type: boolean
+    description: True for the account's first assigned DNS server (used when a zone create omits `server_id`).
+    example: true
+  nameservers:
+    type: array
+    description: |
+      Name servers to delegate a domain with a zone on this server to, as ISPConfig's zone import creates NS records:
+      the server and its mirror servers ordered by name, then the installation's external DNS servers (system setting
+      `dns_external_slave_fqdn`).
+    items:
+      $ref: './NameServer.yaml'

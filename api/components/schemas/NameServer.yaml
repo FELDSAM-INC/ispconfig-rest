@@ -1,0 +1,28 @@
+# A name server of a DNS server of the account (spec 031).
+type: object
+description: A name server host name with its public addresses (for glue records).
+additionalProperties: false
+required:
+  - name
+  - ipv4
+  - ipv6
+properties:
+  name:
+    type: string
+    description: Host name without trailing dot.
+    example: ns1.example.com
+  ipv4:
+    type: array
+    description: Public IPv4 addresses of the server; empty for external DNS servers.
+    items:
+      type: string
+      format: ipv4
+    example:
+      - 192.0.2.40
+  ipv6:
+    type: array
+    description: Public IPv6 addresses of the server; empty for external DNS servers.
+    items:
+      type: string
+      format: ipv6
+    example: []

@@ -1,0 +1,38 @@
+# Hosting addresses and name servers of an account for its own API key (spec 031).
+# Derived per request from `client`, `server`, `server_ip`, `sys_ini` and the account's resources. Read-only.
+type: object
+description: Public addresses of the account's web and mail servers and the name servers of its DNS servers.
+additionalProperties: false
+required:
+  - client_id
+  - web
+  - mail
+  - dns
+properties:
+  client_id:
+    type: integer
+    format: int64
+    minimum: 1
+    description: The described client.
+    example: 42
+  web:
+    type: array
+    description: |
+      Web servers of the account: the assigned web servers in assignment order, then other web servers hosting the
+      account's websites by id. Empty when there are none.
+    items:
+      $ref: './HostingServer.yaml'
+  mail:
+    type: array
+    description: |
+      Mail servers of the account: the assigned mail servers in assignment order, then other mail servers hosting the
+      account's mail domains by id. Empty when there are none.
+    items:
+      $ref: './HostingServer.yaml'
+  dns:
+    type: array
+    description: |
+      DNS servers of the account: the assigned DNS servers in assignment order, then other DNS servers hosting the
+      account's zones by id, each with its name servers. Empty when there are none.
+    items:
+      $ref: './HostingDnsServer.yaml'

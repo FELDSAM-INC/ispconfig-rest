@@ -197,6 +197,19 @@ AccountMailSettings:
 AccountMailServer:
   $ref: './AccountMailServer.yaml'
 
+# Hosting addresses and name servers of an account (spec 031)
+HostingAddresses:
+  $ref: './HostingAddresses.yaml'
+
+HostingServer:
+  $ref: './HostingServer.yaml'
+
+HostingDnsServer:
+  $ref: './HostingDnsServer.yaml'
+
+NameServer:
+  $ref: './NameServer.yaml'
+
 MailConnection:
   $ref: './MailConnection.yaml'
 

@@ -1,7 +1,8 @@
 # Me module API paths (owned by spec 014)
 # Caller identity endpoints, available to every valid API key.
 # Spec 016 adds servers.yaml (GET /me/servers) to this module; spec 021
-# capabilities.yaml and php-versions.yaml; spec 025 mail-settings.yaml.
+# capabilities.yaml and php-versions.yaml; spec 025 mail-settings.yaml;
+# spec 031 hosting-addresses.yaml.
 
 # Identity of the calling key
 me:
@@ -22,3 +23,7 @@ php-versions:
 # Email program settings of the account (spec 025)
 mail-settings:
   $ref: './mail-settings.yaml'
+
+# Hosting addresses and name servers of the account (spec 031)
+hosting-addresses:
+  $ref: './hosting-addresses.yaml'

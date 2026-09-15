@@ -1,0 +1,42 @@
+# One web or mail server of an account with its public addresses (spec 031).
+type: object
+description: A server of the account with the public addresses a DNS record may point to.
+additionalProperties: false
+required:
+  - server_id
+  - server_name
+  - is_default
+  - ipv4
+  - ipv6
+properties:
+  server_id:
+    type: integer
+    format: int64
+    minimum: 1
+    example: 1
+  server_name:
+    type: string
+    description: Server name (`server.server_name`); for mail servers the host for MX records and mail programs.
+    example: web1.example.com
+  is_default:
+    type: boolean
+    description: True for the account's first assigned server of the role (used when a create omits `server_id`).
+    example: true
+  ipv4:
+    type: array
+    description: |
+      Public IPv4 addresses for A records: addresses registered on the server that are shared with all clients or
+      dedicated to this client, without private, loopback, link-local and reserved ranges, in registration order.
+    items:
+      type: string
+      format: ipv4
+    example:
+      - 192.0.2.10
+  ipv6:
+    type: array
+    description: Public IPv6 addresses for AAAA records, selected like `ipv4`.
+    items:
+      type: string
+      format: ipv6
+    example:
+      - 2001:db8::10

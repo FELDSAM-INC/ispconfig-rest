@@ -461,6 +461,8 @@ paths:
     $ref: './modules/me/php-versions.yaml#/~1me~1php-versions'
   /me/mail-settings:
     $ref: './modules/me/mail-settings.yaml#/~1me~1mail-settings'
+  /me/hosting-addresses:
+    $ref: './modules/me/hosting-addresses.yaml#/~1me~1hosting-addresses'
 
   # Changes module paths (spec 015) — specific before general
   /changes:

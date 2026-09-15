@@ -1,0 +1,86 @@
+# Me — hosting addresses and name servers of the calling key's account (spec 031).
+# Available to every valid API key (not admin-gated). Read-only.
+
+/me/hosting-addresses:
+  get:
+    tags:
+      - Me
+    summary: Hosting addresses and name servers of the account
+    description: |
+      Returns the public IPv4 and IPv6 addresses of the account's web and mail servers (for A, AAAA and MX records)
+      and, for each DNS server of the account, the name servers to delegate a domain to.
+
+      - **Servers**: the account's assigned servers of each role in assignment order (the first is the default for
+        new resources), then other servers already hosting the account's websites, mail domains or DNS zones, by id.
+        Deleted, mirror and wrong-role servers in the assignment are skipped.
+      - **Addresses**: the IP addresses registered on the server that are shared with all clients or dedicated to
+        this client, whether or not they are used as HTTP NameVirtualHost. Addresses dedicated to other clients and
+        private, loopback, link-local or reserved addresses are never listed.
+      - **Name servers**: as ISPConfig's zone import — the DNS server and its mirror servers ordered by name, with
+        their addresses, followed by the installation's external DNS servers (system setting, no addresses). Names
+        have no trailing dot.
+
+      - Client keys get their own account; `client_id` may only be their own client id (any other → 404).
+      - Reseller keys get their own account, or one of their clients by `client_id` (any other → 404).
+      - Admin keys must pass `client_id` (422 when missing, 404 when unknown).
+
+      Other query parameters → 400. Nothing is written.
+    parameters:
+      - name: client_id
+        in: query
+        required: false
+        description: Target client (required for admin keys).
+        schema:
+          type: integer
+          minimum: 1
+    responses:
+      '200':
+        description: Hosting addresses and name servers
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/HostingAddresses.yaml'
+            example:
+              client_id: 42
+              web:
+                - server_id: 1
+                  server_name: web1.example.com
+                  is_default: true
+                  ipv4:
+                    - 192.0.2.10
+                  ipv6:
+                    - 2001:db8::10
+              mail:
+                - server_id: 3
+                  server_name: mail1.example.com
+                  is_default: true
+                  ipv4:
+                    - 192.0.2.30
+                  ipv6: []
+              dns:
+                - server_id: 4
+                  server_name: ns1.example.com
+                  is_default: true
+                  nameservers:
+                    - name: ns1.example.com
+                      ipv4:
+                        - 192.0.2.40
+                      ipv6:
+                        - 2001:db8::40
+                    - name: ns2.example.com
+                      ipv4:
+                        - 198.51.100.50
+                      ipv6: []
+                    - name: ns3.example.net
+                      ipv4: []
+                      ipv6: []
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
