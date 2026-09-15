@@ -59,6 +59,9 @@
       - Web Domains
     summary: Create a new web domain
     description: |
+      Client and reseller keys whose client does not have `limit_backup` enabled receive 403 when the
+      request contains `backup_*` fields.
+
       Creates a new web domain (vhost). The success response confirms the
       `sys_datalog` entry; ISPConfig provisions the site asynchronously.
 
@@ -151,6 +154,9 @@
       - Web Domains
     summary: Update web domain
     description: |
+      Client and reseller keys whose client does not have `limit_backup` enabled receive 403 when the
+      request contains `backup_*` fields.
+
       Updates an existing web domain. Only include the fields you want to
       change; omitted fields remain unchanged.
 

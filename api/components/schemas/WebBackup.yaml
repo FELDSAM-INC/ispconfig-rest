@@ -1,0 +1,70 @@
+type: object
+description: A stored backup of a website's files or of one of its databases (table `web_backup`).
+required:
+  - id
+  - server_id
+  - parent_domain_id
+  - backup_type
+  - backup_mode
+  - filename
+  - filesize_approximate
+  - created_at
+  - job
+  - encrypted
+  - download_available
+properties:
+  id:
+    type: integer
+    description: Backup ID (column `backup_id`)
+    example: 12
+  server_id:
+    type: integer
+    description: Server that stores the backup
+    example: 1
+  parent_domain_id:
+    type: integer
+    description: Website the backup belongs to
+    example: 3
+  backup_type:
+    type: string
+    enum: [web, mysql, mongodb]
+  database_name:
+    type: string
+    nullable: true
+    description: Database name for database backups, parsed from the filename
+    example: c1shop
+  backup_mode:
+    type: string
+    description: Server backup mode that produced the backup (for example `rootgz`, `userzip`, `borg`)
+    example: rootgz
+  backup_format:
+    type: string
+    nullable: true
+    description: Compression format, derived like the ISPConfig backup list for borg and old backups
+    example: tar_gzip
+  filename:
+    type: string
+    description: Backup file name (borg archives include the extension of the download format)
+    example: web20260914000001.tar.gz
+  filesize:
+    type: integer
+    format: int64
+    nullable: true
+    description: Size in bytes
+    example: 1048576
+  filesize_approximate:
+    type: boolean
+    description: True when the final download size can differ (borg repositories)
+  created_at:
+    type: string
+    format: date-time
+    description: When the backup was made, in the API timezone
+  job:
+    type: string
+    enum: [manual, auto]
+    description: '`manual` for on-demand backups, `auto` for scheduled ones'
+  encrypted:
+    type: boolean
+  download_available:
+    type: boolean
+    description: Whether the backup can be prepared for download (stored on the website's server)

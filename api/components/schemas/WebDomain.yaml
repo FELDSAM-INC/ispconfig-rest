@@ -429,10 +429,9 @@ properties:
 
   backup_copies:
     type: integer
-    minimum: 1
-    maximum: 30
+    enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30]
     default: 1
-    description: Number of backup copies to keep (legacy options 1-10, 15, 20, 30)
+    description: Number of backup copies to keep (legacy options 1-10, 15, 20, 30; other values return 422)
     example: 7
 
   backup_excludes:

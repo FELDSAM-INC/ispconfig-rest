@@ -1,0 +1,8 @@
+type: object
+required:
+  - type
+properties:
+  type:
+    type: string
+    enum: [web, mysql]
+    description: Back up the website files or the website's MySQL databases

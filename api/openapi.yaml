@@ -132,6 +132,16 @@ components:
       $ref: './components/schemas/TrafficHistory.yaml'
     WebDomainUsage:
       $ref: './components/schemas/WebDomainUsage.yaml'
+    WebBackup:
+      $ref: './components/schemas/WebBackup.yaml'
+    WebBackupJob:
+      $ref: './components/schemas/WebBackupJob.yaml'
+    WebBackupCreate:
+      $ref: './components/schemas/WebBackupCreate.yaml'
+    WebBackupSettings:
+      $ref: './components/schemas/WebBackupSettings.yaml'
+    WebBackupSettingsUpdate:
+      $ref: './components/schemas/WebBackupSettingsUpdate.yaml'
     MailUserUsage:
       $ref: './components/schemas/MailUserUsage.yaml'
     DatabaseUsage:
@@ -479,6 +489,20 @@ paths:
     $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains~1{id}~1ssl'
   /sites/web-domains/{id}/ssl/renew:
     $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains~1{id}~1ssl~1renew'
+  /sites/web-domains/{id}/backups:
+    $ref: './modules/sites/web-backups.yaml#/~1sites~1web-domains~1{id}~1backups'
+  /sites/web-domains/{id}/backups/{backup_id}:
+    $ref: './modules/sites/web-backups.yaml#/~1sites~1web-domains~1{id}~1backups~1{backup_id}'
+  /sites/web-domains/{id}/backups/{backup_id}/restore:
+    $ref: './modules/sites/web-backups.yaml#/~1sites~1web-domains~1{id}~1backups~1{backup_id}~1restore'
+  /sites/web-domains/{id}/backups/{backup_id}/download:
+    $ref: './modules/sites/web-backups.yaml#/~1sites~1web-domains~1{id}~1backups~1{backup_id}~1download'
+  /sites/web-domains/{id}/backup-jobs:
+    $ref: './modules/sites/web-backups.yaml#/~1sites~1web-domains~1{id}~1backup-jobs'
+  /sites/web-domains/{id}/backup-jobs/{job_id}:
+    $ref: './modules/sites/web-backups.yaml#/~1sites~1web-domains~1{id}~1backup-jobs~1{job_id}'
+  /sites/web-domains/{id}/backup-settings:
+    $ref: './modules/sites/web-backups.yaml#/~1sites~1web-domains~1{id}~1backup-settings'
   /sites/web-child-domains:
     $ref: './modules/sites/web-child-domains.yaml#/~1sites~1web-child-domains'
   /sites/web-child-domains/{id}:

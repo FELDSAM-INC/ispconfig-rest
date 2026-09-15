@@ -5,6 +5,10 @@
 web-domains:
   $ref: './web-domains.yaml'
 
+# Website backups, backup jobs and backup settings (feature 018)
+web-backups:
+  $ref: './web-backups.yaml'
+
 # Subdomains and alias domains
 web-child-domains:
   $ref: './web-child-domains.yaml'

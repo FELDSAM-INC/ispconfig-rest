@@ -27,6 +27,11 @@ class ChangeSetHeaderContractTest extends TestCase
         'POST /system/api-keys',
         'PUT /system/api-keys/{id}',
         'DELETE /system/api-keys/{id}',
+        // Feature 018: backup remote actions go to sys_remoteaction, never the datalog.
+        'POST /sites/web-domains/{id}/backups',
+        'DELETE /sites/web-domains/{id}/backups/{backup_id}',
+        'POST /sites/web-domains/{id}/backups/{backup_id}/restore',
+        'POST /sites/web-domains/{id}/backups/{backup_id}/download',
     ];
 
     /**

@@ -260,3 +260,13 @@ MailUserUsage:
   $ref: './MailUserUsage.yaml'
 DatabaseUsage:
   $ref: './DatabaseUsage.yaml'
+WebBackup:
+  $ref: './WebBackup.yaml'
+WebBackupJob:
+  $ref: './WebBackupJob.yaml'
+WebBackupCreate:
+  $ref: './WebBackupCreate.yaml'
+WebBackupSettings:
+  $ref: './WebBackupSettings.yaml'
+WebBackupSettingsUpdate:
+  $ref: './WebBackupSettingsUpdate.yaml'

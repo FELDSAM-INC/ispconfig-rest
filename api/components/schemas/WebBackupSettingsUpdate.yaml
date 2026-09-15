@@ -1,0 +1,27 @@
+type: object
+description: Partial update; unknown fields are ignored.
+properties:
+  backup_interval:
+    type: string
+    enum: [none, daily, weekly, monthly]
+  backup_copies:
+    type: integer
+    enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30]
+  backup_excludes:
+    type: string
+    nullable: true
+    maxLength: 255
+    pattern: '^(?!.*\.\.)[-a-zA-Z0-9_/.~,*]*$'
+  backup_format_web:
+    type: string
+    enum: [default, zip, zip_bzip2, tar_gzip, tar_bzip2, tar_xz, tar_7z_lzma2, tar_7z_lzma, tar_7z_ppmd, tar_7z_bzip2]
+  backup_format_db:
+    type: string
+    enum: [zip, zip_bzip2, gzip, bzip2, xz, 7z_lzma2, 7z_lzma, 7z_ppmd, 7z_bzip2]
+  backup_encrypt:
+    type: boolean
+    description: Enabling requires a password (stored or supplied), otherwise 422
+  backup_password:
+    type: string
+    writeOnly: true
+    maxLength: 255

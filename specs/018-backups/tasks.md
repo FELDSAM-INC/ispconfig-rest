@@ -57,12 +57,12 @@ Run with Docker `php:8.3-cli` (local PHP is too old, see quickstart.md).
 
 **Purpose**: The OpenAPI contract is authored and valid before any PHP is written (Principle I)
 
-- [ ] T001 Author `api/modules/sites/web-backups.yaml` from `specs/018-backups/contracts/web-backups.yaml` (10 operations, FR-013 destructive-restore and manual-job caveats, FR-014 download object, `X-Change-Set-Id` on the backup-settings `PUT` 200 response) and register it in `api/modules/sites/_index.yaml`
-- [ ] T002 [P] Author `api/components/schemas/WebBackup.yaml`, `WebBackupJob.yaml`, `WebBackupCreate.yaml`, `WebBackupSettings.yaml` and `WebBackupSettingsUpdate.yaml` from `specs/018-backups/contracts/schemas.yaml` and register them in `api/components/schemas/_index.yaml`
-- [ ] T003 [P] Change `backup_copies` in `api/components/schemas/WebDomain.yaml` from `minimum: 1`/`maximum: 30` to `enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30]` (FR-016, owner decision 2026-09-14)
-- [ ] T004 [P] Document the 403 for `backup_*` fields when the client has `limit_backup = 'n'` in `api/modules/sites/web-domains.yaml` and `api/modules/sites/databases.yaml` (FR-009)
-- [ ] T005 Add the seven new path references to `api/openapi.yaml` directly after `/sites/web-domains/{id}/ssl/renew` (depends on T001)
-- [ ] T006 Add the four remote-action operations to `NON_JOURNALING_WRITES` in `tests/Unit/ChangeSetHeaderContractTest.php`, resolve every `$ref` of `api/openapi.yaml`, and run `ChangeSetHeaderContractTest` and `tests/Feature/SwaggerSpecServerTest.php` in Docker `php:8.3-cli` (depends on T001–T005)
+- [x] T001 Author `api/modules/sites/web-backups.yaml` from `specs/018-backups/contracts/web-backups.yaml` (10 operations, FR-013 destructive-restore and manual-job caveats, FR-014 download object, `X-Change-Set-Id` on the backup-settings `PUT` 200 response) and register it in `api/modules/sites/_index.yaml`
+- [x] T002 [P] Author `api/components/schemas/WebBackup.yaml`, `WebBackupJob.yaml`, `WebBackupCreate.yaml`, `WebBackupSettings.yaml` and `WebBackupSettingsUpdate.yaml` from `specs/018-backups/contracts/schemas.yaml` and register them in `api/components/schemas/_index.yaml`
+- [x] T003 [P] Change `backup_copies` in `api/components/schemas/WebDomain.yaml` from `minimum: 1`/`maximum: 30` to `enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30]` (FR-016, owner decision 2026-09-14)
+- [x] T004 [P] Document the 403 for `backup_*` fields when the client has `limit_backup = 'n'` in `api/modules/sites/web-domains.yaml` and `api/modules/sites/databases.yaml` (FR-009)
+- [x] T005 Add the seven new path references to `api/openapi.yaml` directly after `/sites/web-domains/{id}/ssl/renew` (depends on T001)
+- [x] T006 Add the four remote-action operations to `NON_JOURNALING_WRITES` in `tests/Unit/ChangeSetHeaderContractTest.php`, resolve every `$ref` of `api/openapi.yaml`, and run `ChangeSetHeaderContractTest` and `tests/Feature/SwaggerSpecServerTest.php` in Docker `php:8.3-cli` (depends on T001–T005)
 
 ---
 

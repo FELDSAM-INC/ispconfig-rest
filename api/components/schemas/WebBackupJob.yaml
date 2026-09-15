@@ -1,0 +1,53 @@
+type: object
+description: A queued backup action and its state (table `sys_remoteaction`).
+required:
+  - id
+  - action
+  - server_id
+  - state
+  - created_at
+properties:
+  id:
+    type: integer
+    description: Job ID (column `action_id`)
+    example: 42
+  action:
+    type: string
+    enum: [backup, restore, download, delete]
+  backup_type:
+    type: string
+    enum: [web, mysql, mongodb]
+    nullable: true
+    description: Type of the backup made or acted on; null when the backup no longer exists
+  backup_id:
+    type: integer
+    nullable: true
+    description: Backup acted on (restore, download, delete); null for backup jobs
+  server_id:
+    type: integer
+    description: Server that processes the job
+  state:
+    type: string
+    enum: [pending, ok, warning, error]
+    description: |
+      `pending` until the server processes the job (within about a minute). `ok` for a manual backup
+      does not prove a backup was created.
+  created_at:
+    type: string
+    format: date-time
+    description: When the job was queued, in the API timezone
+  download:
+    type: object
+    nullable: true
+    description: Present for finished download jobs whose backup still exists
+    properties:
+      path:
+        type: string
+        description: Location relative to the website root, reachable with the website's FTP/SSH users
+        example: backup/web20260914000001.tar.gz
+      filename:
+        type: string
+      available_until:
+        type: string
+        format: date-time
+        description: Earliest time the server removes the file (3 days after the job was queued)
