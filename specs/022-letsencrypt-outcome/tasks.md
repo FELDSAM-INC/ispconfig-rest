@@ -67,7 +67,27 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 - [x] T012 [P] README: mention `ssl/status` in the sites module row and the log-level note
 - [x] T013 Pint on changed PHP files; full suite green
-- [ ] T014 Deploy to isp-test and run quickstart.md §2–§3 (temporary client only), record results here
+- [x] T014 Deploy to isp-test and run quickstart.md §2–§3 (temporary client only), record results here
+
+### T014 results (2026-09-15, isp-test, deployed e91f37b)
+
+Temporary client 14 (`limit_ssl`/`limit_ssl_letsencrypt` = y, web server 1), client key 41, website 17
+`qa022-q03iztff.example.com` (does not resolve to isp-test).
+
+| Check | Result |
+|-------|--------|
+| No key | 401 |
+| Client key on another client's website (id 1) | 404 |
+| Before enabling | 200 `state=none`, `change_status=null` |
+| `PUT` `ssl` + `ssl_letsencrypt` true, read immediately | 200 `state=requested`, `change_status=pending`, `requested_at` +02:00, change set id |
+| After processing, server log level 2 | 200 `state=failed`, `https_enabled=false`, `letsencrypt_enabled=false`, `change_status=applied`, `failure.reason=unknown`, `certificate=null`; DB flags `ssl=n`, `ssl_letsencrypt=n` (plugin revert) |
+| Admin key | 200 `state=failed` |
+| Log level temporarily 1, enable again, after processing | 200 `failure.reason=domain_not_reachable`, `domains` = domain and `www.` domain, fixed detail text |
+| Response bodies | no `Used command`, `/root` or `acme` |
+
+Cleanup: server config restored byte-identical (`loglevel=2`); client deleted through the API (204) and processed;
+QA keys 40/41 deleted by id; no client, website, sys_user, client directory, vhost link or acme.sh entry left; no
+pending journal entries. The two warning rows the check produced stay in `sys_log` (purged by ISPConfig after 7 days).
 
 ---
 
