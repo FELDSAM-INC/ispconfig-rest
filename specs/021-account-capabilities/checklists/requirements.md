@@ -38,5 +38,5 @@
 - Consumer fit checked against the WHMCS module `specs/003-websites-domains/contracts/ispconfig-rest-calls.md`
   (`web.ssl`, `web.ssl_letsencrypt`, `web.wildcard`, `web.php_modes`, `locked`, `data[].id`, `data[].name`).
 - No clarification markers. Owner-delegated decisions (2026-09-15) recorded in the Parity section: new read
-  endpoints, default entry listed whenever not hidden, all servers without `server_id`, reseller naming a client
+  endpoints, default entry listed first whenever not hidden, all servers without `server_id`, reseller naming a client
   sees the client's own view.

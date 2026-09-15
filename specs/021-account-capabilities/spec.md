@@ -80,8 +80,8 @@ other server) and servers with `php_default_hide = y/n`; call `GET /me/php-versi
 3. **Given** a private version of client A and one of client B, **When** client A's key lists versions,
    **Then** only A's private version appears; inactive versions never appear.
 4. **Given** server 1 does not hide the default version (`php_default_hide = n`, `php_default_name = Default`),
-   **When** versions are listed, **Then** an entry `{id: 0, name: "Default", is_default: true}` precedes the
-   first version with `sortprio > 0`; **Given** `php_default_hide = y`, **Then** no id 0 entry.
+   **When** versions are listed, **Then** the server's list starts with `{id: 0, name: "Default", is_default: true}`;
+   **Given** `php_default_hide = y`, **Then** no id 0 entry.
 5. **Given** the client's plan allows only `no` and `mod`, **When** it lists versions, **Then** `data` is empty.
 6. **Given** a server that is neither assigned to the account nor hosts one of its websites, **When** it is
    named in `server_id`, **Then** 422 on `server_id`; an unknown `mode` → 422 on `mode`.
@@ -106,8 +106,8 @@ other server) and servers with `php_default_hide = y/n`; call `GET /me/php-versi
 - Mirror servers and servers without the web role are never listed.
 - A version deactivated after a website used it disappears from the list; the website keeps it until PHP is
   changed (feature 020 edge case).
-- `limit` / `offset` follow the list conventions; entries are ordered by server (account order), then
-  `sortprio`, then id, with the default entry placed as legacy does.
+- `limit` / `offset` follow the list conventions; entries are ordered by server (account order), then the
+  default entry, then `sortprio`, then id.
 
 ## API Contract *(mandatory)*
 
@@ -131,12 +131,13 @@ other server) and servers with `php_default_hide = y/n`; call `GET /me/php-versi
     wildcard option only with `limit_wildcard = y`), 254 (`php` valuelimit
     `system:sites:web_php_options;client:web_php_options`), 791–795 (Options tab for resellers only with
     `sites.reseller_can_use_options = y`).
-  - `interface/web/sites/web_vhost_domain_edit.php` lines 979–996 (plan flags forced for non-admins), 247–258
-    (client PHP version list for the website's server).
+  - `interface/web/sites/web_vhost_domain_edit.php` lines 979–996 (plan flags forced for non-admins), 240–272
+    (client PHP version list for the website's server: nginx `fast-cgi` → `php-fpm`, `client_id = 0 OR own`,
+    `active = 'y'`, mode binaries; option `0` = `php_default_name` first unless `php_default_hide = y`).
   - `interface/lib/classes/tform_base.inc.php` `applyValueLimit()` 339–430 (system ∩ client PHP modes).
   - `interface/web/sites/ajax_get_json.php` 66–125 (`getserverphp`: `server_id`, `active = 'y'`, `client_id = 0
     OR own`, mode binaries, nginx `fast-cgi` → `php-fpm`, `ORDER BY sortprio`, virtual `0` "Default" entry
-    unless `php_default_hide = y`, inserted before the first version with `sortprio > 0`).
+    unless `php_default_hide = y`).
   - `client.locked`, `client.canceled` (lock/cancel semantics of feature 019).
 - **Legacy behaviors to mirror**: the values the ISPConfig interface uses to build the website form for the
   logged-in account (visible tabs/options, PHP mode list, PHP version list) — through the same rules feature 020
@@ -145,8 +146,10 @@ other server) and servers with `php_default_hide = y/n`; call `GET /me/php-versi
 - **System fields handling**: not applicable (no writes; responses contain no `sys_*` fields).
 - **Intentional deviations from legacy** (owner-delegated decisions 2026-09-15):
   - New read endpoints without a legacy counterpart (legacy renders these values into forms only).
-  - The "Default" entry is listed whenever the server does not hide it, also when the server has no version with
-    `sortprio > 0` or no versions at all (legacy inserts it only inside the loop, before such a version).
+  - The "Default" entry is listed first whenever the server does not hide it, as in the initial website form
+    (`web_vhost_domain_edit.php:263-265`); the mode-change list (`ajax_get_json.php`) inserts it before the first
+    version with `sortprio > 0` and only when versions exist. Versions are ordered by `sortprio`, then id (the
+    initial form has no order).
   - Without `server_id`, versions of all the account's web servers are listed in one response.
   - A reseller naming one of its clients sees that client's own capabilities (what the client's key may do);
     feature 020 checks a reseller key's writes against the reseller's own plan.
@@ -183,10 +186,9 @@ other server) and servers with `php_default_hide = y/n`; call `GET /me/php-versi
   `is_default: false`; no paths or binaries.
 - **FR-007**: When the server's `php_default_hide` is not `y` and at least one allowed mode is considered, the
   list MUST contain an entry `id = 0`, `name` = the server's `php_default_name` (`Default` when empty),
-  `is_default: true`, `modes` = the considered modes, placed before the server's first version with
-  `sortprio > 0` (after the others when there is none).
-- **FR-008**: Versions MUST be ordered by server (FR-005 order), then legacy order (`sortprio`, then id, default
-  entry per FR-007); the response MUST use `{data, meta}` with `limit` / `offset`.
+  `is_default: true`, `modes` = the considered modes, as the first entry of that server.
+- **FR-008**: Versions MUST be ordered by server (FR-005 order), then the default entry (FR-007), then `sortprio`,
+  then id; the response MUST use `{data, meta}` with `limit` / `offset`.
 - **FR-009**: Every version listed for a server and mode MUST be accepted as `server_php_id` for a website of the
   account on that server with that mode by the account's own key (feature 020 FR-004/FR-006), and every
   non-default version not listed MUST be refused.
