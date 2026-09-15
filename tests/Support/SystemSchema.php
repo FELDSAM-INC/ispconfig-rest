@@ -211,8 +211,17 @@ class SystemSchema
         if (! Schema::hasTable('spamfilter_users')) {
             Schema::create('spamfilter_users', function (Blueprint $table): void {
                 $table->increments('id');
+                $table->unsignedInteger('sys_userid')->default(0);
+                $table->unsignedInteger('sys_groupid')->default(0);
+                $table->string('sys_perm_user', 5)->default('');
+                $table->string('sys_perm_group', 5)->default('');
+                $table->string('sys_perm_other', 5)->default('');
                 $table->unsignedInteger('server_id')->default(0);
+                $table->unsignedTinyInteger('priority')->default(7);
+                $table->unsignedInteger('policy_id')->default(0);
                 $table->string('email')->default('');
+                $table->string('fullname', 64)->nullable();
+                $table->string('local', 1)->nullable();
             });
         }
 

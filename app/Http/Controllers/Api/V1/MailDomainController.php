@@ -9,9 +9,11 @@ use App\Http\Requests\StoreMailDomainRequest;
 use App\Http\Requests\UpdateMailDomainRequest;
 use App\Models\MailDomain;
 use App\Services\MailDomainService;
+use App\Services\SpamfilterUserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -22,13 +24,19 @@ use Illuminate\Support\Facades\DB;
  * MailDomainService, datalogging in BaseModel/DatalogService. Success
  * responses confirm the sys_datalog entry — ISPConfig applies changes
  * asynchronously.
+ *
+ * Every domain response carries `spamfilter_policy_id` (spec 026), the level
+ * from the domain's `@domain` spamfilter_users row.
  */
 class MailDomainController extends Controller
 {
     use HandlesListQuery;
     use ResolvesClientOwnership;
 
-    public function __construct(protected MailDomainService $service) {}
+    public function __construct(
+        protected MailDomainService $service,
+        protected SpamfilterUserService $spamfilterUsers,
+    ) {}
 
     /**
      * GET /mail/domains — filtered, sorted, paginated list.
@@ -49,6 +57,8 @@ class MailDomainController extends Controller
             ]
         );
 
+        $result['data'] = $this->present($result['data']);
+
         return response()->json($result);
     }
 
@@ -57,7 +67,7 @@ class MailDomainController extends Controller
      */
     public function show(MailDomain $mailDomain): JsonResponse
     {
-        return response()->json($mailDomain);
+        return response()->json($this->presentOne($mailDomain));
     }
 
     /**
@@ -72,12 +82,18 @@ class MailDomainController extends Controller
             $this->assignOwningClient($domain, $request->integer('client_id'));
         }
 
-        DB::transaction(function () use ($domain): void {
+        $policyId = $request->spamfilterPolicyId();
+
+        DB::transaction(function () use ($domain, $policyId): void {
             $domain->save();
             $this->service->syncDnsAfterInsert($domain);
+
+            if ($policyId !== null) {
+                $this->spamfilterUsers->assignDomain($domain, $policyId);
+            }
         });
 
-        return response()->json($domain->refresh(), 201);
+        return response()->json($this->presentOne($domain->refresh()), 201);
     }
 
     /**
@@ -91,12 +107,19 @@ class MailDomainController extends Controller
         $mailDomain->fill($request->payload());
         $this->service->applyDkimKeys($mailDomain);
 
-        DB::transaction(function () use ($mailDomain, $oldRecord): void {
+        $policyId = $request->spamfilterPolicyId();
+
+        DB::transaction(function () use ($mailDomain, $oldRecord, $policyId): void {
+            // The save also enforces update permission when only the level changes.
             $mailDomain->save();
             $this->service->syncDnsAfterUpdate($mailDomain, $oldRecord);
+
+            if ($policyId !== null) {
+                $this->spamfilterUsers->assignDomain($mailDomain, $policyId);
+            }
         });
 
-        return response()->json($mailDomain->refresh());
+        return response()->json($this->presentOne($mailDomain->refresh()));
     }
 
     /**
@@ -110,5 +133,33 @@ class MailDomainController extends Controller
         });
 
         return response()->noContent();
+    }
+
+    /**
+     * A domain response with its spam filter level (spec 026).
+     *
+     * @return array<string, mixed>
+     */
+    protected function presentOne(MailDomain $domain): array
+    {
+        return $domain->toArray() + [
+            'spamfilter_policy_id' => $this->spamfilterUsers->policyFor('@'.$domain->getAttributes()['domain']),
+        ];
+    }
+
+    /**
+     * A page of domains with their levels, read with one query.
+     *
+     * @param  Collection<int, MailDomain>  $domains
+     * @return array<int, array<string, mixed>>
+     */
+    protected function present(Collection $domains): array
+    {
+        $key = fn (MailDomain $domain): string => '@'.$domain->getAttributes()['domain'];
+        $policies = $this->spamfilterUsers->policiesFor($domains->map($key)->all());
+
+        return $domains->map(fn (MailDomain $domain): array => $domain->toArray() + [
+            'spamfilter_policy_id' => $policies[$key($domain)] ?? 0,
+        ])->all();
     }
 }

@@ -86,6 +86,8 @@ class StoreMailDomainRequest extends MailDomainRequest
             'local_delivery' => ['sometimes', 'boolean'],
             // Optional owning client (resolved to its sys_group on create).
             'client_id' => ['sometimes', 'integer', Rule::exists('client', 'client_id')],
+            // Spec 026: spam filter level of the domain.
+            'spamfilter_policy_id' => $this->spamfilterPolicyRules(),
         ];
     }
 }

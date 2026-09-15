@@ -68,6 +68,8 @@ class UpdateMailDomainRequest extends MailDomainRequest
             'relay_pass' => ['sometimes', 'nullable', 'string', 'max:255'],
             'active' => ['sometimes', 'boolean'],
             'local_delivery' => ['sometimes', 'boolean'],
+            // Spec 026: spam filter level of the domain.
+            'spamfilter_policy_id' => $this->spamfilterPolicyRules(),
         ];
     }
 

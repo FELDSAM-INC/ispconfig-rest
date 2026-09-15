@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesSpamfilterPolicy;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -18,6 +19,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 abstract class MailDomainRequest extends FormRequest
 {
+    use ValidatesSpamfilterPolicy;
+
     /**
      * Authentication happens in the api.key middleware; per-record
      * sys_perm_* enforcement is out of scope (spec 003 assumption).
@@ -81,6 +84,9 @@ abstract class MailDomainRequest extends FormRequest
     {
         $data = $this->validated();
 
+        // Spec 026: the level lives in spamfilter_users, not in mail_domain.
+        unset($data['spamfilter_policy_id']);
+
         foreach (['relay_host', 'relay_user', 'relay_pass'] as $field) {
             if (array_key_exists($field, $data) && $data[$field] === null) {
                 $data[$field] = '';
@@ -92,6 +98,14 @@ abstract class MailDomainRequest extends FormRequest
         }
 
         return $data;
+    }
+
+    /**
+     * The spam filter level to set (spec 026), or null when not sent.
+     */
+    public function spamfilterPolicyId(): ?int
+    {
+        return $this->validatedPolicy('spamfilter_policy_id');
     }
 
     /**

@@ -3,11 +3,13 @@
 namespace App\Http\Requests;
 
 use App\Exceptions\ProblemAuthorizationException;
+use App\Http\Requests\Concerns\ValidatesSpamfilterPolicy;
 use App\Services\AccountMailService;
 use App\Support\IspContext;
 use App\Support\ProblemType;
 use App\Support\ProblemTypeCollector;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -21,9 +23,15 @@ use Illuminate\Validation\Validator;
  * the legacy Mail Filter tab (403 when the installation hides it,
  * mail_user.tform.php:427); custom_mailfilter is the administrator-only
  * Custom Rules tab (:474) and refused as a typed field error.
+ *
+ * policy_id (spec 026) is the mailbox's spam filter level for every key type:
+ * 0 or a policy the key can read; it is stored in spamfilter_users, not in
+ * the mail_user row, and is not a mail filter tab field.
  */
 class UpdateMailUserSpamFilterRequest extends FormRequest
 {
+    use ValidatesSpamfilterPolicy;
+
     /** Fields of the legacy Mail Filter tab. */
     public const MAIL_FILTER_TAB_FIELDS = ['move_junk', 'purge_trash_days', 'purge_junk_days'];
 
@@ -58,6 +66,7 @@ class UpdateMailUserSpamFilterRequest extends FormRequest
             'purge_trash_days' => ['sometimes', 'integer', 'min:0'],
             'purge_junk_days' => ['sometimes', 'integer', 'min:0'],
             'custom_mailfilter' => ['sometimes', 'nullable', 'string'],
+            'policy_id' => $this->spamfilterPolicyRules(),
         ];
     }
 
@@ -83,6 +92,14 @@ class UpdateMailUserSpamFilterRequest extends FormRequest
      */
     public function payload(): array
     {
-        return $this->validated();
+        return Arr::except($this->validated(), ['policy_id']);
+    }
+
+    /**
+     * The spam filter level to set, or null when the request does not set it.
+     */
+    public function policyId(): ?int
+    {
+        return $this->validatedPolicy('policy_id');
     }
 }

@@ -161,7 +161,7 @@ class MailUserService
      * Legacy functions.inc.php::idn_decode for email addresses (fullname is
      * stored IDN-decoded).
      */
-    protected function idnDecode(string $email): string
+    public function idnDecode(string $email): string
     {
         if (! str_contains($email, '@') || ! function_exists('idn_to_utf8')) {
             return $email;
