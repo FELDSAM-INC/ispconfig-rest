@@ -65,6 +65,12 @@
       - Mail Users
     summary: Create a new mail user
     description: |
+      The password must satisfy the installation's password policy for every key type (spec 028,
+      `mail.password_policy` in `GET /me/capabilities`); violations return 422 with the ISPConfig message.
+
+      `disableimap`, `disablepop3`, `disablesmtp` and `disabledeliver` switch mailbox access (spec 028); client and
+      reseller keys of a locked account cannot switch sending back on (`disablesmtp: false`, 403 `account-locked`).
+
       Creates a new mail user (mailbox). The write is recorded in `sys_datalog`
       and provisioned asynchronously by the ISPConfig server.
 
@@ -143,6 +149,12 @@
       - Mail Users
     summary: Update mail user
     description: |
+      The password must satisfy the installation's password policy for every key type (spec 028,
+      `mail.password_policy` in `GET /me/capabilities`); violations return 422 with the ISPConfig message.
+
+      `disableimap`, `disablepop3`, `disablesmtp` and `disabledeliver` switch mailbox access (spec 028); client and
+      reseller keys of a locked account cannot switch sending back on (`disablesmtp: false`, 403 `account-locked`).
+
       Updates an existing mail user account.
 
       ### Notes

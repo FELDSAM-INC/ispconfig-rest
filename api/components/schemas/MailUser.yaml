@@ -61,13 +61,15 @@ properties:
       Password for the mail user
       - Required when creating a new user; on update the password is only
         changed when a non-empty value is provided
-      - Minimum length 5 characters (legacy ISPConfig interface policy:
-        `min_password_length` default 5, admin/form/system_config.tform.php)
+      - Must satisfy the installation's password policy for every key type (spec 028): at least
+        `min_password_length` characters (8 when not configured) and the strength `min_password_strength`
+        (ISPConfig scale 1–5), or — when `mail_password_onlyascii` is enabled — ASCII characters only.
+        `GET /me/capabilities` returns the policy as `mail.password_policy`; violations return 422 with the
+        ISPConfig message.
       - Stored as a SHA-512 crypt hash (`$6$rounds=5000$...`, legacy CRYPTMAIL)
       - Never returned in responses
     example: "SecurePassword123!"
     writeOnly: true
-    minLength: 5
     maxLength: 255
     x-db-field: password
 
@@ -177,6 +179,36 @@ properties:
     x-db-field: greylisting
 
   # System fields (readonly)
+  disableimap:
+    type: boolean
+    default: false
+    description: |
+      IMAP access is disabled (spec 028). Also disables Sieve filtering and ManageSieve
+      (`disablesieve`, `disablesieve-filter` are set to the same value).
+    x-db-field: disableimap
+
+  disablepop3:
+    type: boolean
+    default: false
+    description: POP3 access is disabled (spec 028).
+    x-db-field: disablepop3
+
+  disablesmtp:
+    type: boolean
+    default: false
+    description: |
+      Sending (SMTP submission) from this mailbox is disabled (spec 028). Locking an account switches it on;
+      client and reseller keys of a locked account cannot switch sending back on (403 `account-locked`).
+    x-db-field: disablesmtp
+
+  disabledeliver:
+    type: boolean
+    default: false
+    description: |
+      Local delivery to the mailbox (and processing by mail filters and Sieve scripts) is disabled; copies to
+      `cc` are still sent (spec 028). `disablelda` and `disablelmtp` are set to the same value.
+    x-db-field: disabledeliver
+
   sys_userid:
     type: integer
     readOnly: true
