@@ -64,7 +64,7 @@ Request flow: routes (`routes/api.php` on Laravel; legacy `routes/web.php` until
 - **PHP**: PSR-4 under `App\`; StudlyCase classes; controllers named `<Entity>Controller`.
 - **OpenAPI files**: kebab-case for module path files, PascalCase for schemas.
 - **Routes**: plural resources nested under module prefixes (`clients/circles`, `dns/soa`, `mail/domains`).
-- **Branches**: spec-kit numbered feature branches (`NNN-feature-name`).
+- **Branches**: no feature branches or pull requests — commit directly to `main` (owner decision 2026-09-15); spec directories keep the `specs/NNN-feature-name` numbering.
 - **Commits**: short imperative subject lines. No Conventional Commits requirement.
 
 ## Testing (REQUIRED)
@@ -89,9 +89,11 @@ Before a feature is considered done:
 
 This constitution supersedes generic habits and v1 where they conflict. Amendments go through `/speckit-constitution` and must cite either a detected convention or an explicit owner decision. Decision log: Laravel 12, pragmatic-REST conventions, in-place rebuild, and mandatory tests were chosen by the project owner on 2026-07-04 (reboot decisions). Intentionally unregulated: dev-server/runtime environment policy, commit-message format beyond existing style.
 
-**Version**: 2.0.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-07-04
+**Version**: 2.0.1 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-09-15
 
 <!--
+2.0.1 (2026-09-15): Branches rule — commit directly to main, no feature branches/PRs
+(owner decision); Spec Kit before_specify branch hook disabled.
 2.0.0 (2026-07-04): Reboot constitution — target Laravel 12/PHP 8.3+; Principle V
 rewritten to pragmatic REST ({data,meta} envelope, RFC 9457 problem+json, hashed
 X-API-Key); tests now REQUIRED; Principle II gains a documented-exceptions clause
