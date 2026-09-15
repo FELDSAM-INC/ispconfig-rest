@@ -121,6 +121,8 @@ The capabilities also carry `mail`: whether autoresponders and mail filters can 
 
 Customer keys can choose the spam filter level of their mailboxes and mail domains: `PUT /api/v1/mail/users/{id}/spamfilter` with `policy_id` (0 = inherit) and `POST`/`PUT /api/v1/mail/domains` with `spamfilter_policy_id` (0 = no policy); both are also returned on reads. Only levels listed by `GET /api/v1/mail/spamfilter/policies` for that key are accepted. The level is stored in the mailbox's or domain's spam filter user row, as ISPConfig does.
 
+`POST /api/v1/mail/domains/{id}/dkim` generates a DKIM key pair on the server (key size from the mail server's `dkim_strength`, optional `selector`), switches DKIM on and publishes the TXT record when the domain's DNS zone is hosted here; `GET /api/v1/mail/domains/{id}/dkim` returns the status, public key and DNS record. Generation returns `409` when the mail server has no DKIM key directory. Switch DKIM off with `PUT /api/v1/mail/domains/{id}` `{"dkim": false}`. The private key is never returned to client and reseller keys, neither by the DKIM endpoints nor by the mail domain resource.
+
 References inside a request body follow the same read scope: for client and reseller keys, the mail domain of a mailbox, forward, alias, catch-all or alias domain, an alias's destination mailboxes, the parent website of subdomains, FTP/shell/WebDAV users, cron jobs, protected folders and databases, a database's users, a folder user's folder, a DNS record's zone and an allow/deny list entry's spam filter user must all be visible to the key. A reference the key cannot see is rejected exactly like a nonexistent one (`400`, `404` or `422` as for a missing value).
 
 ### Managing keys over HTTP
