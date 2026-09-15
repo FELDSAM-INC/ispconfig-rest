@@ -125,4 +125,53 @@ class WebBackupJobApiTest extends WebBackupApiTestCase
 
         $this->getJson($this->url($website, '/backup-jobs'), $this->tenantHeaders('clientA'))->assertStatus(404);
     }
+
+    public function test_finished_download_job_reports_where_the_file_is(): void
+    {
+        $website = $this->website('clientA');
+        $backup = $this->backup($website, ['filename' => 'manual-web_2025-09-14_00-00.tar.gz']);
+        $job = $this->remoteAction(['action_type' => 'backup_download', 'action_param' => (string) $backup, 'action_state' => 'ok']);
+
+        $this->getJson($this->url($website, "/backup-jobs/{$job}"), $this->tenantHeaders('clientA'))
+            ->assertOk()
+            ->assertJsonPath('action', 'download')
+            ->assertJsonPath('download', [
+                'path' => 'backup/manual-web_2025-09-14_00-00.tar.gz',
+                'filename' => 'manual-web_2025-09-14_00-00.tar.gz',
+                'available_until' => CarbonImmutable::createFromTimestamp(self::BACKUP_TSTAMP + 3 * 86400, config('app.timezone'))->toIso8601String(),
+            ]);
+    }
+
+    public function test_download_of_a_borg_backup_uses_the_extracted_filename(): void
+    {
+        $website = $this->website('clientA', ['backup_format_web' => 'zip']);
+        $backup = $this->backup($website, ['backup_mode' => 'borg', 'backup_format' => '', 'filename' => 'web_2025-09-14_00-00']);
+        $job = $this->remoteAction(['action_type' => 'backup_download', 'action_param' => (string) $backup, 'action_state' => 'ok']);
+
+        $this->getJson($this->url($website, "/backup-jobs/{$job}"), $this->tenantHeaders('clientA'))
+            ->assertOk()
+            ->assertJsonPath('download.path', 'backup/web_2025-09-14_00-00.zip')
+            ->assertJsonPath('download.filename', 'web_2025-09-14_00-00.zip');
+    }
+
+    public function test_download_object_only_for_finished_downloads_of_existing_backups(): void
+    {
+        $website = $this->website('clientA');
+        $backup = $this->backup($website);
+        $pending = $this->remoteAction(['action_type' => 'backup_download', 'action_param' => (string) $backup]);
+        $failed = $this->remoteAction(['action_type' => 'backup_download', 'action_param' => (string) $backup, 'action_state' => 'error']);
+        $restore = $this->remoteAction(['action_type' => 'backup_restore', 'action_param' => (string) $backup, 'action_state' => 'ok']);
+        $removed = $this->remoteAction(['action_type' => 'backup_download', 'action_param' => '999999', 'action_state' => 'ok']);
+
+        $headers = $this->tenantHeaders('clientA');
+
+        foreach ([$pending, $failed, $restore] as $job) {
+            $this->getJson($this->url($website, "/backup-jobs/{$job}"), $headers)
+                ->assertOk()
+                ->assertJsonPath('download', null);
+        }
+
+        // A job whose backup row is gone is no longer attributed to the website (R5).
+        $this->getJson($this->url($website, "/backup-jobs/{$removed}"), $headers)->assertStatus(404);
+    }
 }

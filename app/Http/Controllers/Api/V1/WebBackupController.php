@@ -159,6 +159,35 @@ class WebBackupController extends Controller
     }
 
     /**
+     * POST /sites/web-domains/{id}/backups/{backup_id}/download — 201 job.
+     * Read permission is enough (legacy checks getAuthSQL('r'), enforced by
+     * the website binding); only backups stored on the website's server can
+     * be copied into its backup folder (download_available, R7).
+     */
+    public function download(WebDomain $webDomain, int $backup): JsonResponse
+    {
+        $model = $this->backups->backupOfWebsite($webDomain, $backup);
+
+        if (! $this->backups->backupRepresentation($model, $webDomain)['download_available']) {
+            throw ValidationException::withMessages([
+                'backup_id' => 'The backup is stored on another server than the website and cannot be downloaded.',
+            ]);
+        }
+
+        [$job] = $this->actions->queue(
+            $webDomain,
+            'backup_download',
+            (string) $model->getKey(),
+            [$this->backups->actionServerId($model, $webDomain)],
+        );
+
+        return response()->json(
+            $this->backups->jobRepresentation($job, $webDomain, [(int) $model->getKey() => $model]),
+            201
+        );
+    }
+
+    /**
      * Legacy plugin_backuplist checks getAuthSQL('u') for restore, delete and
      * on-demand backups (research R8 step 4).
      */

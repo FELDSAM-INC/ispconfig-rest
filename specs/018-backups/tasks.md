@@ -159,15 +159,15 @@ database backup stored on another server than the website → 422; an `ok` downl
 
 ### Tests for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T041 [US3] Add download cases to `tests/Feature/WebBackupActionApiTest.php`: 201 job with one `backup_download` row (param = backup id, backup's server); key with read permission only is allowed; duplicate pending → 409; backup on another server than the website → 422; server without `backup_dir` → 409
-- [ ] T042 [P] [US3] Add download-object cases to `tests/Feature/WebBackupJobApiTest.php`: `ok` download job whose backup exists returns `download {path: "backup/<filename>", filename, available_until = created_at + 3 days}` (research R13); pending, error, or removed backup → no download object
+- [x] T041 [US3] Add download cases to `tests/Feature/WebBackupActionApiTest.php`: 201 job with one `backup_download` row (param = backup id, backup's server); key with read permission only is allowed; duplicate pending → 409; backup on another server than the website → 422; server without `backup_dir` → 409
+- [x] T042 [P] [US3] Add download-object cases to `tests/Feature/WebBackupJobApiTest.php`: `ok` download job whose backup exists returns `download {path: "backup/<filename>", filename, available_until = created_at + 3 days}` (research R13); pending, error, or removed backup → no download object
 
 ### Implementation for User Story 3
 
-- [ ] T043 [US3] Add the download object derivation (research R13) to `app/Services/WebBackupService.php`
-- [ ] T044 [US3] Add `download` (read permission only; 422 when `download_available` is false; delegates to `RemoteActionService`) to `app/Http/Controllers/Api/V1/WebBackupController.php`
-- [ ] T045 [US3] Register `POST sites/web-domains/{webDomain}/backups/{backup}/download` in `routes/api/sites.php` next to restore, above `…/backups/{backup}` (depends on T039, T044)
-- [ ] T046 [US3] Run T041–T042 in Docker (`vendor/bin/phpunit --filter 'WebBackupActionApi|WebBackupJobApi'`) and verify download in Swagger UI against `api/modules/sites/web-backups.yaml`
+- [x] T043 [US3] Add the download object derivation (research R13) to `app/Services/WebBackupService.php`
+- [x] T044 [US3] Add `download` (read permission only; 422 when `download_available` is false; delegates to `RemoteActionService`) to `app/Http/Controllers/Api/V1/WebBackupController.php`
+- [x] T045 [US3] Register `POST sites/web-domains/{webDomain}/backups/{backup}/download` in `routes/api/sites.php` next to restore, above `…/backups/{backup}` (depends on T039, T044)
+- [x] T046 [US3] Run T041–T042 in Docker (`vendor/bin/phpunit --filter 'WebBackupActionApi|WebBackupJobApi'`) and verify download in Swagger UI against `api/modules/sites/web-backups.yaml`
 
 **Checkpoint**: All user stories are independently functional
 
