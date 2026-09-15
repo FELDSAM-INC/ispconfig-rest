@@ -62,9 +62,25 @@ properties:
       }
     x-db-field: custom_mailfilter
 
+  policy_id:
+    type: integer
+    format: int64
+    minimum: 0
+    default: 0
+    description: |
+      Spam filter level of the mailbox (spec 026): the id of a spam filter policy
+      (`GET /mail/spamfilter/policies`), 0 = inherit the level of the mail domain or server.
+      Client and reseller keys may only choose policies they can read (422 otherwise, the same
+      message as for a nonexistent policy). Stored in the mailbox's `spamfilter_users` row.
+    example: 5
+    x-db-table: spamfilter_users
+    x-db-field: policy_id
+
 description: |
   ## Mail user spam filter settings
 
   Per-mailbox spam handling. This is a view over the `move_junk`,
   `purge_trash_days`, `purge_junk_days` and `custom_mailfilter` columns of the
-  `mail_user` row — updates produce a `mail_user` datalog update.
+  `mail_user` row — updates produce a `mail_user` datalog update — plus the
+  spam filter level (`policy_id`) of the mailbox's `spamfilter_users` row
+  (datalog insert or update of that row).

@@ -73,6 +73,11 @@
       - Mail Domains
     summary: Create a new mail domain
     description: |
+      `spamfilter_policy_id` (spec 026) is the spam filter level of the domain (0 = no policy). When
+      sent, the domain's `@domain` row of `spamfilter_users` is updated, or inserted with the ISPConfig
+      defaults (priority 5), in the same change set; client and reseller keys may only choose policies
+      they can read.
+
       Creates a new mail domain configuration.
 
       ### Validation Rules
@@ -154,6 +159,11 @@
       - Mail Domains
     summary: Update mail domain
     description: |
+      `spamfilter_policy_id` (spec 026) is the spam filter level of the domain (0 = no policy). When
+      sent, the domain's `@domain` row of `spamfilter_users` is updated, or inserted with the ISPConfig
+      defaults (priority 5), in the same change set; client and reseller keys may only choose policies
+      they can read.
+
       Updates an existing mail domain configuration.
 
       ### Notes

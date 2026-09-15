@@ -38,6 +38,11 @@
       - Mail Users
     summary: Update spam filter settings for a mail user
     description: |
+      `policy_id` sets the spam filter level of the mailbox for every key type (spec 026): the
+      mailbox's `spamfilter_users` row is updated, or inserted with the ISPConfig defaults (priority 7),
+      in the same change set. It is not restricted by the mail filter tab. Changing it needs update
+      permission on the mailbox (403).
+
       Client and reseller keys (spec 025):
       - `move_junk`, `purge_trash_days` and `purge_junk_days` require the installation's mail filter tab (system
         setting `mailbox_show_mail_filter_tab`): otherwise 403 `feature-not-allowed` with

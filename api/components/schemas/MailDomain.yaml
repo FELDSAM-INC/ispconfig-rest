@@ -80,6 +80,20 @@ properties:
     example: "default"
     x-db-field: dkim_selector
 
+  spamfilter_policy_id:
+    type: integer
+    format: int64
+    minimum: 0
+    default: 0
+    description: |
+      Spam filter level of the domain (spec 026): the id of a spam filter policy
+      (`GET /mail/spamfilter/policies`), 0 = no policy. Stored in the `@domain` row of
+      `spamfilter_users`; written only when sent. Client and reseller keys may only choose
+      policies they can read (422 otherwise, the same message as for a nonexistent policy).
+    example: 5
+    x-db-table: spamfilter_users
+    x-db-field: policy_id
+
   relay_host:
     type: string
     description: |

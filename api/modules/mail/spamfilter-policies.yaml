@@ -7,6 +7,10 @@
     description: |
       Returns a paginated list of spamfilter policies.
 
+      Client and reseller keys see the policies they can read — the spam filter levels they may
+      choose for their mailboxes (`PUT /mail/users/{id}/spamfilter` `policy_id`) and mail domains
+      (`spamfilter_policy_id`, spec 026).
+
       Use `limit`/`offset` for pagination and `sort`/`order` for ordering.
       The documented query parameters filter by exact match.
     parameters:
