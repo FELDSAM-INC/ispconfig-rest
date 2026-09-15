@@ -60,8 +60,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 6: Polish
 
-- [ ] T013 [P] README "Problem types" section
-- [ ] T014 Pint on changed PHP files; full suite green
+- [x] T013 [P] README "Problem types" section
+- [x] T014 Pint on changed PHP files; full suite green
 - [ ] T015 Deploy to isp-test and run quickstart.md §2–§3 (temporary client only), record results here
 
 ---
