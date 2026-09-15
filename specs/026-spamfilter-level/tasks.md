@@ -71,8 +71,35 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 - [x] T012 [P] Document the spam filter level in `README.md`
 - [x] T013 Run Pint on changed PHP files and the full suite in Docker
-- [ ] T014 Deploy to isp-test and run `specs/026-spamfilter-level/quickstart.md` §2 with a temporary client; record results here
+- [x] T014 Deploy to isp-test and run `specs/026-spamfilter-level/quickstart.md` §2 with a temporary client; record results here
 
 ## Dependencies
 
 Phase 1 → Phase 2 → US1 → US2 → US3 → Polish. T001/T002 and T004/T005 parallel.
+
+## Results (T013–T014, 2026-09-15)
+
+- T013: Pint clean on changed files; full suite 1104 passed (baseline 1092).
+- T014: deployed `4964be2` to isp-test (`ispconfig-rest status`: 1.0.0-rc.3 (4964be2)). Temporary client `qa026c55d48`
+  (client 20, group 21: `mail_servers=1`, `limit_maildomain=1`, `limit_mailbox=1`), temporary QA admin key 51 and client
+  key 52. The private-policy step of quickstart §2.3 was not run live: `POST /mail/spamfilter/policies` always stores
+  world-readable policies, so a private policy would need a direct SQL change; that case is covered by
+  `SpamfilterLevelApiTest`. All other checks matched:
+
+| Case | Expected | Got |
+|---|---|---|
+| client `GET /mail/spamfilter/policies` | 200, 7 readable policies | 200, total 7 |
+| client `POST /mail/domains` `spamfilter_policy_id=5` | 201, level 5; row `@domain` priority 5, policy 5, local Y, server 1, group 21, `riud/riud/` | 201, row as expected |
+| client `POST /mail/users`, `GET …/spamfilter` | 201, `policy_id` 0 | 201, 0 |
+| client `PUT …/spamfilter` `policy_id=7` | 200, row priority 7, policy 7, fullname = address, group 21 | 200, as expected |
+| same `PUT` again | 200, no datalog entry | 200, last datalog id unchanged (556) |
+| client `PUT …/spamfilter` `policy_id=999999` | 422 `The selected policy id is invalid.` | 422, as expected |
+| client `PUT /mail/domains` level 0, then 6; `GET /mail/domains`; `PUT` `active` only | 200 (row policy 0), 200, list level 6, level kept 6 | as expected |
+| admin `GET /mail/domains/8`; admin `PUT …/spamfilter` `policy_id=1`; client `GET` | 6; 200; 1 | 6; 200; 1 |
+| server processing | datalog 553–559 `ok`; rspamd user settings files for the address and the domain | `server.updated` 559; `box_qa026-c55d48.example.test.conf` (priority 27) and `qa026-c55d48.example.test.conf` (priority 15) written |
+
+- Cleanup: mailbox 7, mail domain 8 and client 20 deleted with the QA admin key (204); datalog processed (`server.updated`
+  564 = last id); API keys 51, 52 deleted by SQL (`name LIKE 'qa%'`); no `qa026` client, sys_group, sys_user,
+  mail_domain, mail_user or spamfilter_users rows, no pending datalog, no rspamd user files, `/var/vmail/qa026*` or
+  client directory. Remaining keys: 1, 2, 20, 27 and 50 (`WHMCS service #2`, created by the concurrent WHMCS module
+  session, untouched).
