@@ -226,12 +226,12 @@
       - DNS
     summary: Delete DNS zone
     description: |
-      Deletes an **empty** DNS zone by ID (journaled to `sys_datalog`).
+      Deletes a DNS zone and everything in it (journaled to `sys_datalog`).
 
-      A zone that still contains DNS records is refused with 400. This is an
-      intentional deviation from legacy ISPConfig, which cascade-deletes all
-      records of the zone: this API requires consumers to delete the zone's
-      records first.
+      As in the ISPConfig panel (`dns_soa_del.php`, spec 034) the zone is first
+      journaled as inactive, then every resource record of the zone is deleted,
+      then the zone itself. All entries share one `X-Change-Set-Id` and the
+      whole deletion is one transaction — a failure leaves the zone untouched.
     parameters:
       - name: id
         in: path
@@ -246,21 +246,6 @@
         headers:
           X-Change-Set-Id:
             $ref: '../../components/headers/ChangeSetId.yaml'
-      '400':
-        description: |
-          Bad Request — the zone cannot be deleted because it still contains
-          DNS records (RFC 9457 problem details; the `detail` member includes
-          the record count). Delete the zone's records first.
-          Intentional deviation from legacy ISPConfig's cascade delete.
-        content:
-          application/problem+json:
-            schema:
-              $ref: '../../components/schemas/Problem.yaml'
-            example:
-              type: 'about:blank'
-              title: Bad Request
-              status: 400
-              detail: Cannot delete zone that contains DNS records (3 associated records).
       '401':
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
