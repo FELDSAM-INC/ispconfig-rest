@@ -22,7 +22,7 @@ description: "Task list for spec 024 — scoped parent references"
 
 ## Phase 2: Foundational
 
-- [x] T004 Create `app/Http/Requests/Concerns/ScopesReferences.php` with `readable(DatabaseRule $rule): DatabaseRule` (adds `AuthScope::applyReadPredicate($query, 'r')` as a `using` callback) and `readableQuery(string $table): Builder`
+- [x] T004 Create `app/Http/Requests/Concerns/ScopesReferences.php` with `readable(Exists $rule): Exists` (adds `AuthScope::applyReadPredicate($query, 'r')` as a `using` callback) and `readableQuery(string $table): Builder`
 
 ---
 
@@ -65,7 +65,7 @@ description: "Task list for spec 024 — scoped parent references"
 
 - [x] T018 Full suite green in Docker (`php artisan test`); Pint on changed files
 - [x] T019 [P] README: note under the scoping section that references in write bodies follow the read scope
-- [ ] T020 Deploy to isp-test (`ispconfig-rest update`), run quickstart §2 with two temporary clients, record results in `quickstart.md`, cleanup per §3
+- [x] T020 Deploy to isp-test (`ispconfig-rest update`), run quickstart §2 with two temporary clients, record results in `quickstart.md`, cleanup per §3
 
 ---
 
