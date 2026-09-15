@@ -30,8 +30,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 2: Foundational (blocking prerequisites)
 
-- [ ] T005 Create `tests/Feature/ProblemTypeRenderingTest.php`: typed `ProblemAuthorizationException` renders 403 with type URI, extension members, unchanged title/detail; plain `AuthorizationException` keeps `about:blank`; `ValidationException` renders `validation-failed`; collector tags produce `error_types` only for fields present in `errors`; `ProblemType::uri()` matches the `docs/problems.md` headings
-- [ ] T006 Implement `app/Support/ProblemType.php`, `app/Support/ProblemTypeCollector.php` (scoped binding in `app/Providers/AppServiceProvider.php`), `app/Exceptions/ProblemAuthorizationException.php` and rendering in `app/Support/Problem.php`
+- [x] T005 Create `tests/Feature/ProblemTypeRenderingTest.php`: typed `ProblemAuthorizationException` renders 403 with type URI, extension members, unchanged title/detail; plain `AuthorizationException` keeps `about:blank`; `ValidationException` renders `validation-failed`; collector tags produce `error_types` only for fields present in `errors`; `ProblemType::uri()` matches the `docs/problems.md` headings
+- [x] T006 Implement `app/Support/ProblemType.php`, `app/Support/ProblemTypeCollector.php` (scoped binding in `app/Providers/AppServiceProvider.php`), `app/Exceptions/ProblemAuthorizationException.php` and rendering in `app/Support/Problem.php`
 
 **Checkpoint**: full suite green
 

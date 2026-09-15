@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Exceptions\ProblemAuthorizationException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -38,9 +39,17 @@ class Problem
     public static function fromThrowable(Throwable $e): JsonResponse
     {
         if ($e instanceof ValidationException) {
-            return self::response(422, 'Validation failed', 'One or more fields are invalid.', [
-                'errors' => $e->errors(),
-            ]);
+            $errors = $e->errors();
+            $extensions = ['type' => ProblemType::uri(ProblemType::VALIDATION_FAILED), 'errors' => $errors];
+
+            // Fields refused for a typed reason (spec 023 FR-006).
+            $types = app(ProblemTypeCollector::class)->uris(array_keys($errors));
+
+            if ($types !== []) {
+                $extensions['error_types'] = $types;
+            }
+
+            return self::response(422, 'Validation failed', 'One or more fields are invalid.', $extensions);
         }
 
         // Route-model-binding misses arrive wrapped in a NotFoundHttpException
@@ -52,6 +61,17 @@ class Problem
 
         if ($e instanceof AuthenticationException) {
             return self::response(401, 'Unauthorized', 'A valid API key is required.');
+        }
+
+        // Typed refusals (spec 023): type URI and extension members, title
+        // and detail unchanged. The exception handler passes authorization
+        // failures wrapped in an AccessDeniedHttpException.
+        $typed = $e instanceof ProblemAuthorizationException ? $e : $e->getPrevious();
+
+        if ($typed instanceof ProblemAuthorizationException) {
+            return self::response(403, 'Forbidden', $typed->getMessage(), [
+                'type' => ProblemType::uri($typed->problemType),
+            ] + $typed->extensions);
         }
 
         // Row-permission denials (spec 011 FR-011/FR-023): thrown by
