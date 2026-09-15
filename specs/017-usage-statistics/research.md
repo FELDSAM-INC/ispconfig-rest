@@ -158,3 +158,22 @@ Verified read-only against ISPConfig 3.3.1p1 on isp-test.feldhost.cz (source in 
   `ServerStatusApiTest`. Period tests freeze time with `Carbon::setTestNow()` and set `config(['app.timezone' =>
   'Europe/Prague'])`. Installer/manager changes are verified manually on isp-test (no shell test harness exists).
 - **Rationale**: Matches existing test infrastructure; local development uses docker `php:8.3-cli`.
+
+## R13 — Impact of switching the API timezone (re-baseline 2026-09-15)
+
+Assessed on `main` after 014, 015, 016 and 019 were merged, before implementing FR-015.
+
+- **Change timestamps and monitor timestamps**: unchanged. Carbon 3.13 `createFromTimestamp()` returns UTC, so
+  `/changes` `created_at` and `/monitor/servers/status` `last_updated` keep `+00:00` (same instants as before).
+- **`/changes?since=`**: values with `Z` or an explicit offset are unchanged; a value without an offset is now read
+  in the API timezone (before: UTC). Documented behaviour change.
+- **API key `created_at` / `last_used_at`**: Laravel writes `now()` wall time in the API timezone into MySQL
+  `TIMESTAMP` columns; `config/database.php` sets no session timezone, so MySQL uses the system zone
+  (`Europe/Prague` on isp-test). Responses serialise with `toJSON()` (UTC, `Z`). Values written after the switch
+  are correct instants; values written before it are read back as local wall time and show 1–2 hours earlier.
+  One-time shift, `last_used_at` corrects itself on the next use (isp-test: keys 1 and 2 only).
+- **Usage periods and `measured_at`**: computed in the API timezone, as intended by FR-006/FR-015.
+- **Tests**: the suite runs with `APP_TIMEZONE=UTC` from `.env`; `tests/Feature/AppTimezoneImpactTest.php` pins the
+  points above with the application timezone set to `Europe/Prague`.
+- **Spec 015 contract test**: `ChangeSetHeaderContractTest` checks only POST/PUT/PATCH/DELETE operations, so the
+  GET-only usage paths need no header references.
