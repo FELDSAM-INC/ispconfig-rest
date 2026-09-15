@@ -62,8 +62,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 ## Phase 5: Verification
 
 - [x] T020 Full suite green in Docker on PHP 8.3 (1207 passing, 9921 assertions); Pint clean on the 11 changed files
-- [ ] T021 Deploy the pushed commits to isp-test and run quickstart.md §2 with a temporary client
-- [ ] T022 Clean up per quickstart.md §3 and record the results in this file
+- [x] T021 Deploy the pushed commits to isp-test and run quickstart.md §2 with a temporary client — deployed `1af0e06`, all checks matched (quickstart.md §4)
+- [x] T022 Clean up per quickstart.md §3 and record the results in this file — no leftovers, QA keys 78–81 removed
 
 ---
 

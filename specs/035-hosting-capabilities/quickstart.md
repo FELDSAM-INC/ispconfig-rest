@@ -44,6 +44,33 @@ prefixes are `c[CLIENTID]` (database, database user) and `[CLIENTNAME]` (FTP, sh
 10. Prefix proof: client key `POST /sites/databases` with name `shop` → the created `database_name` equals
     `sites.prefixes.database` + `shop`.
 
+## 4. Results on isp-test (2026-09-16, deployed `1af0e06`)
+
+Temporary client 35 (`qa035temp`, group 36) with `limit_database_user = 1`, `limit_cron = 5`,
+`limit_cron_type = url`, `limit_cron_frequency = 60`, `limit_shell_user = 1`, `ssh_chroot = no,jailkit`,
+`limit_database_quota = 2048`, `template_master = 0`; website 23 as the parent.
+
+| Check | Result |
+|---|---|
+| `GET /me/capabilities` `sites.prefixes` | `{database: c35, database_user: c35, ftp_user: qa035temp, shell_user: qa035temp, webdav_user: qa035temp}` |
+| `sites.databases` | `{quota_limit_mb: 2048, remote_access: true}` |
+| `sites.shell` | `{available: true, chroot_options: [no, jailkit]}` |
+| `sites.cron` | `{types: [url], min_interval_minutes: 60}` |
+| First database user / second | 201 / 403 `limit-reached` `{limit_database_user, client, max 1, used 1}` |
+| `GET /usage/summary` | `counts.database_users = {used: 1, limit: 1}` |
+| Task every 5 minutes | 403 `limit-reached` `{limit_cron_frequency, client, max 60, used 5}` |
+| Task hourly | 201 |
+| Shell command under `limit_cron_type = url` | 403 `feature-not-allowed`, `feature: limit_cron_type` |
+| Update the hourly task to `*/10` | 403 `limit-reached` (`used: 10`); stored `run_min` still `0` |
+| Journal during the refusals | exactly 1 new row — the accepted hourly job |
+| Admin key: `*/5` shell task for the same client | 201 (type `chrooted`), unrestricted |
+| Prefix proof | `POST /sites/databases` with `shop` stored `database_name = c35shop`, prefix `c35`; the database user stored `c35one` — both equal to what `sites.prefixes` reported (the API returns the unprefixed display name, the full name carries the prefix) |
+
+Cleanup: database, database user, both tasks, the website and the client deleted through the API;
+`server.updated` reached the last journal id (934); QA keys 78–81 removed by SQL. No `qa035` client, group,
+user, website, database, database user, cron row, client directory or vhost file remains, and nothing is pending.
+Keys 1, 2, 20, 27 and 50 and clients 1, 2 and 19 were never touched.
+
 ## 3. Cleanup
 
 1. Delete everything created for the check through the API (databases, database users, cron jobs, website), then the
