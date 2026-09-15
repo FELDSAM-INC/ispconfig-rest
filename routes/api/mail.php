@@ -39,10 +39,10 @@ Route::put('mail/domains/{mailDomain}', [MailDomainController::class, 'update'])
 Route::delete('mail/domains/{mailDomain}', [MailDomainController::class, 'destroy'])->whereNumber('mailDomain');
 
 // Mail user NESTED sub-resources — MUST precede mail/users/{mailUser}
-// api/modules/mail/user-autoresponder.yaml
+// api/modules/mail/user-autoresponder.yaml (writes: autoresponder tab gate, spec 025)
 Route::get('mail/users/{mailUser}/autoresponder', [MailUserAutoresponderController::class, 'show'])->whereNumber('mailUser');
-Route::put('mail/users/{mailUser}/autoresponder', [MailUserAutoresponderController::class, 'update'])->whereNumber('mailUser');
-Route::delete('mail/users/{mailUser}/autoresponder', [MailUserAutoresponderController::class, 'destroy'])->whereNumber('mailUser');
+Route::put('mail/users/{mailUser}/autoresponder', [MailUserAutoresponderController::class, 'update'])->whereNumber('mailUser')->middleware('mail.tab:mailbox_show_autoresponder_tab');
+Route::delete('mail/users/{mailUser}/autoresponder', [MailUserAutoresponderController::class, 'destroy'])->whereNumber('mailUser')->middleware('mail.tab:mailbox_show_autoresponder_tab');
 
 // api/modules/mail/user-cc.yaml
 Route::get('mail/users/{mailUser}/cc', [MailUserCCController::class, 'show'])->whereNumber('mailUser');
@@ -55,12 +55,12 @@ Route::put('mail/users/{mailUser}/password', [MailUserPasswordController::class,
 Route::get('mail/users/{mailUser}/spamfilter', [MailUserSpamFilterController::class, 'show'])->whereNumber('mailUser');
 Route::put('mail/users/{mailUser}/spamfilter', [MailUserSpamFilterController::class, 'update'])->whereNumber('mailUser');
 
-// api/modules/mail/user-filters.yaml
+// api/modules/mail/user-filters.yaml (writes: mail filter tab gate, spec 025)
 Route::get('mail/users/{mailUser}/filters', [MailUserFilterController::class, 'index'])->whereNumber('mailUser');
-Route::post('mail/users/{mailUser}/filters', [MailUserFilterController::class, 'store'])->whereNumber('mailUser');
+Route::post('mail/users/{mailUser}/filters', [MailUserFilterController::class, 'store'])->whereNumber('mailUser')->middleware('mail.tab:mailbox_show_mail_filter_tab');
 Route::get('mail/users/{mailUser}/filters/{filterId}', [MailUserFilterController::class, 'show'])->whereNumber('mailUser')->whereNumber('filterId');
-Route::put('mail/users/{mailUser}/filters/{filterId}', [MailUserFilterController::class, 'update'])->whereNumber('mailUser')->whereNumber('filterId');
-Route::delete('mail/users/{mailUser}/filters/{filterId}', [MailUserFilterController::class, 'destroy'])->whereNumber('mailUser')->whereNumber('filterId');
+Route::put('mail/users/{mailUser}/filters/{filterId}', [MailUserFilterController::class, 'update'])->whereNumber('mailUser')->whereNumber('filterId')->middleware('mail.tab:mailbox_show_mail_filter_tab');
+Route::delete('mail/users/{mailUser}/filters/{filterId}', [MailUserFilterController::class, 'destroy'])->whereNumber('mailUser')->whereNumber('filterId')->middleware('mail.tab:mailbox_show_mail_filter_tab');
 
 // Mail Users — api/modules/mail/users.yaml
 Route::get('mail/users', [MailUserController::class, 'index']);

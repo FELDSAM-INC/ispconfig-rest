@@ -6,6 +6,7 @@ use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireAdminOrReseller;
 use App\Http\Middleware\RequireBackupAccess;
 use App\Http\Middleware\RequireClientLimit;
+use App\Http\Middleware\RequireMailTab;
 use App\Support\Problem;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'scope.reseller' => RequireAdminOrReseller::class,
             'scope.limit' => RequireClientLimit::class,
             'scope.backup' => RequireBackupAccess::class,
+            'mail.tab' => RequireMailTab::class,
         ]);
 
         // Auth must run before route-model binding: otherwise a missing id
@@ -42,6 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
             RequireAdmin::class,
             RequireAdminOrReseller::class,
             RequireClientLimit::class,
+            RequireMailTab::class,
             SubstituteBindings::class,
             // Feature 018: the backup gate reads the bound website, so it runs
             // after route-model binding (an unreadable website still 404s).
