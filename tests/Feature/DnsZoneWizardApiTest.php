@@ -381,6 +381,97 @@ class DnsZoneWizardApiTest extends TestCase
         $this->assertSame(0, DB::table('dns_rr')->count());
     }
 
+    // ------------------------------------------------------------------
+    // US3 — the record cap cannot be bypassed through the wizard
+    // ------------------------------------------------------------------
+
+    protected const LIMIT_REACHED = 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#limit-reached';
+
+    public function test_record_cap_refuses_the_whole_batch_before_writing(): void
+    {
+        // The template creates seven records; the plan allows three.
+        $this->setClientLimit('clientA', 'limit_dns_record', 3);
+        $before = $this->lastDatalogId();
+
+        $this->postJson('/api/v1/dns/soa/from-template', $this->wizardPayload(), $this->tenantHeaders('clientA'))
+            ->assertStatus(403)
+            ->assertJsonPath('type', self::LIMIT_REACHED)
+            ->assertJsonPath('limit.name', 'limit_dns_record')
+            ->assertJsonPath('limit.scope', 'client')
+            ->assertJsonPath('limit.max', 3)
+            // Counted before the first write: nothing of this batch exists yet.
+            ->assertJsonPath('limit.used', 0);
+
+        $this->assertSame(0, DB::table('dns_soa')->count());
+        $this->assertSame(0, DB::table('dns_rr')->count());
+        $this->assertSame([], $this->journalAfter($before));
+    }
+
+    public function test_record_cap_matching_the_batch_exactly_is_allowed(): void
+    {
+        $this->setClientLimit('clientA', 'limit_dns_record', 7);
+
+        $this->postJson('/api/v1/dns/soa/from-template', $this->wizardPayload(), $this->tenantHeaders('clientA'))
+            ->assertCreated();
+
+        $this->assertSame(7, DB::table('dns_rr')->count());
+    }
+
+    public function test_unlimited_record_cap_creates_the_whole_zone(): void
+    {
+        $this->setClientLimit('clientA', 'limit_dns_record', -1);
+
+        $this->postJson('/api/v1/dns/soa/from-template', $this->wizardPayload(), $this->tenantHeaders('clientA'))
+            ->assertCreated();
+
+        $this->assertSame(7, DB::table('dns_rr')->count());
+    }
+
+    public function test_zone_cap_refuses_the_wizard(): void
+    {
+        $this->setClientLimit('clientA', 'limit_dns_zone', 0);
+        $before = $this->lastDatalogId();
+
+        $this->postJson('/api/v1/dns/soa/from-template', $this->wizardPayload(), $this->tenantHeaders('clientA'))
+            ->assertStatus(403)
+            ->assertJsonPath('type', self::LIMIT_REACHED)
+            ->assertJsonPath('limit.name', 'limit_dns_zone')
+            ->assertJsonPath('limit.max', 0);
+
+        $this->assertSame(0, DB::table('dns_soa')->count());
+        $this->assertSame(0, DB::table('dns_rr')->count());
+        $this->assertSame([], $this->journalAfter($before));
+    }
+
+    public function test_reseller_zone_cap_applies_to_its_clients(): void
+    {
+        $this->setClientLimit('clientA', 'limit_dns_zone', -1);
+        $this->setClientLimit('reseller', 'limit_dns_zone', 0);
+
+        $this->postJson('/api/v1/dns/soa/from-template', $this->wizardPayload(), $this->tenantHeaders('clientA'))
+            ->assertStatus(403)
+            ->assertJsonPath('limit.name', 'limit_dns_zone')
+            ->assertJsonPath('limit.scope', 'reseller');
+
+        $this->assertSame(0, DB::table('dns_soa')->count());
+    }
+
+    public function test_admin_key_is_not_limited_by_the_clients_caps(): void
+    {
+        $this->setClientLimit('clientA', 'limit_dns_zone', 0);
+        $this->setClientLimit('clientA', 'limit_dns_record', 1);
+
+        $payload = $this->wizardPayload([
+            'client_id' => $this->tenant('clientA')['client_id'],
+            'server_id' => 1,
+        ]);
+
+        $this->postJson('/api/v1/dns/soa/from-template', $payload, $this->tenantHeaders('admin'))
+            ->assertCreated();
+
+        $this->assertSame(7, DB::table('dns_rr')->count());
+    }
+
     public function test_ipv6_placeholder_is_expanded(): void
     {
         $templateId = $this->template([

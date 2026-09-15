@@ -98,6 +98,51 @@ class ClientLimitService
     }
 
     /**
+     * Row-count enforcement for a batch of creates that succeeds or fails as a
+     * whole (spec 029: the zone wizard writes a zone and every record of its
+     * template in one transaction).
+     *
+     * The account's existing rows are counted once and the batch is refused
+     * when it would cross the cap, before the caller writes anything. Checking
+     * per row instead would refuse halfway through and report a `used` value
+     * that already contains rows of the batch itself. Admin scopes, keys
+     * without a client row and unmapped tables pass unconditionally, exactly
+     * as in checkCreate().
+     */
+    public function checkBatchCreate(string $table, int $count, string $type = ''): void
+    {
+        if ($count < 1) {
+            return;
+        }
+
+        $scope = $this->scope();
+
+        if ($scope->isAdmin) {
+            return;
+        }
+
+        $specs = $this->countSpecsForTable($table, $type);
+
+        if ($specs === []) {
+            return;
+        }
+
+        $client = $this->clientRow($scope);
+
+        if ($client === null) {
+            return; // no client row = unlimited (get_client_limit -> -1)
+        }
+
+        foreach ($specs as $spec) {
+            $this->enforceClientCount($scope, $client, $spec, $count);
+
+            if ($spec->resellerCap) {
+                $this->enforceResellerCount($client, $spec, $count);
+            }
+        }
+    }
+
+    /**
      * Quota-SUM enforcement on create AND update (spec 012 FR-022…FR-024).
      *
      * Sums the resource's quota column over the client's existing rows
@@ -261,7 +306,7 @@ class ClientLimitService
     /**
      * @param  object  $client  the acting client row (limit columns + parent_client_id)
      */
-    protected function enforceClientCount(AuthScope $scope, object $client, LimitSpec $spec): void
+    protected function enforceClientCount(AuthScope $scope, object $client, LimitSpec $spec, int $additional = 1): void
     {
         $limit = $this->columnValue($client, $spec->limitColumn);
 
@@ -281,7 +326,7 @@ class ClientLimitService
 
         $used = $query->count();
 
-        if ($used >= $limit) {
+        if ($used + $additional > $limit) {
             $this->deny($spec, false, $limit, $used); // 0 -> count >= 0 always (disabled)
         }
     }
@@ -317,7 +362,7 @@ class ClientLimitService
     // Reseller cap (parity checkResellerLimit tform.inc.php:211-250)
     // ------------------------------------------------------------------
 
-    protected function enforceResellerCount(object $client, LimitSpec $spec): void
+    protected function enforceResellerCount(object $client, LimitSpec $spec, int $additional = 1): void
     {
         $reseller = $this->resellerContext($client);
 
@@ -337,7 +382,7 @@ class ClientLimitService
 
         $used = $query->count();
 
-        if ($used >= $limit) {
+        if ($used + $additional > $limit) {
             $this->deny($spec, true, $limit, $used);
         }
     }
@@ -449,9 +494,17 @@ class ClientLimitService
      */
     protected function countSpecsFor(BaseModel $model): array
     {
-        $table = $model->getTable();
-        $type = (string) ($model->getAttribute('type') ?? '');
+        return $this->countSpecsForTable($model->getTable(), (string) ($model->getAttribute('type') ?? ''));
+    }
 
+    /**
+     * The count specs of a table addressed by name, for callers that have no
+     * model instance to inspect (checkBatchCreate).
+     *
+     * @return array<int, LimitSpec>
+     */
+    protected function countSpecsForTable(string $table, string $type = ''): array
+    {
         return match ($table) {
             // --- P1: high-value counts (all 'u' predicate) ---
             'mail_domain' => [$this->simpleCountSpec('mail_domain')],

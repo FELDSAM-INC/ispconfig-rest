@@ -49,7 +49,7 @@ class DnsZoneWizardService
         '{EMAIL}' => 'email',
     ];
 
-    public function __construct(protected DnsSerialService $serial) {}
+    public function __construct(protected DnsSerialService $serial, protected ClientLimitService $limits) {}
 
     /**
      * Parse a template's text. Throws InvalidZoneTemplateException for
@@ -161,6 +161,12 @@ class DnsZoneWizardService
         if (DnsSoa::query()->where('origin', $origin)->exists()) {
             throw new ConflictHttpException("A DNS zone with origin '{$origin}' already exists.");
         }
+
+        // Both caps before the first write. The legacy wizard checks only
+        // the zone cap, so a customer at its record cap could create a whole
+        // template's worth of records through it (spec 029 deviation 1).
+        $this->limits->checkBatchCreate('dns_soa', 1);
+        $this->limits->checkBatchCreate('dns_rr', count($expanded['records']));
 
         return DB::transaction(function () use ($expanded, $serverId, $ownerGroupId): DnsSoa {
             $zone = new DnsSoa($expanded['zone']);

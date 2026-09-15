@@ -70,12 +70,12 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T019 [US3] Record cap: client with `limit_dns_record` below the template's record count → 403 `limit-reached` with `limit {name: limit_dns_record, scope: client, max, used}`, no `dns_soa`, no `dns_rr`, no journal entry; `-1` unlimited → 201; a cap exactly matching the batch → 201
-- [ ] T020 [P] [US3] Zone cap: client at `limit_dns_zone` → 403 `limit-reached` with `limit.name = limit_dns_zone` and nothing written; reseller cap enforced as legacy does; admin key unaffected by either cap
+- [x] T019 [US3] Record cap: client with `limit_dns_record` below the template's record count → 403 `limit-reached` with `limit {name: limit_dns_record, scope: client, max, used}`, no `dns_soa`, no `dns_rr`, no journal entry; `-1` unlimited → 201; a cap exactly matching the batch → 201
+- [x] T020 [P] [US3] Zone cap: client at `limit_dns_zone` → 403 `limit-reached` with `limit.name = limit_dns_zone` and nothing written; reseller cap enforced as legacy does; admin key unaffected by either cap
 
 ### Implementation
 
-- [ ] T021 [US3] Add `checkBatchCreate(string $table, int $count)` to `app/Services/ClientLimitService.php` (resolve the table's count specs, deny when `used + count > max`, reseller cap where the spec has one) and call it for `dns_soa` (1) and `dns_rr` (record count) before the first write in `DnsZoneWizardService::create()`
+- [x] T021 [US3] Add `checkBatchCreate(string $table, int $count)` to `app/Services/ClientLimitService.php` (resolve the table's count specs, deny when `used + count > max`, reseller cap where the spec has one) and call it for `dns_soa` (1) and `dns_rr` (record count) before the first write in `DnsZoneWizardService::create()`
 
 **Checkpoint**: US3 tests green
 
