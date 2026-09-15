@@ -91,24 +91,78 @@ class UsageCollectorDataTest extends UsageApiTestCase
 
         $this->seedFreshBlobs();
 
-        $counts = function (string $uri): array {
-            DB::flushQueryLog();
-            DB::enableQueryLog();
+        $this->assertSame(['monitor_data' => 1, 'web_traffic' => 1, 'mail_traffic' => 0], $this->collectorQueries('/usage/web-domains'));
+        $this->assertSame(['monitor_data' => 1, 'web_traffic' => 0, 'mail_traffic' => 1], $this->collectorQueries('/usage/mail-users'));
+        $this->assertSame(['monitor_data' => 1, 'web_traffic' => 0, 'mail_traffic' => 0], $this->collectorQueries('/usage/databases'));
+    }
+
+    /**
+     * @return array{monitor_data: int, web_traffic: int, mail_traffic: int}
+     */
+    private function collectorQueries(string $uri): array
+    {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->getAs('clientA', $uri)->assertOk();
+        $queries = array_column(DB::getQueryLog(), 'query');
+        DB::disableQueryLog();
+
+        $count = fn (string $table): int => count(array_filter($queries, fn (string $sql): bool => str_contains($sql, $table)));
+
+        return [
+            'monitor_data' => $count('monitor_data'),
+            'web_traffic' => $count('web_traffic'),
+            'mail_traffic' => $count('mail_traffic'),
+        ];
+    }
+
+    public function test_large_client_list_pages_answer_within_two_seconds(): void
+    {
+        $sites = $mailboxes = $databases = $traffic = $diskUsers = $emails = $sizes = [];
+
+        foreach (range(1, 200) as $i) {
+            $sites[] = $this->ownedBy('clientA', [
+                'server_id' => 1, 'domain' => "big{$i}.test", 'type' => 'vhost', 'parent_domain_id' => 0,
+                'system_user' => "webbig{$i}", 'hd_quota' => 100, 'traffic_quota' => -1, 'active' => 'y',
+            ]);
+            $traffic[] = ['hostname' => "big{$i}.test", 'traffic_date' => '2026-09-01', 'traffic_bytes' => $i];
+            $diskUsers["webbig{$i}"] = ['used' => (string) $i, 'soft' => '0', 'hard' => '0', 'files' => '1'];
+        }
+
+        foreach (range(1, 500) as $i) {
+            $mailboxes[] = $this->ownedBy('clientA', ['server_id' => 1, 'email' => "box{$i}@big.test", 'login' => "box{$i}@big.test", 'quota' => 1048576]);
+            $emails["box{$i}@big.test"] = ['used' => $i];
+        }
+
+        foreach (range(1, 50) as $i) {
+            $databases[] = $this->ownedBy('clientA', ['server_id' => 1, 'parent_domain_id' => 0, 'type' => 'mysql', 'database_name' => "c1big{$i}", 'database_quota' => 10]);
+            $sizes[] = ['database_name' => "c1big{$i}", 'size' => $i];
+        }
+
+        foreach (array_chunk($sites, 50) as $chunk) {
+            DB::table('web_domain')->insert($chunk);
+        }
+        foreach (array_chunk($mailboxes, 50) as $chunk) {
+            DB::table('mail_user')->insert($chunk);
+        }
+        DB::table('web_database')->insert($databases);
+        foreach (array_chunk($traffic, 50) as $chunk) {
+            DB::table('web_traffic')->insert($chunk);
+        }
+
+        $this->blob(1, 'harddisk_quota', ['user' => $diskUsers]);
+        $this->blob(1, 'email_quota', $emails);
+        $this->blob(1, 'database_size', $sizes);
+
+        foreach (['/usage/web-domains?limit=100', '/usage/mail-users?limit=100', '/usage/databases?limit=100', '/usage/summary'] as $uri) {
+            $started = microtime(true);
             $this->getAs('clientA', $uri)->assertOk();
-            $queries = array_column(DB::getQueryLog(), 'query');
-            DB::disableQueryLog();
+            $this->assertLessThan(2.0, microtime(true) - $started, $uri);
+        }
 
-            $count = fn (string $table): int => count(array_filter($queries, fn (string $sql): bool => str_contains($sql, $table)));
-
-            return [
-                'monitor_data' => $count('monitor_data'),
-                'web_traffic' => $count('web_traffic'),
-                'mail_traffic' => $count('mail_traffic'),
-            ];
-        };
-
-        $this->assertSame(['monitor_data' => 1, 'web_traffic' => 1, 'mail_traffic' => 0], $counts('/usage/web-domains'));
-        $this->assertSame(['monitor_data' => 1, 'web_traffic' => 0, 'mail_traffic' => 1], $counts('/usage/mail-users'));
-        $this->assertSame(['monitor_data' => 1, 'web_traffic' => 0, 'mail_traffic' => 0], $counts('/usage/databases'));
+        // The read budget of T028 holds at this size.
+        $this->assertSame(['monitor_data' => 1, 'web_traffic' => 1, 'mail_traffic' => 0], $this->collectorQueries('/usage/web-domains?limit=100'));
+        $this->assertSame(['monitor_data' => 1, 'web_traffic' => 0, 'mail_traffic' => 1], $this->collectorQueries('/usage/mail-users?limit=100'));
+        $this->assertSame(['monitor_data' => 1, 'web_traffic' => 0, 'mail_traffic' => 0], $this->collectorQueries('/usage/databases?limit=100'));
     }
 }

@@ -42,6 +42,10 @@ What it does:
   (bastille/ufw) reconfigures natively. It never creates a firewall record where
   none exists (that would restrict the firewall to only this port); if ISPConfig
   isn't managing the firewall it falls back to an active ufw/firewalld.
+- **Aligns the API timezone with the server** — `APP_TIMEZONE` follows the system
+  timezone, because ISPConfig writes traffic dates in local time; `--timezone TZ` sets it
+  explicitly. `ispconfig-rest update` keeps an automatically chosen timezone in sync and
+  `ispconfig-rest status` shows it.
 - **Registers `ispconfig-rest`** in your PATH and offers to mint an admin key.
 
 Every prompt has a flag and `ISPC_REST_*` env var for unattended installs — see
@@ -136,6 +140,7 @@ Any valid key can call `GET /me` to read its own identity and scope.
 | `servers` | servers, per-section server config, firewall, IP addresses, IP mappings, PHP versions |
 | `system` | global config panels, directive snippets, DNS CAA policies, resync |
 | `changes` | processing status of journaled writes: change sets, pending/failed list, record view (every key) |
+| `usage` | read-only usage statistics: plan summary against limits, website/mailbox/database usage, traffic history (every key) |
 | `monitor` | datalog journal, per-server status, system logs |
 
 ## Client lock and cancel
