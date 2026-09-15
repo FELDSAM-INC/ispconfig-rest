@@ -37,6 +37,44 @@ die(){  printf '%s\n' "${C_R}✗${C_RESET} $*" >&2; exit 1; }
 need_root(){ [ "$(id -u)" = "0" ] || die "This command must run as root (use sudo)."; }
 run_as(){ sudo -u "$RUN_USER" env -C "$INSTALL_DIR" "$@"; }
 
+# API timezone alignment (spec 017 FR-015): ISPConfig writes traffic dates in
+# the server's local time, so APP_TIMEZONE follows the system timezone unless
+# it was chosen explicitly at install time (TIMEZONE_MODE="explicit").
+detect_system_timezone(){
+  local tz=""
+  if command -v timedatectl >/dev/null 2>&1; then tz="$(timedatectl show -p Timezone --value 2>/dev/null || true)"; fi
+  if [ -z "$tz" ] && [ -r /etc/timezone ]; then tz="$(tr -d '[:space:]' < /etc/timezone || true)"; fi
+  if [ -z "$tz" ] && [ -L /etc/localtime ]; then tz="$(readlink -f /etc/localtime || true)"; tz="${tz#/usr/share/zoneinfo/}"; fi
+  printf '%s' "$tz"
+}
+valid_timezone(){
+  [ -n "$1" ] && ISPC_REST_TZ="$1" "$PHP_BIN" -r 'exit(in_array(getenv("ISPC_REST_TZ"), timezone_identifiers_list(), true) ? 0 : 1);'
+}
+env_timezone(){
+  { sed -n 's/^APP_TIMEZONE=//p' "$INSTALL_DIR/.env" 2>/dev/null || true; } | tail -n 1 | tr -d "\"'"
+}
+set_state(){
+  if grep -q "^$1=" "$STATE_FILE"; then sed -i "s|^$1=.*|$1=\"$2\"|" "$STATE_FILE"; else printf '%s="%s"\n' "$1" "$2" >> "$STATE_FILE"; fi
+}
+sync_timezone(){
+  if [ "${TIMEZONE_MODE:-auto}" = "explicit" ]; then info "Timezone: $(env_timezone) (explicit, left unchanged)"; return 0; fi
+  local detected current
+  detected="$(detect_system_timezone)"
+  current="$(env_timezone)"
+  if ! valid_timezone "$detected"; then warn "Could not detect a valid system timezone — APP_TIMEZONE left as ${current:-unset}."; return 0; fi
+  if [ "$detected" != "$current" ]; then
+    if grep -q '^APP_TIMEZONE=' "$INSTALL_DIR/.env"; then
+      sed -i "s|^APP_TIMEZONE=.*|APP_TIMEZONE=$detected|" "$INSTALL_DIR/.env"
+    else
+      printf 'APP_TIMEZONE=%s\n' "$detected" >> "$INSTALL_DIR/.env"
+    fi
+    chown "$RUN_USER":"$RUN_USER" "$INSTALL_DIR/.env"; chmod 600 "$INSTALL_DIR/.env"
+    ok "Timezone set to $detected"
+  fi
+  set_state TIMEZONE "$detected"
+  set_state TIMEZONE_MODE auto
+}
+
 # Reload the php-fpm pool (recycles workers → new code) and the web server.
 reload_server(){
   [ -n "${FPM_SERVICE:-}" ] && [ "${SERVE_BACKEND:-}" = "fpm" ] && \
@@ -58,6 +96,14 @@ cmd_version() {
 cmd_status() {
   cmd_version
   echo
+  local env_tz sys_tz
+  env_tz="$(env_timezone)"
+  sys_tz="$(detect_system_timezone)"
+  if [ -n "$env_tz" ] && [ "$env_tz" = "$sys_tz" ]; then
+    ok "timezone: $env_tz (system: $sys_tz, mode: ${TIMEZONE_MODE:-auto})"
+  else
+    warn "timezone: ${env_tz:-unset} (system: ${sys_tz:-unknown}, mode: ${TIMEZONE_MODE:-auto}) — differs from the system timezone"
+  fi
   if [ "${SERVE_BACKEND:-}" = "fpm" ] && [ -n "${FPM_SERVICE:-}" ]; then
     systemctl is-active --quiet "$FPM_SERVICE" && ok "php-fpm: active ($FPM_SERVICE, pool $SERVICE_NAME)" || warn "php-fpm: inactive"
   fi
@@ -98,6 +144,7 @@ cmd_update() {
   local composer="composer"; command -v composer >/dev/null 2>&1 || composer="$PHP_BIN $INSTALL_DIR/composer.phar"
   run_as env COMPOSER_HOME="$INSTALL_DIR/.composer" $composer install --no-dev --optimize-autoloader --no-interaction --no-progress
   run_as "$PHP_BIN" artisan migrate --force
+  sync_timezone
   run_as "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true
   run_as "$PHP_BIN" artisan route:cache  >/dev/null 2>&1 || true
   # refresh the manager itself if it changed

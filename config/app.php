@@ -65,7 +65,9 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Aligned with the ISPConfig server's timezone by install.sh / ispconfig-rest update
+    // (spec 017 FR-015): ISPConfig writes traffic dates in server-local time.
+    'timezone' => env('APP_TIMEZONE', 'UTC'),
 
     /*
     |--------------------------------------------------------------------------

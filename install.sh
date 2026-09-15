@@ -29,6 +29,8 @@ ISPCONFIG_CONFIG="${ISPC_REST_ISPCONFIG_CONFIG:-/usr/local/ispconfig/interface/l
 ISPCONFIG_SSL_DIR="${ISPC_REST_SSL_DIR:-/usr/local/ispconfig/interface/ssl}"
 PUBLIC_PORT="${ISPC_REST_PORT:-8090}"       # HTTPS port for the dedicated vhost
 APP_URL="${ISPC_REST_URL:-}"
+TIMEZONE="${ISPC_REST_TIMEZONE:-}"           # API timezone (default: system timezone)
+TIMEZONE_MODE="auto"
 SERVE_MODE="${ISPC_REST_SERVE:-auto}"       # auto | apache | nginx | none
 CREATE_ADMIN_KEY="${ISPC_REST_CREATE_KEY:-ask}"
 NONINTERACTIVE="${ISPC_REST_NONINTERACTIVE:-0}"
@@ -81,6 +83,7 @@ Options (each also settable via an ISPC_REST_* env var):
   --create-key yes|no      mint an admin API key          (default: ask)
   --non-interactive        accept defaults, no prompts
   --php PATH               php CLI binary                  (default: php)
+  --timezone TZ            API timezone (default: the server's system timezone)
   -h, --help
 EOF
 }
@@ -132,6 +135,7 @@ while [ $# -gt 0 ]; do
     --create-key) CREATE_ADMIN_KEY="$2"; shift 2;;
     --non-interactive) NONINTERACTIVE=1; shift;;
     --php) PHP_BIN="$2"; shift 2;;
+    --timezone) TIMEZONE="$2"; shift 2;;
     -h|--help) usage; exit 0;;
     *) die "Unknown option: $1 (see --help)";;
   esac
@@ -269,6 +273,34 @@ ok "Dependencies installed"
 # ---------------------------------------------------------------------------
 # Environment file
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# API timezone (spec 017 FR-015): ISPConfig writes traffic dates in the
+# server's local time, so calendar periods must use the same timezone.
+# Explicit --timezone / ISPC_REST_TIMEZONE wins; otherwise the system timezone.
+# ---------------------------------------------------------------------------
+detect_system_timezone() {
+  local tz=""
+  if command -v timedatectl >/dev/null 2>&1; then tz="$(timedatectl show -p Timezone --value 2>/dev/null || true)"; fi
+  if [ -z "$tz" ] && [ -r /etc/timezone ]; then tz="$(tr -d '[:space:]' < /etc/timezone || true)"; fi
+  if [ -z "$tz" ] && [ -L /etc/localtime ]; then tz="$(readlink -f /etc/localtime || true)"; tz="${tz#/usr/share/zoneinfo/}"; fi
+  printf '%s' "$tz"
+}
+valid_timezone() {
+  [ -n "$1" ] && ISPC_REST_TZ="$1" "$PHP_BIN" -r 'exit(in_array(getenv("ISPC_REST_TZ"), timezone_identifiers_list(), true) ? 0 : 1);'
+}
+if [ -n "$TIMEZONE" ]; then
+  valid_timezone "$TIMEZONE" || die "Invalid --timezone '$TIMEZONE' (expected an identifier such as Europe/Prague)."
+  TIMEZONE_MODE="explicit"
+else
+  TIMEZONE="$(detect_system_timezone)"
+  TIMEZONE_MODE="auto"
+  if ! valid_timezone "$TIMEZONE"; then
+    warn "Could not detect a valid system timezone — using UTC (set it later with --timezone)."
+    TIMEZONE="UTC"
+  fi
+fi
+info "API timezone: $TIMEZONE ($TIMEZONE_MODE)"
+
 step "Configuring environment"
 ENV_FILE="$INSTALL_DIR/.env"
 APP_KEY_LINE="APP_KEY="
@@ -283,7 +315,7 @@ APP_ENV=production
 $APP_KEY_LINE
 APP_DEBUG=false
 APP_URL=$(env_escape "$APP_URL")
-APP_TIMEZONE=UTC
+APP_TIMEZONE=$(env_escape "$TIMEZONE")
 
 LOG_CHANNEL=stack
 LOG_LEVEL=warning
@@ -493,6 +525,8 @@ PUBLIC_PORT="$PUBLIC_PORT"
 WEB_SERVER="$DETECTED_WS"
 FPM_SERVICE="$FPM_SERVICE"
 BRANCH="$BRANCH"
+TIMEZONE="$TIMEZONE"
+TIMEZONE_MODE="$TIMEZONE_MODE"
 PHP_BIN="$(command -v "$PHP_BIN")"
 EOF
 chmod 600 "$STATE_DIR/install.conf"
