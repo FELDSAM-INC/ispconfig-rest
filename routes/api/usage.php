@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Usage\UsageSummaryController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -12,3 +13,6 @@ use Illuminate\Support\Facades\Route;
 | `usage/summary` and every `…/{id}/traffic` route are registered before the
 | matching `…/{id}` route; ids are numeric.
 */
+
+// Usage summary — api/modules/usage/summary.yaml (literal, before any {id} route)
+Route::get('usage/summary', [UsageSummaryController::class, 'show']);
