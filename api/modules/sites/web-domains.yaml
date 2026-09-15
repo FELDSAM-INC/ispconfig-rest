@@ -62,6 +62,16 @@
       Client and reseller keys whose client does not have `limit_backup` enabled receive 403 when the
       request contains `backup_*` fields.
 
+      Client and reseller keys are limited to what the account's plan allows (spec 020): options the plan
+      does not include (`ssl`, `ssl_letsencrypt`, `cgi`, `ssi`, `perl`, `ruby`, `python`, `errordocs`, wildcard
+      `subdomain`, `directive_snippets_id`) and switching off a forced `suexec` are refused with 422 and are
+      switched off (suEXEC on) on every save; `php` must be an allowed PHP mode and `server_php_id` a usable
+      PHP version of the website's server (the first usable version is used when the server hides the default
+      version and none is given); Options-tab settings cannot change unless resellers may use the Options tab;
+      SSL certificate fields cannot change without SSL in the plan; plain client keys cannot change `domain`,
+      `ip_address`, `ipv6_address` or `vhost_type` of a `vhost`; `subdomain = "*"` is refused for
+      `vhostsubdomain` and `vhostalias`. Admin keys are not restricted.
+
       Creates a new web domain (vhost). The success response confirms the
       `sys_datalog` entry; ISPConfig provisions the site asynchronously.
 
@@ -156,6 +166,16 @@
     description: |
       Client and reseller keys whose client does not have `limit_backup` enabled receive 403 when the
       request contains `backup_*` fields.
+
+      Client and reseller keys are limited to what the account's plan allows (spec 020): options the plan
+      does not include (`ssl`, `ssl_letsencrypt`, `cgi`, `ssi`, `perl`, `ruby`, `python`, `errordocs`, wildcard
+      `subdomain`, `directive_snippets_id`) and switching off a forced `suexec` are refused with 422 and are
+      switched off (suEXEC on) on every save; `php` must be an allowed PHP mode and `server_php_id` a usable
+      PHP version of the website's server (the first usable version is used when the server hides the default
+      version and none is given); Options-tab settings cannot change unless resellers may use the Options tab;
+      SSL certificate fields cannot change without SSL in the plan; plain client keys cannot change `domain`,
+      `ip_address`, `ipv6_address` or `vhost_type` of a `vhost`; `subdomain = "*"` is refused for
+      `vhostsubdomain` and `vhostalias`. Admin keys are not restricted.
 
       Updates an existing web domain. Only include the fields you want to
       change; omitted fields remain unchanged.
@@ -309,6 +329,8 @@
 
       Certificate and key must be valid PEM and must match each other
       (422 otherwise).
+
+      Client and reseller keys whose plan does not include SSL (`limit_ssl`) receive 403 (spec 020).
     parameters:
       - name: id
         in: path
@@ -381,6 +403,8 @@
       Removes the SSL certificate from the web domain. Datalogs the update
       with `ssl_action='del'`, which triggers the server plugin to remove
       the certificate (legacy parity).
+
+      Client and reseller keys whose plan does not include SSL (`limit_ssl`) receive 403 (spec 020).
     parameters:
       - name: id
         in: path
@@ -421,6 +445,8 @@
       Returns 400 when `ssl_letsencrypt` is not `y` for the domain, or when
       the domain is not SSL-enabled. The 200 response confirms only that the
       datalog entry was queued — the renewal itself happens asynchronously.
+
+      Client and reseller keys whose plan does not include SSL and Let's Encrypt (`limit_ssl`, `limit_ssl_letsencrypt`) receive 403 (spec 020).
     parameters:
       - name: id
         in: path

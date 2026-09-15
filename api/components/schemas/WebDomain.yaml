@@ -58,13 +58,18 @@ properties:
       IPv4 address the vhost binds to, or `*` to bind to all addresses.
       Subject to the server's SNI configuration: when SNI is disabled, only
       one SSL-enabled domain is allowed per IP address.
+
+      Client keys (not resellers): cannot be changed on an existing website of type `vhost` (spec 020).
     example: "192.168.1.1"
 
   ipv6_address:
     type: string
     maxLength: 255
     nullable: true
-    description: IPv6 address the vhost binds to (empty for none)
+    description: |
+      IPv6 address the vhost binds to (empty for none)
+
+      Client keys (not resellers): cannot be changed on an existing website of type `vhost` (spec 020).
     example: "2001:db8::1"
 
   domain:
@@ -78,6 +83,8 @@ properties:
         `TOLOWER` + `IDNTOASCII` filters)
       - Must pass the legacy `validate_domain` check for the domain type
       - Unique per (`server_id`, `ip_address`, `domain`) — database unique key
+
+      Client keys (not resellers): cannot be changed on an existing website of type `vhost` (spec 020).
     example: "example.com"
 
   type:
@@ -106,7 +113,10 @@ properties:
     type: string
     enum: [name, ip]
     default: name
-    description: Name-based or IP-based virtual host
+    description: |
+      Name-based or IP-based virtual host
+
+      Client keys (not resellers): cannot be changed on an existing website of type `vhost` (spec 020).
     example: name
 
   web_folder:
@@ -169,21 +179,30 @@ properties:
   cgi:
     type: boolean
     default: false
-    description: Enable CGI script execution
+    description: |
+      Enable CGI script execution
+
+      Client and reseller keys: requires `limit_cgi` in the account's plan; switched off on every save when not included (spec 020).
     example: false
     x-db-format: "y/n"
 
   ssi:
     type: boolean
     default: false
-    description: Enable Server Side Includes
+    description: |
+      Enable Server Side Includes
+
+      Client and reseller keys: requires `limit_ssi` in the account's plan; switched off on every save when not included (spec 020).
     example: false
     x-db-format: "y/n"
 
   suexec:
     type: boolean
     default: true
-    description: Run CGI/FastCGI processes under the site's system user (Apache SuEXEC)
+    description: |
+      Run CGI/FastCGI processes under the site's system user (Apache SuEXEC)
+
+      Client and reseller keys: cannot be switched off when the account's plan forces suEXEC (`force_suexec`); switched on on every save (spec 020).
     example: true
     x-db-format: "y/n"
 
@@ -191,7 +210,10 @@ properties:
     type: integer
     enum: [0, 1]
     default: 1
-    description: Use ISPConfig's own error documents (1) or the server defaults (0)
+    description: |
+      Use ISPConfig's own error documents (1) or the server defaults (0)
+
+      Client and reseller keys: `1` requires `limit_hterror` in the account's plan; set to 0 on every save when not included (spec 020).
     example: 1
 
   subdomain:
@@ -203,6 +225,8 @@ properties:
       - `none`: no auto subdomain
       - `www`: also serve www.{domain}
       - `*`: wildcard subdomain (only when wildcards are enabled on the server)
+
+      Client and reseller keys: `*` requires `limit_wildcard` in the account's plan and is refused for `vhostsubdomain` and `vhostalias` (spec 020).
     example: www
 
   php:
@@ -221,6 +245,8 @@ properties:
 
       A custom PHP version (`server_php_id`) is only honoured for `php-fpm`
       and `fast-cgi`; otherwise it is reset to 0.
+
+      Client and reseller keys: must be one of the account's allowed PHP modes (system and client `web_php_options`, see `GET /me/capabilities`); when omitted on create, `fast-cgi` is used if allowed, otherwise the first allowed mode other than `no` (spec 020).
     example: php-fpm
 
   server_php_id:
@@ -231,26 +257,37 @@ properties:
       ID of an additional PHP version (`server_php` record) to use.
       0 = the server's default PHP. Only honoured when `php` is `php-fpm`
       or `fast-cgi`.
+
+      Client and reseller keys: a non-zero value must be an active PHP version of the website's web server that is public or belongs to the account and supports the PHP mode (see `GET /me/php-versions`). When the server hides the default PHP version, `0` is refused and an omitted version becomes the first usable one (spec 020).
     example: 0
 
   perl:
     type: boolean
     default: false
-    description: Enable Perl script execution
+    description: |
+      Enable Perl script execution
+
+      Client and reseller keys: requires `limit_perl` in the account's plan; switched off on every save when not included (spec 020).
     example: false
     x-db-format: "y/n"
 
   ruby:
     type: boolean
     default: false
-    description: Enable Ruby script execution
+    description: |
+      Enable Ruby script execution
+
+      Client and reseller keys: requires `limit_ruby` in the account's plan; switched off on every save when not included (spec 020).
     example: false
     x-db-format: "y/n"
 
   python:
     type: boolean
     default: false
-    description: Enable Python script execution
+    description: |
+      Enable Python script execution
+
+      Client and reseller keys: requires `limit_python` in the account's plan; switched off on every save when not included (spec 020).
     example: false
     x-db-format: "y/n"
 
@@ -272,7 +309,10 @@ properties:
     type: integer
     format: int64
     default: 0
-    description: ID of the directive snippet applied to the vhost (0 = none)
+    description: |
+      ID of the directive snippet applied to the vhost (0 = none)
+
+      Client and reseller keys: a non-zero value requires `limit_directive_snippets` in the account's plan; set to 0 on every save when not included (spec 020).
     example: 0
 
   # Redirects
@@ -337,6 +377,8 @@ properties:
     description: |
       Enable SSL for the vhost. When the server web config has SNI disabled,
       only one SSL-enabled domain is allowed per IP address.
+
+      Client and reseller keys: requires `limit_ssl` in the account's plan; switched off on every save when not included (spec 020).
     example: true
     x-db-format: "y/n"
 
@@ -348,6 +390,8 @@ properties:
       together with `ssl=true` on create, ISPConfig performs the legacy
       two-step create (insert with both flags disabled, then a datalog
       update enabling them).
+
+      Client and reseller keys: requires `limit_ssl_letsencrypt` in the account's plan; switched off on every save when not included (spec 020).
     example: true
     x-db-format: "y/n"
 
@@ -362,42 +406,60 @@ properties:
     type: string
     maxLength: 255
     nullable: true
-    description: State/province for the SSL certificate subject (CSR)
+    description: |
+      State/province for the SSL certificate subject (CSR)
+
+      Client and reseller keys: cannot be changed when the account's plan does not include SSL (spec 020).
     example: "Bavaria"
 
   ssl_locality:
     type: string
     maxLength: 255
     nullable: true
-    description: City/locality for the SSL certificate subject (CSR)
+    description: |
+      City/locality for the SSL certificate subject (CSR)
+
+      Client and reseller keys: cannot be changed when the account's plan does not include SSL (spec 020).
     example: "Munich"
 
   ssl_organisation:
     type: string
     maxLength: 255
     nullable: true
-    description: Organisation for the SSL certificate subject (CSR)
+    description: |
+      Organisation for the SSL certificate subject (CSR)
+
+      Client and reseller keys: cannot be changed when the account's plan does not include SSL (spec 020).
     example: "Example Inc."
 
   ssl_organisation_unit:
     type: string
     maxLength: 255
     nullable: true
-    description: Organisational unit for the SSL certificate subject (CSR)
+    description: |
+      Organisational unit for the SSL certificate subject (CSR)
+
+      Client and reseller keys: cannot be changed when the account's plan does not include SSL (spec 020).
     example: "IT"
 
   ssl_country:
     type: string
     maxLength: 255
     nullable: true
-    description: ISO 3166-1 alpha-2 country code for the SSL certificate subject (CSR)
+    description: |
+      ISO 3166-1 alpha-2 country code for the SSL certificate subject (CSR)
+
+      Client and reseller keys: cannot be changed when the account's plan does not include SSL (spec 020).
     example: "DE"
 
   ssl_domain:
     type: string
     maxLength: 255
     nullable: true
-    description: Common Name (domain) the SSL certificate is issued for
+    description: |
+      Common Name (domain) the SSL certificate is issued for
+
+      Client and reseller keys: cannot be changed when the account's plan does not include SSL (spec 020).
     example: "example.com"
 
   # Statistics
@@ -450,26 +512,37 @@ properties:
     description: |
       Apache AllowOverride directive for the site. Default derives from the
       server web config `htaccess_allow_override` on create.
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: All
 
   proxy_protocol:
     type: boolean
     default: false
-    description: Enable the PROXY protocol on the vhost
+    description: |
+      Enable the PROXY protocol on the vhost
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: false
     x-db-format: "y/n"
 
   php_fpm_use_socket:
     type: boolean
     default: true
-    description: Use a Unix socket instead of TCP for PHP-FPM
+    description: |
+      Use a Unix socket instead of TCP for PHP-FPM
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: true
     x-db-format: "y/n"
 
   php_fpm_chroot:
     type: boolean
     default: false
-    description: Run the PHP-FPM pool chrooted
+    description: |
+      Run the PHP-FPM pool chrooted
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: false
     x-db-format: "y/n"
 
@@ -481,54 +554,77 @@ properties:
       PHP-FPM process manager mode. With `dynamic`, the pool sizes must
       satisfy `pm_max_children >= pm_max_spare_servers >= pm_start_servers
       >= pm_min_spare_servers > 0`.
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: ondemand
 
   pm_max_children:
     type: integer
     minimum: 1
     default: 10
-    description: PHP-FPM pm.max_children
+    description: |
+      PHP-FPM pm.max_children
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: 10
 
   pm_start_servers:
     type: integer
     minimum: 1
     default: 2
-    description: PHP-FPM pm.start_servers
+    description: |
+      PHP-FPM pm.start_servers
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: 2
 
   pm_min_spare_servers:
     type: integer
     minimum: 1
     default: 1
-    description: PHP-FPM pm.min_spare_servers
+    description: |
+      PHP-FPM pm.min_spare_servers
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: 1
 
   pm_max_spare_servers:
     type: integer
     minimum: 1
     default: 5
-    description: PHP-FPM pm.max_spare_servers
+    description: |
+      PHP-FPM pm.max_spare_servers
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: 5
 
   pm_process_idle_timeout:
     type: integer
     minimum: 1
     default: 10
-    description: PHP-FPM pm.process_idle_timeout in seconds (ondemand mode)
+    description: |
+      PHP-FPM pm.process_idle_timeout in seconds (ondemand mode)
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: 10
 
   pm_max_requests:
     type: integer
     minimum: 0
     default: 0
-    description: PHP-FPM pm.max_requests (0 = unlimited)
+    description: |
+      PHP-FPM pm.max_requests (0 = unlimited)
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: 0
 
   disable_symlinknotowner:
     type: boolean
     default: false
-    description: Disable the SymlinksIfOwnerMatch protection for this site
+    description: |
+      Disable the SymlinksIfOwnerMatch protection for this site
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: false
     x-db-format: "y/n"
 
@@ -539,6 +635,8 @@ properties:
       PHP open_basedir restriction (colon-separated paths). Default is
       generated on create from the server web config template
       (`[website_path]`, `[website_domain]` placeholders).
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: "/var/www/clients/client1/web42/web:/tmp"
 
   custom_php_ini:
@@ -547,6 +645,8 @@ properties:
     description: |
       Custom php.ini directives, one `key = value` per line (comments start
       with `;`). Validated line-by-line like the legacy interface.
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: |
       upload_max_filesize = 64M
       post_max_size = 64M
@@ -557,6 +657,8 @@ properties:
     description: |
       Custom Apache directives added to the vhost. Validated against the
       legacy blocked-directive list (`validate_domain::web_apache_directives`).
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: |
       <IfModule mod_headers.c>
         Header set X-Content-Type-Options nosniff
@@ -568,13 +670,18 @@ properties:
     description: |
       Custom nginx directives added to the server block. Validated against the
       legacy blocked-directive list (`validate_domain::web_nginx_directives`).
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: |
       add_header X-Content-Type-Options nosniff;
 
   proxy_directives:
     type: string
     nullable: true
-    description: Custom proxy directives (used when `redirect_type=proxy`)
+    description: |
+      Custom proxy directives (used when `redirect_type=proxy`)
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: |
       ProxyPreserveHost On
 
@@ -583,7 +690,10 @@ properties:
     minimum: 1
     maximum: 65535
     default: 80
-    description: HTTP port of the vhost
+    description: |
+      HTTP port of the vhost
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: 80
 
   https_port:
@@ -591,7 +701,10 @@ properties:
     minimum: 1
     maximum: 65535
     default: 443
-    description: HTTPS port of the vhost
+    description: |
+      HTTPS port of the vhost
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: 443
 
   log_retention:
@@ -601,24 +714,35 @@ properties:
     description: |
       Days to keep access logs. Default derives from the server config on
       create (fallback 10).
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: 30
 
   jailkit_chroot_app_sections:
     type: string
     nullable: true
-    description: Jailkit chroot application sections (space-separated, legacy regex `/^[a-zA-Z0-9\-\_\ ]*$/`)
+    description: |
+      Jailkit chroot application sections (space-separated, legacy regex `/^[a-zA-Z0-9\-\_\ ]*$/`)
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: "basicshell editors"
 
   jailkit_chroot_app_programs:
     type: string
     nullable: true
-    description: Additional programs available in the jail (space-separated paths, legacy regex `/^[a-zA-Z0-9\.\-\_\/\ ]*$/`)
+    description: |
+      Additional programs available in the jail (space-separated paths, legacy regex `/^[a-zA-Z0-9\.\-\_\/\ ]*$/`)
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: "/usr/bin/git"
 
   delete_unused_jailkit:
     type: boolean
     default: false
-    description: Delete the jail when it is no longer used
+    description: |
+      Delete the jail when it is no longer used
+
+      Administrator setting: client keys, and reseller keys unless resellers may use the Options tab (`reseller_can_use_options`), cannot change it (spec 020).
     example: false
     x-db-format: "y/n"
 
