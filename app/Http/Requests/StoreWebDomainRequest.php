@@ -2,7 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\EnforcesWebPermissions;
 use App\Http\Requests\Concerns\ResolvesAssignedServer;
+use App\Models\WebDomain;
+use App\Support\IspContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -16,6 +20,7 @@ use Illuminate\Validation\Rule;
  */
 class StoreWebDomainRequest extends WebDomainRequest
 {
+    use EnforcesWebPermissions;
     use ResolvesAssignedServer;
 
     protected function prepareForValidation(): void
@@ -87,5 +92,45 @@ class StoreWebDomainRequest extends WebDomainRequest
             // Optional owning client (resolved to its sys_group on create).
             'client_id' => ['sometimes', 'integer', Rule::exists('client', 'client_id')],
         ]);
+    }
+
+    /**
+     * Spec 020 context: a new website of the requested type on the resolved
+     * server (vhost) or the parent's server (vhostsubdomain/vhostalias),
+     * compared against the model defaults.
+     *
+     * @return array{is_create: bool, type: string, server_id: int, owner_client_id: int, current: array<string, mixed>}|null
+     */
+    protected function webPermissionContext(): ?array
+    {
+        $type = (string) $this->input('type', 'vhost');
+        $defaults = (new WebDomain)->getAttributes();
+        $defaults['type'] = $type;
+
+        if ($type === 'vhost') {
+            $serverId = (int) $this->input('server_id', 0);
+            $ownerClientId = $this->filled('client_id')
+                ? (int) $this->input('client_id')
+                : app(IspContext::class)->authScope()->clientId;
+        } else {
+            $parent = DB::table('web_domain')
+                ->where('domain_id', (int) $this->input('parent_domain_id', 0))
+                ->first(['server_id', 'sys_groupid']);
+
+            if ($parent === null) {
+                return null;
+            }
+
+            $serverId = (int) $parent->server_id;
+            $ownerClientId = (int) DB::table('sys_group')->where('groupid', (int) $parent->sys_groupid)->value('client_id');
+        }
+
+        return [
+            'is_create' => true,
+            'type' => $type,
+            'server_id' => $serverId,
+            'owner_client_id' => $ownerClientId,
+            'current' => $defaults,
+        ];
     }
 }

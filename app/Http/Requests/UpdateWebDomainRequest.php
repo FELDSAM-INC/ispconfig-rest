@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\EnforcesWebPermissions;
 use App\Models\WebDomain;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -15,6 +17,8 @@ use Illuminate\Validation\Rule;
  */
 class UpdateWebDomainRequest extends WebDomainRequest
 {
+    use EnforcesWebPermissions;
+
     /**
      * @return array<string, mixed>
      */
@@ -59,5 +63,30 @@ class UpdateWebDomainRequest extends WebDomainRequest
         $domain = $this->route('webDomain');
 
         return $domain instanceof WebDomain ? $domain : null;
+    }
+
+    /**
+     * Spec 020 context: the stored website (raw attributes), its server and
+     * owning client.
+     *
+     * @return array{is_create: bool, type: string, server_id: int, owner_client_id: int, current: array<string, mixed>}|null
+     */
+    protected function webPermissionContext(): ?array
+    {
+        $domain = $this->currentDomain();
+
+        if ($domain === null) {
+            return null;
+        }
+
+        $current = $domain->getAttributes();
+
+        return [
+            'is_create' => false,
+            'type' => (string) ($current['type'] ?? 'vhost'),
+            'server_id' => (int) ($current['server_id'] ?? 0),
+            'owner_client_id' => (int) DB::table('sys_group')->where('groupid', (int) ($current['sys_groupid'] ?? 0))->value('client_id'),
+            'current' => $current,
+        ];
     }
 }

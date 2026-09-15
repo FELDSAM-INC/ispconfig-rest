@@ -45,6 +45,7 @@ class WebDomainService
         protected SitesConfigService $config,
         protected IspContext $context,
         protected ClientLimitService $limits,
+        protected WebPermissionService $permissions,
     ) {}
 
     /**
@@ -114,6 +115,15 @@ class WebDomainService
         if ($clientId !== null && ! $isChildVhost) {
             $record['sys_groupid'] = $this->resolveOwningClientGroup($clientId);
         }
+
+        // Spec 020: values a client or reseller save always stores (legacy
+        // onSubmit plan flags, default PHP mode/version). Admin scopes: none.
+        $record = array_merge($record, $this->permissions->forcedAttributes($this->context->authScope(), $record, [
+            'is_create' => true,
+            'type' => (string) $record['type'],
+            'server_id' => $serverId,
+            'owner_client_id' => (int) DB::table('sys_group')->where('groupid', (int) $record['sys_groupid'])->value('client_id'),
+        ]));
 
         // Legacy Let's Encrypt two-step create: insert with both flags 'n'.
         $letsencryptOnInsert = ($record['ssl'] ?? 'n') === 'y' && ($record['ssl_letsencrypt'] ?? 'n') === 'y';
@@ -266,6 +276,19 @@ class WebDomainService
 
         $this->runConfigDependentChecks($domain->getAttributes(), (int) $domain->getKey());
         $domain->setAttribute('server_php_id', $this->resolveServerPhpId($domain->getAttributes()));
+
+        // Spec 020: forced values of client and reseller saves.
+        $attributes = $domain->getAttributes();
+        $forced = $this->permissions->forcedAttributes($this->context->authScope(), $attributes, [
+            'is_create' => false,
+            'type' => (string) ($attributes['type'] ?? 'vhost'),
+            'server_id' => (int) ($attributes['server_id'] ?? 0),
+            'owner_client_id' => (int) DB::table('sys_group')->where('groupid', (int) ($attributes['sys_groupid'] ?? 0))->value('client_id'),
+        ]);
+
+        if ($forced !== []) {
+            $domain->setRawAttributes(array_merge($attributes, $forced));
+        }
 
         $domain->save();
 

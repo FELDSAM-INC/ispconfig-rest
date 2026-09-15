@@ -131,6 +131,154 @@ class WebPermissionService
     }
 
     /**
+     * Field violations of a website write by a client or reseller key (FR-001,
+     * FR-003, FR-004, FR-006–FR-010). Empty for admin scopes.
+     *
+     * @param  array<string, mixed>  $input  request input (flags already normalized to booleans)
+     * @param  array{is_create: bool, type: string, server_id: int, owner_client_id: int, current: array<string, mixed>}  $context
+     * @return array<string, string> field => message
+     */
+    public function violations(AuthScope $scope, array $input, array $context): array
+    {
+        if ($scope->isAdmin) {
+            return [];
+        }
+
+        $account = $this->forScope($scope);
+        $violations = [];
+
+        foreach ($this->planFlagViolations($account, $input, $context) as $field => $message) {
+            $violations[$field] = $message;
+        }
+
+        return $violations;
+    }
+
+    /**
+     * Raw attribute values a client or reseller save stores regardless of the
+     * request (legacy onSubmit:986-996, FR-002). Empty for admin scopes.
+     *
+     * @param  array<string, mixed>  $record  raw attributes about to be written
+     * @param  array{is_create: bool, type: string, server_id: int, owner_client_id: int}  $context
+     * @return array<string, mixed>
+     */
+    public function forcedAttributes(AuthScope $scope, array $record, array $context): array
+    {
+        if ($scope->isAdmin) {
+            return [];
+        }
+
+        $account = $this->forScope($scope);
+        $forced = [];
+
+        foreach (self::PLAN_FLAGS as $field => [, , $forcedValue]) {
+            if (! $account['flags'][$field]) {
+                $forced[$field] = $forcedValue;
+            }
+        }
+
+        if ($account['force_suexec']) {
+            $forced['suexec'] = 'y';
+        }
+
+        if (! $account['flags']['error_documents']) {
+            $forced['errordocs'] = 0;
+        }
+
+        if (! $account['flags']['directive_snippets']) {
+            $forced['directive_snippets_id'] = 0;
+        }
+
+        return $forced;
+    }
+
+    /**
+     * @param  array<string, mixed>  $account
+     * @param  array<string, mixed>  $input
+     * @param  array<string, mixed>  $context
+     * @return array<string, string>
+     */
+    protected function planFlagViolations(array $account, array $input, array $context): array
+    {
+        $violations = [];
+        $isChild = in_array($context['type'], ['vhostsubdomain', 'vhostalias'], true);
+
+        foreach (self::PLAN_FLAGS as $field => [, $forbidden, , $label]) {
+            if (! $account['flags'][$field]
+                && $this->requests($field, $input, $context, true)
+                && $input[$field] === $forbidden) {
+                $violations[$field] = "The {$label} option is not included in the account's plan.";
+            }
+        }
+
+        if (! $account['flags']['error_documents']
+            && $this->requests('errordocs', $input, $context, true)
+            && is_numeric($input['errordocs']) && (int) $input['errordocs'] === 1) {
+            $violations['errordocs'] = "The custom error documents option is not included in the account's plan.";
+        }
+
+        if (! $account['flags']['directive_snippets']
+            && $this->requests('directive_snippets_id', $input, $context, true)
+            && is_numeric($input['directive_snippets_id']) && (int) $input['directive_snippets_id'] !== 0) {
+            $violations['directive_snippets_id'] = "The directive snippets option is not included in the account's plan.";
+        }
+
+        if ($this->requests('subdomain', $input, $context, true) && $input['subdomain'] === '*') {
+            if ($isChild) {
+                $violations['subdomain'] = 'Wildcard subdomains are not available for this website type.';
+            } elseif (! $account['flags']['wildcard_subdomains']) {
+                $violations['subdomain'] = "The wildcard subdomains option is not included in the account's plan.";
+            }
+        }
+
+        if ($account['force_suexec']
+            && $this->requests('suexec', $input, $context, true)
+            && $input['suexec'] === false) {
+            $violations['suexec'] = "suEXEC is required by the account's plan.";
+        }
+
+        return $violations;
+    }
+
+    /**
+     * Whether the request sets a field (research R8): on create every sent
+     * value counts when $sentOnCreate, otherwise only values different from
+     * the model default; on update only values different from the stored raw
+     * value.
+     *
+     * @param  array<string, mixed>  $input
+     * @param  array<string, mixed>  $context
+     */
+    protected function requests(string $field, array $input, array $context, bool $sentOnCreate = false): bool
+    {
+        if (! array_key_exists($field, $input)) {
+            return false;
+        }
+
+        if ($context['is_create'] && $sentOnCreate) {
+            return true;
+        }
+
+        return $this->normalize($input[$field]) !== $this->normalize($context['current'][$field] ?? null);
+    }
+
+    /**
+     * Comparable form of an input or raw value: booleans as y/n, null as ''.
+     */
+    protected function normalize(mixed $value): string
+    {
+        if (is_bool($value)) {
+            return $value ? 'y' : 'n';
+        }
+
+        if ($value === null) {
+            return '';
+        }
+
+        return is_scalar($value) ? strtolower(trim((string) $value)) : json_encode($value);
+    }
+
+    /**
      * System list ∩ client list in the client list's order (legacy
      * applyValueLimit); an empty system list does not restrict
      * (owner-delegated decision 2026-09-15).

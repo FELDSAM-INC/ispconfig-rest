@@ -21,18 +21,18 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 1: Setup (contract first)
 
-- [ ] T001 Add the "Client and reseller keys" restriction descriptions to the restricted properties in `api/components/schemas/WebDomain.yaml` per `specs/020-web-permissions-scoped-keys/contracts/web-domains-contract-changes.md`
-- [ ] T002 [P] Update the POST/PUT `/sites/web-domains` and SSL operation descriptions in `api/modules/sites/web-domains.yaml`
-- [ ] T003 Verify the contract parses and is served by running `tests/Feature/SwaggerSpecServerTest.php`
+- [x] T001 Add the "Client and reseller keys" restriction descriptions to the restricted properties in `api/components/schemas/WebDomain.yaml` per `specs/020-web-permissions-scoped-keys/contracts/web-domains-contract-changes.md`
+- [x] T002 [P] Update the POST/PUT `/sites/web-domains` and SSL operation descriptions in `api/modules/sites/web-domains.yaml`
+- [x] T003 Verify the contract parses and is served by running `tests/Feature/SwaggerSpecServerTest.php`
 
 ---
 
 ## Phase 2: Foundational (blocking prerequisites)
 
-- [ ] T004 Add the legacy client flag columns (`limit_ssl`, `limit_ssl_letsencrypt`, `limit_cgi`, `limit_ssi`, `limit_perl`, `limit_ruby`, `limit_python`, `force_suexec`, `limit_hterror`, `limit_wildcard`, `limit_directive_snippets` with DDL defaults) and `web_php_options` to both branches of `tests/Support/TenantSchema.php`
-- [ ] T005 [P] Add a hasTable-guarded `server_php` table (same columns as `tests/Support/ServerSchema.php`) to `tests/Support/SitesSchema.php`
-- [ ] T006 Create `app/Services/PhpVersionService.php`: `usable(int $serverId, array $clientIds, string $mode)` (active, server, client ids, mode binaries, ordered by sortprio then id), `supportsMode()`, `defaultHidden(int $serverId)`, `defaultName(int $serverId)`, `serverType(int $serverId)`
-- [ ] T007 Create `app/Services/WebPermissionService.php` with `forScope(AuthScope)` (AccountWebPermissions per data-model.md, memoized per scope) and the field class constants
+- [x] T004 Add the legacy client flag columns (`limit_ssl`, `limit_ssl_letsencrypt`, `limit_cgi`, `limit_ssi`, `limit_perl`, `limit_ruby`, `limit_python`, `force_suexec`, `limit_hterror`, `limit_wildcard`, `limit_directive_snippets` with DDL defaults) and `web_php_options` to both branches of `tests/Support/TenantSchema.php`
+- [x] T005 [P] Add a hasTable-guarded `server_php` table (same columns as `tests/Support/ServerSchema.php`) to `tests/Support/SitesSchema.php`
+- [x] T006 Create `app/Services/PhpVersionService.php`: `usable(int $serverId, array $clientIds, string $mode)` (active, server, client ids, mode binaries, ordered by sortprio then id), `supportsMode()`, `defaultHidden(int $serverId)`, `defaultName(int $serverId)`, `serverType(int $serverId)`
+- [x] T007 Create `app/Services/WebPermissionService.php` with `forScope(AuthScope)` (AccountWebPermissions per data-model.md, memoized per scope) and the field class constants
 
 **Checkpoint**: full suite still 971 green
 
@@ -42,14 +42,14 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T008 [US1] Create `tests/Feature/WebPlanFlagsScopedKeyTest.php` (SitesSchema + TenantSchema + tenant keys, server 1 assigned): for each plan flag field create/update with the forbidden value → 422 on that field and no datalog row; repeated current value not refused; forced suEXEC false → 422; several violations in one response; admin key unrestricted
-- [ ] T009 [US1] Add forcing tests to `tests/Feature/WebPlanFlagsScopedKeyTest.php`: seeded site with `cgi/ssi/perl/ruby/python/ssl/ssl_letsencrypt = y`, `errordocs = 1`, `directive_snippets_id = 3`, `suexec = n` saved by a client key with `{"active": true}` → 200 and the datalog `u` shows forced values; reseller key uses the reseller's own plan; allowed flags (limit `y`) accepted
+- [x] T008 [US1] Create `tests/Feature/WebPlanFlagsScopedKeyTest.php` (SitesSchema + TenantSchema + tenant keys, server 1 assigned): for each plan flag field create/update with the forbidden value → 422 on that field and no datalog row; repeated current value not refused; forced suEXEC false → 422; several violations in one response; admin key unrestricted
+- [x] T009 [US1] Add forcing tests to `tests/Feature/WebPlanFlagsScopedKeyTest.php`: seeded site with `cgi/ssi/perl/ruby/python/ssl/ssl_letsencrypt = y`, `errordocs = 1`, `directive_snippets_id = 3`, `suexec = n` saved by a client key with `{"active": true}` → 200 and the datalog `u` shows forced values; reseller key uses the reseller's own plan; allowed flags (limit `y`) accepted
 
 ### Implementation
 
-- [ ] T010 [US1] Implement `WebPermissionService::violations()` plan-flag rules and `forcedAttributes()` in `app/Services/WebPermissionService.php`
-- [ ] T011 [US1] Create `app/Http/Requests/Concerns/EnforcesWebPermissions.php` (validator after-hook for non-admin scopes; context: create/update, type, server id, current raw attributes or model defaults, owner client) and use it in `app/Http/Requests/StoreWebDomainRequest.php` and `app/Http/Requests/UpdateWebDomainRequest.php`
-- [ ] T012 [US1] Apply `forcedAttributes()` in `WebDomainService::create()` (before the Let's Encrypt two-step detection) and `update()` (before save) in `app/Services/WebDomainService.php`
+- [x] T010 [US1] Implement `WebPermissionService::violations()` plan-flag rules and `forcedAttributes()` in `app/Services/WebPermissionService.php`
+- [x] T011 [US1] Create `app/Http/Requests/Concerns/EnforcesWebPermissions.php` (validator after-hook for non-admin scopes; context: create/update, type, server id, current raw attributes or model defaults, owner client) and use it in `app/Http/Requests/StoreWebDomainRequest.php` and `app/Http/Requests/UpdateWebDomainRequest.php`
+- [x] T012 [US1] Apply `forcedAttributes()` in `WebDomainService::create()` (before the Let's Encrypt two-step detection) and `update()` (before save) in `app/Services/WebDomainService.php`
 
 **Checkpoint**: US1 tests green, full suite green
 
