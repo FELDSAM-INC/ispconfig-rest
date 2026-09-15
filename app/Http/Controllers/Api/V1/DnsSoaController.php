@@ -13,7 +13,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 /**
@@ -121,23 +120,27 @@ class DnsSoaController extends Controller
     }
 
     /**
-     * DELETE /dns/soa/{id} — 204; datalog action 'd'.
-     *
-     * A zone that still contains records is refused with 400 problem+json
-     * (contract's documented intentional deviation from legacy ISPConfig's
-     * cascade delete — consumers must empty the zone first).
+     * DELETE /dns/soa/{id} — 204; deletes the zone's records with the zone
+     * (spec 034, legacy dns_soa_del.php): datalog 'u' marking the zone
+     * inactive, one 'd' per dns_rr row, then 'd' for the zone — all in one
+     * transaction and one change set.
      */
     public function destroy(DnsSoa $dnsSoa): Response
     {
-        $recordCount = $dnsSoa->records()->count();
-
-        if ($recordCount > 0) {
-            throw new BadRequestHttpException(
-                "Cannot delete zone that contains DNS records ({$recordCount} associated records)."
-            );
-        }
-
         DB::transaction(function () use ($dnsSoa): void {
+            // Legacy dns_soa_del.php:41-51 — the zone is journaled as inactive
+            // first (the DNS server drops the zone file), then every resource
+            // record of the zone is deleted, then the zone row itself
+            // (tform_actions::onDelete). Spec 034: one transaction, one change
+            // set; the per-record serial bump of dns_rr_del.php does not apply
+            // to the cascade.
+            $dnsSoa->active = false;
+            $dnsSoa->save();
+
+            foreach ($dnsSoa->records()->orderBy('id')->get() as $record) {
+                $record->delete();
+            }
+
             $dnsSoa->delete();
         });
 

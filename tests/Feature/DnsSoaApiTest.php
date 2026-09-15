@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\Support\DnsSchema;
 use Tests\TestCase;
 
@@ -270,7 +271,7 @@ class DnsSoaApiTest extends TestCase
         $this->assertSame(1, (int) $row->sys_userid);     // acting admin
         $this->assertSame('riud', $row->sys_perm_user);
         // client_id is not a dns_soa column and must not be persisted anywhere.
-        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('dns_soa', 'client_id'));
+        $this->assertFalse(Schema::hasColumn('dns_soa', 'client_id'));
     }
 
     public function test_create_with_unknown_client_id_returns_422(): void
@@ -419,9 +420,11 @@ class DnsSoaApiTest extends TestCase
 
         $this->assertDatabaseMissing('dns_soa', ['id' => $id]);
 
-        $row = DB::table('sys_datalog')->where('dbtable', 'dns_soa')->first();
-        $this->assertNotNull($row);
-        $this->assertSame('d', $row->action);
+        // Spec 034: the zone is journaled as inactive before it is deleted.
+        $entries = DB::table('sys_datalog')->where('dbtable', 'dns_soa')->orderBy('datalog_id')->get();
+        $this->assertSame(['u', 'd'], $entries->pluck('action')->all());
+
+        $row = $entries->last();
         $this->assertSame('id:'.$id, $row->dbidx);
 
         $data = unserialize($row->data);
@@ -430,20 +433,22 @@ class DnsSoaApiTest extends TestCase
         $this->assertNull($data['new']['origin']);
     }
 
-    public function test_delete_zone_with_records_returns_400_problem(): void
+    public function test_delete_removes_the_zones_records_with_the_zone(): void
     {
         $id = $this->seedZone(['origin' => 'example.com.']);
         $this->seedRecord($id, ['name' => 'www']);
         $this->seedRecord($id, ['name' => 'mail', 'type' => 'MX', 'data' => 'mail.example.com.', 'aux' => 10]);
 
+        // Spec 034: legacy parity — the records go with the zone.
         $this->deleteJson('/api/v1/dns/soa/'.$id, [], $this->authHeaders())
-            ->assertStatus(400)
-            ->assertHeader('Content-Type', 'application/problem+json')
-            ->assertJsonPath('status', 400)
-            ->assertJsonPath('detail', 'Cannot delete zone that contains DNS records (2 associated records).');
+            ->assertNoContent()
+            ->assertHeader('X-Change-Set-Id');
 
-        $this->assertDatabaseHas('dns_soa', ['id' => $id]);
-        $this->assertSame(0, DB::table('sys_datalog')->count());
+        $this->assertDatabaseMissing('dns_soa', ['id' => $id]);
+        $this->assertSame(0, DB::table('dns_rr')->where('zone', $id)->count());
+
+        // One zone update (deactivation), two record deletes, one zone delete.
+        $this->assertSame(4, DB::table('sys_datalog')->count());
     }
 
     public function test_delete_missing_returns_404_problem(): void
