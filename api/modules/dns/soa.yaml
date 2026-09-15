@@ -92,8 +92,15 @@
         client key that changes it gets 422 with `error_types.origin` =
         `feature-not-allowed`.
       - Re-sending the stored value of either field is accepted.
-      - `xfer`, `also_notify` and the DNSSEC fields stay writable for every key
+      - `xfer`, `also_notify` and `dnssec_algo` stay writable for every key
         (the legacy form shows them to all user types).
+      - `dnssec_wanted` can only be switched on where ISPConfig can sign: when
+        the zone's DNS server has mirrors, the ISPConfig panel hides DNSSEC
+        entirely and the API refuses the change with 422 and
+        `error_types.dnssec_wanted` = `feature-not-allowed`. Switching DNSSEC
+        off, and re-sending the stored value, are always accepted. Read the
+        state and the DS records for the registrar with
+        `GET /dns/soa/{id}/dnssec`.
     requestBody:
       required: true
       content:
@@ -180,8 +187,15 @@
         client key that changes it gets 422 with `error_types.origin` =
         `feature-not-allowed`.
       - Re-sending the stored value of either field is accepted.
-      - `xfer`, `also_notify` and the DNSSEC fields stay writable for every key
+      - `xfer`, `also_notify` and `dnssec_algo` stay writable for every key
         (the legacy form shows them to all user types).
+      - `dnssec_wanted` can only be switched on where ISPConfig can sign: when
+        the zone's DNS server has mirrors, the ISPConfig panel hides DNSSEC
+        entirely and the API refuses the change with 422 and
+        `error_types.dnssec_wanted` = `feature-not-allowed`. Switching DNSSEC
+        off, and re-sending the stored value, are always accepted. Read the
+        state and the DS records for the registrar with
+        `GET /dns/soa/{id}/dnssec`.
     parameters:
       - name: id
         in: path
@@ -303,5 +317,46 @@
         $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+/dns/soa/{id}/dnssec:
+  get:
+    tags:
+      - DNS
+    summary: Get DNSSEC state with the DS records for the registrar
+    description: |
+      Returns the DNSSEC state of a zone together with the DS records the domain's registrar needs and the DNSKEY
+      records the zone publishes (spec 032).
+
+      ISPConfig's DNS server generates the keys and signs the zone, then writes its notes into the zone row; this
+      endpoint parses them into data. `state` is `off` when signing was not requested, `pending` while the server
+      has not signed yet, `signed` once it has, and `unavailable` when the zone's DNS server is mirrored —
+      ISPConfig signs only on the master, so the ISPConfig panel hides DNSSEC there as well.
+
+      Switching signing on and off stays `PUT /dns/soa/{id}` with `dnssec_wanted`. Switching off keeps the keys
+      ISPConfig generated, so the DS record stays valid if signing is switched on again.
+
+      Readable by every key that can read the zone (no plan gate). Read-only: no `X-Change-Set-Id`. Private keys,
+      file paths and server command output are never returned.
+    parameters:
+      - name: id
+        in: path
+        description: DNS zone ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: DNSSEC state of the zone
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/DnsSoaDnssec.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'

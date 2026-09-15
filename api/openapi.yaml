@@ -297,6 +297,8 @@ paths:
     $ref: './modules/dns/soa.yaml#/~1dns~1soa~1{id}'
   /dns/soa/from-template:
     $ref: './modules/dns/soa.yaml#/~1dns~1soa~1from-template'
+  /dns/soa/{id}/dnssec:
+    $ref: './modules/dns/soa.yaml#/~1dns~1soa~1{id}~1dnssec'
   /dns/slaves:
     $ref: './modules/dns/slave.yaml#/~1dns~1slaves'
   /dns/slaves/{id}:

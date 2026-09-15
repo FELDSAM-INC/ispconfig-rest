@@ -256,7 +256,10 @@ properties:
     type: string
     nullable: true
     readOnly: true
-    description: DNSSEC key information published by the DNS server (server-managed)
+    description: |
+      Raw DNSSEC notes written by the DNS server (server-managed). Returned to administrator keys only — client and
+      reseller keys get `null` and read `GET /dns/soa/{id}/dnssec` instead, which returns the same information as
+      parsed DS and DNSKEY records without the server's command output (spec 032).
     example: "{...}"
 
   rendered_zone:

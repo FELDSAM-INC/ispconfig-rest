@@ -1,0 +1,132 @@
+# DNSSEC state of one zone (spec 032).
+# Read-only projection of the dns_soa DNSSEC columns: the flags ISPConfig manages plus the public DS and DNSKEY
+# records parsed out of the notes its DNS server writes. Never contains private keys, file paths or command output.
+type: object
+description: |
+  DNSSEC state of a DNS zone. `state`:
+  - `off` — signing was not requested;
+  - `pending` — requested, but the DNS server has not signed the zone yet;
+  - `signed` — the zone is signed and the records below can be handed to the registrar;
+  - `unavailable` — the zone's DNS server is mirrored; ISPConfig signs only on the master, so the panel does not
+    offer DNSSEC there either.
+additionalProperties: false
+required:
+  - zone_id
+  - origin
+  - state
+  - available
+  - wanted
+  - initialized
+  - algorithm
+  - last_signed
+  - ds_records
+  - dnskey_records
+
+properties:
+  zone_id:
+    type: integer
+    format: int64
+    description: Zone id (`dns_soa.id`).
+    example: 11
+
+  origin:
+    type: string
+    description: Zone origin, dot-terminated.
+    example: example.com.
+
+  state:
+    type: string
+    enum: [off, pending, signed, unavailable]
+    example: signed
+
+  available:
+    type: boolean
+    description: |
+      Whether DNSSEC can be used for this zone at all: false when the zone's DNS server has at least one mirror.
+      Switching signing on is refused while this is false.
+    example: true
+
+  wanted:
+    type: boolean
+    description: Whether signing is requested (`dns_soa.dnssec_wanted`).
+    example: true
+
+  initialized:
+    type: boolean
+    description: |
+      Whether the DNS server has generated keys and signed the zone at least once
+      (`dns_soa.dnssec_initialized`). Stays true after signing is switched off again, because ISPConfig keeps the
+      keys until the zone is deleted.
+    example: true
+
+  algorithm:
+    type: string
+    enum: [NSEC3RSASHA1, ECDSAP256SHA256]
+    description: Signing algorithm (`dns_soa.dnssec_algo`).
+    example: ECDSAP256SHA256
+
+  last_signed:
+    type: string
+    format: date-time
+    nullable: true
+    description: When the zone was last signed (API timezone); null when it never was.
+    example: '2026-09-16T01:38:02+02:00'
+
+  ds_records:
+    type: array
+    description: |
+      The DS records to hand to the domain's registrar. Empty unless the zone is signed.
+    items:
+      type: object
+      additionalProperties: false
+      required: [key_tag, algorithm, digest_type, digest, record]
+      properties:
+        key_tag:
+          type: integer
+          example: 5269
+        algorithm:
+          type: integer
+          description: DNSSEC algorithm number (13 = ECDSAP256SHA256, 7 = NSEC3RSASHA1).
+          example: 13
+        digest_type:
+          type: integer
+          example: 2
+        digest:
+          type: string
+          description: Digest in upper case, with the line breaks the server inserts removed.
+          example: 44F315FBF85AC547DBE621FEB51C011A735ECA5D44E0BDF07C47C4A7217F7D81
+        record:
+          type: string
+          description: The complete record line, ready to paste into a registrar's form.
+          example: 'example.com. IN DS 5269 13 2 44F315FBF85AC547DBE621FEB51C011A735ECA5D44E0BDF07C47C4A7217F7D81'
+
+  dnskey_records:
+    type: array
+    description: The public keys the zone publishes. Empty unless the zone is signed.
+    items:
+      type: object
+      additionalProperties: false
+      required: [flags, protocol, algorithm, public_key, type, record]
+      properties:
+        flags:
+          type: integer
+          description: 257 for a key-signing key, 256 for a zone-signing key.
+          example: 257
+        protocol:
+          type: integer
+          example: 3
+        algorithm:
+          type: integer
+          example: 13
+        public_key:
+          type: string
+          description: Base64 public key with whitespace removed.
+          example: HId4lryEWgDLIwtbwAyHy6N/O1jrw0+afJ6LDzVO/S6F8i9a2iCv4YT5E+eJ/2GYAS3Ytm/6lw0/n+Cgk7aZgQ==
+        type:
+          type: string
+          enum: [ksk, zsk, other]
+          example: ksk
+        record:
+          type: string
+          description: The complete record line.
+          example: 'example.com. IN DNSKEY 257 3 13 HId4lryEWgDLIwtbwAyHy6N/O1jrw0+afJ6LDzVO/S6F8i9a2iCv4YT5E+eJ/2GYAS3Ytm/6lw0/n+Cgk7aZgQ=='
