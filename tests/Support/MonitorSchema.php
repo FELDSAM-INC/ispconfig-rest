@@ -59,6 +59,27 @@ class MonitorSchema
                 $table->unsignedInteger('mirror_server_id')->default(0);
                 $table->boolean('active')->default(true);
             });
+        } else {
+            // Module/tenant schemas may have created a server table without the
+            // processing columns the change status resolver reads (spec 015).
+            $missing = array_values(array_filter(
+                ['updated', 'mirror_server_id', 'active'],
+                fn (string $column): bool => ! Schema::hasColumn('server', $column)
+            ));
+
+            if ($missing !== []) {
+                Schema::table('server', function (Blueprint $table) use ($missing): void {
+                    if (in_array('updated', $missing, true)) {
+                        $table->unsignedBigInteger('updated')->default(0);
+                    }
+                    if (in_array('mirror_server_id', $missing, true)) {
+                        $table->unsignedInteger('mirror_server_id')->default(0);
+                    }
+                    if (in_array('active', $missing, true)) {
+                        $table->boolean('active')->default(true);
+                    }
+                });
+            }
         }
     }
 }
