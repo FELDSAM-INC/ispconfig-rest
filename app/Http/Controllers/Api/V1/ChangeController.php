@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
 use App\Models\DataLog;
+use App\Services\ChangeRecordResolver;
 use App\Services\ChangeStatusResolver;
 use App\Support\IspContext;
 use Carbon\CarbonImmutable;
@@ -50,7 +51,18 @@ class ChangeController extends Controller
         }
 
         $statuses = app(ChangeStatusResolver::class);
-        $query = $this->restrictToVisible(DataLog::query()->select(self::ENTRY_COLUMNS));
+        $query = DataLog::query()->select(self::ENTRY_COLUMNS);
+        $recordId = $this->recordIdParameter($request);
+
+        if ($recordId !== null) {
+            // Record view (US3): entries of one readable record from any writer.
+            $table = (string) $request->query('table');
+            $records = app(ChangeRecordResolver::class);
+            $records->assertReadable($table, $recordId);
+            $query->where('dbidx', $records->dbidx($table, $recordId));
+        } else {
+            $this->restrictToVisible($query);
+        }
 
         $this->applyExactFilter($request, $query, 'table', 'dbtable', 255);
         $this->applyExactFilter($request, $query, 'change_set_id', 'session_id', 64);
@@ -74,7 +86,7 @@ class ChangeController extends Controller
             $request,
             sortable: ['datalog_id'],
             defaultSort: 'datalog_id',
-            extra: ['status', 'table', 'change_set_id', 'since'],
+            extra: ['status', 'table', 'record_id', 'change_set_id', 'since'],
         );
 
         return response()->json([
@@ -162,6 +174,34 @@ class ChangeController extends Controller
         }
 
         return $query;
+    }
+
+    /**
+     * `record_id` (integer >= 1) requires `table`, and `table` must be an API resource table (400 otherwise).
+     */
+    private function recordIdParameter(Request $request): ?int
+    {
+        $raw = $request->query('record_id');
+
+        if ($raw === null) {
+            return null;
+        }
+
+        if (! is_string($raw) || filter_var($raw, FILTER_VALIDATE_INT) === false || (int) $raw < 1) {
+            throw new BadRequestHttpException("The 'record_id' parameter must be a positive integer.");
+        }
+
+        $table = $request->query('table');
+
+        if (! is_string($table) || $table === '') {
+            throw new BadRequestHttpException("The 'record_id' parameter requires 'table'.");
+        }
+
+        if (! app(ChangeRecordResolver::class)->supports($table)) {
+            throw new BadRequestHttpException("The table '{$table}' is not an API resource; 'record_id' cannot be used with it.");
+        }
+
+        return (int) $raw;
     }
 
     private function applyExactFilter(Request $request, EloquentBuilder $query, string $parameter, string $column, int $maxLength): void

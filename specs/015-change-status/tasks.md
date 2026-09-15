@@ -131,13 +131,13 @@ B's key → 404; deleted record → 404.
 
 ### Tests for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T021 [P] [US3] Write failing `tests/Feature/ChangeRecordViewApiTest.php` (TenantFixtures + SitesSchema or MailSchema): readable record returns entries from other writers (admin entry visible to client A) without writer details; record of another tenant → 404; nonexistent and deleted record → 404; `record_id` without `table` → 400; table outside the data-model map with `record_id` → 400; `sys_ini` / `client_template_assigned` with `record_id` → 404 for non-admin keys, entries for admin keys; admin keys see entries even when the record no longer exists; combining the record view with `status` keeps correct `meta.total`
+- [x] T021 [P] [US3] Write failing `tests/Feature/ChangeRecordViewApiTest.php` (TenantFixtures + SitesSchema or MailSchema): readable record returns entries from other writers (admin entry visible to client A) without writer details; record of another tenant → 404; nonexistent and deleted record → 404; `record_id` without `table` → 400; table outside the data-model map with `record_id` → 400; `sys_ini` / `client_template_assigned` with `record_id` → 404 for non-admin keys, entries for admin keys; admin keys see entries even when the record no longer exists; combining the record view with `status` keeps correct `meta.total`
 
 ### Implementation for User Story 3
 
-- [ ] T022 [P] [US3] Create `app/Services/ChangeRecordResolver.php`: the table → primary key map from data-model.md (with a has-sys-fields flag; `sys_ini` and `client_template_assigned` admin-only), `supports(string $table): bool`, `assertReadable(string $table, int $id): void` loading the row through `AuthScope::applyReadPredicate('r')` for non-admin scopes and throwing the project's 404 problem otherwise, and `dbidx(string $table, int $id): string` returning `"<pk>:<id>"`
-- [ ] T023 [US3] Add the record-view branch to `ChangeController@index` in `app/Http/Controllers/Api/V1/ChangeController.php`: `record_id` requires `table` and a supported table (400), non-admin scopes call `assertReadable()` (404) and replace the username constraint with `dbtable = table AND dbidx = dbidx(...)` (depends on T019, T022)
-- [ ] T024 [US3] Run `vendor/bin/phpunit --filter 'ChangeRecordView|ChangeList|ChangeStatus'`; all green
+- [x] T022 [P] [US3] Create `app/Services/ChangeRecordResolver.php`: the table → primary key map from data-model.md (with a has-sys-fields flag; `sys_ini` and `client_template_assigned` admin-only), `supports(string $table): bool`, `assertReadable(string $table, int $id): void` loading the row through `AuthScope::applyReadPredicate('r')` for non-admin scopes and throwing the project's 404 problem otherwise, and `dbidx(string $table, int $id): string` returning `"<pk>:<id>"`
+- [x] T023 [US3] Add the record-view branch to `ChangeController@index` in `app/Http/Controllers/Api/V1/ChangeController.php`: `record_id` requires `table` and a supported table (400), non-admin scopes call `assertReadable()` (404) and replace the username constraint with `dbtable = table AND dbidx = dbidx(...)` (depends on T019, T022)
+- [x] T024 [US3] Run `vendor/bin/phpunit --filter 'ChangeRecordView|ChangeList|ChangeStatus'`; all green
 
 **Checkpoint**: all three stories independently functional.
 
