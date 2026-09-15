@@ -117,6 +117,8 @@ Only values that differ from the stored (or default) value are checked, so repea
 
 A panel can read these rules with the customer's own key: `GET /api/v1/me/capabilities` returns the plan's website options, the allowed PHP modes (and the mode a new website gets) and whether the account is locked or canceled; `GET /api/v1/me/php-versions` lists the PHP versions the account's websites may use per web server and mode (`server_id`, `mode`), starting with the server's default version unless the server hides it. Reseller keys may pass `client_id` for one of their clients; admin keys must pass it.
 
+References inside a request body follow the same read scope: for client and reseller keys, the mail domain of a mailbox, forward, alias, catch-all or alias domain, an alias's destination mailboxes, the parent website of subdomains, FTP/shell/WebDAV users, cron jobs, protected folders and databases, a database's users, a folder user's folder, a DNS record's zone and an allow/deny list entry's spam filter user must all be visible to the key. A reference the key cannot see is rejected exactly like a nonexistent one (`400`, `404` or `422` as for a missing value).
+
 ### Managing keys over HTTP
 
 Admin keys manage keys remotely under `/system/api-keys` (client and reseller keys receive `403`):
