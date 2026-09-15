@@ -1,0 +1,37 @@
+# Email program settings of an account for its own API key (spec 025).
+# Derived per request from `server`, `sys_ini` and the account's mail domains. Read-only.
+type: object
+description: Email program settings of the account's mail servers and the installation's mailbox rules.
+additionalProperties: false
+required:
+  - client_id
+  - custom_login
+  - webmail_link
+  - password_policy
+  - servers
+properties:
+  client_id:
+    type: integer
+    format: int64
+    minimum: 1
+    description: The described client.
+    example: 42
+  custom_login:
+    type: boolean
+    description: |
+      Mailboxes log in with their own `login` name instead of the email address (system setting
+      `enable_custom_login`).
+    example: false
+  webmail_link:
+    type: boolean
+    description: The installation shows a webmail link in mailbox lists (system setting `mailboxlist_webmail_link`).
+    example: true
+  password_policy:
+    $ref: './MailPasswordPolicy.yaml'
+  servers:
+    type: array
+    description: |
+      Mail servers of the account: the assigned mail servers in assignment order, then other mail servers hosting the
+      account's mail domains by id. Empty when there are none.
+    items:
+      $ref: './AccountMailServer.yaml'

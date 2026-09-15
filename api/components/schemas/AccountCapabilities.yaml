@@ -12,6 +12,7 @@ required:
   - locked
   - canceled
   - web
+  - mail
 properties:
   client_id:
     type: integer
@@ -135,3 +136,46 @@ properties:
           Mode a website created without `php` gets: `fast-cgi` if allowed, else the first allowed mode other than
           `no`, else `no`.
         example: php-fpm
+  mail:
+    type: object
+    description: Mailbox options of the account (spec 025).
+    additionalProperties: false
+    required:
+      - autoresponder
+      - mail_filters
+      - custom_rules
+      - spamfilter_policy
+      - dkim
+      - custom_login
+      - password_policy
+    properties:
+      autoresponder:
+        type: boolean
+        description: |
+          Mailbox autoresponders (vacation messages) can be changed (system setting `mailbox_show_autoresponder_tab`;
+          a missing setting counts as enabled).
+        example: true
+      mail_filters:
+        type: boolean
+        description: |
+          Mail filter rules, junk folder handling (`move_junk`) and purge days can be changed (system setting
+          `mailbox_show_mail_filter_tab`; a missing setting counts as enabled).
+        example: true
+      custom_rules:
+        type: boolean
+        description: Custom mail filter scripts (`custom_mailfilter`) can be changed — administrators only, so always false.
+        example: false
+      spamfilter_policy:
+        type: boolean
+        description: At least one spam filter level (`/mail/spamfilter/policies`) is readable by the account.
+        example: true
+      dkim:
+        type: boolean
+        description: A mail server of the account can sign mail with DKIM (the server has a DKIM key directory).
+        example: true
+      custom_login:
+        type: boolean
+        description: Mailboxes log in with their own `login` name instead of the email address (`enable_custom_login`).
+        example: false
+      password_policy:
+        $ref: './MailPasswordPolicy.yaml'

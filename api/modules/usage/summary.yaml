@@ -8,7 +8,8 @@
     description: |
       Disk, mail storage, database size and this month's web traffic of one client against its plan limits,
       plus resource counts (websites, mailboxes, databases, …) against the client's limits, counted with the
-      same rules that enforce them (spec 012).
+      same rules that enforce them (spec 012), including catch-all addresses, mail alias domains, mail filter
+      rules and fetchmail accounts (spec 025).
 
       - Client keys get their own client; `client_id` may only be their own client id (any other → 404).
       - Reseller keys get their own client, or one of their clients by `client_id` (any other → 404).

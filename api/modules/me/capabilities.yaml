@@ -1,15 +1,20 @@
-# Me — website capabilities of the calling key's account (spec 021).
+# Me — website (spec 021) and mail (spec 025) capabilities of the calling key's account.
 # Available to every valid API key (not admin-gated). Read-only.
 
 /me/capabilities:
   get:
     tags:
       - Me
-    summary: Website capabilities of the account
+    summary: Website and mail capabilities of the account
     description: |
       Returns what the account's own key may do with websites: the plan's website options, the allowed PHP modes and
       the mode a new website gets, and whether the account is locked or canceled. The values are the rules the
       website endpoints enforce for client and reseller keys, so a panel can offer only choices that are accepted.
+
+      `mail` (spec 025) describes the mailbox options: whether autoresponders and mail filters can be changed, that
+      custom filter scripts are administrator-only, whether a spam filter level can be chosen, whether DKIM is
+      available on the account's mail servers, whether mailboxes use a custom login name, and the mailbox password
+      policy.
 
       - Client keys get their own account; `client_id` may only be their own client id (any other → 404).
       - Reseller keys get their own account, or one of their clients by `client_id` (that client's own view; any
@@ -27,7 +32,7 @@
           minimum: 1
     responses:
       '200':
-        description: Website capabilities
+        description: Website and mail capabilities
         content:
           application/json:
             schema:
@@ -55,6 +60,17 @@
                   - 'no'
                   - php-fpm
                 php_default_mode: php-fpm
+              mail:
+                autoresponder: true
+                mail_filters: true
+                custom_rules: false
+                spamfilter_policy: true
+                dkim: true
+                custom_login: false
+                password_policy:
+                  min_length: 8
+                  min_strength: 3
+                  ascii_only: false
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':

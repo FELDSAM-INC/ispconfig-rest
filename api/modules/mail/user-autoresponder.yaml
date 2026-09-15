@@ -37,6 +37,10 @@
       - Mail Users
     summary: Update autoresponder configuration for a mail user
     description: |
+      For client and reseller keys this requires the installation's autoresponder tab (system setting
+      `mailbox_show_autoresponder_tab`): otherwise 403 `feature-not-allowed` with
+      `feature: mailbox_show_autoresponder_tab` (spec 025). Admin keys are not restricted.
+
       Update the autoresponder settings for a specific mail user
       (datalog update on the `mail_user` row).
 
@@ -86,6 +90,10 @@
       - Mail Users
     summary: Disable autoresponder for a mail user
     description: |
+      For client and reseller keys this requires the installation's autoresponder tab (system setting
+      `mailbox_show_autoresponder_tab`): otherwise 403 `feature-not-allowed` with
+      `feature: mailbox_show_autoresponder_tab` (spec 025). Admin keys are not restricted.
+
       Disables the autoresponder for a specific mail user. This is NOT a row
       delete: it sets `autoresponder` to disabled and clears both dates
       (datalog update on the `mail_user` row, legacy parity).

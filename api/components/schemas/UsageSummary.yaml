@@ -47,6 +47,10 @@ properties:
       - shell_users
       - cron_jobs
       - dns_zones
+      - mail_catchalls
+      - mail_alias_domains
+      - mail_filters
+      - fetchmail_accounts
     properties:
       web_domains:
         $ref: './UsageCount.yaml'
@@ -71,6 +75,14 @@ properties:
       cron_jobs:
         $ref: './UsageCount.yaml'
       dns_zones:
+        $ref: './UsageCount.yaml'
+      mail_catchalls:
+        $ref: './UsageCount.yaml'
+      mail_alias_domains:
+        $ref: './UsageCount.yaml'
+      mail_filters:
+        $ref: './UsageCount.yaml'
+      fetchmail_accounts:
         $ref: './UsageCount.yaml'
   period:
     type: object

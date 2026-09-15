@@ -65,6 +65,10 @@
       - Mail Users
     summary: Create a new mail user filter
     description: |
+      For client and reseller keys this requires the installation's mail filter tab (system setting
+      `mailbox_show_mail_filter_tab`): otherwise 403 `feature-not-allowed` with
+      `feature: mailbox_show_mail_filter_tab` (spec 025). Admin keys are not restricted.
+
       Creates a new filter rule for the mailbox.
 
       ### Side effects (legacy parity)
@@ -152,6 +156,10 @@
       - Mail Users
     summary: Update mail user filter
     description: |
+      For client and reseller keys this requires the installation's mail filter tab (system setting
+      `mailbox_show_mail_filter_tab`): otherwise 403 `feature-not-allowed` with
+      `feature: mailbox_show_mail_filter_tab` (spec 025). Admin keys are not restricted.
+
       Updates an existing mail user filter.
 
       ### Notes
@@ -207,6 +215,10 @@
       - Mail Users
     summary: Delete mail user filter
     description: |
+      For client and reseller keys this requires the installation's mail filter tab (system setting
+      `mailbox_show_mail_filter_tab`): otherwise 403 `feature-not-allowed` with
+      `feature: mailbox_show_mail_filter_tab` (spec 025). Admin keys are not restricted.
+
       Deletes a mail user filter by ID.
 
       ### Notes

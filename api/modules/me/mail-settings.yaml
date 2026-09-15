@@ -1,0 +1,70 @@
+# Me — email program settings of the calling key's account (spec 025).
+# Available to every valid API key (not admin-gated). Read-only.
+
+/me/mail-settings:
+  get:
+    tags:
+      - Me
+    summary: Email program settings of the account
+    description: |
+      Returns, for each mail server of the account, the server name, the IMAP, POP3 and SMTP ports with their
+      connection security and the webmail address, plus whether mailboxes use a custom login name, whether the
+      installation shows webmail links and the mailbox password policy.
+
+      Servers are the account's assigned mail servers (assignment order), then other mail servers hosting its mail
+      domains. Ports are the standard ports of an ISPConfig mail server: IMAP 993 and POP3 995 with SSL/TLS, SMTP
+      submission 587 with STARTTLS (preferred) and 465 with SSL/TLS.
+
+      - Client keys get their own account; `client_id` may only be their own client id (any other → 404).
+      - Reseller keys get their own account, or one of their clients by `client_id` (any other → 404).
+      - Admin keys must pass `client_id` (422 when missing, 404 when unknown).
+
+      Other query parameters → 400. Nothing is written.
+    parameters:
+      - name: client_id
+        in: query
+        required: false
+        description: Target client (required for admin keys).
+        schema:
+          type: integer
+          minimum: 1
+    responses:
+      '200':
+        description: Email program settings
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/AccountMailSettings.yaml'
+            example:
+              client_id: 42
+              custom_login: false
+              webmail_link: true
+              password_policy:
+                min_length: 8
+                min_strength: 3
+                ascii_only: false
+              servers:
+                - server_id: 1
+                  host: mail1.example.com
+                  webmail_url: https://mail1.example.com:8081/webmail
+                  imap:
+                    port: 993
+                    security: ssl
+                  pop3:
+                    port: 995
+                    security: ssl
+                  smtp:
+                    - port: 587
+                      security: starttls
+                    - port: 465
+                      security: ssl
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

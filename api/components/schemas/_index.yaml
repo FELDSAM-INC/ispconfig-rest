@@ -191,6 +191,18 @@ AccountCapabilities:
 AccountPhpVersion:
   $ref: './AccountPhpVersion.yaml'
 
+AccountMailSettings:
+  $ref: './AccountMailSettings.yaml'
+
+AccountMailServer:
+  $ref: './AccountMailServer.yaml'
+
+MailConnection:
+  $ref: './MailConnection.yaml'
+
+MailPasswordPolicy:
+  $ref: './MailPasswordPolicy.yaml'
+
 ApiKeyCreated:
   $ref: './ApiKeyCreated.yaml'
 

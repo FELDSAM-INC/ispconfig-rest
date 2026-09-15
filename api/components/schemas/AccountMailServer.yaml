@@ -1,0 +1,40 @@
+# Email program settings of one mail server of an account (spec 025).
+type: object
+description: What a mail program needs to connect to one mail server of the account.
+additionalProperties: false
+required:
+  - server_id
+  - host
+  - webmail_url
+  - imap
+  - pop3
+  - smtp
+properties:
+  server_id:
+    type: integer
+    format: int64
+    minimum: 1
+    example: 1
+  host:
+    type: string
+    description: Server name to enter as incoming and outgoing server (`server.server_name`).
+    example: mail1.example.com
+  webmail_url:
+    type: string
+    description: |
+      Webmail address for this server: the system setting `webmail_url` with `[SERVERNAME]` replaced by `host`, or
+      `https://<host>/webmail` (`https://<host>:8081/webmail` on nginx servers) when the setting is empty.
+    example: https://mail1.example.com:8081/webmail
+  imap:
+    description: Recommended IMAP connection.
+    allOf:
+      - $ref: './MailConnection.yaml'
+  pop3:
+    description: Recommended POP3 connection.
+    allOf:
+      - $ref: './MailConnection.yaml'
+  smtp:
+    type: array
+    description: Outgoing mail (authenticated submission) connections, preferred first.
+    items:
+      $ref: './MailConnection.yaml'

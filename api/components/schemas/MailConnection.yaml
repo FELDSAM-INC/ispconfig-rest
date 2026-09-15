@@ -1,0 +1,20 @@
+# One mail client connection setting (spec 025).
+type: object
+description: Port and connection security a mail program uses.
+additionalProperties: false
+required:
+  - port
+  - security
+properties:
+  port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    example: 993
+  security:
+    type: string
+    enum:
+      - ssl
+      - starttls
+    description: '`ssl` = encrypted from the start (SSL/TLS); `starttls` = plain connection upgraded with STARTTLS.'
+    example: ssl

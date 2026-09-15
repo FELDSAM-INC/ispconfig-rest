@@ -83,9 +83,9 @@ enabled on this installation.`, `feature: mailbox_show_mail_filter_tab`.
 ```json
 {
   "type": "https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#validation-failed",
-  "title": "Unprocessable Entity",
+  "title": "Validation failed",
   "status": 422,
-  "detail": "Custom mail filter rules can only be changed with an administrator key.",
+  "detail": "One or more fields are invalid.",
   "errors": { "custom_mailfilter": ["Custom mail filter rules can only be changed with an administrator key."] },
   "error_types": {
     "custom_mailfilter": "https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed"
