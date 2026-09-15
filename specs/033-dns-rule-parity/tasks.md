@@ -52,8 +52,38 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 - [x] T008 [P] Document both rule groups in `README.md`
 - [x] T009 Run Pint on changed PHP files and the full suite in Docker (spec 013 and 016 suites must stay green)
-- [ ] T010 Deploy to isp-test and run `specs/033-dns-rule-parity/quickstart.md` §2 with a temporary client; record results here
+- [x] T010 Deploy to isp-test and run `specs/033-dns-rule-parity/quickstart.md` §2 with a temporary client; record results here
 
 ## Dependencies
 
 Phase 1 → US1 → US2 → Polish. T001/T002 parallel; T004 before T005, T006 before T007.
+
+## Results (T009–T010, 2026-09-16)
+
+- T009: Pint clean on the changed files; full suite 1155 passed (baseline 1148 + 7 new tests); the spec 013 and 016
+  suites are unchanged and green.
+- T010: deployed `1338733` to isp-test (`ispconfig-rest status`: 1.0.0-rc.3 (1338733)). Temporary client
+  `qa033eb3caa` (client 32, `dns_servers=1`, `limit_dns_zone=2`), QA admin key 71 and client key 72, zone 5
+  `qa033-eb3caa.example.test`. Keys were never printed. All checks matched:
+
+| Case | Expected | Got |
+|---|---|---|
+| client `PUT /dns/soa/5` `update_acl` | 422, `errors.update_acl`, `error_types.update_acl` = `#feature-not-allowed`, no datalog row | as expected |
+| client `PUT` `update_acl: ""` (stored value) | 200 | 200 |
+| client `PUT` `origin` rename | 422, `errors.origin`, `error_types.origin` = `#feature-not-allowed` | as expected |
+| client `PUT` `origin` unchanged | 200 | 200 |
+| client `PUT` `xfer` + `also_notify` | 200 (client-visible fields stay writable) | 200 |
+| admin `PUT` `update_acl` set / cleared | 200 / 200 | as expected |
+| client `PUT` `update_acl` equal to the admin-set value | 200 | 200 |
+| client `POST /dns/records` MX, then identical MX at another priority | 201, then 422 `An identical MX record already exists for this name in the zone.`, no datalog row | as expected |
+| admin `POST` the identical MX | 422 (rule applies to every key) | 422 |
+| client `POST` MX with another target; `PUT` the first MX priority | 201; 200 | as expected |
+| client `POST` SPF, second SPF for the same name, SPF for `sub` | 201; 422 `An SPF record already exists for this name in the zone.`; 201 | as expected |
+| client `POST` TLSA then identical TLSA | 201; 422 | as expected |
+| client `POST` DKIM then identical DKIM | 201; 422 | as expected |
+
+- Cleanup: 6 records, zone 5 and client 32 deleted with the QA admin key (204); datalog processed
+  (`server.updated` 818 = last id 818); API keys 71, 72 deleted by SQL (`name LIKE 'qa%'`); no `qa033` client,
+  sys_group, sys_user, dns_soa or dns_rr rows, no pending datalog, no zone files in `/etc/bind`. Remaining keys:
+  1, 2, 20, 27, 50 (untouched).
+
