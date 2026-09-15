@@ -198,3 +198,24 @@ Source: `plugin_backuplist.inc.php` (record loop and the three static helpers).
   `server.config` with an INI blob containing `[server]\nbackup_dir=/var/backup` (and a variant without it);
   `web_backup` already exists in `SitesSchema`. Tenancy through `TenantFixtures` (`seedTenants`, `ownedBy`,
   `tenantHeaders`); the `client.limit_backup` column already exists in `ClientSchema`.
+
+## Parity re-check on isp-test (T049, 2026-09-15)
+
+Read-only against ISPConfig 3.3.1p1 on isp-test (`plugin_backuplist.inc.php`, `web_vhost_domain.tform.php`,
+`backup.inc.php`):
+
+- **R2 rows**: unchanged — `makeBackup()` inserts `backup_web_files` on the website's server or one
+  `backup_database` row per `SELECT DISTINCT server_id FROM web_database`; restore, download and delete use
+  the backup's `server_id` when > 0, else the website's; all rows `(…, UNIX_TIMESTAMP(), type, param,
+  'pending', '')`; pending check by state, type and param.
+- **R7 derived fields**: unchanged — `download_available` is `backup.server_id == website.server_id`;
+  `backup::downloadBackup()` appends the web/db extension to borg archive names and uses the website's
+  format and password, as the API's `filename` and `download.path` do.
+- **R8 gate**: the tform reads `limit_backup` of the client joined through the user's default group.
+- **R11 validation**: interval, copies, excludes regex and max 255, both format lists, `backup_encrypt`
+  `n`/`y` and `backup_password` max 255 match exactly.
+- **Intentional differences (no change)**: a database backup of a website without databases is 422 (legacy
+  reports success and queues nothing); a target server without `backup_dir` is 409 (R9); enabling
+  encryption without any password is 422 (the tform has no validator and would produce unencrypted borg
+  archives with an empty password); a download of a backup on another server is 422 (legacy only hides the
+  button).

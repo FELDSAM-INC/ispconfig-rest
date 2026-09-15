@@ -177,10 +177,10 @@ database backup stored on another server than the website → 422; an `ok` downl
 
 **Purpose**: Documentation, boundary checks, full-suite verification, manual end-to-end check
 
-- [ ] T047 [P] Add backups, backup jobs and backup settings to the `sites` row of the module table in `README.md`
-- [ ] T048 [P] Confirm constitution boundaries by code search: nothing writes `web_backup`; `sys_remoteaction` inserts exist only in `app/Services/RemoteActionService.php`; settings writes go through `app/Models/WebDomain.php`
-- [ ] T049 Re-verify legacy parity read-only on isp-test (`/usr/local/ispconfig/interface/lib/classes/plugin_backuplist.inc.php`, `interface/web/sites/form/web_vhost_domain.tform.php`, `server/plugins-available/backup_plugin.inc.php`) for the R2 action rows, R7 derived fields and R11 validation; record any difference in `specs/018-backups/research.md`
-- [ ] T050 Run the full suite (`vendor/bin/phpunit`) in Docker `php:8.3-cli` and resolve every `$ref` of `api/openapi.yaml` as in `specs/018-backups/quickstart.md`
+- [x] T047 [P] Add backups, backup jobs and backup settings to the `sites` row of the module table in `README.md`
+- [x] T048 [P] Confirm constitution boundaries by code search: nothing writes `web_backup`; `sys_remoteaction` inserts exist only in `app/Services/RemoteActionService.php`; settings writes go through `app/Models/WebDomain.php`
+- [x] T049 Re-verify legacy parity read-only on isp-test (`/usr/local/ispconfig/interface/lib/classes/plugin_backuplist.inc.php`, `interface/web/sites/form/web_vhost_domain.tform.php`, `server/plugins-available/backup_plugin.inc.php`) for the R2 action rows, R7 derived fields and R11 validation; record any difference in `specs/018-backups/research.md`
+- [x] T050 Run the full suite (`vendor/bin/phpunit`) in Docker `php:8.3-cli` and resolve every `$ref` of `api/openapi.yaml` as in `specs/018-backups/quickstart.md`
 - [ ] T051 Manual end-to-end check on isp-test following the "Manual check on the test server" section of `specs/018-backups/quickstart.md` with a disposable vhost website of a temporary `limit_backup = 'y'` client: list, manual web backup → job `ok` and a new `manual` backup, duplicate → 409, restore, download → file in the website's `backup/` folder, delete, `limit_backup = 'n'` → 403, `backup_copies` 11 → 422 (owner workflow 2026-09-15: isp-test is a test server; clean up afterwards)
 
 ---

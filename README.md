@@ -136,7 +136,7 @@ Any valid key can call `GET /me` to read its own identity and scope.
 | `clients` | clients, resellers, client domains, templates, template assignments, circles |
 | `dns` | zones (SOA), records (incl. SPF/DKIM/DMARC stored as TXT like legacy), slave zones, templates |
 | `mail` | domains, mailboxes (+ autoresponder/cc/filters/password/spamfilter sub-resources), forwards, alias domains, fetchmail, transports, relay domains/recipients, access rules, content filters, spamfilter config/policies/users/wblist |
-| `sites` | web domains (+ SSL sub-resource), child domains, FTP/shell users, databases, database users, cron jobs, web folders/folder users, WebDAV users |
+| `sites` | web domains (+ SSL, backups, backup jobs and backup settings sub-resources), child domains, FTP/shell users, databases, database users, cron jobs, web folders/folder users, WebDAV users |
 | `servers` | servers, per-section server config, firewall, IP addresses, IP mappings, PHP versions |
 | `system` | global config panels, directive snippets, DNS CAA policies, resync |
 | `changes` | processing status of journaled writes: change sets, pending/failed list, record view (every key) |
