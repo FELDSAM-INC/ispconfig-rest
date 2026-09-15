@@ -23,7 +23,9 @@ No extension members.
 
 **Status**: 403
 
-A count limit of the plan is reached (e.g. number of websites, mail domains, databases, DNS zones, DNS records).
+A count limit of the plan is reached (e.g. number of websites, mail domains, databases, database users, DNS zones,
+DNS records), or a scheduled task would run more often than `limit_cron_frequency` allows (spec 035 — there `max` is
+the plan's shortest interval in minutes and `used` the interval the task would run at).
 
 Extension member `limit`:
 
@@ -56,7 +58,7 @@ Extension member `limit`:
 **Status**: 403, or as a field type in `error_types` of a 422
 
 The plan or the installation does not include the feature. As a 403 it refuses the whole request and carries
-`feature`: the client limit column (`limit_backup`, `limit_ssl`, `limit_ssl_letsencrypt`, `limit_mailrouting`, …), or
+`feature`: the client limit column (`limit_backup`, `limit_ssl`, `limit_ssl_letsencrypt`, `limit_mailrouting`, `limit_cron_type`, …), or
 the system setting that switched a mailbox option off for client and reseller keys (`mailbox_show_autoresponder_tab`,
 `mailbox_show_mail_filter_tab`). As a field type it marks website fields the plan does not allow: SSL, Let's Encrypt,
 CGI, SSI, Perl, Ruby, Python, custom error documents, directive snippets, wildcard subdomains, the forced suEXEC
