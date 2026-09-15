@@ -4,6 +4,7 @@ use App\Http\Middleware\ApiKeyAuth;
 use App\Http\Middleware\AttachChangeSetId;
 use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireAdminOrReseller;
+use App\Http\Middleware\RequireBackupAccess;
 use App\Http\Middleware\RequireClientLimit;
 use App\Support\Problem;
 use Illuminate\Foundation\Application;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'scope.admin' => RequireAdmin::class,
             'scope.reseller' => RequireAdminOrReseller::class,
             'scope.limit' => RequireClientLimit::class,
+            'scope.backup' => RequireBackupAccess::class,
         ]);
 
         // Auth must run before route-model binding: otherwise a missing id
@@ -41,6 +43,9 @@ return Application::configure(basePath: dirname(__DIR__))
             RequireAdminOrReseller::class,
             RequireClientLimit::class,
             SubstituteBindings::class,
+            // Feature 018: the backup gate reads the bound website, so it runs
+            // after route-model binding (an unreadable website still 404s).
+            RequireBackupAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

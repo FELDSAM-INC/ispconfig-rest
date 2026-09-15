@@ -43,9 +43,11 @@ trait HandlesListQuery
      * @param  string  $defaultSort  column used when no sort parameter is given
      * @param  array<string, string>  $filters  query param => type (boolean|integer|string|wildcard|owning_client)
      * @param  array<int, string>  $extra  params the controller consumes itself (e.g. 'search')
+     * @param  string  $defaultOrder  order used when no order parameter is given (asc|desc)
+     * @param  array<string, string>  $sortAliases  public sort name => column (names in $sortable)
      * @return array{data: array<int, mixed>, meta: array{total: int, limit: int, offset: int}}
      */
-    protected function listQuery(Builder $query, Request $request, array $sortable, string $defaultSort, array $filters = [], array $extra = []): array
+    protected function listQuery(Builder $query, Request $request, array $sortable, string $defaultSort, array $filters = [], array $extra = [], string $defaultOrder = 'asc', array $sortAliases = []): array
     {
         // Row-level read scoping (spec 011 FR-006/FR-007): lists on
         // sys-fielded ISPConfig tables are silently filtered to the rows the
@@ -80,7 +82,7 @@ trait HandlesListQuery
             );
         }
 
-        $order = $request->query('order', 'asc');
+        $order = $request->query('order', $defaultOrder);
         if (! is_string($order) || ! in_array(strtolower($order), ['asc', 'desc'], true)) {
             throw new BadRequestHttpException("Invalid order value. Allowed: 'asc', 'desc'.");
         }
@@ -91,7 +93,7 @@ trait HandlesListQuery
 
         $total = (clone $query)->toBase()->getCountForPagination();
 
-        $data = $query->orderBy($sort, strtolower($order))
+        $data = $query->orderBy($sortAliases[$sort] ?? $sort, strtolower($order))
             ->skip($offset)
             ->take($limit)
             ->get();

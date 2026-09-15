@@ -302,6 +302,33 @@ class SitesSchema
                 $table->string('backup_password')->default('');
             });
         }
+
+        // Feature 018: ISPConfig remote-action queue (live DESCRIBE on
+        // isp-test, research R14) — the only table backup actions write.
+        if (! Schema::hasTable('sys_remoteaction')) {
+            Schema::create('sys_remoteaction', function (Blueprint $table): void {
+                $table->increments('action_id');
+                $table->unsignedInteger('server_id')->default(0);
+                $table->integer('tstamp')->default(0);
+                $table->string('action_type', 64);
+                $table->text('action_param')->nullable();
+                // enum('pending','ok','warning','error'); non-strict MySQL can store ''
+                $table->string('action_state')->default('pending');
+                $table->text('response')->nullable();
+            });
+        }
+
+        // Server monitor blobs (backup_utils for the missing compression tools).
+        if (! Schema::hasTable('monitor_data')) {
+            Schema::create('monitor_data', function (Blueprint $table): void {
+                $table->unsignedInteger('server_id')->default(0);
+                $table->string('type')->default('');
+                $table->unsignedInteger('created')->default(0);
+                $table->text('data')->nullable();
+                $table->string('state')->default('unknown');
+                $table->primary(['server_id', 'type', 'created']);
+            });
+        }
     }
 
     /**
