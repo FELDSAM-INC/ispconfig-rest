@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Route;
 | Ordering rule (constitution Principle IV): specific routes before general
 | ones — the SSL subresource routes MUST be registered above the bare
 | web-domains/{id} routes:
-|   sites/web-domains/{id}/ssl/renew  ->  …/{id}/ssl  ->  …/{id}
+|   sites/web-domains/{id}/ssl/status, …/{id}/ssl/renew  ->  …/{id}/ssl  ->  …/{id}
 | All other sites resources use distinct literal prefixes and cannot shadow
 | each other.
 */
@@ -44,6 +44,7 @@ Route::middleware('scope.backup')->group(function (): void {
 });
 
 // Web Domain SSL subresource — api/modules/sites/web-domains.yaml (most specific first)
+Route::get('sites/web-domains/{webDomain}/ssl/status', [WebDomainSslController::class, 'status'])->whereNumber('webDomain');
 Route::post('sites/web-domains/{webDomain}/ssl/renew', [WebDomainSslController::class, 'renew'])->whereNumber('webDomain');
 Route::get('sites/web-domains/{webDomain}/ssl', [WebDomainSslController::class, 'show'])->whereNumber('webDomain');
 Route::post('sites/web-domains/{webDomain}/ssl', [WebDomainSslController::class, 'store'])->whereNumber('webDomain');

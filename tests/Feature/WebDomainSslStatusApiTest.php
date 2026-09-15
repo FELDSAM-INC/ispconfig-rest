@@ -1,0 +1,299 @@
+<?php
+
+namespace Tests\Feature;
+
+use Carbon\CarbonImmutable;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\Support\MonitorCompletionSchema;
+use Tests\Support\MonitorSchema;
+use Tests\Support\SitesSchema;
+use Tests\Support\TenantFixtures;
+use Tests\Support\TenantSchema;
+use Tests\TestCase;
+
+/**
+ * Spec 022 — Let's Encrypt issuance outcome (GET /sites/web-domains/{id}/ssl/status).
+ *
+ * Legacy: apache2_plugin.inc.php 1305-1330 requests the certificate while
+ * processing the enabling change and reverts ssl_letsencrypt without a journal
+ * entry on failure; letsencrypt.inc.php logs the reasons as warnings.
+ */
+class WebDomainSslStatusApiTest extends TestCase
+{
+    use RefreshDatabase;
+    use TenantFixtures;
+
+    protected const KEYS = [
+        'website_id', 'domain', 'https_enabled', 'letsencrypt_enabled', 'state', 'requested_at',
+        'change_set_id', 'change_status', 'failure', 'excluded_domains', 'certificate',
+    ];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        SitesSchema::create();
+        TenantSchema::create();
+        MonitorSchema::create();
+        MonitorCompletionSchema::create();
+        $this->seedTenants();
+
+        DB::table('server')->insert([
+            'server_id' => 1, 'server_name' => 'web1', 'web_server' => 1, 'mirror_server_id' => 0,
+            'active' => 1, 'updated' => 0, 'config' => "[web]\nserver_type=apache\n",
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attrs
+     */
+    protected function site(array $attrs = [], string $owner = 'clientA'): int
+    {
+        $id = (int) DB::table('web_domain')->insertGetId($this->ownedBy($owner, array_merge([
+            'server_id' => 1, 'domain' => 'shop'.uniqid().'.example.com', 'type' => 'vhost', 'parent_domain_id' => 0,
+            'vhost_type' => 'name', 'active' => 'y', 'subdomain' => 'www', 'ssl' => 'n', 'ssl_letsencrypt' => 'n',
+            'hd_quota' => -1, 'traffic_quota' => -1,
+        ], $attrs)), 'domain_id');
+
+        if (! array_key_exists('document_root', $attrs)) {
+            DB::table('web_domain')->where('domain_id', $id)->update(['document_root' => "/nonexistent/clients/client/web{$id}"]);
+        }
+
+        return $id;
+    }
+
+    /**
+     * Journal entry for a website change (serialized legacy {new, old} payload).
+     *
+     * @param  array<string, mixed>  $new
+     * @param  array<string, mixed>  $old
+     * @param  array<string, mixed>  $row
+     */
+    protected function journal(int $siteId, array $new, array $old = [], array $row = []): int
+    {
+        $domain = (string) DB::table('web_domain')->where('domain_id', $siteId)->value('domain');
+        $base = ['domain_id' => (string) $siteId, 'domain' => $domain, 'ssl' => 'n', 'ssl_letsencrypt' => 'n', 'subdomain' => 'www'];
+
+        return (int) DB::table('sys_datalog')->insertGetId(array_merge([
+            'server_id' => 1,
+            'dbtable' => 'web_domain',
+            'dbidx' => 'domain_id:'.$siteId,
+            'action' => 'u',
+            'tstamp' => 1_789_000_000,
+            'user' => 'clienta',
+            'data' => serialize(['new' => array_merge($base, $new), 'old' => $old === [] && ($row['action'] ?? 'u') === 'i' ? [] : array_merge($base, $old)]),
+            'status' => 'ok',
+            'error' => null,
+            'session_id' => 'cs'.uniqid(),
+        ], $row), 'datalog_id');
+    }
+
+    protected function enableEntry(int $siteId, array $row = []): int
+    {
+        return $this->journal($siteId, ['ssl' => 'y', 'ssl_letsencrypt' => 'y'], ['ssl' => 'n', 'ssl_letsencrypt' => 'n'], $row);
+    }
+
+    protected function processedUpTo(int $datalogId): void
+    {
+        DB::table('server')->where('server_id', 1)->update(['updated' => $datalogId]);
+    }
+
+    protected function flags(int $siteId, string $ssl, string $le): void
+    {
+        DB::table('web_domain')->where('domain_id', $siteId)->update(['ssl' => $ssl, 'ssl_letsencrypt' => $le]);
+    }
+
+    protected function sslStatus(int $siteId, string $tenant = 'clientA')
+    {
+        return $this->getJson("/api/v1/sites/web-domains/{$siteId}/ssl/status", $this->tenantHeaders($tenant));
+    }
+
+    protected function iso(int $tstamp): string
+    {
+        return CarbonImmutable::createFromTimestamp($tstamp, (string) config('app.timezone'))->toIso8601String();
+    }
+
+    // ------------------------------------------------------------------
+    // US1 — state
+    // ------------------------------------------------------------------
+
+    public function test_requested_while_the_enabling_change_is_pending(): void
+    {
+        $site = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'y']);
+        $entry = $this->enableEntry($site, ['session_id' => 'set-pending', 'tstamp' => 1_789_000_100]);
+        $this->processedUpTo($entry - 1);
+
+        $response = $this->sslStatus($site)->assertOk();
+
+        $this->assertSame(self::KEYS, array_keys($response->json()));
+        $response->assertJson([
+            'website_id' => $site,
+            'https_enabled' => true,
+            'letsencrypt_enabled' => true,
+            'state' => 'requested',
+            'requested_at' => $this->iso(1_789_000_100),
+            'change_set_id' => 'set-pending',
+            'change_status' => 'pending',
+            'failure' => null,
+            'excluded_domains' => [],
+            'certificate' => null,
+        ]);
+        $response->assertHeaderMissing('X-Change-Set-Id');
+    }
+
+    public function test_requested_with_stalled_status_when_no_server_processes_the_change(): void
+    {
+        $site = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'y']);
+        $this->enableEntry($site);
+        DB::table('server')->where('server_id', 1)->update(['active' => 0]);
+
+        $this->sslStatus($site)->assertOk()
+            ->assertJsonPath('state', 'requested')
+            ->assertJsonPath('change_status', 'stalled');
+    }
+
+    public function test_issued_when_processed_and_still_enabled(): void
+    {
+        $site = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'y']);
+        $entry = $this->enableEntry($site, ['session_id' => 'set-issued']);
+        $this->processedUpTo($entry);
+
+        $this->sslStatus($site)->assertOk()->assertJson([
+            'state' => 'issued',
+            'change_set_id' => 'set-issued',
+            'change_status' => 'applied',
+            'failure' => null,
+            'certificate' => null,
+        ]);
+    }
+
+    public function test_failed_when_processed_and_the_server_switched_it_off(): void
+    {
+        $site = $this->site();
+        $entry = $this->enableEntry($site);
+        $this->processedUpTo($entry);
+        // The plugin reverted both flags without a journal entry.
+        $this->flags($site, 'n', 'n');
+
+        $response = $this->sslStatus($site)->assertOk()
+            ->assertJsonPath('state', 'failed')
+            ->assertJsonPath('https_enabled', false)
+            ->assertJsonPath('letsencrypt_enabled', false)
+            ->assertJsonPath('change_status', 'applied');
+
+        $this->assertIsArray($response->json('failure'));
+        $this->assertNull($response->json('certificate'));
+    }
+
+    public function test_insert_with_letsencrypt_counts_as_request(): void
+    {
+        $site = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'y']);
+        $entry = $this->journal($site, ['ssl' => 'y', 'ssl_letsencrypt' => 'y'], [], ['action' => 'i']);
+        $this->processedUpTo($entry - 1);
+
+        $this->sslStatus($site)->assertOk()->assertJsonPath('state', 'requested');
+    }
+
+    public function test_newer_off_entry_reports_none(): void
+    {
+        $site = $this->site();
+        $this->enableEntry($site);
+        $off = $this->journal($site, ['ssl' => 'n', 'ssl_letsencrypt' => 'n'], ['ssl' => 'y', 'ssl_letsencrypt' => 'y']);
+        $this->processedUpTo($off - 1);
+
+        $this->sslStatus($site)->assertOk()->assertJson([
+            'state' => 'none',
+            'requested_at' => null,
+            'change_set_id' => null,
+            'change_status' => null,
+        ]);
+    }
+
+    public function test_never_enabled_reports_none(): void
+    {
+        $site = $this->site();
+
+        $this->sslStatus($site)->assertOk()->assertJsonPath('state', 'none')->assertJsonPath('failure', null);
+    }
+
+    public function test_enabled_without_journal_entry_reports_issued(): void
+    {
+        $site = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'y']);
+
+        $this->sslStatus($site)->assertOk()->assertJson([
+            'state' => 'issued',
+            'requested_at' => null,
+            'change_set_id' => null,
+            'change_status' => null,
+        ]);
+    }
+
+    public function test_uploaded_certificate_reports_none_with_https_enabled(): void
+    {
+        $site = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'n']);
+
+        $this->sslStatus($site)->assertOk()
+            ->assertJsonPath('state', 'none')
+            ->assertJsonPath('https_enabled', true);
+    }
+
+    public function test_unrelated_entries_and_other_websites_are_ignored(): void
+    {
+        $site = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'y']);
+        $other = $this->site();
+        $entry = $this->enableEntry($site, ['session_id' => 'set-site']);
+        // Newer PHP change of the same website and a request of another website.
+        $this->journal($site, ['ssl' => 'y', 'ssl_letsencrypt' => 'y', 'php' => 'php-fpm'], ['ssl' => 'y', 'ssl_letsencrypt' => 'y', 'php' => 'fast-cgi']);
+        $otherEntry = $this->enableEntry($other);
+        DB::table('sys_datalog')->insert([
+            'server_id' => 1, 'dbtable' => 'mail_domain', 'dbidx' => 'domain_id:'.$site, 'action' => 'u', 'tstamp' => 1,
+            'data' => serialize(['new' => ['ssl' => 'y', 'ssl_letsencrypt' => 'y'], 'old' => []]), 'session_id' => 'x',
+        ]);
+        $this->processedUpTo($otherEntry);
+
+        $this->sslStatus($site)->assertOk()
+            ->assertJsonPath('state', 'issued')
+            ->assertJsonPath('change_set_id', 'set-site');
+        $this->sslStatus($other)->assertOk()->assertJsonPath('state', 'failed');
+    }
+
+    public function test_corrupt_payload_is_skipped(): void
+    {
+        $site = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'y']);
+        $entry = $this->enableEntry($site, ['session_id' => 'set-good']);
+        DB::table('sys_datalog')->insert([
+            'server_id' => 1, 'dbtable' => 'web_domain', 'dbidx' => 'domain_id:'.$site, 'action' => 'u',
+            'tstamp' => 1_789_000_500, 'data' => 'not-serialized', 'session_id' => 'set-corrupt',
+        ]);
+        $this->processedUpTo($entry + 5);
+
+        $this->sslStatus($site)->assertOk()
+            ->assertJsonPath('state', 'issued')
+            ->assertJsonPath('change_set_id', 'set-good');
+    }
+
+    public function test_requires_api_key(): void
+    {
+        $site = $this->site();
+
+        $this->getJson("/api/v1/sites/web-domains/{$site}/ssl/status")->assertStatus(401);
+    }
+
+    public function test_other_tenant_gets_404_and_admin_can_read(): void
+    {
+        $site = $this->site();
+
+        $this->sslStatus($site, 'clientB')->assertStatus(404);
+        $this->sslStatus($site, 'admin')->assertOk()->assertJsonPath('state', 'none');
+        $this->sslStatus($site, 'reseller')->assertOk();
+    }
+
+    public function test_non_vhost_type_and_unknown_id_get_404(): void
+    {
+        $alias = $this->site(['type' => 'alias']);
+
+        $this->sslStatus($alias)->assertStatus(404);
+        $this->sslStatus(999_999)->assertStatus(404);
+    }
+}

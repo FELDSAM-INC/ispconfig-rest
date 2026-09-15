@@ -29,8 +29,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 2: Foundational (blocking prerequisites)
 
-- [ ] T004 Create `tests/Feature/WebDomainSslStatusApiTest.php` extending `Tests\Support\SitesApiTestCase` with `MonitorSchema::create()` / `MonitorCompletionSchema::create()` in setUp and helpers to seed journal entries (serialized old/new payloads, session_id, tstamp), set the server watermark and add `sys_log` rows
-- [ ] T005 Create `app/Services/LetsEncryptStatusService.php` skeleton (`status(WebDomain): array`) and register `GET sites/web-domains/{webDomain}/ssl/status` → `WebDomainSslController::status` first in the SSL block of `routes/api/sites.php`
+- [x] T004 Create `tests/Feature/WebDomainSslStatusApiTest.php` extending `Tests\Support\SitesApiTestCase` with `MonitorSchema::create()` / `MonitorCompletionSchema::create()` in setUp and helpers to seed journal entries (serialized old/new payloads, session_id, tstamp), set the server watermark and add `sys_log` rows
+- [x] T005 Create `app/Services/LetsEncryptStatusService.php` skeleton (`status(WebDomain): array`) and register `GET sites/web-domains/{webDomain}/ssl/status` → `WebDomainSslController::status` first in the SSL block of `routes/api/sites.php`
 
 **Checkpoint**: full suite green
 
@@ -38,8 +38,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 3: User Story 1 — requested / issued / failed / none (P1) 🎯 MVP
 
-- [ ] T006 [US1] Tests in `tests/Feature/WebDomainSslStatusApiTest.php`: requested (pending), requested (stalled server), issued, failed, off entry → none, never enabled → none, no entry + flags on → issued with `requested_at = null`, entries of other tables/records and unrelated updates ignored, corrupt payload skipped, 401, other tenant 404, non-vhost type 404, no `X-Change-Set-Id` header, response keys exactly per contract
-- [ ] T007 [US1] Implement request/off entry detection (≤ 50 newest entries), `ChangeStatusResolver` status, state derivation and timestamps in `app/Services/LetsEncryptStatusService.php`; `status()` action in `app/Http/Controllers/Api/V1/WebDomainSslController.php`
+- [x] T006 [US1] Tests in `tests/Feature/WebDomainSslStatusApiTest.php`: requested (pending), requested (stalled server), issued, failed, off entry → none, never enabled → none, no entry + flags on → issued with `requested_at = null`, entries of other tables/records and unrelated updates ignored, corrupt payload skipped, 401, other tenant 404, non-vhost type 404, no `X-Change-Set-Id` header, response keys exactly per contract
+- [x] T007 [US1] Implement request/off entry detection (≤ 50 newest entries), `ChangeStatusResolver` status, state derivation and timestamps in `app/Services/LetsEncryptStatusService.php`; `status()` action in `app/Http/Controllers/Api/V1/WebDomainSslController.php`
 
 **Checkpoint**: US1 tests pass, full suite green
 
