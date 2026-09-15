@@ -8,6 +8,7 @@ use App\Http\Requests\StoreWebBackupRequest;
 use App\Models\RemoteAction;
 use App\Models\WebBackup;
 use App\Models\WebDomain;
+use App\Services\LockedClientGuard;
 use App\Services\RemoteActionService;
 use App\Services\WebBackupService;
 use App\Support\IspContext;
@@ -90,6 +91,8 @@ class WebBackupController extends Controller
      */
     public function store(StoreWebBackupRequest $request, WebDomain $webDomain): JsonResponse
     {
+        app(LockedClientGuard::class)->checkBackupWrite($webDomain);
+
         if ($request->validated()['type'] === 'web') {
             $jobs = $this->actions->queue(
                 $webDomain,
@@ -122,6 +125,7 @@ class WebBackupController extends Controller
     public function destroy(WebDomain $webDomain, int $backup): Response
     {
         $this->requireUpdate($webDomain);
+        app(LockedClientGuard::class)->checkBackupWrite($webDomain);
 
         $model = $this->backups->backupOfWebsite($webDomain, $backup);
 
@@ -142,6 +146,7 @@ class WebBackupController extends Controller
     public function restore(WebDomain $webDomain, int $backup): JsonResponse
     {
         $this->requireUpdate($webDomain);
+        app(LockedClientGuard::class)->checkBackupWrite($webDomain);
 
         $model = $this->backups->backupOfWebsite($webDomain, $backup);
 

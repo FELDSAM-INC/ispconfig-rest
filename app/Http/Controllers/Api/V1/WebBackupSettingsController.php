@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateWebBackupSettingsRequest;
 use App\Models\WebDomain;
+use App\Services\LockedClientGuard;
 use App\Services\WebBackupService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,8 @@ class WebBackupSettingsController extends Controller
      */
     public function update(UpdateWebBackupSettingsRequest $request, WebDomain $webDomain): JsonResponse
     {
+        app(LockedClientGuard::class)->checkBackupWrite($webDomain);
+
         $data = $request->validated();
         $native = [];
 

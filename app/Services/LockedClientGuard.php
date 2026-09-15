@@ -22,6 +22,8 @@ class LockedClientGuard
 {
     public const MESSAGE = 'The account is locked; its services cannot be enabled or added.';
 
+    public const BACKUP_MESSAGE = 'The account is locked; its backups cannot be started, restored, deleted or reconfigured.';
+
     /**
      * @param  array<string, mixed>  $original  raw record as loaded (updates)
      */
@@ -81,6 +83,25 @@ class LockedClientGuard
         }
 
         return false;
+    }
+
+    /**
+     * Backup writes of a locked client (spec 018 FR-017, owner-delegated
+     * decision 2026-09-15): non-admin keys may not start, restore or delete
+     * backups or change backup settings of a website whose client is locked.
+     * Called before anything is queued or saved, so a denial writes nothing.
+     */
+    public function checkBackupWrite(BaseModel $website): void
+    {
+        if (App::make(IspContext::class)->authScope()->isAdmin) {
+            return;
+        }
+
+        $groupId = (int) ($website->getAttributes()['sys_groupid'] ?? 0);
+
+        if ($groupId > 0 && $this->ownerIsLocked($groupId)) {
+            throw new AuthorizationException(self::BACKUP_MESSAGE);
+        }
     }
 
     protected function ownerIsLocked(int $groupId): bool

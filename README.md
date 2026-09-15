@@ -151,6 +151,7 @@ Any valid key can call `GET /me` to read its own identity and scope.
 - **Cancel** (`canceled`): disables or enables the client's ISPConfig interface login; services and API keys are not affected. `canceled: true` on create starts with the login disabled.
 - Side effects run only when the value changes. Reseller locks affect only the reseller's own services.
 - While a client is locked, client and reseller keys cannot re-enable its services or add new ones for it (`403`); admin keys can.
+- While a client is locked, client and reseller keys also cannot start, restore or delete its website backups or change backup settings (`403`); listing backups and preparing downloads still work.
 
 ## Testing
 
