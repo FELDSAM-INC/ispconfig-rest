@@ -66,7 +66,7 @@ A consumer configures the panel's DNS servers as secondaries for zones mastered 
 
 ### User Story 4 - Manage DNS zone templates (Priority: P4)
 
-An operator maintains the templates used by ISPConfig's zone wizard: `POST /api/v1/dns/templates` with `name`, `fields` (comma-separated placeholder list validated against `DOMAIN, IP, IPV6, NS1, NS2, EMAIL, DKIM, DNSSEC`), `template` (the zone-file text with `[ZONE]`/`[A]`/… sections) and `visible`; list/filter by `name`/`visible`; update; delete. Writes journal to `dns_template` via datalog. The API stores templates only — it does **not** implement the wizard that expands a template into a zone (legacy `dns_wizard.php` has no REST counterpart).
+An operator maintains the templates used by ISPConfig's zone wizard: `POST /api/v1/dns/templates` with `name`, `fields` (comma-separated placeholder list validated against `DOMAIN, IP, IPV6, NS1, NS2, EMAIL, DKIM, DNSSEC`), `template` (the zone-file text with `[ZONE]`/`[A]`/… sections) and `visible`; list/filter by `name`/`visible`; update; delete. Writes journal to `dns_template` via datalog. The API stores templates only — it does **not** implement the wizard that expands a template into a zone (legacy `dns_wizard.php` has no REST counterpart). *(Superseded by spec 029: `GET /dns/zone-templates` and `POST /dns/soa/from-template` implement the wizard.)*
 
 **Why this priority**: Pure content management supporting a UI feature outside this API's scope; last implemented (commit `6a7b923`).
 
@@ -189,7 +189,7 @@ An operator maintains the templates used by ISPConfig's zone wizard: `POST /api/
 
 ## Assumptions
 
-- Only the endpoints specced in `api/modules/dns/` are in scope; legacy wizard/import (`dns_wizard.php`, `dns_import.php`), `dns_ssl_ca` management and DNSSEC toggling have no REST endpoints and are treated as out of scope, not omissions.
+- Only the endpoints specced in `api/modules/dns/` are in scope; legacy import (`dns_import.php`) and `dns_ssl_ca` management have no REST endpoints and are treated as out of scope, not omissions. *(The wizard is implemented by spec 029; DNSSEC toggling was already writable and is completed by spec 032.)*
 - Auth is the existing `X-API-Key` middleware; ISPConfig's `sys_perm_*`/group permission model is stored but deliberately not enforced by this API generation (consistent with every other module).
 - A populated `dbispconfig` database with at least one `server` row (`dns_server=1`), `sys_user` id 1 and a `sys_group` is available; `exists:` validation rules read those tables directly (reads are permitted; only writes must go through datalog).
 - Legacy parity was assessed against the ISPConfig source vendored in `source_code/` (3.2.x); the `dns_rr.type` enum cited is from `source_code/install/sql/ispconfig3.sql` — the abbreviated `ISPConfig-DB-Structure.txt` (`type[e:A,AAAA,ALIAS,CNAME,etc]`) is not authoritative for the enum members.

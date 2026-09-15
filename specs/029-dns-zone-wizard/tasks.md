@@ -98,8 +98,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 6: Polish
 
-- [ ] T025 [P] Document both endpoints in the DNS paragraph of `README.md` (template visibility rule, one-call zone creation, both caps enforced for the batch)
-- [ ] T026 [P] Mark the "legacy wizard has no REST counterpart" statements in `specs/002-dns-management/spec.md` as superseded by spec 029
+- [x] T025 [P] Document both endpoints in the DNS paragraph of `README.md` (template visibility rule, one-call zone creation, both caps enforced for the batch)
+- [x] T026 [P] Mark the "legacy wizard has no REST counterpart" statements in `specs/002-dns-management/spec.md` as superseded by spec 029
 - [ ] T027 Run Pint on the changed files and the full suite in Docker on PHP 8.3 (expect baseline 1158 + the new tests)
 
 ---
