@@ -146,16 +146,16 @@ first with zero-filled months; `?granularity=day` → one point per day of the c
 
 ### Tests for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T037 [P] [US3] Extend `tests/Feature/WebDomainUsageApiTest.php` with `GET /usage/web-domains/{id}/traffic`: default 12 monthly points oldest first, missing months 0, `period_start`/`period_end`/`timezone`; `months=1` and `36` accepted, `0` and `37` → 422; `granularity=day` daily points up to yesterday; invalid granularity → 422; B's site → 404
-- [ ] T038 [P] [US3] Extend `tests/Feature/MailUserUsageApiTest.php` with `GET /usage/mail-users/{id}/traffic`: monthly points from `mail_traffic.month`, `granularity=day` → 422, B's mailbox → 404
+- [x] T037 [P] [US3] Extend `tests/Feature/WebDomainUsageApiTest.php` with `GET /usage/web-domains/{id}/traffic`: default 12 monthly points oldest first, missing months 0, `period_start`/`period_end`/`timezone`; `months=1` and `36` accepted, `0` and `37` → 422; `granularity=day` daily points up to yesterday; invalid granularity → 422; B's site → 404
+- [x] T038 [P] [US3] Extend `tests/Feature/MailUserUsageApiTest.php` with `GET /usage/mail-users/{id}/traffic`: monthly points from `mail_traffic.month`, `granularity=day` → 422, B's mailbox → 404
 
 ### Implementation for User Story 3
 
-- [ ] T039 [P] [US3] Create `app/Http/Requests/Usage/TrafficHistoryRequest.php`: `months` integer 1–36 (default 12), `granularity` in `month`,`day` (default `month`), 422 problem+json via the project's Form Request handling
-- [ ] T040 [P] [US3] Create `app/Http/Controllers/Api/V1/Usage/WebDomainTrafficController.php` (`show`): resolve the website through the read predicate (404), return `TrafficHistory` from `TrafficPeriodService::webHistory()` (depends on T039)
-- [ ] T041 [P] [US3] Create `app/Http/Controllers/Api/V1/Usage/MailUserTrafficController.php` (`show`): read predicate (404), `granularity=day` → 422, `TrafficPeriodService::mailHistory()` (depends on T039)
-- [ ] T042 [US3] Register `GET usage/web-domains/{id}/traffic` and `GET usage/mail-users/{id}/traffic` in `routes/api/usage.php` above the matching `{id}` routes and confirm no shadowing with `php artisan route:list --path=usage`
-- [ ] T043 [US3] Run T037–T038 green and verify both traffic operations in Swagger UI
+- [x] T039 [P] [US3] Create `app/Http/Requests/Usage/TrafficHistoryRequest.php`: `months` integer 1–36 (default 12), `granularity` in `month`,`day` (default `month`), 422 problem+json via the project's Form Request handling
+- [x] T040 [P] [US3] Create `app/Http/Controllers/Api/V1/Usage/WebDomainTrafficController.php` (`show`): resolve the website through the read predicate (404), return `TrafficHistory` from `TrafficPeriodService::webHistory()` (depends on T039)
+- [x] T041 [P] [US3] Create `app/Http/Controllers/Api/V1/Usage/MailUserTrafficController.php` (`show`): read predicate (404), `granularity=day` → 422, `TrafficPeriodService::mailHistory()` (depends on T039)
+- [x] T042 [US3] Register `GET usage/web-domains/{id}/traffic` and `GET usage/mail-users/{id}/traffic` in `routes/api/usage.php` above the matching `{id}` routes and confirm no shadowing with `php artisan route:list --path=usage`
+- [x] T043 [US3] Run T037–T038 green and verify both traffic operations in Swagger UI
 
 **Checkpoint**: All user stories work independently.
 

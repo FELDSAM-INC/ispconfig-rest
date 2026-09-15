@@ -90,4 +90,33 @@ class MailUserUsageApiTest extends UsageApiTestCase
 
         $this->getAs('clientA', '/usage/mail-users/'.$this->m4)->assertNotFound();
     }
+
+    public function test_monthly_mail_traffic_history(): void
+    {
+        $this->getAs('clientA', '/usage/mail-users/'.$this->m1.'/traffic?months=2')
+            ->assertOk()
+            ->assertJsonPath('granularity', 'month')
+            ->assertJsonPath('period_start', '2026-08-01')
+            ->assertJsonPath('period_end', '2026-10-01')
+            ->assertJsonPath('timezone', 'Europe/Prague')
+            ->assertJsonPath('points', [
+                ['period' => '2026-08', 'bytes' => 1024],
+                ['period' => '2026-09', 'bytes' => 4096],
+            ]);
+
+        $points = $this->getAs('clientA', '/usage/mail-users/'.$this->m1.'/traffic')->assertOk()->json('points');
+        $this->assertCount(12, $points);
+        $this->assertSame(['period' => '2025-12', 'bytes' => 10], $points[2]);
+    }
+
+    public function test_daily_granularity_and_invalid_months_are_rejected_for_mailboxes(): void
+    {
+        $this->getAs('clientA', '/usage/mail-users/'.$this->m1.'/traffic?granularity=day')->assertStatus(422);
+        $this->getAs('clientA', '/usage/mail-users/'.$this->m1.'/traffic?months=37')->assertStatus(422);
+    }
+
+    public function test_mail_traffic_history_is_scoped(): void
+    {
+        $this->getAs('clientA', '/usage/mail-users/'.$this->m4.'/traffic')->assertNotFound();
+    }
 }

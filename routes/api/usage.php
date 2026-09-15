@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Usage\DatabaseUsageController;
+use App\Http\Controllers\Api\V1\Usage\MailUserTrafficController;
 use App\Http\Controllers\Api\V1\Usage\MailUserUsageController;
 use App\Http\Controllers\Api\V1\Usage\UsageSummaryController;
+use App\Http\Controllers\Api\V1\Usage\WebDomainTrafficController;
 use App\Http\Controllers\Api\V1\Usage\WebDomainUsageController;
 use Illuminate\Support\Facades\Route;
 
@@ -22,10 +24,12 @@ Route::get('usage/summary', [UsageSummaryController::class, 'show']);
 
 // Website usage — api/modules/usage/web-domains.yaml
 Route::get('usage/web-domains', [WebDomainUsageController::class, 'index']);
+Route::get('usage/web-domains/{id}/traffic', [WebDomainTrafficController::class, 'show'])->whereNumber('id');
 Route::get('usage/web-domains/{id}', [WebDomainUsageController::class, 'show'])->whereNumber('id');
 
 // Mailbox usage — api/modules/usage/mail-users.yaml
 Route::get('usage/mail-users', [MailUserUsageController::class, 'index']);
+Route::get('usage/mail-users/{id}/traffic', [MailUserTrafficController::class, 'show'])->whereNumber('id');
 Route::get('usage/mail-users/{id}', [MailUserUsageController::class, 'show'])->whereNumber('id');
 
 // Database usage — api/modules/usage/databases.yaml

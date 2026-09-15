@@ -160,4 +160,48 @@ class WebDomainUsageApiTest extends UsageApiTestCase
         $this->getAs('clientA', '/usage/web-domains/'.$this->legacy)->assertNotFound();
         $this->getAs('clientA', '/usage/web-domains/999999')->assertNotFound();
     }
+
+    public function test_monthly_traffic_history_defaults_to_twelve_months_oldest_first(): void
+    {
+        $response = $this->getAs('clientA', '/usage/web-domains/'.$this->a1.'/traffic')->assertOk();
+
+        $response->assertJsonPath('granularity', 'month');
+        $response->assertJsonPath('period_start', '2025-10-01');
+        $response->assertJsonPath('period_end', '2026-10-01');
+        $response->assertJsonPath('timezone', 'Europe/Prague');
+
+        $points = $response->json('points');
+        $this->assertCount(12, $points);
+        $this->assertSame(['period' => '2025-10', 'bytes' => 0], $points[0]);
+        $this->assertSame(['period' => '2025-12', 'bytes' => 20], $points[2]);
+        $this->assertSame(['period' => '2026-01', 'bytes' => 50], $points[3]);
+        $this->assertSame(['period' => '2026-08', 'bytes' => 300], $points[10]);
+        $this->assertSame(['period' => '2026-09', 'bytes' => 1000], $points[11]);
+    }
+
+    public function test_traffic_history_bounds_and_daily_granularity(): void
+    {
+        $uri = '/usage/web-domains/'.$this->a1.'/traffic';
+
+        $this->getAs('clientA', $uri.'?months=1')->assertOk()->assertJsonCount(1, 'points');
+        $this->getAs('clientA', $uri.'?months=36')->assertOk()->assertJsonCount(36, 'points');
+        $this->getAs('clientA', $uri.'?months=0')->assertStatus(422);
+        $this->getAs('clientA', $uri.'?months=37')->assertStatus(422);
+        $this->getAs('clientA', $uri.'?granularity=week')->assertStatus(422);
+
+        $daily = $this->getAs('clientA', $uri.'?granularity=day')->assertOk();
+
+        $daily->assertJsonPath('granularity', 'day');
+        $daily->assertJsonPath('period_start', '2026-09-01');
+        $daily->assertJsonPath('period_end', '2026-09-15');
+        $daily->assertJsonCount(14, 'points');
+        $this->assertSame(['period' => '2026-09-10', 'bytes' => 1000], $daily->json('points.9'));
+    }
+
+    public function test_traffic_history_is_scoped(): void
+    {
+        $this->getAs('clientA', '/usage/web-domains/'.$this->b1.'/traffic')->assertNotFound();
+        $this->getAs('clientA', '/usage/web-domains/'.$this->legacy.'/traffic')->assertNotFound();
+        $this->getAs('clientB', '/usage/web-domains/'.$this->b1.'/traffic')->assertOk();
+    }
 }
