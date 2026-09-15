@@ -5,7 +5,10 @@ namespace App\Http\Requests;
 use App\Exceptions\InvalidZoneTemplateException;
 use App\Http\Requests\Concerns\ResolvesAssignedServer;
 use App\Models\DnsTemplate;
+use App\Services\DnssecStatusService;
 use App\Services\DnsZoneWizardService;
+use App\Support\ProblemType;
+use App\Support\ProblemTypeCollector;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -158,6 +161,20 @@ class StoreDnsSoaFromTemplateRequest extends FormRequest
                 } catch (InvalidZoneTemplateException $e) {
                     $validator->errors()->add('template_id', $e->getMessage());
                 }
+            },
+            // Spec 032: the wizard cannot request signing where ISPConfig
+            // cannot sign either (the zone's DNS server is mirrored).
+            function (Validator $validator): void {
+                if (! $this->boolean('dnssec')) {
+                    return;
+                }
+
+                if (app(DnssecStatusService::class)->available((int) $this->input('server_id'))) {
+                    return;
+                }
+
+                app(ProblemTypeCollector::class)->tag('dnssec', ProblemType::FEATURE_NOT_ALLOWED);
+                $validator->errors()->add('dnssec', 'DNSSEC is not available on this DNS server because it is mirrored.');
             },
         ];
     }

@@ -118,4 +118,28 @@ class DnsSoa extends BaseModel
     {
         return $query->where('active', 'Y');
     }
+
+    /**
+     * Serialization: the raw DNSSEC notes are administrator-only (spec 032
+     * FR-008). `bind_plugin` writes the public DS and DNSKEY records there,
+     * but `powerdns_plugin` appends a raw log of the commands it ran, so the
+     * column is masked for client and reseller keys, which read the parsed
+     * public records from `GET /dns/soa/{id}/dnssec` instead.
+     *
+     * Masked here rather than per controller action (as MailDomainController
+     * masks `dkim_private`) because a zone is returned by five actions and a
+     * sixth would otherwise leak it silently.
+     *
+     * @return array<string, mixed>
+     */
+    public function attributesToArray()
+    {
+        $data = parent::attributesToArray();
+
+        if (array_key_exists('dnssec_info', $data) && ! $this->authScope()->isAdmin) {
+            $data['dnssec_info'] = null;
+        }
+
+        return $data;
+    }
 }

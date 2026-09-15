@@ -9,6 +9,7 @@ use App\Http\Requests\StoreDnsSoaFromTemplateRequest;
 use App\Http\Requests\StoreDnsSoaRequest;
 use App\Http\Requests\UpdateDnsSoaRequest;
 use App\Models\DnsSoa;
+use App\Services\DnssecStatusService;
 use App\Services\DnsSerialService;
 use App\Services\DnsZoneWizardService;
 use Illuminate\Http\JsonResponse;
@@ -90,6 +91,16 @@ class DnsSoaController extends Controller
         });
 
         return response()->json($zone->refresh(), 201);
+    }
+
+    /**
+     * GET /dns/soa/{id}/dnssec — DNSSEC state of the zone with the DS records
+     * for the registrar (spec 032); read-only, no plan gate. A zone the key
+     * cannot read is a 404 through the route-model binding.
+     */
+    public function dnssec(DnsSoa $dnsSoa, DnssecStatusService $dnssec): JsonResponse
+    {
+        return response()->json($dnssec->status($dnsSoa));
     }
 
     /**

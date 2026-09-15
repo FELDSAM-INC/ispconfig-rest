@@ -113,6 +113,12 @@ implemented on the model's serialization so it applies to show, list and any nes
 (`dnssec_wanted`, `dnssec_algo`, `dnssec_initialized`, `dnssec_last_signed`) stay visible to everyone: they carry
 no secrets and the panel needs them.
 
+**Where it is implemented**: spec 027 masks `dkim_private` per controller action
+(`MailDomainController::visibleFields()`, `toArray()` + `unset`). A zone is returned by five actions (`index`,
+`show`, `store`, `update`, `storeFromTemplate`), so repeating that would be easy to forget in a sixth; the mask
+sits in `DnsSoa::attributesToArray()` instead, where no response path can bypass it. `getRawOriginal()` is
+unaffected, so `DnssecStatusService` and the datalog payloads still see the real value.
+
 ## R8 — Consumer fit (WHMCS module spec 005)
 
 Module research R14 currently reads `dnssec_wanted`/`dnssec_initialized` from the zone and parses `dnssec_info`

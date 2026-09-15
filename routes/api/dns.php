@@ -21,6 +21,8 @@ Route::post('dns/soa', [DnsSoaController::class, 'store']);
 // Zone wizard: expands a dns_template into a zone with its records (spec 029).
 // Registered before the {dnsSoa} routes (constitution Principle IV).
 Route::post('dns/soa/from-template', [DnsSoaController::class, 'storeFromTemplate']);
+// DNSSEC state of a zone, with the DS records for the registrar (spec 032).
+Route::get('dns/soa/{dnsSoa}/dnssec', [DnsSoaController::class, 'dnssec'])->whereNumber('dnsSoa');
 Route::get('dns/soa/{dnsSoa}', [DnsSoaController::class, 'show'])->whereNumber('dnsSoa');
 Route::put('dns/soa/{dnsSoa}', [DnsSoaController::class, 'update'])->whereNumber('dnsSoa');
 Route::delete('dns/soa/{dnsSoa}', [DnsSoaController::class, 'destroy'])->whereNumber('dnsSoa');

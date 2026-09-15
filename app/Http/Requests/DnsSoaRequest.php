@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\DnsSoa;
+use App\Services\DnssecStatusService;
 use App\Support\IspContext;
 use App\Support\ProblemType;
 use App\Support\ProblemTypeCollector;
@@ -168,6 +169,35 @@ abstract class DnsSoaRequest extends FormRequest
                 if ($collision) {
                     $validator->errors()->add('origin', 'A secondary (slave) zone with this origin already exists on the selected server.');
                 }
+            },
+            // Spec 032: ISPConfig signs on the master only, so the panel hides
+            // DNSSEC entirely when the zone's DNS server has mirrors
+            // (dns_soa_edit.php:92-102). Switching signing ON there is refused
+            // for every key type; switching it off, and re-sending the stored
+            // value, stay allowed.
+            function (Validator $validator): void {
+                if (! $this->exists('dnssec_wanted')) {
+                    return;
+                }
+
+                if (! filter_var($this->input('dnssec_wanted'), FILTER_VALIDATE_BOOLEAN)) {
+                    return; // switching off is always possible
+                }
+
+                $current = $this->currentZone()?->getRawOriginal() ?? [];
+
+                if (strtoupper((string) ($current['dnssec_wanted'] ?? 'N')) === 'Y') {
+                    return; // already on: not a change
+                }
+
+                $serverId = (int) ($this->input('server_id') ?? ($current['server_id'] ?? 0));
+
+                if (app(DnssecStatusService::class)->available($serverId)) {
+                    return;
+                }
+
+                app(ProblemTypeCollector::class)->tag('dnssec_wanted', ProblemType::FEATURE_NOT_ALLOWED);
+                $validator->errors()->add('dnssec_wanted', 'DNSSEC is not available for this zone because its DNS server is mirrored.');
             },
         ];
     }

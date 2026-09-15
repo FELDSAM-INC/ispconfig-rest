@@ -21,10 +21,10 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 1: Setup (contract first)
 
-- [ ] T001 [P] Add `api/components/schemas/DnsSoaDnssec.yaml` (state, availability, flags, `ds_records[]`, `dnskey_records[]`) and register it in `api/components/schemas/_index.yaml`
-- [ ] T002 [P] Add the `/dns/soa/{id}/dnssec` path to `api/modules/dns/soa.yaml`, describe the mirror rule on PUT, and mark `dnssec_info` administrator-only in `api/components/schemas/DnsSoa.yaml` (per contracts/dnssec.md)
-- [ ] T003 Register `/dns/soa/{id}/dnssec` in `api/openapi.yaml`
-- [ ] T004 Verify the spec parses and is served (`tests/Feature/SwaggerSpecServerTest.php`)
+- [x] T001 [P] Add `api/components/schemas/DnsSoaDnssec.yaml` (state, availability, flags, `ds_records[]`, `dnskey_records[]`) and register it in `api/components/schemas/_index.yaml`
+- [x] T002 [P] Add the `/dns/soa/{id}/dnssec` path to `api/modules/dns/soa.yaml`, describe the mirror rule on PUT, and mark `dnssec_info` administrator-only in `api/components/schemas/DnsSoa.yaml` (per contracts/dnssec.md)
+- [x] T003 Register `/dns/soa/{id}/dnssec` in `api/openapi.yaml`
+- [x] T004 Verify the spec parses and is served (`tests/Feature/SwaggerSpecServerTest.php`)
 
 ---
 
@@ -32,14 +32,14 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T005 [US1] New `tests/Feature/DnsSoaDnssecApiTest.php`: the four states (`off`, `pending`, `signed`, `unavailable`) with every response field, `last_signed` null when 0 and an ISO timestamp otherwise
-- [ ] T006 [P] [US1] Parsing of the real isp-test notes (research R4): DS with a digest the server wrapped across a line, `IN\tDS`, `;` comments ignored, KSK 257 → `ksk` and ZSK 256 → `zsk`, a PowerDNS `== Raw log ==` section ignored, and empty or unparsable notes yielding empty arrays without failing
-- [ ] T007 [P] [US1] Scoping: another client's zone 404, unknown id 404, no key 401, admin and reseller keys read their zones
+- [x] T005 [US1] New `tests/Feature/DnsSoaDnssecApiTest.php`: the four states (`off`, `pending`, `signed`, `unavailable`) with every response field, `last_signed` null when 0 and an ISO timestamp otherwise
+- [x] T006 [P] [US1] Parsing of the real isp-test notes (research R4): DS with a digest the server wrapped across a line, `IN\tDS`, `;` comments ignored, KSK 257 → `ksk` and ZSK 256 → `zsk`, a PowerDNS `== Raw log ==` section ignored, and empty or unparsable notes yielding empty arrays without failing
+- [x] T007 [P] [US1] Scoping: another client's zone 404, unknown id 404, no key 401, admin and reseller keys read their zones
 
 ### Implementation
 
-- [ ] T008 [US1] Add `app/Services/DnssecStatusService.php`: availability (mirror count on the zone's server), state derivation (data-model.md) and the DS/DNSKEY parser
-- [ ] T009 [US1] Add `dnssec()` to `app/Http/Controllers/Api/V1/DnsSoaController.php` and register `GET dns/soa/{dnsSoa}/dnssec` in `routes/api/dns.php` next to the zone routes
+- [x] T008 [US1] Add `app/Services/DnssecStatusService.php`: availability (mirror count on the zone's server), state derivation (data-model.md) and the DS/DNSKEY parser
+- [x] T009 [US1] Add `dnssec()` to `app/Http/Controllers/Api/V1/DnsSoaController.php` and register `GET dns/soa/{dnsSoa}/dnssec` in `routes/api/dns.php` next to the zone routes
 
 **Checkpoint**: US1 tests green
 
@@ -49,11 +49,11 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T010 [US3] Mirror rule on write: `dnssec_wanted: true` on a zone whose DNS server has a mirror → 422 with `errors.dnssec_wanted` and `error_types.dnssec_wanted` = `feature-not-allowed`, no journal entry; `false` and re-sending the stored value accepted; unmirrored zones unaffected; same outcome for client, reseller and admin keys
+- [x] T010 [US3] Mirror rule on write: `dnssec_wanted: true` on a zone whose DNS server has a mirror → 422 with `errors.dnssec_wanted` and `error_types.dnssec_wanted` = `feature-not-allowed`, no journal entry; `false` and re-sending the stored value accepted; unmirrored zones unaffected; same outcome for client, reseller and admin keys
 
 ### Implementation
 
-- [ ] T011 [US3] Add the rule to `app/Http/Requests/DnsSoaRequest.php` `after()`, beside the `update_acl` and `origin` rules
+- [x] T011 [US3] Add the rule to `app/Http/Requests/DnsSoaRequest.php` `after()`, beside the `update_acl` and `origin` rules
 
 **Checkpoint**: US3 tests green
 
@@ -63,7 +63,7 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T012 [US2] Guard the existing write path: a client key enabling and disabling `dnssec_wanted` journals the change and round-trips; `dnssec_algo` outside the two supported algorithms → 422; switching off leaves `dnssec_initialized` and the notes untouched (bind parity, research R5)
+- [x] T012 [US2] Guard the existing write path: a client key enabling and disabling `dnssec_wanted` journals the change and round-trips; `dnssec_algo` outside the two supported algorithms → 422; switching off leaves `dnssec_initialized` and the notes untouched (bind parity, research R5)
 
 **Checkpoint**: no implementation needed — the write path already works (research R1); the test documents it
 
@@ -73,11 +73,11 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T013 [US4] `dnssec_info` is `null` for client and reseller keys on show and list, unchanged for administrator keys, while `dnssec_wanted`, `dnssec_algo`, `dnssec_initialized` and `dnssec_last_signed` stay visible to every key; the sub-resource response contains no path, command text or private key
+- [x] T013 [US4] `dnssec_info` is `null` for client and reseller keys on show and list, unchanged for administrator keys, while `dnssec_wanted`, `dnssec_algo`, `dnssec_initialized` and `dnssec_last_signed` stay visible to every key; the sub-resource response contains no path, command text or private key
 
 ### Implementation
 
-- [ ] T014 [US4] Mask `dnssec_info` for non-admin scopes in `app/Models/DnsSoa.php` serialization
+- [x] T014 [US4] Mask `dnssec_info` for non-admin scopes in `app/Models/DnsSoa.php` serialization
 
 **Checkpoint**: all user stories green
 
@@ -85,8 +85,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 6: Polish
 
-- [ ] T015 [P] Document the sub-resource, the mirror rule and the masking in the DNS paragraph of `README.md`
-- [ ] T016 Run Pint on the changed files and the full suite in Docker on PHP 8.3 (expect baseline 1186 + the new tests)
+- [x] T015 [P] Document the sub-resource, the mirror rule and the masking in the DNS paragraph of `README.md`
+- [x] T016 Run Pint on the changed files and the full suite in Docker on PHP 8.3 (expect baseline 1186 + the new tests)
 
 ---
 
