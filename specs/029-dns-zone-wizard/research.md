@@ -95,9 +95,15 @@ read here.
 Legacy prepends `dnssec_wanted=Y` to the `[ZONE]` section when `dnssec` is posted; the template's own default is
 `dnssec_wanted=N` with `dnssec_algo=ECDSAP256SHA256`.
 
-**Decision**: same. `dnssec_wanted` and `dnssec_algo` are already writable on `dns_soa` for every key (spec 033
-confirmed them as "still writable"), so no new permission question arises here. Managing DNSSEC after creation,
-the DS data and the mirrored-server rule are spec 032.
+**Legacy bug found while implementing (2026-09-16)**: the injected line is the *first* line of `[ZONE]`, and the
+parser assigns keys in file order (`$vars[$key] = $val`), so the template's own `dnssec_wanted=N` — which the
+shipped "Default" template carries — overwrites the injection. Ticking DNSSEC in the ISPConfig wizard therefore
+has no effect with any template that sets `dnssec_wanted` explicitly.
+
+**Decision (owner-delegated decision 2026-09-16, deviation 7)**: apply the flag *after* parsing so the customer's
+choice wins; the template value is the default when the flag is absent. `dnssec_wanted` and `dnssec_algo` are
+already writable on `dns_soa` for every key (spec 033 confirmed them as "still writable"), so no new permission
+question arises here. Managing DNSSEC after creation, the DS data and the mirrored-server rule are spec 032.
 
 ## R7 — Limits
 

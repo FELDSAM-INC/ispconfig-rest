@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Concerns\HandlesListQuery;
 use App\Http\Concerns\ResolvesClientOwnership;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreDnsSoaFromTemplateRequest;
 use App\Http\Requests\StoreDnsSoaRequest;
 use App\Http\Requests\UpdateDnsSoaRequest;
 use App\Models\DnsSoa;
 use App\Services\DnsSerialService;
+use App\Services\DnsZoneWizardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -88,6 +90,26 @@ class DnsSoaController extends Controller
         });
 
         return response()->json($zone->refresh(), 201);
+    }
+
+    /**
+     * POST /dns/soa/from-template — the DNS zone wizard (spec 029): 201 with
+     * the created zone, its records written in the same change set.
+     */
+    public function storeFromTemplate(StoreDnsSoaFromTemplateRequest $request, DnsZoneWizardService $wizard): JsonResponse
+    {
+        $template = $request->template();
+
+        $zone = $wizard->create(
+            $template,
+            $request->placeholderValues(),
+            (int) $request->validated('server_id'),
+            $request->filled('client_id')
+                ? $this->resolveOwningClientGroup($request->integer('client_id'))
+                : null,
+        );
+
+        return response()->json($zone, 201);
     }
 
     /**

@@ -47,16 +47,22 @@ trait HandlesListQuery
      * @param  array<string, string>  $sortAliases  public sort name => column (names in $sortable)
      * @return array{data: array<int, mixed>, meta: array{total: int, limit: int, offset: int}}
      */
-    protected function listQuery(Builder $query, Request $request, array $sortable, string $defaultSort, array $filters = [], array $extra = [], string $defaultOrder = 'asc', array $sortAliases = []): array
+    protected function listQuery(Builder $query, Request $request, array $sortable, string $defaultSort, array $filters = [], array $extra = [], string $defaultOrder = 'asc', array $sortAliases = [], bool $scoped = true): array
     {
         // Row-level read scoping (spec 011 FR-006/FR-007): lists on
         // sys-fielded ISPConfig tables are silently filtered to the rows the
         // acting scope may read — applied before filters and the count so
         // meta.total counts visible rows only (parity
         // listform_actions.inc.php:242-247). No-op for admin scopes.
+        //
+        // `scoped: false` opts a list out of the predicate, for the rare
+        // resources legacy itself shows to everyone regardless of ownership.
+        // The only such list is the zone-wizard template list (spec 029,
+        // dns_wizard.php:73 selects visible templates without getAuthSQL);
+        // it exposes no owner, no permissions and no template text.
         $model = $query->getModel();
 
-        if ($model instanceof BaseModel && $model->hasSysFields()) {
+        if ($scoped && $model instanceof BaseModel && $model->hasSysFields()) {
             app(IspContext::class)->authScope()->applyReadPredicate($query, 'r');
         }
 

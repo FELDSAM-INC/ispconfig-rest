@@ -194,6 +194,10 @@ second call, but the zone is usable without them.
      stores TTL 0 — its own appended DKIM row is such a case.
   6. **Per-record contract validation is not re-run.** Template records are written as the template author wrote
      them (legacy does the same); the type is still restricted to the record types the API knows.
+  7. **The DNSSEC flag actually takes effect.** Legacy injects `dnssec_wanted=Y` immediately after `[ZONE]`, where
+     the template's own later `dnssec_wanted=N` overwrites it again while parsing — so the wizard's DNSSEC
+     checkbox does nothing with the shipped "Default" template. The API applies the flag after parsing, so the
+     customer's choice wins (found while implementing, 2026-09-16).
 
 ## Requirements *(mandatory)*
 

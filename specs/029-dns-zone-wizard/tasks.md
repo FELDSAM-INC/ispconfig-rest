@@ -21,12 +21,12 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 1: Setup (contract first)
 
-- [ ] T001 [P] Add `api/components/schemas/DnsZoneTemplate.yaml` (`id`, `name`, `fields[]`; no template text, no system fields) and register it in `api/components/schemas/_index.yaml`
-- [ ] T002 [P] Add `api/components/schemas/DnsZoneFromTemplate.yaml` (`template_id`, `domain`, `ip`, `ipv6`, `ns1`, `ns2`, `email`, `dkim`, `dnssec`, `server_id`, `client_id`) and register it in `api/components/schemas/_index.yaml`
-- [ ] T003 Add `api/modules/dns/zone-templates.yaml` (GET list, visible-only, readable by every key) and reference it from `api/modules/dns/_index.yaml`
-- [ ] T004 Add the `/dns/soa/from-template` path to `api/modules/dns/soa.yaml` per contracts/dns-zone-wizard.md (201 + `X-Change-Set-Id`, 403/409/422 cases)
-- [ ] T005 Register `/dns/zone-templates` and `/dns/soa/from-template` in `api/openapi.yaml`
-- [ ] T006 Verify the spec parses and is served (`tests/Feature/SwaggerSpecServerTest.php`)
+- [x] T001 [P] Add `api/components/schemas/DnsZoneTemplate.yaml` (`id`, `name`, `fields[]`; no template text, no system fields) and register it in `api/components/schemas/_index.yaml`
+- [x] T002 [P] Add `api/components/schemas/DnsZoneFromTemplate.yaml` (`template_id`, `domain`, `ip`, `ipv6`, `ns1`, `ns2`, `email`, `dkim`, `dnssec`, `server_id`, `client_id`) and register it in `api/components/schemas/_index.yaml`
+- [x] T003 Add `api/modules/dns/zone-templates.yaml` (GET list, visible-only, readable by every key) and reference it from `api/modules/dns/_index.yaml`
+- [x] T004 Add the `/dns/soa/from-template` path to `api/modules/dns/soa.yaml` per contracts/dns-zone-wizard.md (201 + `X-Change-Set-Id`, 403/409/422 cases)
+- [x] T005 Register `/dns/zone-templates` and `/dns/soa/from-template` in `api/openapi.yaml`
+- [x] T006 Verify the spec parses and is served (`tests/Feature/SwaggerSpecServerTest.php`)
 
 ---
 
@@ -34,13 +34,13 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T007 [US2] New `tests/Feature/DnsZoneWizardApiTest.php`: `GET /dns/zone-templates` returns the admin-owned visible template to client, reseller and admin keys; an invisible template is absent for all; entries carry `id`, `name`, `fields[]` and no `template`/`sys_*`; sorted by name; pagination meta present; unauthenticated 401
-- [ ] T008 [P] [US2] Assert in the same file that `GET /dns/templates` stays row-scoped for a client key (guards the spec 011 behaviour this feature must not change)
+- [x] T007 [US2] New `tests/Feature/DnsZoneWizardApiTest.php`: `GET /dns/zone-templates` returns the admin-owned visible template to client, reseller and admin keys; an invisible template is absent for all; entries carry `id`, `name`, `fields[]` and no `template`/`sys_*`; sorted by name; pagination meta present; unauthenticated 401
+- [x] T008 [P] [US2] Assert in the same file that `GET /dns/templates` stays row-scoped for a client key (guards the spec 011 behaviour this feature must not change)
 
 ### Implementation
 
-- [ ] T009 [US2] Add `app/Http/Controllers/Api/V1/DnsZoneTemplateController.php` (`index`: `visible = true`, no read predicate, `fields` split to an array, sortable `name`/`id`, default `name` asc)
-- [ ] T010 [US2] Register `GET dns/zone-templates` in `routes/api/dns.php` before the `dns/templates` block
+- [x] T009 [US2] Add `app/Http/Controllers/Api/V1/DnsZoneTemplateController.php` (`index`: `visible = true`, no read predicate, `fields` split to an array, sortable `name`/`id`, default `name` asc)
+- [x] T010 [US2] Register `GET dns/zone-templates` in `routes/api/dns.php` before the `dns/templates` block
 
 **Checkpoint**: US2 tests green
 
@@ -50,17 +50,17 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T011 [US1] Expansion happy path in `tests/Feature/DnsZoneWizardApiTest.php`: client key + "Default"-shaped template → 201, zone row (timers from the template, `active` true, dot-terminated lower-cased `origin`/`ns`/`mbox`, `mbox` `@`→`.`, generated serial), and the template's records with placeholders replaced (names, data, `aux`, `ttl`)
-- [ ] T012 [P] [US1] Journal assertions: `dns_soa` `i` with `active` N, one `dns_rr` `i` per record in template order, `dns_soa` `u` with `active` Y, all sharing one `X-Change-Set-Id`
-- [ ] T013 [P] [US1] Ownership and placement: records inherit the zone's `server_id` and `sys_groupid`; admin key with `client_id` creates everything under that client's group; `server_id` of an unassigned server → 422 with `error_types.server_id` = `server-not-assigned`; omitted `server_id` uses the account's assigned DNS server
-- [ ] T014 [P] [US1] Validation: missing declared placeholder → 422 on that field; value/flag the template does not declare → 422; invalid `domain`/`ns1`/`ns2`/`email` per the legacy regexes → 422; unknown, invisible and malformed templates (unknown section, missing required zone key, unknown record type) → 422 on `template_id` and nothing written; duplicate origin → 409 and nothing written
-- [ ] T015 [P] [US1] IPv6: a template declaring `IPV6` with an `ipv6` value produces the AAAA record
+- [x] T011 [US1] Expansion happy path in `tests/Feature/DnsZoneWizardApiTest.php`: client key + "Default"-shaped template → 201, zone row (timers from the template, `active` true, dot-terminated lower-cased `origin`/`ns`/`mbox`, `mbox` `@`→`.`, generated serial), and the template's records with placeholders replaced (names, data, `aux`, `ttl`)
+- [x] T012 [P] [US1] Journal assertions: `dns_soa` `i` with `active` N, one `dns_rr` `i` per record in template order, `dns_soa` `u` with `active` Y, all sharing one `X-Change-Set-Id`
+- [x] T013 [P] [US1] Ownership and placement: records inherit the zone's `server_id` and `sys_groupid`; admin key with `client_id` creates everything under that client's group; `server_id` of an unassigned server → 422 with `error_types.server_id` = `server-not-assigned`; omitted `server_id` uses the account's assigned DNS server
+- [x] T014 [P] [US1] Validation: missing declared placeholder → 422 on that field; value/flag the template does not declare → 422; invalid `domain`/`ns1`/`ns2`/`email` per the legacy regexes → 422; unknown, invisible and malformed templates (unknown section, missing required zone key, unknown record type) → 422 on `template_id` and nothing written; duplicate origin → 409 and nothing written
+- [x] T015 [P] [US1] IPv6: a template declaring `IPV6` with an `ipv6` value produces the AAAA record
 
 ### Implementation
 
-- [ ] T016 [US1] Add `app/Services/DnsZoneWizardService.php`: placeholder replacement, `[ZONE]`/`[DNS_RECORDS]` parser (required zone keys, record row shape, short rows inherit the zone TTL and `aux` 0, `dns_rr.type` whitelist), and `create()` writing zone → records → activation inside one `DB::transaction()`
-- [ ] T017 [US1] Add `app/Http/Requests/StoreDnsSoaFromTemplateRequest.php`: `template_id` restricted to visible templates, placeholder rules derived from the template's `fields`, legacy normalization (IDN + lower-case, `mbox` from `email`), `ResolvesAssignedServer('dns')`, optional `client_id`
-- [ ] T018 [US1] Add `storeFromTemplate()` to `app/Http/Controllers/Api/V1/DnsSoaController.php` (duplicate-origin 409 as `store()`, ownership via `ResolvesClientOwnership`, 201 with the zone) and register `POST dns/soa/from-template` in `routes/api/dns.php` before `dns/soa/{dnsSoa}`
+- [x] T016 [US1] Add `app/Services/DnsZoneWizardService.php`: placeholder replacement, `[ZONE]`/`[DNS_RECORDS]` parser (required zone keys, record row shape, short rows inherit the zone TTL and `aux` 0, `dns_rr.type` whitelist), and `create()` writing zone → records → activation inside one `DB::transaction()`
+- [x] T017 [US1] Add `app/Http/Requests/StoreDnsSoaFromTemplateRequest.php`: `template_id` restricted to visible templates, placeholder rules derived from the template's `fields`, legacy normalization (IDN + lower-case, `mbox` from `email`), `ResolvesAssignedServer('dns')`, optional `client_id`
+- [x] T018 [US1] Add `storeFromTemplate()` to `app/Http/Controllers/Api/V1/DnsSoaController.php` (duplicate-origin 409 as `store()`, ownership via `ResolvesClientOwnership`, 201 with the zone) and register `POST dns/soa/from-template` in `routes/api/dns.php` before `dns/soa/{dnsSoa}`
 
 **Checkpoint**: US1 + US2 tests green — the wizard works end to end
 
