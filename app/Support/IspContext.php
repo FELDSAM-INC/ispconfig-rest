@@ -28,6 +28,8 @@ class IspContext
 
     protected ?AuthScope $authScope = null;
 
+    protected int $journalEntries = 0;
+
     /**
      * Set the acting identity (called by ApiKeyAuth after key validation).
      */
@@ -103,5 +105,33 @@ class IspContext
         }
 
         return $this->sessionId;
+    }
+
+    /**
+     * Start a new change set for an incoming HTTP request (spec 015): a fresh
+     * journal session id and a zero journal counter. Called by the
+     * AttachChangeSetId middleware before the request is handled, so an
+     * application instance that serves several requests (tests, long-running
+     * workers) never shares one change set across requests.
+     */
+    public function beginChangeSet(): void
+    {
+        $this->sessionId = null;
+        $this->journalEntries = 0;
+    }
+
+    /**
+     * Count one sys_datalog row written in this request (spec 015 FR-001):
+     * called by DatalogService::log() after each insert, read by the
+     * AttachChangeSetId middleware to decide whether to emit the header.
+     */
+    public function recordJournalEntry(): void
+    {
+        $this->journalEntries++;
+    }
+
+    public function journalEntryCount(): int
+    {
+        return $this->journalEntries;
     }
 }

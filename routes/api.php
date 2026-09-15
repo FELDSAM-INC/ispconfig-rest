@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\Route;
 | (constitution Principle IV): specific routes before general ones.
 */
 
-Route::middleware('api.key')->group(function () {
+// change.set adds X-Change-Set-Id to successful journaling writes (spec 015).
+Route::middleware(['api.key', 'change.set'])->group(function () {
     Route::get('/ping', fn () => response()->json([
         'data' => ['pong' => true],
     ]));

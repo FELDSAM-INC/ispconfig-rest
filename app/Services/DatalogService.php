@@ -82,7 +82,7 @@ class DatalogService
 
         $context = app(IspContext::class);
 
-        return (int) DB::table('sys_datalog')->insertGetId([
+        $datalogId = (int) DB::table('sys_datalog')->insertGetId([
             'dbtable' => $table,
             'dbidx' => $primaryKey.':'.$primaryKeyValue,
             'server_id' => $serverId,
@@ -93,6 +93,11 @@ class DatalogService
             'status' => 'ok',
             'session_id' => $context->sessionId(),
         ], 'datalog_id');
+
+        // The request's change set now has an entry (spec 015 X-Change-Set-Id).
+        $context->recordJournalEntry();
+
+        return $datalogId;
     }
 
     /**
