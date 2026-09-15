@@ -57,9 +57,13 @@ grep APP_TIMEZONE /opt/ispconfig-rest/.env      # before: UTC
 ispconfig-rest update
 grep APP_TIMEZONE /opt/ispconfig-rest/.env      # after: Europe/Prague
 grep TIMEZONE /etc/ispconfig-rest/install.conf  # TIMEZONE_MODE="auto"
-ispconfig-rest artisan tinker --execute='echo config("app.timezone");'   # Europe/Prague
+ispconfig-rest artisan config:show app.timezone  # Europe/Prague
 ispconfig-rest status                           # shows timezone line, no warning
 ```
+
+Upgrading from a release before 017: the first `update` still runs the old manager, which only installs the
+new one — `status` then warns that the timezone differs; run `ispconfig-rest update` once more to sync.
+(`artisan tinker` cannot run as www-data on isp-test because PsySH cannot write its config directory.)
 
 Explicit override on a scratch VM: `install.sh --timezone UTC` → `TIMEZONE_MODE="explicit"`; a later
 `ispconfig-rest update` keeps `UTC`.

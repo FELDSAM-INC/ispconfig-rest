@@ -44,8 +44,8 @@ What it does:
   isn't managing the firewall it falls back to an active ufw/firewalld.
 - **Aligns the API timezone with the server** — `APP_TIMEZONE` follows the system
   timezone, because ISPConfig writes traffic dates in local time; `--timezone TZ` sets it
-  explicitly. `ispconfig-rest update` keeps an automatically chosen timezone in sync and
-  `ispconfig-rest status` shows it.
+  explicitly. `ispconfig-rest update` keeps an automatically chosen timezone in sync (after upgrading
+  from a release without it, run `update` twice) and `ispconfig-rest status` shows it.
 - **Registers `ispconfig-rest`** in your PATH and offers to mint an admin key.
 
 Every prompt has a flag and `ISPC_REST_*` env var for unattended installs — see
