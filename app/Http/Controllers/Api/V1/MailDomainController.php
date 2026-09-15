@@ -10,6 +10,7 @@ use App\Http\Requests\UpdateMailDomainRequest;
 use App\Models\MailDomain;
 use App\Services\MailDomainService;
 use App\Services\SpamfilterUserService;
+use App\Support\IspContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -26,7 +27,8 @@ use Illuminate\Support\Facades\DB;
  * asynchronously.
  *
  * Every domain response carries `spamfilter_policy_id` (spec 026), the level
- * from the domain's `@domain` spamfilter_users row.
+ * from the domain's `@domain` spamfilter_users row; `dkim_private` is only
+ * returned to admin keys (spec 027).
  */
 class MailDomainController extends Controller
 {
@@ -142,7 +144,7 @@ class MailDomainController extends Controller
      */
     protected function presentOne(MailDomain $domain): array
     {
-        return $domain->toArray() + [
+        return $this->visibleFields($domain) + [
             'spamfilter_policy_id' => $this->spamfilterUsers->policyFor('@'.$domain->getAttributes()['domain']),
         ];
     }
@@ -158,8 +160,25 @@ class MailDomainController extends Controller
         $key = fn (MailDomain $domain): string => '@'.$domain->getAttributes()['domain'];
         $policies = $this->spamfilterUsers->policiesFor($domains->map($key)->all());
 
-        return $domains->map(fn (MailDomain $domain): array => $domain->toArray() + [
+        return $domains->map(fn (MailDomain $domain): array => $this->visibleFields($domain) + [
             'spamfilter_policy_id' => $policies[$key($domain)] ?? 0,
         ])->all();
+    }
+
+    /**
+     * The serialized domain without the DKIM private key for client and
+     * reseller keys (spec 027 FR-005).
+     *
+     * @return array<string, mixed>
+     */
+    protected function visibleFields(MailDomain $domain): array
+    {
+        $data = $domain->toArray();
+
+        if (! app(IspContext::class)->authScope()->isAdmin) {
+            unset($data['dkim_private']);
+        }
+
+        return $data;
     }
 }
