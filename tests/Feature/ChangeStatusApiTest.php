@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\ChangeFixtures;
@@ -43,6 +44,23 @@ class ChangeStatusApiTest extends TestCase
         return $this->getJson('/api/v1/changes/'.$set.$query, $this->tenantHeaders($tenant));
     }
 
+    public function test_timestamps_use_the_offset_of_the_configured_timezone(): void
+    {
+        // Owner-delegated decision 2026-09-15: consistent with backups and usage (spec 017 FR-015).
+        config(['app.timezone' => 'Europe/Prague']);
+        $this->addServer(1);
+        $this->entryBy('clientA', 'set-tz', ['dbidx' => 'domain_id:12', 'action' => 'i', 'tstamp' => 1700000000]);
+
+        $this->show('clientA', 'set-tz')
+            ->assertOk()
+            ->assertJsonPath('created_at', '2023-11-14T23:13:20+01:00')
+            ->assertJsonPath('entries.0.created_at', '2023-11-14T23:13:20+01:00');
+
+        $this->getJson('/api/v1/changes?change_set_id=set-tz', $this->tenantHeaders('clientA'))
+            ->assertOk()
+            ->assertJsonPath('data.0.created_at', '2023-11-14T23:13:20+01:00');
+    }
+
     public function test_pending_until_the_watermark_passes_then_applied(): void
     {
         $this->addServer(1);
@@ -53,7 +71,7 @@ class ChangeStatusApiTest extends TestCase
             ->assertJsonPath('id', 'set-a')
             ->assertJsonPath('status', 'pending')
             ->assertJsonPath('entry_counts', ['pending' => 1, 'applied' => 0, 'failed' => 0, 'stalled' => 0])
-            ->assertJsonPath('created_at', '2023-11-14T22:13:20+00:00')
+            ->assertJsonPath('created_at', CarbonImmutable::createFromTimestamp(1700000000, config('app.timezone'))->toIso8601String())
             ->assertJsonPath('entries.0.id', $id)
             ->assertJsonPath('entries.0.change_set_id', 'set-a')
             ->assertJsonPath('entries.0.table', 'mail_domain')

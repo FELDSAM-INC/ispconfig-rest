@@ -145,7 +145,7 @@ class ChangeController extends Controller
             'id' => $changeSetId,
             'status' => ChangeStatusResolver::aggregate($counts),
             'entry_counts' => $counts,
-            'created_at' => CarbonImmutable::createFromTimestamp((int) $aggregate['first_tstamp'])->toIso8601String(),
+            'created_at' => $this->timestamp((int) $aggregate['first_tstamp']),
             'entries' => $entries,
             'meta' => [
                 'total' => $total,
@@ -260,8 +260,17 @@ class ChangeController extends Controller
             $change['error'] = (string) $row->error;
         }
 
-        $change['created_at'] = CarbonImmutable::createFromTimestamp((int) $row->tstamp)->toIso8601String();
+        $change['created_at'] = $this->timestamp((int) $row->tstamp);
 
         return $change;
+    }
+
+    /**
+     * Journal time as ISO 8601 with the offset of the API's configured timezone, like backups and usage
+     * (owner-delegated decision 2026-09-15).
+     */
+    private function timestamp(int $tstamp): string
+    {
+        return CarbonImmutable::createFromTimestamp($tstamp, (string) config('app.timezone'))->toIso8601String();
     }
 }

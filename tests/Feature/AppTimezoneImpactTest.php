@@ -50,14 +50,15 @@ class AppTimezoneImpactTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_change_timestamps_keep_their_utc_instants(): void
+    public function test_change_timestamps_keep_their_instant_with_the_api_timezone_offset(): void
     {
         $this->addServer(1);
         $this->journalEntry(['tstamp' => 1700000000, 'session_id' => 'set-tz']);
 
         $this->getJson('/api/v1/changes/set-tz', $this->tenantHeaders('admin'))
             ->assertOk()
-            ->assertJsonPath('created_at', '2023-11-14T22:13:20+00:00');
+            // Same instant as 22:13:20Z, rendered with the API timezone offset (decision 2026-09-15).
+            ->assertJsonPath('created_at', '2023-11-14T23:13:20+01:00');
     }
 
     public function test_since_with_an_explicit_offset_is_unchanged(): void
