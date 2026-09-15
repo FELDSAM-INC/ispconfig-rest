@@ -62,10 +62,39 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 - [x] T013 [P] README "Problem types" section
 - [x] T014 Pint on changed PHP files; full suite green
-- [ ] T015 Deploy to isp-test and run quickstart.md §2–§3 (temporary client only), record results here
+- [x] T015 Deploy to isp-test and run quickstart.md §2–§3 (temporary client only), record results here
 
 ---
 
 ## Dependencies & Execution Order
 
 - Phase 1 → Phase 2 → US1, US2, US3 (independent emitters, sequential commits) → Polish.
+
+---
+
+## T015 results — isp-test, 2026-09-15
+
+Deployed `d56375b` (`ispconfig-rest update`, status healthy). Temporary client 17 `qa023f2c7a1`
+(`limit_web_domain = 1`, `limit_ssl = y`, `limit_ssl_letsencrypt = n`, web server 1), QA admin key 45, client key 46,
+website 18. `#` = `https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#`.
+
+| Check | Status | Type / members |
+|-------|--------|----------------|
+| Client: create website 1 | 201 | — |
+| Client: create website 2 (cap 1) | 403 | `#limit-reached`, `limit = {limit_web_domain, client, 1, 1}`, detail unchanged |
+| Client: `PUT` `ssl` + `ssl_letsencrypt` | 422 | `#validation-failed`, `error_types = {ssl_letsencrypt: #feature-not-allowed}` |
+| Client: create website `server_id: 99` | 422 | `error_types.server_id = #server-not-assigned` |
+| Client: `POST …/ssl/renew` | 403 | `#feature-not-allowed`, `feature = limit_ssl_letsencrypt` |
+| Client: `POST /mail/transports` | 403 | `#feature-not-allowed`, `feature = limit_mailrouting` |
+| Client: invalid domain | 422 | `#validation-failed`, no `error_types` |
+| Client: missing website | 404 | `about:blank` |
+| Admin: disable website, lock client | 200, 200 | — |
+| Client: re-enable website of the locked account | 403 | `#account-locked`, detail unchanged |
+| Admin: unlock client | 200 | — |
+
+Every error response was `application/problem+json`; all 17 expectations matched.
+
+**Cleanup**: client unlocked, website 18 deleted (204), client 17 deleted (204); `server.updated` reached the last
+datalog id 526; QA keys 45 and 46 deleted by id (`name LIKE 'qa%'`). No `qa023` client, group, user or website row, no
+pending datalog, no vhost directory or link, no `/var/www/clients/client17`; remaining keys 1, 2, 20, 27. QA scripts and
+state removed from the server.
