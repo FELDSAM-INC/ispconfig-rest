@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\AuthScope;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
@@ -142,6 +143,116 @@ class UsageService
                 'timezone' => $this->traffic->timezone(),
             ],
         ];
+    }
+
+    /**
+     * Website usage rows (FR-005, FR-006; data-model WebDomainUsage): disk from
+     * each vhost's own server blob, child sites without disk figures, traffic
+     * periods for the whole page in one query.
+     *
+     * @param  iterable<int, Model>  $sites
+     * @return array<int, array<string, mixed>>
+     */
+    public function webDomainRows(iterable $sites): array
+    {
+        $sites = collect($sites)->map(fn (Model $site): object => (object) $site->getAttributes());
+
+        $blobs = $this->monitor->latestBlobs(['harddisk_quota'], $sites->where('type', 'vhost')->pluck('server_id')->all());
+        $traffic = $this->traffic->webPeriods($sites->pluck('domain')->all());
+
+        return $sites->map(function (object $site) use ($blobs, $traffic): array {
+            $disk = $site->type === 'vhost'
+                ? $this->diskFigures((string) $site->system_user, (int) $site->server_id, $blobs)
+                : ['used' => null, 'soft' => null, 'hard' => null, 'files' => null, 'created' => null];
+
+            $hdQuota = (int) ($site->hd_quota ?? 0);
+            $hdQuotaBytes = $hdQuota > 0 ? $hdQuota * self::MB : null;
+            $trafficQuota = (int) ($site->traffic_quota ?? -1);
+
+            return [
+                'domain_id' => (int) $site->domain_id,
+                'domain' => (string) $site->domain,
+                'type' => (string) $site->type,
+                'parent_domain_id' => (int) $site->parent_domain_id,
+                'server_id' => (int) $site->server_id,
+                'disk' => [
+                    'used_bytes' => $disk['used'],
+                    'soft_limit_bytes' => $disk['soft'],
+                    'hard_limit_bytes' => $disk['hard'],
+                    'files' => $disk['files'],
+                    // against the soft limit; without one against the website quota (research R3)
+                    'used_percent' => $this->percent($disk['used'], $disk['soft'] ?? $hdQuotaBytes),
+                    'measured_at' => $this->iso($disk['created']),
+                ],
+                'hd_quota_bytes' => $hdQuotaBytes,
+                'traffic' => $traffic[(string) $site->domain] ?? TrafficPeriodService::emptyPeriods(),
+                'traffic_quota_bytes' => $trafficQuota > 0 ? $trafficQuota * self::MB : null,
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * Mailbox usage rows (FR-007; data-model MailUserUsage). Quota 0 or -1 is
+     * unlimited.
+     *
+     * @param  iterable<int, Model>  $mailUsers
+     * @return array<int, array<string, mixed>>
+     */
+    public function mailUserRows(iterable $mailUsers): array
+    {
+        $boxes = collect($mailUsers)->map(fn (Model $box): object => (object) $box->getAttributes());
+
+        $blobs = $this->monitor->latestBlobs(['email_quota'], $boxes->pluck('server_id')->all());
+        $traffic = $this->traffic->mailPeriods($boxes->pluck('mailuser_id')->all());
+
+        return $boxes->map(function (object $box) use ($blobs, $traffic): array {
+            $figures = $this->mailFigures((string) $box->email, (int) $box->server_id, $blobs);
+            $quota = (int) ($box->quota ?? 0);
+            $quotaBytes = $quota > 0 ? $quota : null;
+
+            return [
+                'mailuser_id' => (int) $box->mailuser_id,
+                'email' => (string) $box->email,
+                'server_id' => (int) $box->server_id,
+                'used_bytes' => $figures['used'],
+                'quota_bytes' => $quotaBytes,
+                'used_percent' => $this->percent($figures['used'], $quotaBytes),
+                'measured_at' => $this->iso($figures['created']),
+                'traffic' => $traffic[(int) $box->mailuser_id] ?? TrafficPeriodService::emptyPeriods(),
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * Database usage rows (FR-008; data-model DatabaseUsage). Quota <= 0 is
+     * unlimited; quotas are MB, sizes bytes.
+     *
+     * @param  iterable<int, Model>  $databases
+     * @return array<int, array<string, mixed>>
+     */
+    public function databaseRows(iterable $databases): array
+    {
+        $databases = collect($databases)->map(fn (Model $db): object => (object) $db->getAttributes());
+
+        $blobs = $this->monitor->latestBlobs(['database_size'], $databases->pluck('server_id')->all());
+
+        return $databases->map(function (object $db) use ($blobs): array {
+            $figures = $this->databaseFigures((string) $db->database_name, (int) $db->server_id, $blobs);
+            $quota = (int) ($db->database_quota ?? 0);
+            $quotaBytes = $quota > 0 ? $quota * self::MB : null;
+
+            return [
+                'database_id' => (int) $db->database_id,
+                'database_name' => (string) $db->database_name,
+                'type' => (string) ($db->type ?? ''),
+                'server_id' => (int) $db->server_id,
+                'parent_domain_id' => (int) $db->parent_domain_id,
+                'size_bytes' => $figures['used'],
+                'quota_bytes' => $quotaBytes,
+                'used_percent' => $this->percent($figures['used'], $quotaBytes),
+                'measured_at' => $this->iso($figures['created']),
+            ];
+        })->values()->all();
     }
 
     /**
