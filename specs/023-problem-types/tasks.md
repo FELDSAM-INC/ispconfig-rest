@@ -39,8 +39,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 3: User Story 1 — account locked (P1) 🎯 MVP
 
-- [ ] T007 [US1] Assert `type = …#account-locked` in `assertRefused()` of `tests/Feature/LockedClientWriteGuardTest.php` and `tests/Feature/WebBackupLockedClientTest.php`
-- [ ] T008 [US1] Throw typed exceptions in `app/Services/LockedClientGuard.php` (`check()`, `checkBackupWrite()`)
+- [x] T007 [US1] Assert `type = …#account-locked` in `assertRefused()` of `tests/Feature/LockedClientWriteGuardTest.php` and `tests/Feature/WebBackupLockedClientTest.php`
+- [x] T008 [US1] Throw typed exceptions in `app/Services/LockedClientGuard.php` (`check()`, `checkBackupWrite()`)
 
 ---
 

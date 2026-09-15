@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
+use App\Exceptions\ProblemAuthorizationException;
 use App\Models\BaseModel;
 use App\Support\IspContext;
-use Illuminate\Auth\Access\AuthorizationException;
+use App\Support\ProblemType;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 
@@ -52,7 +53,7 @@ class LockedClientGuard
         }
 
         if ($groupId > 0 && $this->ownerIsLocked($groupId)) {
-            throw new AuthorizationException(self::MESSAGE);
+            throw new ProblemAuthorizationException(self::MESSAGE, ProblemType::ACCOUNT_LOCKED);
         }
     }
 
@@ -100,7 +101,7 @@ class LockedClientGuard
         $groupId = (int) ($website->getAttributes()['sys_groupid'] ?? 0);
 
         if ($groupId > 0 && $this->ownerIsLocked($groupId)) {
-            throw new AuthorizationException(self::BACKUP_MESSAGE);
+            throw new ProblemAuthorizationException(self::BACKUP_MESSAGE, ProblemType::ACCOUNT_LOCKED);
         }
     }
 

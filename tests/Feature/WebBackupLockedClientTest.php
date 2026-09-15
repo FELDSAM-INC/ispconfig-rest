@@ -33,7 +33,8 @@ class WebBackupLockedClientTest extends WebBackupApiTestCase
         $this->json($method, $uri, $payload, $this->tenantHeaders($tenant))
             ->assertStatus(403)
             ->assertHeader('Content-Type', 'application/problem+json')
-            ->assertJsonPath('detail', self::DETAIL);
+            ->assertJsonPath('detail', self::DETAIL)
+            ->assertJsonPath('type', 'https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#account-locked');
 
         $this->assertSame($actions, DB::table('sys_remoteaction')->count(), "{$method} {$uri} must not queue a remote action");
         $this->assertSame($datalog, DB::table('sys_datalog')->count(), "{$method} {$uri} must not write datalog");
