@@ -106,7 +106,7 @@ class UsageSummaryApiTest extends UsageApiTestCase
         $response->assertJsonPath('counts.databases', ['used' => 1, 'limit' => null]);
         $response->assertJsonPath('counts.cron_jobs', ['used' => 0, 'limit' => 0]);
         $response->assertJsonPath('counts.dns_zones', ['used' => 0, 'limit' => null]);
-        $this->assertCount(12, $response->json('counts'));
+        $this->assertCount(16, $response->json('counts'));
 
         $response->assertJsonPath('period', ['this_month_start' => '2026-09-01', 'timezone' => 'Europe/Prague']);
     }
@@ -197,5 +197,47 @@ class UsageSummaryApiTest extends UsageApiTestCase
         $this->getAs('admin', '/usage/summary?client_id='.$this->tenant('clientB')['client_id'])->assertOk();
 
         $this->assertSame($before, DB::table('sys_datalog')->count());
+    }
+
+    public function test_mail_counts_cover_catchalls_alias_domains_filters_and_fetchmail(): void
+    {
+        $this->setClientLimit('clientA', 'limit_mailcatchall', 1);
+        $this->setClientLimit('clientA', 'limit_mailfilter', 5);
+        $this->setClientLimit('clientA', 'limit_fetchmail', 0);
+
+        foreach ([
+            ['catchall', '@a1.test'], ['aliasdomain', '@alias1.test'], ['aliasdomain', '@alias2.test'], ['alias', 'x@a1.test'],
+        ] as [$type, $source]) {
+            DB::table('mail_forwarding')->insert($this->ownedBy('clientA', [
+                'server_id' => 1, 'type' => $type, 'source' => $source, 'destination' => 'info@a1.test', 'active' => 'y',
+            ]));
+        }
+
+        DB::table('mail_forwarding')->insert($this->ownedBy('clientB', [
+            'server_id' => 1, 'type' => 'catchall', 'source' => '@b1.test', 'destination' => 'info@b1.test', 'active' => 'y',
+        ]));
+
+        $box = (int) DB::table('mail_user')->where('email', 'info@a1.test')->value('mailuser_id');
+
+        foreach (['one', 'two'] as $rule) {
+            DB::table('mail_user_filter')->insert($this->ownedBy('clientA', ['mailuser_id' => $box, 'rulename' => $rule, 'active' => 'y']));
+        }
+
+        DB::table('mail_get')->insert($this->ownedBy('clientA', [
+            'server_id' => 1, 'type' => 'imap', 'source_server' => 'imap.example.com', 'source_username' => 'u',
+            'destination' => 'info@a1.test',
+        ]));
+
+        $this->getAs('clientA', '/usage/summary')
+            ->assertOk()
+            ->assertJsonPath('counts.mail_catchalls', ['used' => 1, 'limit' => 1])
+            ->assertJsonPath('counts.mail_alias_domains', ['used' => 2, 'limit' => null])
+            ->assertJsonPath('counts.mail_filters', ['used' => 2, 'limit' => 5])
+            ->assertJsonPath('counts.fetchmail_accounts', ['used' => 1, 'limit' => 0]);
+
+        $this->getAs('clientB', '/usage/summary')
+            ->assertOk()
+            ->assertJsonPath('counts.mail_catchalls', ['used' => 1, 'limit' => null])
+            ->assertJsonPath('counts.mail_filters', ['used' => 0, 'limit' => null]);
     }
 }

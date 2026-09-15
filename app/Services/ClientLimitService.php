@@ -160,6 +160,11 @@ class ClientLimitService
         'shell_users' => 'limit_shell_user',
         'cron_jobs' => 'limit_cron',
         'dns_zones' => 'limit_dns_zone',
+        // spec 025
+        'mail_catchalls' => 'limit_mailcatchall',
+        'mail_alias_domains' => 'limit_mailaliasdomain',
+        'mail_filters' => 'limit_mailfilter',
+        'fetchmail_accounts' => 'limit_fetchmail',
     ];
 
     /**
@@ -218,6 +223,10 @@ class ClientLimitService
             'limit_mailbox' => $this->simpleCountSpec('mail_user'),
             'limit_mailalias' => $this->mailForwardingCountSpecs('alias')[0],
             'limit_mailforward' => $this->mailForwardingCountSpecs('forward')[0],
+            'limit_mailcatchall' => $this->mailForwardingCountSpecs('catchall')[0],
+            'limit_mailaliasdomain' => $this->mailForwardingCountSpecs('aliasdomain')[0],
+            'limit_mailfilter' => $this->count('limit_mailfilter', 'mail_user_filter', 'filter_id', null, 'mail filters'),
+            'limit_fetchmail' => $this->count('limit_fetchmail', 'mail_get', 'mailget_id', null, 'fetchmail accounts'),
             'limit_database' => $this->databaseCountSpecs('mysql')[0],
             'limit_ftp_user' => $this->simpleCountSpec('ftp_user'),
             'limit_shell_user' => $this->simpleCountSpec('shell_user'),
