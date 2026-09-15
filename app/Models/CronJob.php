@@ -91,6 +91,117 @@ class CronJob extends BaseModel
     }
 
     /**
+     * Field ranges and minute weights of legacy validate_cron
+     * (run_time_format): [min entry, max entry, minutes per unit].
+     *
+     * @var array<string, array{0: int, 1: int, 2: int}>
+     */
+    private const RUN_FIELDS = [
+        'run_min' => [0, 59, 1],
+        'run_hour' => [0, 23, 60],
+        'run_mday' => [1, 31, 1440],
+        'run_month' => [1, 12, 40320], // 1440 * 28 — legacy: "not exactly but enough"
+        'run_wday' => [0, 7, 1440],
+    ];
+
+    /**
+     * Shortest interval between two runs in minutes — port of the
+     * `cron_min_freq` accumulation of validate_cron.inc.php:203-222 (spec 035).
+     *
+     * Per field the smallest gap between the values it fires at (including the
+     * wrap-around to the next period) is weighted into minutes and kept only
+     * while it stays inside the field's own range; the job's interval is the
+     * smallest kept value. Null when no field constrains the schedule, when a
+     * field is invalid (validation refuses those with 422 before any limit
+     * check) and for the `@reboot` month, which legacy accepts without a
+     * frequency.
+     */
+    public static function minIntervalMinutes(string $min, string $hour, string $mday, string $month, string $wday): ?int
+    {
+        $fields = ['run_min' => $min, 'run_hour' => $hour, 'run_mday' => $mday, 'run_month' => $month, 'run_wday' => $wday];
+        $interval = null;
+
+        foreach ($fields as $field => $value) {
+            if ($field === 'run_month' && $value === '@reboot') {
+                continue;
+            }
+
+            if (! self::isValidRunTime($field, $value)) {
+                return null;
+            }
+
+            $frequency = self::fieldFrequency($field, $value);
+
+            if ($frequency === null) {
+                continue;
+            }
+
+            $interval = $interval === null ? $frequency : min($interval, $frequency);
+        }
+
+        return $interval;
+    }
+
+    /**
+     * The weighted shortest gap of one schedule field, or null when the field
+     * does not constrain the interval (legacy stores a value only while
+     * `$min_freq > 0 && $min_freq <= $max_entry`).
+     */
+    private static function fieldFrequency(string $field, string $value): ?int
+    {
+        [$minEntry, $maxEntry, $weight] = self::RUN_FIELDS[$field];
+        $used = [];
+
+        foreach (explode(',', str_replace(' ', '', $value)) as $entry) {
+            if (! preg_match("'^(((\d+)(\-(\d+))?)|\*)(\/([1-9]\d*))?$'", $entry, $matches)) {
+                return null;
+            }
+
+            $from = $minEntry;
+            $to = $maxEntry;
+
+            if ($matches[1] !== '*') {
+                $from = (int) $matches[3];
+                $to = empty($matches[4]) ? $from : (int) $matches[5];
+            }
+
+            $step = empty($matches[7]) ? 1 : (int) $matches[7];
+
+            for ($tick = $from; $tick <= $to; $tick += $step) {
+                $used[] = $tick;
+            }
+        }
+
+        sort($used);
+        $used = array_values(array_unique($used));
+
+        if ($used === []) {
+            return null;
+        }
+
+        $frequency = -1;
+        $previous = -1;
+
+        foreach ($used as $current) {
+            if ($previous !== -1 && ($frequency === -1 || $current - $previous < $frequency)) {
+                $frequency = $current - $previous;
+            }
+
+            $previous = $current;
+        }
+
+        // The last value against the first of the next period (legacy: wday
+        // 1,4,7 has a gap of 1, not 3).
+        $wrap = ($used[0] - $minEntry) + ($maxEntry - $previous) + 1;
+
+        if ($frequency === -1 || $wrap < $frequency) {
+            $frequency = $wrap;
+        }
+
+        return $frequency > 0 && $frequency <= $maxEntry ? $frequency * $weight : null;
+    }
+
+    /**
      * Port of validate_cron::run_time_format. Returns true when the value
      * is a valid cron time expression for the given field
      * (run_min/run_hour/run_mday/run_month/run_wday).

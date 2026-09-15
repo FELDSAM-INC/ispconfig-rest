@@ -23,6 +23,7 @@ class AccountCapabilitiesService
         protected PhpVersionService $phpVersions,
         protected ServerAssignmentService $servers,
         protected AccountMailService $mail,
+        protected AccountSitesService $sites,
     ) {}
 
     /**
@@ -70,6 +71,7 @@ class AccountCapabilitiesService
                 'php_default_mode' => $this->permissions->defaultPhpMode($account),
             ],
             'mail' => $this->mail->capabilities($clientId),
+            'sites' => $this->sites->capabilities($clientId),
         ];
     }
 

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCronJobRequest;
 use App\Http\Requests\UpdateCronJobRequest;
 use App\Models\CronJob;
+use App\Services\ClientLimitService;
 use App\Services\SitesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,14 +19,16 @@ use Illuminate\Support\Facades\DB;
  * cron_edit.php — table `cron`, PK `id`). `type` is derived server-side
  * (http(s) commands → url, otherwise the owning client's limit_cron_type,
  * `full` for admin-owned sites); server_id/sys_groupid always come from
- * the parent web domain. Per-client cron frequency/type limits are out of
- * scope for the admin-scoped API key (spec 006 Assumption 4).
+ * the parent web domain. For client and reseller keys the plan's task rules
+ * apply on create and update (spec 035): `limit_cron_frequency` and the
+ * URL-only case of `limit_cron_type`, checked by
+ * ClientLimitService::checkCronLimits() before the write.
  */
 class CronJobController extends Controller
 {
     use HandlesListQuery;
 
-    public function __construct(protected SitesService $service) {}
+    public function __construct(protected SitesService $service, protected ClientLimitService $limits) {}
 
     /**
      * GET /sites/cron-jobs — `search` matches the command.
@@ -73,6 +76,7 @@ class CronJobController extends Controller
         $job = new CronJob($payload);
         $job->forceFill(['type' => $this->service->deriveCronType((string) $payload['command'], $parent)]);
         $this->service->deriveServerAndGroup($job, $parent);
+        $this->limits->checkCronLimits($job);
 
         DB::transaction(function () use ($job): void {
             $job->save();
@@ -94,6 +98,7 @@ class CronJobController extends Controller
             'type' => $this->service->deriveCronType((string) $cronJob->getAttributes()['command'], $parent),
         ]);
         $this->service->deriveServerAndGroup($cronJob, $parent);
+        $this->limits->checkCronLimits($cronJob);
 
         DB::transaction(function () use ($cronJob): void {
             $cronJob->save();

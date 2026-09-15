@@ -49,6 +49,7 @@ class TenantSchema
         'limit_shell_user' => 0,
         'limit_webdav_user' => 0,
         'limit_cron' => 0,
+        'limit_cron_frequency' => 5,
         'limit_database' => -1,
         'limit_database_user' => -1,
         'limit_database_postgresql' => -1,
@@ -60,6 +61,17 @@ class TenantSchema
         'limit_web_quota' => -1,
         'limit_traffic_quota' => -1,
         'limit_database_quota' => -1,
+    ];
+
+    /**
+     * Non-integer client limit columns read by spec 035 with their DDL
+     * defaults (ispconfig3.sql client; live 3.3.1p1 information_schema).
+     *
+     * @var array<string, string>
+     */
+    private const SITES_LIMIT_COLUMNS = [
+        'limit_cron_type' => 'url',
+        'ssh_chroot' => 'no,jailkit,ssh-chroot',
     ];
 
     /**
@@ -206,6 +218,10 @@ class TenantSchema
                     $table->integer($column)->default($default);
                 }
 
+                foreach (self::SITES_LIMIT_COLUMNS as $column => $default) {
+                    $table->string($column, 255)->default($default);
+                }
+
                 self::addServerAssignmentColumns($table, self::SERVER_ASSIGNMENT_COLUMNS);
 
                 self::addWebPermissionColumns($table, array_keys(self::WEB_PERMISSION_COLUMNS));
@@ -231,6 +247,11 @@ class TenantSchema
                         $table->integer($limit)->default($default);
                     }
                 }
+                foreach (self::SITES_LIMIT_COLUMNS as $column => $default) {
+                    if (in_array($column, $missing, true)) {
+                        $table->string($column, 255)->default($default);
+                    }
+                }
                 self::addServerAssignmentColumns($table, array_values(array_intersect(self::SERVER_ASSIGNMENT_COLUMNS, $missing)));
                 foreach (['locked', 'canceled'] as $flag) {
                     if (in_array($flag, $missing, true)) {
@@ -241,7 +262,7 @@ class TenantSchema
                     $table->text('tmp_data')->nullable();
                 }
                 self::addWebPermissionColumns($table, array_values(array_intersect(array_keys(self::WEB_PERMISSION_COLUMNS), $missing)));
-            }, array_merge(['username', 'contact_name', 'parent_client_id', 'locked', 'canceled', 'tmp_data'], array_keys(self::LIMIT_COLUMNS), self::SERVER_ASSIGNMENT_COLUMNS, array_keys(self::WEB_PERMISSION_COLUMNS)));
+            }, array_merge(['username', 'contact_name', 'parent_client_id', 'locked', 'canceled', 'tmp_data'], array_keys(self::LIMIT_COLUMNS), array_keys(self::SITES_LIMIT_COLUMNS), self::SERVER_ASSIGNMENT_COLUMNS, array_keys(self::WEB_PERMISSION_COLUMNS)));
 
             self::ensureSysFields(['client']);
         }

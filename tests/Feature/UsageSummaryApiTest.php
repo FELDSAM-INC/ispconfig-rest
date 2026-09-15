@@ -112,7 +112,9 @@ class UsageSummaryApiTest extends UsageApiTestCase
         $response->assertJsonPath('counts.cron_jobs', ['used' => 0, 'limit' => 0]);
         $response->assertJsonPath('counts.dns_zones', ['used' => 1, 'limit' => null]);
         $response->assertJsonPath('counts.dns_records', ['used' => 2, 'limit' => 50]);
-        $this->assertCount(17, $response->json('counts'));
+        // spec 035: the database user cap is enforced on create and now counted
+        $response->assertJsonPath('counts.database_users', ['used' => 0, 'limit' => null]);
+        $this->assertCount(18, $response->json('counts'));
 
         $response->assertJsonPath('period', ['this_month_start' => '2026-09-01', 'timezone' => 'Europe/Prague']);
     }

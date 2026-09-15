@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\ProblemAuthorizationException;
 use App\Models\BaseModel;
+use App\Models\CronJob;
 use App\Support\AuthScope;
 use App\Support\IspContext;
 use App\Support\LimitSpec;
@@ -187,6 +188,79 @@ class ClientLimitService
     }
 
     /**
+     * Scheduled task plan rules on create AND update (spec 035 FR-008/FR-009;
+     * parity cron_edit.php:170-220 onInsertSave/onUpdateSave).
+     *
+     * Legacy checks the acting client's own limits for every non-admin user:
+     * a task kind other than `url` is refused when `limit_cron_type` is `url`,
+     * and a schedule whose shortest interval undercuts `limit_cron_frequency`
+     * (only when that is > 1) is refused. Called after the type derivation and
+     * before save(), so a denial writes no sys_datalog row. There is no
+     * reseller cap for either rule.
+     */
+    public function checkCronLimits(CronJob $job): void
+    {
+        $scope = $this->scope();
+
+        if ($scope->isAdmin) {
+            return;
+        }
+
+        $client = $this->clientRow($scope);
+
+        if ($client === null) {
+            return;
+        }
+
+        $attributes = $job->getAttributes();
+
+        // A locked account is refused by the spec 019 guard inside save() with
+        // `account-locked`; that invariant outranks the plan rules here. The
+        // guard judges the record's OWNER (sys_group -> client), so a reseller
+        // key writing for its locked client skips these rules as well.
+        if ($this->ownerIsLocked((int) ($attributes['sys_groupid'] ?? 0))) {
+            return;
+        }
+
+        if ((string) ($client->limit_cron_type ?? 'url') === 'url' && (string) ($attributes['type'] ?? 'url') !== 'url') {
+            throw new ProblemAuthorizationException(
+                'Your plan only allows scheduled tasks that call a URL.',
+                ProblemType::FEATURE_NOT_ALLOWED,
+                ['feature' => 'limit_cron_type']
+            );
+        }
+
+        $frequency = $this->columnValue($client, 'limit_cron_frequency') ?? 0;
+
+        if ($frequency <= 1) {
+            return;
+        }
+
+        $interval = CronJob::minIntervalMinutes(
+            (string) ($attributes['run_min'] ?? '*'),
+            (string) ($attributes['run_hour'] ?? '*'),
+            (string) ($attributes['run_mday'] ?? '*'),
+            (string) ($attributes['run_month'] ?? '*'),
+            (string) ($attributes['run_wday'] ?? '*'),
+        );
+
+        if ($interval === null || $interval >= $frequency) {
+            return;
+        }
+
+        throw new ProblemAuthorizationException(
+            'The scheduled task runs more often than your plan allows.',
+            ProblemType::LIMIT_REACHED,
+            ['limit' => [
+                'name' => 'limit_cron_frequency',
+                'scope' => 'client',
+                'max' => $frequency,
+                'used' => $interval,
+            ]]
+        );
+    }
+
+    /**
      * Summary key => limit column of the resource counts shown by the usage
      * summary (spec 017 FR-003, data-model UsageCount).
      *
@@ -212,6 +286,8 @@ class ClientLimitService
         'fetchmail_accounts' => 'limit_fetchmail',
         // spec 030
         'dns_records' => 'limit_dns_record',
+        // spec 035: the cap is enforced on create (countSpecsFor), this reports it
+        'database_users' => 'limit_database_user',
     ];
 
     /**
@@ -280,6 +356,7 @@ class ClientLimitService
             'limit_cron' => $this->simpleCountSpec('cron'),
             'limit_dns_zone' => $this->simpleCountSpec('dns_soa'),
             'limit_dns_record' => $this->dnsRecordCountSpec(),
+            'limit_database_user' => $this->count('limit_database_user', 'web_database_user', 'database_user_id', null, 'database users'),
             default => null,
         };
     }
@@ -750,6 +827,23 @@ class ClientLimitService
             $quota ? ProblemType::QUOTA_EXCEEDED : ProblemType::LIMIT_REACHED,
             ['limit' => $limit]
         );
+    }
+
+    /**
+     * Whether the client owning a record's group is locked — the same
+     * resolution LockedClientGuard uses (spec 019).
+     */
+    protected function ownerIsLocked(int $groupId): bool
+    {
+        if ($groupId <= 0 || ! Schema::hasTable('client')) {
+            return false;
+        }
+
+        return DB::table('sys_group')
+            ->join('client', 'client.client_id', '=', 'sys_group.client_id')
+            ->where('sys_group.groupid', $groupId)
+            ->where('client.locked', 'y')
+            ->exists();
     }
 
     /**

@@ -29,6 +29,8 @@ class MeCapabilitiesApiTest extends TestCase
         'autoresponder', 'mail_filters', 'custom_rules', 'spamfilter_policy', 'dkim', 'custom_login', 'password_policy',
     ];
 
+    private const SITES_KEYS = ['prefixes', 'databases', 'shell', 'cron'];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -156,10 +158,110 @@ class MeCapabilitiesApiTest extends TestCase
                 'custom_login' => false,
                 'password_policy' => ['min_length' => 8, 'min_strength' => 0, 'ascii_only' => false],
             ],
+            'sites' => [
+                'prefixes' => [
+                    'database' => 'c'.$this->tenant('clientA')['client_id'],
+                    'database_user' => '',
+                    'ftp_user' => '',
+                    'shell_user' => '',
+                    'webdav_user' => '',
+                ],
+                'databases' => ['quota_limit_mb' => null, 'remote_access' => true],
+                'shell' => ['available' => false, 'chroot_options' => []],
+                'cron' => ['types' => ['url'], 'min_interval_minutes' => 5],
+            ],
         ]);
         $this->assertSame(self::WEB_KEYS, array_keys($response->json('web')));
         $this->assertSame(self::MAIL_KEYS, array_keys($response->json('mail')));
+        $this->assertSame(self::SITES_KEYS, array_keys($response->json('sites')));
         $this->assertSame(0, DB::table('sys_datalog')->count());
+    }
+
+    public function test_sites_prefixes_are_resolved_for_the_account(): void
+    {
+        DB::table('sys_ini')->updateOrInsert(['sysini_id' => 1], [
+            'config' => implode("\n", [
+                '[sites]',
+                'dbname_prefix=c[CLIENTID]_',
+                'dbuser_prefix=c[CLIENTID]_',
+                'ftpuser_prefix=[CLIENTNAME]_',
+                'shelluser_prefix=[CLIENTNAME]_',
+                'webdavuser_prefix=web[DOMAINID]_',
+            ]),
+        ]);
+
+        $clientId = $this->tenant('clientA')['client_id'];
+
+        $response = $this->getJson('/api/v1/me/capabilities', $this->tenantHeaders('clientA'))->assertOk();
+
+        // [CLIENTID]/[CLIENTNAME] resolved like the write endpoints; [DOMAINID]
+        // stays unresolved — a capability describes the account, not a website.
+        $this->assertSame([
+            'database' => 'c'.$clientId.'_',
+            'database_user' => 'c'.$clientId.'_',
+            'ftp_user' => 'clienta_',
+            'shell_user' => 'clienta_',
+            'webdav_user' => 'web[DOMAINID]_',
+        ], $response->json('sites.prefixes'));
+
+        // A reseller reading one of its clients gets that client's prefixes.
+        $this->getJson('/api/v1/me/capabilities?client_id='.$clientId, $this->tenantHeaders('reseller'))
+            ->assertOk()
+            ->assertJsonPath('sites.prefixes.database', 'c'.$clientId.'_')
+            ->assertJsonPath('sites.prefixes.ftp_user', 'clienta_');
+
+        // An installation without prefixes reports empty strings.
+        DB::table('sys_ini')->updateOrInsert(['sysini_id' => 1], ['config' => "[sites]\n[misc]\n"]);
+
+        $this->getJson('/api/v1/me/capabilities', $this->tenantHeaders('clientA'))
+            ->assertOk()
+            ->assertJsonPath('sites.prefixes', [
+                'database' => '',
+                'database_user' => '',
+                'ftp_user' => '',
+                'shell_user' => '',
+                'webdav_user' => '',
+            ]);
+    }
+
+    public function test_sites_plan_options(): void
+    {
+        $this->setSites(null);
+        $this->setClient('clientA', [
+            'limit_database_quota' => 2048,
+            'limit_shell_user' => 2,
+            'ssh_chroot' => 'no,jailkit',
+            'limit_cron_type' => 'chrooted',
+            'limit_cron_frequency' => 15,
+        ]);
+
+        $response = $this->getJson('/api/v1/me/capabilities', $this->tenantHeaders('clientA'))->assertOk();
+
+        $this->assertSame(['quota_limit_mb' => 2048, 'remote_access' => true], $response->json('sites.databases'));
+        $this->assertSame(['available' => true, 'chroot_options' => ['no', 'jailkit']], $response->json('sites.shell'));
+        $this->assertSame(['types' => ['url', 'chrooted'], 'min_interval_minutes' => 15], $response->json('sites.cron'));
+
+        // Unlimited quota, no shell access, unconstrained interval, every kind.
+        $this->setClient('clientA', [
+            'limit_database_quota' => -1,
+            'limit_shell_user' => 0,
+            'limit_cron_type' => 'full',
+            'limit_cron_frequency' => 1,
+        ]);
+
+        $response = $this->getJson('/api/v1/me/capabilities', $this->tenantHeaders('clientA'))->assertOk();
+
+        $this->assertNull($response->json('sites.databases.quota_limit_mb'));
+        $this->assertSame(['available' => false, 'chroot_options' => []], $response->json('sites.shell'));
+        $this->assertSame(['types' => ['url', 'chrooted', 'full'], 'min_interval_minutes' => null], $response->json('sites.cron'));
+
+        // Only modes ISPConfig offers survive the client list (legacy applyValueLimit).
+        $this->setClient('clientA', ['limit_shell_user' => 1, 'ssh_chroot' => 'jailkit,bogus', 'limit_cron_type' => 'url']);
+
+        $this->getJson('/api/v1/me/capabilities', $this->tenantHeaders('clientA'))
+            ->assertOk()
+            ->assertJsonPath('sites.shell.chroot_options', ['jailkit'])
+            ->assertJsonPath('sites.cron.types', ['url']);
     }
 
     public function test_php_modes_intersect_system_and_client_lists(): void
