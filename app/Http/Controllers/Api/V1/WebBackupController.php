@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreWebBackupRequest;
+use App\Models\RemoteAction;
 use App\Models\WebBackup;
 use App\Models\WebDomain;
 use App\Services\RemoteActionService;
@@ -12,6 +14,8 @@ use App\Support\IspContext;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 /**
@@ -77,6 +81,58 @@ class WebBackupController extends Controller
         $model = $this->backups->visibleBackups($webDomain)->whereKey($backup)->firstOrFail();
 
         return response()->json($this->backups->backupRepresentation($model, $webDomain));
+    }
+
+    /**
+     * POST /sites/web-domains/{id}/backups — queue an on-demand backup: `web`
+     * on the website's server, `mysql` once per database server (R2); 201 with
+     * the queued jobs. Update permission is checked by the request.
+     */
+    public function store(StoreWebBackupRequest $request, WebDomain $webDomain): JsonResponse
+    {
+        if ($request->validated()['type'] === 'web') {
+            $jobs = $this->actions->queue(
+                $webDomain,
+                'backup_web_files',
+                (string) $webDomain->getKey(),
+                [(int) $webDomain->getAttributes()['server_id']],
+            );
+        } else {
+            $servers = $this->backups->databaseServerIds($webDomain);
+
+            if ($servers === []) {
+                throw ValidationException::withMessages(['type' => 'The website has no databases to back up.']);
+            }
+
+            $jobs = $this->actions->queue($webDomain, 'backup_database', (string) $webDomain->getKey(), $servers);
+        }
+
+        return response()->json([
+            'data' => array_map(
+                fn (RemoteAction $job): array => $this->backups->jobRepresentation($job, $webDomain, []),
+                $jobs
+            ),
+        ], 201);
+    }
+
+    /**
+     * DELETE /sites/web-domains/{id}/backups/{backup_id} — queue backup_delete
+     * on the server that stores the backup; 204. Requires update permission.
+     */
+    public function destroy(WebDomain $webDomain, int $backup): Response
+    {
+        $this->requireUpdate($webDomain);
+
+        $model = $this->backups->backupOfWebsite($webDomain, $backup);
+
+        $this->actions->queue(
+            $webDomain,
+            'backup_delete',
+            (string) $model->getKey(),
+            [$this->backups->actionServerId($model, $webDomain)],
+        );
+
+        return response()->noContent();
     }
 
     /**

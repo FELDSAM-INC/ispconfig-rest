@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\EnforcesBackupLimit;
 use App\Http\Requests\Concerns\ResolvesAssignedServer;
 use Illuminate\Validation\Rule;
 
@@ -19,6 +20,7 @@ use Illuminate\Validation\Rule;
  */
 class StoreWebDatabaseRequest extends SitesRequest
 {
+    use EnforcesBackupLimit;
     use ResolvesAssignedServer;
 
     protected function prepareForValidation(): void

@@ -126,24 +126,24 @@ databases on two servers → two `backup_database` rows; repeat → 409; `DELETE
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T026 [US2] Add store and delete cases to `tests/Feature/WebBackupActionApiTest.php`: `type: web` → one `backup_web_files` row (param = website id, website's server); `type: mysql` → one `backup_database` row per distinct database server, website without databases → 422; duplicate pending per type → 409; read-only permission → 403; any target server without `backup_dir` → 409; delete → 204 with one `backup_delete` row on the backup's server, duplicate → 409
-- [ ] T027 [P] [US2] Write `tests/Feature/WebBackupSettingsApiTest.php`: read shape including `backup_password_set`, `backups_available`, `missing_utils`; validation matrix (interval enum, copies set, excludes regex and max 255, both format enums, encryption without password → 422); one `web_domain` `u` datalog row on change and none when unchanged; `backup_password` write-only; read-only key → 403 on update; `limit_backup = 'n'` → 403
-- [ ] T028 [US2] Add existing-endpoint cases to `tests/Feature/BackupLimitGateTest.php`: `POST`/`PUT /sites/web-domains` and web database store/update sending `backup_*` fields with `limit_backup = 'n'` → 403; requests without backup fields unaffected; admin key exempt (depends on T020)
-- [ ] T029 [P] [US2] Write `tests/Feature/WebDomainBackupCopiesTest.php` (FR-016): `backup_copies` 11 and 25 → 422, 15 and 30 accepted, on create and update, with admin and client keys
+- [x] T026 [US2] Add store and delete cases to `tests/Feature/WebBackupActionApiTest.php`: `type: web` → one `backup_web_files` row (param = website id, website's server); `type: mysql` → one `backup_database` row per distinct database server, website without databases → 422; duplicate pending per type → 409; read-only permission → 403; any target server without `backup_dir` → 409; delete → 204 with one `backup_delete` row on the backup's server, duplicate → 409
+- [x] T027 [P] [US2] Write `tests/Feature/WebBackupSettingsApiTest.php`: read shape including `backup_password_set`, `backups_available`, `missing_utils`; validation matrix (interval enum, copies set, excludes regex and max 255, both format enums, encryption without password → 422); one `web_domain` `u` datalog row on change and none when unchanged; `backup_password` write-only; read-only key → 403 on update; `limit_backup = 'n'` → 403
+- [x] T028 [US2] Add existing-endpoint cases to `tests/Feature/BackupLimitGateTest.php`: `POST`/`PUT /sites/web-domains` and web database store/update sending `backup_*` fields with `limit_backup = 'n'` → 403; requests without backup fields unaffected; admin key exempt (depends on T020)
+- [x] T029 [P] [US2] Write `tests/Feature/WebDomainBackupCopiesTest.php` (FR-016): `backup_copies` 11 and 25 → 422, 15 and 30 accepted, on create and update, with admin and client keys
 
 ### Implementation for User Story 2
 
-- [ ] T030 [P] [US2] Create `app/Http/Requests/StoreWebBackupRequest.php` (`type` required, one of `web`, `mysql`)
-- [ ] T031 [P] [US2] Create `app/Http/Requests/UpdateWebBackupSettingsRequest.php` with the research R11 rules (`backup_copies` uses `WebBackupService::BACKUP_COPIES`, excludes regex, format enums, write-only password)
-- [ ] T032 [P] [US2] Create `app/Http/Requests/Concerns/EnforcesBackupLimit.php`: throw `AuthorizationException` (403) when any `backup_*` key is present and `WebBackupService::backupAllowed()` fails; admin keys unaffected (research R12)
-- [ ] T033 [US2] Use `EnforcesBackupLimit` and replace `'min:1', 'max:30'` with `Rule::in(WebBackupService::BACKUP_COPIES)` for `backup_copies` in `app/Http/Requests/WebDomainRequest.php` (FR-016; depends on T032)
-- [ ] T034 [P] [US2] Use `EnforcesBackupLimit` in `app/Http/Requests/StoreWebDatabaseRequest.php` (depends on T032)
-- [ ] T035 [P] [US2] Use `EnforcesBackupLimit` in `app/Http/Requests/UpdateWebDatabaseRequest.php` (depends on T032)
-- [ ] T036 [US2] Add the settings representation and `missing_utils` (newest `monitor_data` row of type `backup_utils` for the website's server, research R10) to `app/Services/WebBackupService.php`
-- [ ] T037 [US2] Add `store` (web: one action on the website's server; mysql: one action per database server, 422 without databases) and `destroy` (queue `backup_delete`, return 204), both requiring `u`, to `app/Http/Controllers/Api/V1/WebBackupController.php` (depends on T030)
-- [ ] T038 [US2] Create `app/Http/Controllers/Api/V1/WebBackupSettingsController.php` with `show` and `update` (`WebDomain::forceFill()->save()` for the datalog `u` entry, `y`/`n` mapping for `backup_encrypt`, 422 when encryption has no stored or supplied password) (depends on T031, T036)
-- [ ] T039 [US2] Register in `routes/api/sites.php` inside the `scope.backup` group: `DELETE …/backups/{backup}`, `POST …/backups`, `GET …/backup-settings`, `PUT …/backup-settings` (depends on T024, T037, T038)
-- [ ] T040 [US2] Run T026–T029 in Docker and verify store, delete and settings, plus the 403 and `backup_copies` documentation of web domains and databases, in Swagger UI
+- [x] T030 [P] [US2] Create `app/Http/Requests/StoreWebBackupRequest.php` (`type` required, one of `web`, `mysql`)
+- [x] T031 [P] [US2] Create `app/Http/Requests/UpdateWebBackupSettingsRequest.php` with the research R11 rules (`backup_copies` uses `WebBackupService::BACKUP_COPIES`, excludes regex, format enums, write-only password)
+- [x] T032 [P] [US2] Create `app/Http/Requests/Concerns/EnforcesBackupLimit.php`: throw `AuthorizationException` (403) when any `backup_*` key is present and `WebBackupService::backupAllowed()` fails; admin keys unaffected (research R12)
+- [x] T033 [US2] Use `EnforcesBackupLimit` and replace `'min:1', 'max:30'` with `Rule::in(WebBackupService::BACKUP_COPIES)` for `backup_copies` in `app/Http/Requests/WebDomainRequest.php` (FR-016; depends on T032)
+- [x] T034 [P] [US2] Use `EnforcesBackupLimit` in `app/Http/Requests/StoreWebDatabaseRequest.php` (depends on T032)
+- [x] T035 [P] [US2] Use `EnforcesBackupLimit` in `app/Http/Requests/UpdateWebDatabaseRequest.php` (depends on T032)
+- [x] T036 [US2] Add the settings representation and `missing_utils` (newest `monitor_data` row of type `backup_utils` for the website's server, research R10) to `app/Services/WebBackupService.php`
+- [x] T037 [US2] Add `store` (web: one action on the website's server; mysql: one action per database server, 422 without databases) and `destroy` (queue `backup_delete`, return 204), both requiring `u`, to `app/Http/Controllers/Api/V1/WebBackupController.php` (depends on T030)
+- [x] T038 [US2] Create `app/Http/Controllers/Api/V1/WebBackupSettingsController.php` with `show` and `update` (`WebDomain::forceFill()->save()` for the datalog `u` entry, `y`/`n` mapping for `backup_encrypt`, 422 when encryption has no stored or supplied password) (depends on T031, T036)
+- [x] T039 [US2] Register in `routes/api/sites.php` inside the `scope.backup` group: `DELETE …/backups/{backup}`, `POST …/backups`, `GET …/backup-settings`, `PUT …/backup-settings` (depends on T024, T037, T038)
+- [x] T040 [US2] Run T026–T029 in Docker and verify store, delete and settings, plus the 403 and `backup_copies` documentation of web domains and databases, in Swagger UI
 
 **Checkpoint**: User Stories 1 and 2 both work independently
 

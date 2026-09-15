@@ -92,4 +92,69 @@ class BackupLimitGateTest extends WebBackupApiTestCase
 
         $this->getJson($this->url($website, '/backup-jobs'))->assertStatus(401);
     }
+
+    // ------------------------------------------------------------------
+    // Existing endpoints carrying backup_* fields (US2, research R12)
+    // ------------------------------------------------------------------
+
+    public function test_web_domain_writes_with_backup_fields_are_refused_when_backups_are_disabled(): void
+    {
+        $website = $this->website('clientA');
+        $this->setLimitBackup('clientA', 'n');
+        $headers = $this->tenantHeaders('clientA');
+
+        $this->putJson("/api/v1/sites/web-domains/{$website}", ['backup_copies' => 7], $headers)
+            ->assertStatus(403)
+            ->assertHeader('Content-Type', 'application/problem+json');
+        $this->postJson('/api/v1/sites/web-domains', ['domain' => 'new.example.test', 'backup_interval' => 'daily'], $headers)
+            ->assertStatus(403);
+
+        $this->assertSame(0, DB::table('sys_datalog')->count());
+    }
+
+    public function test_database_writes_with_backup_fields_are_refused_when_backups_are_disabled(): void
+    {
+        $website = $this->website('clientA');
+        $database = $this->database('clientA', $website, self::BACKUP_SERVER, 'c1db');
+        $this->setLimitBackup('clientA', 'n');
+        $headers = $this->tenantHeaders('clientA');
+
+        $this->putJson("/api/v1/sites/databases/{$database}", ['backup_interval' => 'daily', 'database_user_id' => 1], $headers)
+            ->assertStatus(403);
+        $this->postJson('/api/v1/sites/databases', ['parent_domain_id' => $website, 'database_name' => 'c1new', 'database_user_id' => 1, 'backup_copies' => 3], $headers)
+            ->assertStatus(403);
+
+        $this->assertSame(0, DB::table('sys_datalog')->count());
+    }
+
+    public function test_requests_without_backup_fields_are_not_gated(): void
+    {
+        $website = $this->website('clientA');
+        $this->setLimitBackup('clientA', 'n');
+
+        $this->putJson("/api/v1/sites/web-domains/{$website}", ['vhost_type' => 'bogus'], $this->tenantHeaders('clientA'))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['vhost_type']);
+    }
+
+    public function test_admin_key_may_send_backup_fields_when_the_client_has_backups_disabled(): void
+    {
+        $website = $this->website('clientA');
+        $this->setLimitBackup('clientA', 'n');
+
+        $this->putJson("/api/v1/sites/web-domains/{$website}", ['backup_copies' => 11], $this->tenantHeaders('admin'))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['backup_copies']);
+    }
+
+    public function test_client_key_backup_copies_outside_legacy_values_returns_422(): void
+    {
+        $website = $this->website('clientA');
+
+        foreach ([11, 25] as $copies) {
+            $this->putJson("/api/v1/sites/web-domains/{$website}", ['backup_copies' => $copies], $this->tenantHeaders('clientA'))
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['backup_copies']);
+        }
+    }
 }

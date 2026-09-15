@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\FtpUserController;
 use App\Http\Controllers\Api\V1\ShellUserController;
 use App\Http\Controllers\Api\V1\WebBackupController;
 use App\Http\Controllers\Api\V1\WebBackupJobController;
+use App\Http\Controllers\Api\V1\WebBackupSettingsController;
 use App\Http\Controllers\Api\V1\WebChildDomainController;
 use App\Http\Controllers\Api\V1\WebDatabaseController;
 use App\Http\Controllers\Api\V1\WebDatabaseUserController;
@@ -32,9 +33,13 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('scope.backup')->group(function (): void {
     Route::post('sites/web-domains/{webDomain}/backups/{backup}/restore', [WebBackupController::class, 'restore'])->whereNumber(['webDomain', 'backup']);
     Route::get('sites/web-domains/{webDomain}/backups/{backup}', [WebBackupController::class, 'show'])->whereNumber(['webDomain', 'backup']);
+    Route::delete('sites/web-domains/{webDomain}/backups/{backup}', [WebBackupController::class, 'destroy'])->whereNumber(['webDomain', 'backup']);
     Route::get('sites/web-domains/{webDomain}/backups', [WebBackupController::class, 'index'])->whereNumber('webDomain');
+    Route::post('sites/web-domains/{webDomain}/backups', [WebBackupController::class, 'store'])->whereNumber('webDomain');
     Route::get('sites/web-domains/{webDomain}/backup-jobs/{job}', [WebBackupJobController::class, 'show'])->whereNumber(['webDomain', 'job']);
     Route::get('sites/web-domains/{webDomain}/backup-jobs', [WebBackupJobController::class, 'index'])->whereNumber('webDomain');
+    Route::get('sites/web-domains/{webDomain}/backup-settings', [WebBackupSettingsController::class, 'show'])->whereNumber('webDomain');
+    Route::put('sites/web-domains/{webDomain}/backup-settings', [WebBackupSettingsController::class, 'update'])->whereNumber('webDomain');
 });
 
 // Web Domain SSL subresource — api/modules/sites/web-domains.yaml (most specific first)

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\EnforcesBackupLimit;
 use App\Models\WebDatabase;
 use Illuminate\Validation\Rule;
 
@@ -14,6 +15,8 @@ use Illuminate\Validation\Rule;
  */
 class UpdateWebDatabaseRequest extends SitesRequest
 {
+    use EnforcesBackupLimit;
+
     protected function booleanFields(): array
     {
         return ['remote_access', 'active'];

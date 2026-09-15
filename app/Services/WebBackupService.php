@@ -317,6 +317,46 @@ class WebBackupService
     }
 
     /**
+     * Backup settings of the website (R9-R11). The password is never returned.
+     *
+     * @return array<string, mixed>
+     */
+    public function settingsRepresentation(WebDomain $website): array
+    {
+        $web = $website->getAttributes();
+        $serverId = (int) $web['server_id'];
+
+        return [
+            'backup_interval' => (string) ($web['backup_interval'] ?? 'none'),
+            'backup_copies' => (int) ($web['backup_copies'] ?? 1),
+            'backup_excludes' => isset($web['backup_excludes']) ? (string) $web['backup_excludes'] : null,
+            'backup_format_web' => (string) ($web['backup_format_web'] ?? 'default'),
+            'backup_format_db' => (string) ($web['backup_format_db'] ?? 'gzip'),
+            'backup_encrypt' => strtolower((string) ($web['backup_encrypt'] ?? 'n')) === 'y',
+            'backup_password_set' => trim((string) ($web['backup_password'] ?? '')) !== '',
+            'backups_available' => $this->backupsAvailable($serverId),
+            'missing_utils' => $this->missingUtils($serverId),
+        ];
+    }
+
+    /**
+     * Compression tools missing on the server, from the newest backup_utils
+     * monitor blob (`['missing_utils' => [...]]`, research R10).
+     *
+     * @return array<int, string>|null
+     */
+    public function missingUtils(int $serverId): ?array
+    {
+        $blob = $this->monitor->latestBlobs(['backup_utils'], [$serverId])[$serverId]['backup_utils']['data'] ?? null;
+
+        if (! is_array($blob) || ! isset($blob['missing_utils']) || ! is_array($blob['missing_utils'])) {
+            return null;
+        }
+
+        return array_values(array_map('strval', $blob['missing_utils']));
+    }
+
+    /**
      * Unix timestamps of ISPConfig tables in the API timezone (017 alignment).
      */
     public function timestamp(int $tstamp): string

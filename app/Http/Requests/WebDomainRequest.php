@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\EnforcesBackupLimit;
 use App\Models\WebDomain;
+use App\Services\WebBackupService;
 use Closure;
 use Illuminate\Validation\Rule;
 
@@ -14,6 +16,8 @@ use Illuminate\Validation\Rule;
  */
 abstract class WebDomainRequest extends SitesRequest
 {
+    use EnforcesBackupLimit;
+
     protected function booleanFields(): array
     {
         return [
@@ -77,7 +81,8 @@ abstract class WebDomainRequest extends SitesRequest
             'stats_type' => ['sometimes', 'nullable', Rule::in(['awstats', 'goaccess', 'webalizer', ''])],
             'stats_password' => ['sometimes', 'nullable', 'string', 'max:255'],
             'backup_interval' => ['sometimes', Rule::in(['none', 'daily', 'weekly', 'monthly'])],
-            'backup_copies' => ['sometimes', 'integer', 'min:1', 'max:30'],
+            // Legacy options only (FR-016, owner decision 2026-09-14).
+            'backup_copies' => ['sometimes', 'integer', Rule::in(WebBackupService::BACKUP_COPIES)],
             'backup_excludes' => ['sometimes', 'nullable', 'string', 'regex:@^(?!.*\.\.)[-a-zA-Z0-9_/.~,*]*$@'],
             'allow_override' => ['sometimes', 'string', 'max:255'],
             'proxy_protocol' => ['sometimes', 'boolean'],
