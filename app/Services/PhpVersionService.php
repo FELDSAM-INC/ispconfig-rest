@@ -12,8 +12,10 @@ use Illuminate\Support\Facades\DB;
  * Mirrors the legacy client version list (web_vhost_domain_edit.php:247-258,
  * ajax_get_json.php:66-120): active rows of `server_php` on the website's
  * server, public (client_id 0) or belonging to one of the given clients, with
- * the binaries the PHP mode needs, ordered by sortprio. The server's `[web]`
- * config decides whether the built-in default version (id 0) is offered.
+ * the binaries the PHP mode needs (on nginx servers `fast-cgi` uses the FPM
+ * binaries, web_vhost_domain_edit.php:243 / ajax_get_json.php:72), ordered by
+ * sortprio. The server's `[web]` config decides whether the built-in default
+ * version (id 0) is offered.
  */
 class PhpVersionService
 {
@@ -42,7 +44,9 @@ class PhpVersionService
             ->where('active', 'y')
             ->whereIn('client_id', $clients);
 
-        foreach (self::modeColumns($mode) as $column) {
+        $columnsMode = $mode === 'fast-cgi' && $this->serverType($serverId) === 'nginx' ? 'php-fpm' : $mode;
+
+        foreach (self::modeColumns($columnsMode) as $column) {
             $query->whereNotNull($column)->where($column, '!=', '');
         }
 

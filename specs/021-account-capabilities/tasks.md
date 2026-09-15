@@ -29,8 +29,8 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 2: Foundational (blocking prerequisites)
 
-- [ ] T004 Add a failing nginx test to `tests/Feature/WebPhpScopedKeyTest.php` (nginx web server: a `fast-cgi` website accepts an FPM-only version and refuses a FastCGI-only one), then map `fast-cgi` to the FPM columns on nginx servers in `PhpVersionService::usable()` (`app/Services/PhpVersionService.php`)
-- [ ] T005 Create `app/Services/AccountCapabilitiesService.php` with `resolveTarget(AuthScope, ?int)` (delegates to `UsageService::resolveTargetClient()`) and `accountWebServers(int $clientId)` (assigned web servers, then non-mirror web servers hosting the client's websites by id)
+- [x] T004 Add a failing nginx test to `tests/Feature/WebPhpScopedKeyTest.php` (nginx web server: a `fast-cgi` website accepts an FPM-only version and refuses a FastCGI-only one), then map `fast-cgi` to the FPM columns on nginx servers in `PhpVersionService::usable()` (`app/Services/PhpVersionService.php`)
+- [x] T005 Create `app/Services/AccountCapabilitiesService.php` with `resolveTarget(AuthScope, ?int)` (delegates to `UsageService::resolveTargetClient()`) and `accountWebServers(int $clientId)` (assigned web servers, then non-mirror web servers hosting the client's websites by id)
 - [x] T006 [P] Ensure `tests/Support/TenantSchema.php` has `client.locked` and `client.canceled` (add with default `'n'` if missing)
 
 **Checkpoint**: full suite green
@@ -41,12 +41,12 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ### Tests (write first, must fail)
 
-- [ ] T007 [US1] Create `tests/Feature/MeCapabilitiesApiTest.php`: flag mapping, `php_modes` and `php_default_mode` (system ∩ client, empty system list), `locked`/`canceled`, `account_type`; reseller own / own client / other client 404; admin without `client_id` 422, with client 200, unknown 404; client key naming another client 404; unknown parameter 400; invalid `client_id` 422; no datalog; pairing with feature 020 writes (reported `ssl=false` → `PUT ssl=true` refused, `ssl=true` → accepted; listed PHP mode accepted, unlisted refused)
+- [x] T007 [US1] Create `tests/Feature/MeCapabilitiesApiTest.php`: flag mapping, `php_modes` and `php_default_mode` (system ∩ client, empty system list), `locked`/`canceled`, `account_type`; reseller own / own client / other client 404; admin without `client_id` 422, with client 200, unknown 404; client key naming another client 404; unknown parameter 400; invalid `client_id` 422; no datalog; pairing with feature 020 writes (reported `ssl=false` → `PUT ssl=true` refused, `ssl=true` → accepted; listed PHP mode accepted, unlisted refused)
 
 ### Implementation
 
-- [ ] T008 [US1] Implement `AccountCapabilitiesService::capabilities(int $clientId)` from `WebPermissionService::forClient()` and `defaultPhpMode()` in `app/Services/AccountCapabilitiesService.php`
-- [ ] T009 [US1] Create `app/Http/Controllers/Api/V1/MeCapabilitiesController.php` (query validation as `UsageSummaryController`) and route `me/capabilities` in `routes/api/me.php`
+- [x] T008 [US1] Implement `AccountCapabilitiesService::capabilities(int $clientId)` from `WebPermissionService::forClient()` and `defaultPhpMode()` in `app/Services/AccountCapabilitiesService.php`
+- [x] T009 [US1] Create `app/Http/Controllers/Api/V1/MeCapabilitiesController.php` (query validation as `UsageSummaryController`) and route `me/capabilities` in `routes/api/me.php`
 
 **Checkpoint**: US1 tests green
 

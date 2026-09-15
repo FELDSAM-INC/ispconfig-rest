@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\MeCapabilitiesController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\MeServersController;
 use Illuminate\Support\Facades\Route;
@@ -9,7 +10,8 @@ use Illuminate\Support\Facades\Route;
 | Me module routes (required by routes/api.php inside the api.key group)
 |--------------------------------------------------------------------------
 | Caller identity for every valid key — deliberately outside the scope.admin
-| gate. Module owned by spec 014; spec 016 appends GET me/servers here.
+| gate. Module owned by spec 014; spec 016 appends GET me/servers here, spec
+| 021 GET me/capabilities and me/php-versions.
 */
 
 // Caller identity — api/modules/me/me.yaml
@@ -17,3 +19,6 @@ Route::get('me', [MeController::class, 'show']);
 
 // Servers the calling key may use — api/modules/me/servers.yaml (spec 016)
 Route::get('me/servers', MeServersController::class);
+
+// Website capabilities of the account — api/modules/me/capabilities.yaml (spec 021)
+Route::get('me/capabilities', MeCapabilitiesController::class);

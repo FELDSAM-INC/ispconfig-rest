@@ -301,4 +301,18 @@ class WebPhpScopedKeyTest extends TestCase
         $this->putJson("/api/v1/sites/web-domains/{$site}", ['php' => 'php-fpm', 'server_php_id' => 0], $headers)->assertStatus(200);
         $this->assertSame(0, (int) DB::table('web_domain')->where('domain_id', $site)->value('server_php_id'));
     }
+
+    public function test_fast_cgi_on_nginx_uses_fpm_versions(): void
+    {
+        // Legacy web_vhost_domain_edit.php:243 / ajax_get_json.php:72 list FPM
+        // versions for fast-cgi on nginx servers (spec 021 R3).
+        DB::table('server')->where('server_id', 2)->update(['config' => str_replace('server_type=apache', 'server_type=nginx', $this->webConfig(false))]);
+        DB::table('server_php')->insert(array_merge(['server_php_id' => 7, 'server_id' => 2, 'client_id' => 0, 'name' => 'PHP FPM only', 'active' => 'y', 'sortprio' => 10], self::FPM));
+        DB::table('server_php')->insert(array_merge(['server_php_id' => 8, 'server_id' => 2, 'client_id' => 0, 'name' => 'PHP CGI only', 'active' => 'y', 'sortprio' => 10], self::FCGI));
+        $site = $this->seedVhost('clientA', ['server_id' => 2, 'php' => 'fast-cgi', 'server_php_id' => 4]);
+        $headers = $this->tenantHeaders('clientA');
+
+        $this->putJson("/api/v1/sites/web-domains/{$site}", ['server_php_id' => 7], $headers)->assertStatus(200);
+        $this->assertFieldError($this->putJson("/api/v1/sites/web-domains/{$site}", ['server_php_id' => 8], $headers), 'server_php_id');
+    }
 }
