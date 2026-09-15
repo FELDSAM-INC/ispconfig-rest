@@ -194,14 +194,16 @@ never sends them; enforcement is defence in depth.
   `ssl_letsencrypt` (`limit_ssl_letsencrypt`), `cgi`, `ssi`, `perl`, `ruby`, `python` (`limit_cgi`,
   `limit_ssi`, `limit_perl`, `limit_ruby`, `limit_python`), `errordocs = 1` (`limit_hterror`),
   `subdomain = "*"` (`limit_wildcard`), non-zero `directive_snippets_id` (`limit_directive_snippets`), and
-  `suexec = false` when `force_suexec = y`. A value equal to the current (update) or default (create) value
-  is not a violation.
+  `suexec = false` when `force_suexec = y`. On create every sent value is checked; on update a value equal to
+  the stored value is not a violation.
 - **FR-002**: For client and reseller keys, every website create and update MUST store the plan-forced values
   of FR-001 (options not included switched off, suEXEC on when forced, `errordocs` 0, `directive_snippets_id`
   0) in the same datalog entry, mirroring legacy `onSubmit`.
 - **FR-003**: For client and reseller keys, `php` MUST be one of the account's allowed modes (system
   `sites.web_php_options` intersected with `client.web_php_options`; an empty system list does not restrict)
-  when it is a change; otherwise 422.
+  when sent on create or changed on update; otherwise 422. When `php` is omitted on create, the default
+  `fast-cgi` is used if allowed, else the first allowed mode other than `no`, else `no` (owner-delegated
+  decision 2026-09-15; legacy preselects `fast-cgi`).
 - **FR-004**: For client and reseller keys, a non-zero `server_php_id` that is a change (or whose PHP mode
   changes) MUST reference an active PHP version on the website's web server (the parent's server for
   `vhostsubdomain`/`vhostalias`), with `client_id` 0 or the acting account's client or the website owner's
