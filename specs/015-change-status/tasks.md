@@ -177,10 +177,10 @@ Insert under each 2xx response of `post`/`put`/`patch`/`delete`, directly after 
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T033 [P] Update `README.md` Conventions → "Async writes": writes return `X-Change-Set-Id` when journaled; any key polls `GET /api/v1/changes/{id}` or lists `GET /api/v1/changes?status=pending`; `/monitor/data-logs` stays the admin payload view
-- [ ] T034 Re-verify legacy parity against research R2, R3, R5 and R10 citations (mirrors, `server_id = 0`, active filter, error only once processed, purge → 404, username visibility) and confirm the spec's intentional deviations list is complete
-- [ ] T035 Code cleanup: controller thin (visibility, validation, mapping only), status predicates only in `ChangeStatusResolver`, record rules only in `ChangeRecordResolver`, no per-entry queries, no ISPConfig schema changes (`git diff --stat` shows no migrations)
-- [ ] T036 Run the full suite in docker (`php:8.3-cli vendor/bin/phpunit`, quickstart.md §1); all existing module write tests stay green with the new group middleware
+- [x] T033 [P] Update `README.md` Conventions → "Async writes": writes return `X-Change-Set-Id` when journaled; any key polls `GET /api/v1/changes/{id}` or lists `GET /api/v1/changes?status=pending`; `/monitor/data-logs` stays the admin payload view
+- [x] T034 Re-verify legacy parity against research R2, R3, R5 and R10 citations (mirrors, `server_id = 0`, active filter, error only once processed, purge → 404, username visibility) and confirm the spec's intentional deviations list is complete
+- [x] T035 Code cleanup: controller thin (visibility, validation, mapping only), status predicates only in `ChangeStatusResolver`, record rules only in `ChangeRecordResolver`, no per-entry queries, no ISPConfig schema changes (`git diff --stat` shows no migrations)
+- [x] T036 Run the full suite in docker (`php:8.3-cli vendor/bin/phpunit`, quickstart.md §1); all existing module write tests stay green with the new group middleware
 - [ ] T037 Manual end-to-end per quickstart.md §2–3 on isp-test.feldhost.cz after the owner deploys the branch there: header capture, poll to `applied`, paged set, pending list, no-change update without header, other client's key → 404, cross-check with the `sys_datalog`/`server` SQL
 
 ---
