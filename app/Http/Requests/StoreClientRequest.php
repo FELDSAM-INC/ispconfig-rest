@@ -5,9 +5,10 @@ namespace App\Http\Requests;
 /**
  * POST /clients (api/modules/client/clients.yaml).
  *
- * Contract-required fields: company_name, contact_name, email, username,
- * password (Client.yaml `required`); everything else optional with legacy
- * defaults.
+ * Contract-required fields: contact_name, email, username, password
+ * (Client.yaml `required`); everything else optional with legacy defaults.
+ * company_name is optional like legacy client.tform.php (no validator) and
+ * is stored as an empty string when omitted.
  */
 class StoreClientRequest extends ClientRequest
 {
@@ -18,7 +19,6 @@ class StoreClientRequest extends ClientRequest
     {
         $rules = $this->baseRules();
 
-        $rules['company_name'] = ['required', 'string', 'max:64'];
         $rules['contact_name'] = ['required', 'string', 'max:64'];
         $rules['email'] = ['required', 'email', 'max:255'];
         $rules['username'] = ['required', 'string', 'min:1', 'max:64', 'regex:/^[\w\.\-]{1,64}$/', $this->usernameUniqueRule()];

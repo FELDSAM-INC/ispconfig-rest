@@ -103,7 +103,15 @@ abstract class ClientRequest extends FormRequest
      */
     public function payload(): array
     {
-        return $this->validated();
+        $payload = $this->validated();
+
+        // Legacy stores an empty company name, never NULL (empty strings
+        // arrive here as null through ConvertEmptyStringsToNull).
+        if (array_key_exists('company_name', $payload) && $payload['company_name'] === null) {
+            $payload['company_name'] = '';
+        }
+
+        return $payload;
     }
 
     /**
@@ -128,7 +136,7 @@ abstract class ClientRequest extends FormRequest
             'icq' => ['sometimes', 'nullable', 'string', 'max:16'],
             'notes' => ['sometimes', 'nullable', 'string'],
             // Company
-            'company_name' => ['sometimes', 'string', 'max:64'],
+            'company_name' => ['sometimes', 'nullable', 'string', 'max:64'],
             'company_id' => ['sometimes', 'nullable', 'string', 'max:255'],
             'vat_id' => ['sometimes', 'nullable', 'string', 'max:64'],
             'customer_no' => ['sometimes', 'nullable', 'string', 'max:64'],

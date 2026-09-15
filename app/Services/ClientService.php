@@ -495,6 +495,12 @@ class ClientService
         if (blank($client->getAttributes()['language'] ?? null)) {
             $client->setAttribute('language', 'en');
         }
+
+        // company_name is optional (legacy client.tform.php has no validator);
+        // the legacy form stores an empty string when it is left blank.
+        if (($client->getAttributes()['company_name'] ?? null) === null) {
+            $client->setAttribute('company_name', '');
+        }
     }
 
     /**

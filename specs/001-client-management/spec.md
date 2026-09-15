@@ -19,7 +19,7 @@ An API consumer (billing system, signup automation, control panel) creates, list
 **Acceptance Scenarios**:
 
 1. **Given** a valid API key, **When** the consumer calls `GET /clients`, **Then** the response is 200 with `{items, total, limit, offset}` (asserted by `testClientListing`; note this deviates from the `{data, pagination}` shape declared in `clients.yaml` — see Assumptions).
-2. **Given** required fields `company_name`, `contact_name`, `email`, `username` (unique in `client`), `password` (min 8), **When** the consumer POSTs to `/clients`, **Then** the client row is inserted, a `sys_datalog` entry `(client, i)` is written, and the client is returned — with HTTP 202 as shipped (`testClientCreation` asserts 202; the OpenAPI contract declares 201 — known deviation).
+2. **Given** required fields `contact_name`, `email`, `username` (unique in `client`), `password` (min 8), **When** the consumer POSTs to `/clients`, **Then** the client row is inserted, a `sys_datalog` entry `(client, i)` is written, and the client is returned — with HTTP 202 as shipped (`testClientCreation` asserts 202; the OpenAPI contract declares 201 — known deviation).
 3. **Given** `parent_client_id` referencing a client with `limit_client > 0` or `= -1`, **When** creating or re-parenting a client, **Then** `sys_userid`/`sys_groupid` are set from the reseller's `sys_user.userid`/`default_group`; **Given** the parent is not a reseller or has no `sys_user`, **Then** 400 with `{message, error}`.
 4. **Given** an update that clears `parent_client_id`, **When** PUT `/clients/{id}`, **Then** ownership resets to `sys_userid=1`/`sys_groupid=1` and `parent_client_id=0` (mirrors `client_edit.php` `onAfterUpdate`), datalog action `u` with `dbidx=client_id:{id}`, HTTP 202 as shipped (contract says 200).
 5. **Given** an existing client, **When** DELETE `/clients/{id}`, **Then** a datalog `d` entry is written and the shipped response is 202 (contract says 204); **Given** an unknown id, **Then** 404 `{"error": "Client not found"}`.
@@ -203,7 +203,7 @@ Contract-shape notes (all deviations are implementation-vs-YAML, documented, not
 ### Functional Requirements
 
 - **FR-001**: System MUST expose paginated list endpoints for clients, resellers, templates, circles and domains with `limit`/`offset`/`sort`/`order` query parameters.
-- **FR-002**: System MUST create clients only when `company_name`, `contact_name`, `email`, `username` (unique in `client`) and `password` (min 8 chars) are present; other fields per `Client::$rules`.
+- **FR-002**: System MUST create clients only when `contact_name`, `email`, `username` (unique in `client`) and `password` (min 8 chars) are present (`company_name` is optional, as in legacy `client.tform.php`; fixed 2026-09-15); other fields per `Client::$rules`.
 - **FR-003**: System MUST resolve `parent_client_id` to the reseller's `sys_user` and set `sys_userid`/`sys_groupid` accordingly on create and re-parenting, rejecting non-resellers and missing sys users with 400.
 - **FR-004**: System MUST reset ownership to `sys_userid=1`/`sys_groupid=1`/`parent_client_id=0` when a client's reseller link is removed.
 - **FR-005**: System MUST journal every client/reseller/template/circle/domain write to `sys_datalog` with action `i`/`u`/`d` via `BaseModel` (`DatalogService::log()`), recording `{new, old}` diffs on update and full payloads on insert/delete.

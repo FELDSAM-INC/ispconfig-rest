@@ -231,6 +231,44 @@ class ClientApiTest extends ClientApiTestCase
             ->assertJsonPath('status', 422);
     }
 
+    public function test_create_without_company_name_stores_empty_string(): void
+    {
+        $payload = $this->validPayload();
+        unset($payload['company_name']);
+
+        $id = $this->postJson('/api/v1/clients', $payload, $this->authHeaders())
+            ->assertStatus(201)
+            ->assertJsonPath('company_name', '')
+            ->json('id');
+
+        $this->assertDatabaseHas('client', ['client_id' => $id, 'company_name' => '']);
+        ['data' => $data] = $this->datalogFor('client', 'i');
+        $this->assertSame('', $data['new']['company_name']);
+    }
+
+    public function test_create_with_empty_company_name_stores_empty_string(): void
+    {
+        $id = $this->postJson('/api/v1/clients', $this->validPayload(['company_name' => '']), $this->authHeaders())
+            ->assertStatus(201)
+            ->assertJsonPath('company_name', '')
+            ->json('id');
+
+        $this->assertDatabaseHas('client', ['client_id' => $id, 'company_name' => '']);
+    }
+
+    public function test_update_can_clear_company_name(): void
+    {
+        $id = $this->postJson('/api/v1/clients', $this->validPayload(), $this->authHeaders())
+            ->assertStatus(201)
+            ->json('id');
+
+        $this->putJson("/api/v1/clients/{$id}", ['company_name' => ''], $this->authHeaders())
+            ->assertStatus(200)
+            ->assertJsonPath('company_name', '');
+
+        $this->assertDatabaseHas('client', ['client_id' => $id, 'company_name' => '']);
+    }
+
     public function test_create_under_reseller_sets_reseller_ownership(): void
     {
         $resellerId = $this->seedClient(['username' => 'reseller1', 'limit_client' => -1]);

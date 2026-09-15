@@ -50,7 +50,7 @@ See `.specify/templates/tasks-template.md` — flow per resource is spec YAML �
 ### Implementation for User Story 1
 
 - [x] T010 [US1] Implement `index`/`show` in `app/Http/Controllers/Api/V1/ClientController.php` — generic `filter[]`, `sort`/`order` (default `client_id asc`), `limit`(25)/`offset`, `{items,total,limit,offset}` body; `show` appends `template_assignments` via `ClientTemplateService` and 404s on unknown id
-- [x] T011 [US1] Implement `store` — required `company_name`/`contact_name`/`email`/`username`(unique)/`password`(min 8) on top of `Client::$rules`; `parent_client_id` resolution to reseller `sys_user.userid`/`default_group` with 400 paths (mirrors `client_edit.php`); system-field defaults (`riud`/`riud`/``); DB transaction + rollback; datalog via `Client::save()`
+- [x] T011 [US1] Implement `store` — required `contact_name`/`email`/`username`(unique)/`password`(min 8) on top of `Client::$rules`; `parent_client_id` resolution to reseller `sys_user.userid`/`default_group` with 400 paths (mirrors `client_edit.php`); system-field defaults (`riud`/`riud`/``); DB transaction + rollback; datalog via `Client::save()`
 - [x] T012 [US1] Implement `update`/`destroy` — unique-username-except-self rule, `sys_*` fields stripped from input, reseller re-parent / reset-to-admin logic, transaction + `\Log::error` context, datalog `u`/`d`
 - [x] T013 [US1] Register routes `GET/POST clients`, `GET/PUT/DELETE clients/{id}` in `routes/web.php` (lines 61–66) **after** all literal `clients/...` routes — ordering comment in file
 
