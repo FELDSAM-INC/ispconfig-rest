@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\MeCapabilitiesController;
 use App\Http\Controllers\Api\V1\MeController;
+use App\Http\Controllers\Api\V1\MeHostingAddressesController;
 use App\Http\Controllers\Api\V1\MeMailSettingsController;
 use App\Http\Controllers\Api\V1\MePhpVersionsController;
 use App\Http\Controllers\Api\V1\MeServersController;
@@ -13,7 +14,8 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Caller identity for every valid key — deliberately outside the scope.admin
 | gate. Module owned by spec 014; spec 016 appends GET me/servers here, spec
-| 021 GET me/capabilities and me/php-versions, spec 025 GET me/mail-settings.
+| 021 GET me/capabilities and me/php-versions, spec 025 GET me/mail-settings,
+| spec 031 GET me/hosting-addresses.
 */
 
 // Caller identity — api/modules/me/me.yaml
@@ -30,3 +32,6 @@ Route::get('me/php-versions', MePhpVersionsController::class);
 
 // Email program settings of the account — api/modules/me/mail-settings.yaml (spec 025)
 Route::get('me/mail-settings', MeMailSettingsController::class);
+
+// Hosting addresses and name servers of the account — api/modules/me/hosting-addresses.yaml (spec 031)
+Route::get('me/hosting-addresses', MeHostingAddressesController::class);
