@@ -184,9 +184,16 @@
       - Database Users
     summary: Delete database user
     description: |
-      Deletes a database user by ID. Databases still referencing this user
-      lose their credentials — reassign them first. This action cannot be
-      undone.
+      Deletes a database user by ID. This action cannot be undone.
+
+      A user that a database still references — as its credentials
+      (`database_user_id`) or as its read-only user (`database_ro_user_id`) —
+      cannot be deleted: the request is refused with 409
+      (`resource-in-use`, spec 039) and nothing is written, exactly as
+      ISPConfig's own form refuses it. This protects data, so it applies to
+      every key type including administrator keys. Reassign or delete those
+      databases first; `databases_in_use` on the resource says how many there
+      are.
     parameters:
       - name: id
         in: path
@@ -205,6 +212,8 @@
         $ref: '../../components/responses/Unauthorized.yaml'
       '403':
         $ref: '../../components/responses/Forbidden.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
       '404':
         $ref: '../../components/responses/NotFound.yaml'
       '500':

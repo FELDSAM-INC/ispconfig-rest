@@ -75,6 +75,18 @@ properties:
       value is refused with 422 on this field.
     example: "securepassword123"
 
+  databases_in_use:
+    type: integer
+    format: int64
+    minimum: 0
+    readOnly: true
+    description: |
+      How many databases visible to the calling key use this user — as their credentials
+      (`database_user_id`) or as their read-only user (`database_ro_user_id`); a database naming it in both counts
+      once. While this is greater than 0 the user cannot be deleted (409 `resource-in-use`, spec 039), so a panel can
+      warn before offering the action.
+    example: 2
+
   client_id:
     type: integer
     minimum: 1

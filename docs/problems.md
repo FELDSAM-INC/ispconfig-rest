@@ -78,3 +78,18 @@ DNS, secondary DNS) is assigned. Unassigned and nonexistent servers are reported
 
 One or more fields are invalid. `errors` maps each field to its messages. `error_types` maps fields whose error is a
 `feature-not-allowed` or `server-not-assigned` refusal to that type URI; it is absent when no field has a typed error.
+
+## resource-in-use
+
+**Status**: 409
+
+The resource cannot be deleted while another resource depends on it. Remove or reassign the dependants first, then
+repeat the delete.
+
+Raised by `DELETE /sites/database-users/{id}` while a database still names the user as its credentials
+(`database_user_id`) or as its read-only user (`database_ro_user_id`) — the count is readable as
+`databases_in_use` on the database user. This protects data rather than permissions, so it applies to every key
+type, administrator keys included, and nothing is written (spec 039).
+
+No extension members. Other conflict responses in the API (an in-use directive snippet, an in-use client template, a
+reseller that still has clients, a duplicate name) keep `type: about:blank`.
