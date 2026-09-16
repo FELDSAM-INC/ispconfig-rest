@@ -33,8 +33,8 @@ curl -s -H "X-API-Key: $API_DEV_KEY" 'http://127.0.0.1:8000/api/v1/me/backups?cl
       "backups_available": true,
       "total": 7,
       "latest": [
-        { "id": 51, "type": "web",   "created_at": "2026-09-15T00:10:00+02:00", "size_bytes": 184320000, "format": "tar.gz", "job": "auto", "encrypted": false, "download_available": true,  "database_name": null },
-        { "id": 52, "type": "mysql", "created_at": "2026-09-15T00:12:00+02:00", "size_bytes": 20480,     "format": "gzip",   "job": "auto", "encrypted": false, "download_available": true,  "database_name": "c1_shop" }
+        { "id": 51, "server_id": 1, "parent_domain_id": 20, "backup_type": "web",   "database_name": null,      "backup_mode": "rootgz", "backup_format": "tar_gzip", "filename": "web20260915001000.tar.gz",        "filesize": 184320000, "filesize_approximate": false, "created_at": "2026-09-15T00:10:00+02:00", "job": "auto", "encrypted": false, "download_available": true },
+        { "id": 52, "server_id": 1, "parent_domain_id": 20, "backup_type": "mysql", "database_name": "c1_shop", "backup_mode": "rootgz", "backup_format": "gzip",     "filename": "db_c1_shop_2026-09-15_00-12.sql.gz", "filesize": 20480,     "filesize_approximate": false, "created_at": "2026-09-15T00:12:00+02:00", "job": "auto", "encrypted": false, "download_available": true }
       ]
     },
     { "web_domain_id": 21, "domain": "new.example.com", "server_id": 1, "backups_available": true, "total": 0, "latest": [] }

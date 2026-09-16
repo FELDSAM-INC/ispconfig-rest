@@ -24,24 +24,30 @@ from existing ISPConfig rows.
 | `server_id` | integer | `web_domain.server_id` | the website's own server only |
 | `backups_available` | boolean | `WebBackupService::backupsAvailable(server_id)` | resolved once per distinct server of the page |
 | `total` | integer | count of visible `web_backup` rows of the website | 0 when none |
-| `latest` | array of AccountBackupLatest | newest visible row per `backup_type` | `[]` when none; newest first |
+| `latest` | array of `WebBackup` | newest visible row per `backup_type` | `[]` when none; newest first |
 
-### AccountBackupLatest (one per backup type present)
+### `latest` entries (one per backup type present)
 
-Produced by `WebBackupService::backupRepresentation()`, reduced to the fields a list page needs. Every
-value is byte-identical to the corresponding field of `GET /sites/web-domains/{id}/backups` (SC-003).
+Each entry is the shipped **`WebBackup`** schema, produced by `WebBackupService::backupRepresentation()` and
+returned unchanged — the overview defines no representation of its own, so every value is byte-identical to
+the corresponding field of `GET /sites/web-domains/{id}/backups` (SC-003).
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | integer | `backup_id` |
-| `type` | string | `web`, `mysql`, `mongodb` |
+| `server_id` | integer | server storing the backup |
+| `parent_domain_id` | integer | the website |
+| `backup_type` | string | `web`, `mysql`, `mongodb` |
+| `database_name` | string\|null | parsed from the filename for database backups |
+| `backup_mode` | string | server backup mode (`rootgz`, `userzip`, `borg`, …) |
+| `backup_format` | string\|null | resolved format, including the borg/repos rules of spec 018 |
+| `filename` | string | archive file name |
+| `filesize` | integer\|null | bytes; null when the server recorded none |
+| `filesize_approximate` | boolean | true for borg repositories |
 | `created_at` | string (date-time) | API timezone, from `tstamp` |
-| `size_bytes` | integer\|null | `filesize`; null when the server has not recorded one |
-| `format` | string | resolved format, including the borg/repos rules of spec 018 |
-| `job` | string | `manual` or `auto`, derived from the filename prefix as legacy does |
+| `job` | string | `manual` or `auto`, from the filename prefix as legacy does |
 | `encrypted` | boolean | |
 | `download_available` | boolean | false when the backup's server differs from the website's |
-| `database_name` | string\|null | for `mysql`/`mongodb` backups, else null |
 
 ### Meta
 

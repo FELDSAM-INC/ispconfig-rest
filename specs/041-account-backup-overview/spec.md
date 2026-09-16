@@ -43,9 +43,9 @@ regardless of the number of websites.
 1. **Given** an account with several vhost websites, **When** its key calls `GET /me/backups`, **Then** 200
    returns `{data, meta}` with one entry per vhost website the key may read, ordered by domain.
 2. **Given** a website with a `web` and a `mysql` backup, **When** the overview is read, **Then** its entry
-   carries the newest backup of each type with id, created time, size in bytes, format, manual/automatic
-   origin, encrypted flag and whether a download copy can be prepared — the same fields the per-website list
-   returns for those rows.
+   carries the newest backup of each type as the `WebBackup` representation the per-website list returns for
+   those rows (id, `backup_type`, `created_at`, `filesize`, `backup_format`, `job`, `encrypted`,
+   `download_available`, `database_name`, …), field for field.
 3. **Given** a website without backups, **When** the overview is read, **Then** its entry is present with an
    empty `latest` list and a total of 0, not omitted.
 4. **Given** websites on a server without a configured backup directory, **When** the overview is read,
@@ -117,16 +117,20 @@ Response (200):
       "latest": [
         {
           "id": 51,
-          "type": "web",
+          "server_id": 1,
+          "parent_domain_id": 20,
+          "backup_type": "web",
+          "database_name": null,
+          "backup_mode": "rootgz",
+          "backup_format": "tar_gzip",
+          "filename": "web20260915001000.tar.gz",
+          "filesize": 184320000,
+          "filesize_approximate": false,
           "created_at": "2026-09-15T00:10:00+02:00",
-          "size_bytes": 184320000,
-          "format": "tar.gz",
           "job": "auto",
           "encrypted": false,
-          "download_available": true,
-          "database_name": null
-        },
-        { "id": 52, "type": "mysql", "created_at": "2026-09-15T00:12:00+02:00", "size_bytes": 20480, "format": "gzip", "job": "auto", "encrypted": false, "download_available": true, "database_name": "c1_shop" }
+          "download_available": true
+        }
       ]
     }
   ],
@@ -135,7 +139,9 @@ Response (200):
 ```
 
 `latest` holds at most one entry per backup type present for that website (`web`, `mysql`, `mongodb`),
-newest first by creation time. `total` counts all backups of that website visible to the key.
+newest first by creation time; each entry is the shipped `WebBackup` representation, field for field, so the
+overview and the per-website list can never disagree. `total` counts all backups of that website visible to
+the key.
 
 ## ISPConfig Parity & Datalog Impact *(mandatory)*
 

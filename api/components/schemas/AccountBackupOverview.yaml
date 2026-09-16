@@ -39,5 +39,8 @@ properties:
       first — not merely the newest backup overall, so a website whose files are backed up while its
       database backup is missing or outdated is visible without opening it. Empty when the website has no
       visible backups.
+
+      Each entry is the very same `WebBackup` representation that
+      `GET /sites/web-domains/{id}/backups` returns for that backup, field for field.
     items:
-      $ref: './AccountBackupLatest.yaml'
+      $ref: './WebBackup.yaml'
