@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\WebdavUser;
+use App\Rules\InstallationPassword;
 
 /**
  * PUT /sites/webdav-users/{id} (api/modules/sites/webdav-users.yaml):
@@ -25,7 +26,7 @@ class UpdateWebdavUserRequest extends SitesRequest
     public function rules(): array
     {
         return [
-            'password' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'password' => ['sometimes', 'nullable', 'string', 'max:255', new InstallationPassword],
             'active' => ['sometimes', 'boolean'],
             'username' => [
                 'sometimes',

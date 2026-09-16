@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\EnforcesBackupLimit;
 use App\Models\WebDomain;
+use App\Rules\InstallationPassword;
 use App\Services\WebBackupService;
 use Closure;
 use Illuminate\Validation\Rule;
@@ -79,7 +80,7 @@ abstract class WebDomainRequest extends SitesRequest
             'ssl_country' => ['sometimes', 'nullable', 'string', 'max:255'],
             'ssl_domain' => ['sometimes', 'nullable', 'string', 'max:255'],
             'stats_type' => ['sometimes', 'nullable', Rule::in(['awstats', 'goaccess', 'webalizer', ''])],
-            'stats_password' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'stats_password' => ['sometimes', 'nullable', 'string', 'max:255', new InstallationPassword],
             'backup_interval' => ['sometimes', Rule::in(['none', 'daily', 'weekly', 'monthly'])],
             // Legacy options only (FR-016, owner decision 2026-09-14).
             'backup_copies' => ['sometimes', 'integer', Rule::in(WebBackupService::BACKUP_COPIES)],

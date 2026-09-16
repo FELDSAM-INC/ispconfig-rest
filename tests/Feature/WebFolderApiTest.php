@@ -232,7 +232,7 @@ class WebFolderApiTest extends SitesApiTestCase
         $this->postJson('/api/v1/sites/web-folder-users', [
             'web_folder_id' => $folderId,
             'username' => 'member',
-            'password' => 'x',
+            'password' => 'Str0ng-Pass!x',
         ], $this->authHeaders())
             ->assertStatus(422)
             ->assertJsonStructure(['errors' => ['username']]);

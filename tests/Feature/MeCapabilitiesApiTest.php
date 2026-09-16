@@ -29,7 +29,7 @@ class MeCapabilitiesApiTest extends TestCase
         'autoresponder', 'mail_filters', 'custom_rules', 'spamfilter_policy', 'dkim', 'custom_login', 'password_policy',
     ];
 
-    private const SITES_KEYS = ['prefixes', 'databases', 'shell', 'cron'];
+    private const SITES_KEYS = ['prefixes', 'databases', 'shell', 'cron', 'password_policy'];
 
     protected function setUp(): void
     {
@@ -169,6 +169,8 @@ class MeCapabilitiesApiTest extends TestCase
                 'databases' => ['quota_limit_mb' => null, 'remote_access' => true],
                 'shell' => ['available' => false, 'chroot_options' => [], 'authentication' => 'password_or_key'],
                 'cron' => ['types' => ['url'], 'min_interval_minutes' => 5],
+                // spec 038: installation defaults — no min_password_* in the fixture
+                'password_policy' => ['min_length' => 8, 'min_strength' => 0],
             ],
         ]);
         $this->assertSame(self::WEB_KEYS, array_keys($response->json('web')));

@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Http\Requests\Concerns\EnforcesSshAuthenticationMode;
 use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\ShellUser;
+use App\Rules\InstallationPassword;
 use Closure;
 use Illuminate\Validation\Rule;
 
@@ -39,7 +40,7 @@ class StoreShellUserRequest extends SitesRequest
                 'required', 'string', 'max:32', 'regex:/^[\w\.\-]{1,32}$/',
                 $this->usernameNotBlacklistedRule(),
             ],
-            'password' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'password' => ['sometimes', 'nullable', 'string', 'max:255', new InstallationPassword],
             'ssh_rsa' => ['sometimes', 'nullable', 'string', 'max:600'],
             'chroot' => ['sometimes', Rule::in(['no', 'jailkit'])],
             'shell' => ['sometimes', 'string', 'max:255'],

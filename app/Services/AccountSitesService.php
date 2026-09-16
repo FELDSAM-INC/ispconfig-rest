@@ -48,7 +48,10 @@ class AccountSitesService
         'full' => ['url', 'chrooted', 'full'],
     ];
 
-    public function __construct(protected SitesConfigService $config) {}
+    public function __construct(
+        protected SitesConfigService $config,
+        protected PasswordPolicyService $passwords,
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -68,6 +71,10 @@ class AccountSitesService
             ],
             'shell' => $this->shell($client),
             'cron' => $this->cron($client),
+            // Spec 038: installation-wide, so a consumer of these credentials
+            // can comply without reading the mail block (whose ASCII option
+            // applies to mailboxes only).
+            'password_policy' => $this->passwords->policy(),
         ];
     }
 

@@ -130,7 +130,7 @@ class WebdavUserApiTest extends SitesApiTestCase
         $this->postJson('/api/v1/sites/webdav-users', [
             'parent_domain_id' => $parentId,
             'username' => 'dav',
-            'password' => 'x',
+            'password' => 'Str0ng-Pass!x',
             'dir' => 'webdav',
         ], $this->authHeaders())
             ->assertStatus(422)
@@ -155,11 +155,11 @@ class WebdavUserApiTest extends SitesApiTestCase
             ->assertOk();
 
         // A changed password re-digests with the STORED username/dir.
-        $this->putJson('/api/v1/sites/webdav-users/'.$id, ['password' => 'NewDav1'], $this->authHeaders())
+        $this->putJson('/api/v1/sites/webdav-users/'.$id, ['password' => 'NewDavSecret1'], $this->authHeaders())
             ->assertOk();
 
         $stored = DB::table('webdav_user')->where('webdav_user_id', $id)->value('password');
-        $this->assertSame(md5('testclientdav:webdav:NewDav1'), $stored);
+        $this->assertSame(md5('testclientdav:webdav:NewDavSecret1'), $stored);
 
         DB::table('sys_datalog')->delete();
 

@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\InstallationPassword;
+
 /**
  * POST /clients (api/modules/client/clients.yaml).
  *
@@ -22,7 +24,7 @@ class StoreClientRequest extends ClientRequest
         $rules['contact_name'] = ['required', 'string', 'max:64'];
         $rules['email'] = ['required', 'email', 'max:255'];
         $rules['username'] = ['required', 'string', 'min:1', 'max:64', 'regex:/^[\w\.\-]{1,64}$/', $this->usernameUniqueRule()];
-        $rules['password'] = ['required', 'string', 'min:8', 'max:200'];
+        $rules['password'] = ['required', 'string', 'max:200', new InstallationPassword];
 
         return $rules;
     }

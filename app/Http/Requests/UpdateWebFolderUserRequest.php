@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\WebFolderUser;
+use App\Rules\InstallationPassword;
 
 /**
  * PUT /sites/web-folder-users/{id}
@@ -24,7 +25,7 @@ class UpdateWebFolderUserRequest extends SitesRequest
     public function rules(): array
     {
         return [
-            'password' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'password' => ['sometimes', 'nullable', 'string', 'max:255', new InstallationPassword],
             'active' => ['sometimes', 'boolean'],
             'username' => [
                 'sometimes',

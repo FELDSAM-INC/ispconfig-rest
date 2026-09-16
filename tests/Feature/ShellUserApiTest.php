@@ -131,7 +131,7 @@ class ShellUserApiTest extends SitesApiTestCase
             $this->postJson('/api/v1/sites/shell-users', [
                 'parent_domain_id' => $parentId,
                 'username' => $bad,
-                'password' => 'x',
+                'password' => 'Str0ng-Pass!x',
             ], $this->authHeaders())
                 ->assertStatus(422)
                 ->assertJsonStructure(['errors' => ['username']]);
@@ -141,7 +141,7 @@ class ShellUserApiTest extends SitesApiTestCase
         $this->postJson('/api/v1/sites/shell-users', [
             'parent_domain_id' => $parentId,
             'username' => str_repeat('a', 25),
-            'password' => 'x',
+            'password' => 'Str0ng-Pass!x',
         ], $this->authHeaders())
             ->assertStatus(422)
             ->assertJsonStructure(['errors' => ['username']]);
@@ -155,7 +155,7 @@ class ShellUserApiTest extends SitesApiTestCase
         $this->postJson('/api/v1/sites/shell-users', [
             'parent_domain_id' => $parentId,
             'username' => 'john',
-            'password' => 'x',
+            'password' => 'Str0ng-Pass!x',
         ], $this->authHeaders())
             ->assertStatus(422)
             ->assertJsonStructure(['errors' => ['username']]);
@@ -170,7 +170,7 @@ class ShellUserApiTest extends SitesApiTestCase
         $response = $this->postJson('/api/v1/sites/shell-users', [
             'parent_domain_id' => $parentId,
             'username' => 'pwuser',
-            'password' => 'Secret1',
+            'password' => 'Str0ng-Pass!x',
             'ssh_rsa' => 'ssh-rsa AAAAB3Nza...',
         ], $this->authHeaders())->assertStatus(201);
 

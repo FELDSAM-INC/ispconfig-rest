@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\InstallationPassword;
+
 /**
  * PUT /sites/database-users/{id} (api/modules/sites/database-users.yaml).
  * The stored username keeps its original prefix; a changed password
@@ -16,7 +18,7 @@ class UpdateWebDatabaseUserRequest extends SitesRequest
     {
         return [
             'database_user' => ['sometimes', 'string', 'regex:/^[a-zA-Z0-9_]{2,64}$/'],
-            'database_password' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'database_password' => ['sometimes', 'nullable', 'string', 'max:64', new InstallationPassword],
         ];
     }
 }

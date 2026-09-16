@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\ScopesReferences;
+use App\Rules\InstallationPassword;
 use Illuminate\Validation\Rule;
 
 /**
@@ -32,7 +33,7 @@ class StoreWebFolderUserRequest extends SitesRequest
                 $this->readable(Rule::exists('web_folder', 'web_folder_id')),
             ],
             'username' => ['required', 'string', 'max:64', 'regex:/^[\w\.\-]{1,64}$/'],
-            'password' => ['required', 'string', 'max:255'],
+            'password' => ['required', 'string', 'max:255', new InstallationPassword],
             'active' => ['sometimes', 'boolean'],
         ];
     }

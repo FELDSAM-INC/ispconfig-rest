@@ -167,7 +167,7 @@ class FtpUserApiTest extends SitesApiTestCase
         $this->postJson('/api/v1/sites/ftp-users', [
             'parent_domain_id' => $parentId,
             'username' => 'john',
-            'password' => 'x',
+            'password' => 'Str0ng-Pass!x',
         ], $this->authHeaders())
             ->assertStatus(422)
             ->assertJsonStructure(['errors' => ['username']]);

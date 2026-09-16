@@ -174,10 +174,10 @@ class WebDatabaseUserApiTest extends SitesApiTestCase
     public function test_create_validation_failures(): void
     {
         $cases = [
-            'missing user' => [['database_password' => 'x'], 'database_user'],
+            'missing user' => [['database_password' => 'Str0ng-Pass!x'], 'database_user'],
             'missing password' => [['database_user' => 'appuser'], 'database_password'],
-            'bad chars' => [['database_user' => 'app-user', 'database_password' => 'x'], 'database_user'],
-            'too short' => [['database_user' => 'a', 'database_password' => 'x'], 'database_user'],
+            'bad chars' => [['database_user' => 'app-user', 'database_password' => 'Str0ng-Pass!x'], 'database_user'],
+            'too short' => [['database_user' => 'a', 'database_password' => 'Str0ng-Pass!x'], 'database_user'],
         ];
 
         foreach ($cases as $label => [$payload, $field]) {
@@ -195,7 +195,7 @@ class WebDatabaseUserApiTest extends SitesApiTestCase
 
         $this->postJson('/api/v1/sites/database-users', [
             'database_user' => 'root',
-            'database_password' => 'x',
+            'database_password' => 'Str0ng-Pass!x',
         ], $this->authHeaders())
             ->assertStatus(422)
             ->assertJsonStructure(['errors' => ['database_user']]);
@@ -203,7 +203,7 @@ class WebDatabaseUserApiTest extends SitesApiTestCase
         // Prefixed name over 32 chars (33 with the now-empty prefix).
         $this->postJson('/api/v1/sites/database-users', [
             'database_user' => str_repeat('a', 33),
-            'database_password' => 'x',
+            'database_password' => 'Str0ng-Pass!x',
         ], $this->authHeaders())
             ->assertStatus(422)
             ->assertJsonStructure(['errors' => ['database_user']]);

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\ScopesReferences;
+use App\Rules\InstallationPassword;
 use Illuminate\Validation\Rule;
 
 /**
@@ -33,7 +34,7 @@ class UpdateFtpUserRequest extends SitesRequest
                 $this->readable(Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias'])),
             ],
             'username' => ['sometimes', 'string', 'max:64', 'regex:/^[\w\.\-@\+]{1,64}$/'],
-            'password' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'password' => ['sometimes', 'nullable', 'string', 'max:255', new InstallationPassword],
             'quota_size' => ['sometimes', ...$this->quotaRules()],
             'expires' => ['sometimes', 'nullable', 'date'],
             'active' => ['sometimes', 'boolean'],

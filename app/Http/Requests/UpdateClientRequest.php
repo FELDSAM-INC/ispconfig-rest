@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\InstallationPassword;
+
 /**
  * PUT /clients/{id} (api/modules/client/clients.yaml).
  *
@@ -30,7 +32,7 @@ class UpdateClientRequest extends ClientRequest
     {
         $rules = $this->baseRules();
 
-        $rules['password'] = ['sometimes', 'string', 'min:8', 'max:200'];
+        $rules['password'] = ['sometimes', 'string', 'max:200', new InstallationPassword];
 
         return $rules;
     }

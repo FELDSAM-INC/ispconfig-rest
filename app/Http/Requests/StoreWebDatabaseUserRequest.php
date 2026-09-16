@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\InstallationPassword;
 use Illuminate\Validation\Rule;
 
 /**
@@ -20,7 +21,7 @@ class StoreWebDatabaseUserRequest extends SitesRequest
     {
         return [
             'database_user' => ['required', 'string', 'regex:/^[a-zA-Z0-9_]{2,64}$/'],
-            'database_password' => ['required', 'string', 'max:64'],
+            'database_password' => ['required', 'string', 'max:64', new InstallationPassword],
             // Optional owning client (resolved to its sys_group on create).
             'client_id' => ['sometimes', 'integer', Rule::exists('client', 'client_id')],
         ];
