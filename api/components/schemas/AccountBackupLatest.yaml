@@ -1,0 +1,56 @@
+type: object
+description: |
+  The newest backup of one type for one website, as shown on an account backup overview (spec 041).
+  Every field carries the same value as the corresponding field of the `WebBackup` schema returned by
+  `GET /sites/web-domains/{id}/backups` for the same backup; the overview never derives its own values.
+required:
+  - id
+  - type
+  - created_at
+  - size_bytes
+  - format
+  - job
+  - encrypted
+  - download_available
+  - database_name
+properties:
+  id:
+    type: integer
+    description: Backup ID (column `backup_id`)
+    example: 51
+  type:
+    type: string
+    enum: [web, mysql, mongodb]
+    description: What was backed up — website files or one of the website's databases
+  created_at:
+    type: string
+    format: date-time
+    description: When the backup was created, in the API timezone
+    example: "2026-09-15T00:10:00+02:00"
+  size_bytes:
+    type: integer
+    format: int64
+    nullable: true
+    description: Size of the archive in bytes; null when the server recorded no size
+    example: 184320000
+  format:
+    type: string
+    description: Archive format, resolved exactly as the per-website list resolves it
+    example: tar.gz
+  job:
+    type: string
+    enum: [manual, auto]
+    description: Whether the backup was started on demand or by the schedule
+  encrypted:
+    type: boolean
+    description: Whether the archive is encrypted with the website's backup password
+  download_available:
+    type: boolean
+    description: |
+      Whether a download copy can be prepared for this backup — false when the backup is stored on a
+      different server than the website (legacy `plugin_backuplist.inc.php`).
+  database_name:
+    type: string
+    nullable: true
+    description: Database the backup belongs to, for `mysql` and `mongodb` backups; null for `web`
+    example: c1_shop

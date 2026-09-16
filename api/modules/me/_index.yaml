@@ -31,3 +31,7 @@ hosting-addresses:
 # Administration and file-transfer links of the account (spec 036)
 hosting-links:
   $ref: './hosting-links.yaml'
+
+# Backup overview of the account's websites (spec 041)
+backups:
+  $ref: './backups.yaml'

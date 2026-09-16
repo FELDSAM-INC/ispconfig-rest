@@ -14,17 +14,17 @@ in `tests/Support/`. The OpenAPI specification is the source of truth and lands 
 
 ## Phase 1: Setup
 
-- [ ] T001 — Confirm the baseline suite is green before touching anything (`php artisan test`, expect 1258 passing).
+- [x] T001 — Confirm the baseline suite is green before touching anything (`php artisan test`, expect 1258 passing).
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 Contract first (constitution I): nothing in `app/` is written before these land.
 
-- [ ] T002 [P] — Create `api/components/schemas/AccountBackupLatest.yaml`: `id`, `type`, `created_at`, `size_bytes`, `format`, `job`, `encrypted`, `download_available`, `database_name`, each documented as the same value the `WebBackup` schema carries.
-- [ ] T003 [P] — Create `api/components/schemas/AccountBackupOverview.yaml`: `web_domain_id`, `domain`, `server_id`, `backups_available`, `total`, `latest[]` → `AccountBackupLatest`.
-- [ ] T004 — Create `api/modules/me/backups.yaml`: `/me/backups` `get` with `client_id`, `limit`, `offset`; 200 `{data, meta}`; 400 unknown parameter, 401, 403 `feature-not-allowed` (`limit_backup`), 404 unknown/foreign client, 422 `client_id`; description states vhost-only, per-type `latest`, and that visibility equals the per-website list.
-- [ ] T005 — Wire the contract: `backups` entry in `api/modules/me/_index.yaml` and `/me/backups` in `api/openapi.yaml`.
-- [ ] T006 — Commit the contract phase (`Add the account backup overview contract`) and push.
+- [x] T002 [P] — Create `api/components/schemas/AccountBackupLatest.yaml`: `id`, `type`, `created_at`, `size_bytes`, `format`, `job`, `encrypted`, `download_available`, `database_name`, each documented as the same value the `WebBackup` schema carries.
+- [x] T003 [P] — Create `api/components/schemas/AccountBackupOverview.yaml`: `web_domain_id`, `domain`, `server_id`, `backups_available`, `total`, `latest[]` → `AccountBackupLatest`.
+- [x] T004 — Create `api/modules/me/backups.yaml`: `/me/backups` `get` with `client_id`, `limit`, `offset`; 200 `{data, meta}`; 400 unknown parameter, 401, 403 `feature-not-allowed` (`limit_backup`), 404 unknown/foreign client, 422 `client_id`; description states vhost-only, per-type `latest`, and that visibility equals the per-website list.
+- [x] T005 — Wire the contract: `backups` entry in `api/modules/me/_index.yaml` and `/me/backups` in `api/openapi.yaml`.
+- [x] T006 — Commit the contract phase (`Add the account backup overview contract`) and push.
 
 ## Phase 3: User Story 1 - Newest backup of every website in one call (Priority: P1) 🎯 MVP
 

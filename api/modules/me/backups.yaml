@@ -1,0 +1,123 @@
+# Account-wide backup overview (spec 041) — read-only description of the calling account's backup
+# situation, so a consumer can render a website list with "last backup" in ONE request instead of one
+# request per website.
+/me/backups:
+  get:
+    tags:
+      - Me
+    summary: Backup overview of the account's websites
+    description: |
+      For every `vhost` website the calling key may read, the newest backup of each type, the number of
+      backups, and whether backups are configured on the website's server.
+
+      Visibility is identical to the per-website endpoints of the backup feature: a website appears only
+      when the key may read it, and a backup appears only when
+      `GET /sites/web-domains/{id}/backups` would show it (the backup's server is the website's server or
+      one of its database servers). Subdomains and alias domains never appear — only vhost websites have
+      backups.
+
+      Client and reseller keys need `limit_backup` enabled on their client (403 otherwise), exactly as the
+      per-website backup endpoints require. Admin keys are not limited by the flag but must name a client
+      with `client_id`.
+
+      Read-only: no backup is started, changed or removed, and nothing is written to the change journal.
+    parameters:
+      - name: client_id
+        in: query
+        description: |
+          Client whose overview is returned. Required for admin keys (422 without it). Client keys must
+          omit it or pass their own id; reseller keys may pass one of their own clients' ids.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+        example: 42
+      - $ref: '../../components/parameters/limit.yaml'
+      - $ref: '../../components/parameters/offset.yaml'
+    responses:
+      '200':
+        description: One entry per vhost website of the account, ordered by domain
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data, meta]
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '../../components/schemas/AccountBackupOverview.yaml'
+                meta:
+                  $ref: '../../components/schemas/Meta.yaml'
+            example:
+              data:
+                - web_domain_id: 20
+                  domain: example.com
+                  server_id: 1
+                  backups_available: true
+                  total: 7
+                  latest:
+                    - id: 51
+                      type: web
+                      created_at: "2026-09-15T00:10:00+02:00"
+                      size_bytes: 184320000
+                      format: tar.gz
+                      job: auto
+                      encrypted: false
+                      download_available: true
+                      database_name: null
+                    - id: 52
+                      type: mysql
+                      created_at: "2026-09-15T00:12:00+02:00"
+                      size_bytes: 20480
+                      format: gzip
+                      job: auto
+                      encrypted: false
+                      download_available: true
+                      database_name: c1_shop
+                - web_domain_id: 21
+                  domain: new.example.com
+                  server_id: 1
+                  backups_available: true
+                  total: 0
+                  latest: []
+              meta:
+                total: 2
+                limit: 25
+                offset: 0
+      '400':
+        description: Unknown query parameter
+        content:
+          application/problem+json:
+            schema:
+              $ref: '../../components/schemas/Problem.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        description: |
+          The client's plan does not include backups (`limit_backup`). Problem type
+          `feature-not-allowed` with the member `feature` naming the limit.
+        content:
+          application/problem+json:
+            schema:
+              $ref: '../../components/schemas/Problem.yaml'
+            example:
+              type: https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#feature-not-allowed
+              title: Forbidden
+              status: 403
+              detail: Backups are not included in this account's hosting plan.
+              feature: limit_backup
+      '404':
+        description: The requested client does not exist or is not visible to the key
+        content:
+          application/problem+json:
+            schema:
+              $ref: '../../components/schemas/Problem.yaml'
+      '422':
+        description: |
+          `client_id` missing for an admin key, or not a positive integer. Problem type
+          `validation-failed`.
+        content:
+          application/problem+json:
+            schema:
+              $ref: '../../components/schemas/Problem.yaml'

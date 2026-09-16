@@ -471,6 +471,8 @@ paths:
     $ref: './modules/me/hosting-addresses.yaml#/~1me~1hosting-addresses'
   /me/hosting-links:
     $ref: './modules/me/hosting-links.yaml#/~1me~1hosting-links'
+  /me/backups:
+    $ref: './modules/me/backups.yaml#/~1me~1backups'
 
   # Changes module paths (spec 015) — specific before general
   /changes:

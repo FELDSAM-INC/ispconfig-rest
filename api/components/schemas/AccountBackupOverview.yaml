@@ -1,0 +1,43 @@
+type: object
+description: |
+  One website of the account on the backup overview (spec 041). Only `vhost` websites appear — subdomains
+  and alias domains have no backups of their own, exactly as ISPConfig shows the Backup tab only for vhost
+  websites.
+required:
+  - web_domain_id
+  - domain
+  - server_id
+  - backups_available
+  - total
+  - latest
+properties:
+  web_domain_id:
+    type: integer
+    description: ID of the website (column `domain_id`)
+    example: 20
+  domain:
+    type: string
+    description: Domain of the website; the overview is ordered by this value ascending
+    example: example.com
+  server_id:
+    type: integer
+    description: Server the website runs on
+    example: 1
+  backups_available:
+    type: boolean
+    description: |
+      Whether backups are configured on the website's server (the server's `backup_dir`). When false, the
+      website's backup actions are refused with 409 and no backups can exist.
+  total:
+    type: integer
+    description: Number of backups of this website visible to the calling key
+    example: 7
+  latest:
+    type: array
+    description: |
+      The newest backup of **each** type present for this website (`web`, `mysql`, `mongodb`), newest
+      first — not merely the newest backup overall, so a website whose files are backed up while its
+      database backup is missing or outdated is visible without opening it. Empty when the website has no
+      visible backups.
+    items:
+      $ref: './AccountBackupLatest.yaml'
