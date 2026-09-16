@@ -211,6 +211,38 @@ Deliberate and documented in code where they occur:
 - **Locked clients' services cannot be re-enabled or extended by client and reseller keys** (`403`); legacy allows both.
 - **Website plan options are refused explicitly**: client and reseller keys get `422` for options outside their plan and for administrator-only settings, which the interface only hides or silently resets; PHP mode and version lists, read-only domain fields and the SSL tab are enforced server-side (legacy enforces them in the form only).
 
+## Upgrade notes
+
+### Password policy for non-mail credentials
+
+From this version the API applies the installation's password policy — `min_password_length` (default 8) and
+`min_password_strength` (default 0, no strength requirement) from the system configuration — to every credential
+ISPConfig's own forms validate, not only to mailboxes:
+
+| Endpoint | Field |
+|---|---|
+| `POST /api/v1/clients`, `PUT /api/v1/clients/{id}` | `password` |
+| `POST /api/v1/resellers`, `PUT /api/v1/resellers/{id}` | `password` |
+| `POST`/`PUT /api/v1/sites/ftp-users` | `password` |
+| `POST`/`PUT /api/v1/sites/shell-users` | `password` |
+| `POST`/`PUT /api/v1/sites/webdav-users` | `password` |
+| `POST`/`PUT /api/v1/sites/web-folder-users` | `password` |
+| `POST`/`PUT /api/v1/sites/database-users` | `database_password` |
+| `POST`/`PUT /api/v1/sites/web-domains` | `stats_password` |
+
+A weaker value is refused with `422` on that field, carrying ISPConfig's own message, and nothing is written. An
+absent or empty value is not judged (optional password fields stay optional, and a blank password on a client update
+still means "no change"). Mailbox behaviour is unchanged.
+
+**A compliant generator** produces at least `min_length` characters and reaches `min_strength` on ISPConfig's 1–5
+scale, which grows with length and with the number of character classes used (lowercase, uppercase, digits,
+symbols) — mixing at least three classes over 12+ characters reaches 5. There is no ASCII restriction for these
+credentials (that option applies to mailboxes only). The values in force are readable per account as
+`sites.password_policy` of `GET /api/v1/me/capabilities`.
+
+**Before upgrading a production installation**: provisioning integrations that generate weak passwords start failing
+immediately, so rolling this out is the operator's decision. Audit the generator against the two values above first.
+
 ## Project governance
 
 Engineering rules live in [`.specify/memory/constitution.md`](.specify/memory/constitution.md); per-module specifications in [`specs/`](specs/). The legacy ISPConfig source used as the parity reference is expected (untracked) at `source_code/`.

@@ -27,7 +27,7 @@ is mail-only.
 | Endpoint file | Operation | Field |
 |---|---|---|
 | `api/modules/client/clients.yaml` | POST, PUT | `password` |
-| `api/modules/client/resellers.yaml` | POST, PUT | `password` |
+| `api/modules/client/resellers.yaml` (`/resellers`, admin-only) | POST, PUT | `password` |
 | `api/modules/sites/ftp-users.yaml` | POST, PUT | `password` |
 | `api/modules/sites/shell-users.yaml` | POST, PUT | `password` |
 | `api/modules/sites/webdav-users.yaml` | POST, PUT | `password` |

@@ -185,7 +185,7 @@ After this version the following stop accepting a password that is weaker than t
 | Endpoint | Field |
 |---|---|
 | `POST /clients`, `PUT /clients/{id}` | `password` |
-| `POST /clients/resellers`, `PUT /clients/resellers/{id}` | `password` (same rule as clients) |
+| `POST /resellers`, `PUT /resellers/{id}` | `password` (same rule as clients; own admin-only prefix) |
 | `POST /sites/ftp-users`, `PUT /sites/ftp-users/{id}` | `password` |
 | `POST /sites/shell-users`, `PUT /sites/shell-users/{id}` | `password` |
 | `POST /sites/webdav-users`, `PUT /sites/webdav-users/{id}` | `password` |
