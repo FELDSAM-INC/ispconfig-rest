@@ -176,7 +176,7 @@ Any valid key can call `GET /me` to read its own identity and scope.
 | `system` | global config panels, directive snippets, DNS CAA policies, resync |
 | `changes` | processing status of journaled writes: change sets, pending/failed list, record view (every key) |
 | `me` | what the calling key's account is and may do: identity, assigned servers, capabilities, PHP versions, mail settings, hosting addresses and links, and a backup overview of the account's websites — all read-only (every key) |
-| `usage` | read-only usage statistics: plan summary against limits, website/mailbox/database usage, traffic history (every key) |
+| `usage` | read-only usage statistics: plan summary against limits, website/mailbox/database usage, traffic history, and collector freshness (how often each figure is collected, when it last was, when the next run is due) — every key |
 | `monitor` | datalog journal, per-server status, system logs |
 
 ## Client lock and cancel

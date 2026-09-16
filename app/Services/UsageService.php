@@ -142,7 +142,57 @@ class UsageService
                 'this_month_start' => $this->traffic->boundaries()['this_month_start']->format('Y-m-d'),
                 'timezone' => $this->traffic->timezone(),
             ],
+            'freshness' => $this->freshness($blobs, [
+                'web_disk' => ['harddisk_quota', $vhosts->pluck('server_id')->all()],
+                'mail_storage' => ['email_quota', $mailboxes->pluck('server_id')->all()],
+                'database_size' => ['database_size', $databases->pluck('server_id')->all()],
+            ]),
         ];
+    }
+
+    /**
+     * Collection rules and last collection time per collector-backed metric
+     * (spec 043), folded from the blobs summary() already loaded — this adds no
+     * query.
+     *
+     * `measured_at` is the OLDEST contributing collection time (the total is
+     * only as current as its oldest part) and is reported even when the value
+     * itself has aged out: that is what lets a consumer tell "measured hours
+     * ago" from "never measured", which the metric alone cannot express because
+     * it reports null in both cases. Both timestamps are null together; the two
+     * interval fields describe the installation and are always present.
+     *
+     * @param  array<int, array<string, array{data: array<mixed>|null, created: int}>>  $blobs
+     * @param  array<string, array{0: string, 1: array<int, int|string>}>  $metrics  metric => [monitor type, contributing server ids]
+     * @return array<string, array<string, int|string|null>>
+     */
+    protected function freshness(array $blobs, array $metrics): array
+    {
+        $freshness = [];
+
+        foreach ($metrics as $metric => [$type, $serverIds]) {
+            $interval = (int) config('api.usage.interval.'.$type, 0);
+            $oldest = null;
+
+            foreach (array_unique(array_map('intval', $serverIds)) as $serverId) {
+                $created = $blobs[$serverId][$type]['created'] ?? null;
+
+                if ($created === null) {
+                    continue;
+                }
+
+                $oldest = $oldest === null ? (int) $created : min($oldest, (int) $created);
+            }
+
+            $freshness[$metric] = [
+                'interval_seconds' => $interval,
+                'stale_after_seconds' => (int) config('api.usage.stale_after.'.$type, 0),
+                'measured_at' => $this->iso($oldest),
+                'next_expected_at' => $oldest === null || $interval <= 0 ? null : $this->iso($oldest + $interval),
+            ];
+        }
+
+        return $freshness;
     }
 
     /**

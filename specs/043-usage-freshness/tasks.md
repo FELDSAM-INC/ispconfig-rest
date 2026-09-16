@@ -31,31 +31,31 @@ Contract and configuration first (constitution I); nothing in `app/` before thes
 
 ### Tests for User Story 1 (REQUIRED) ⚠️
 
-- [ ] T008 [US1] — Create `tests/Feature/UsageFreshnessApiTest.php` on `UsageApiTestCase`: the summary carries `freshness` with exactly the three collector-backed metrics; each entry has the four fields; `web_traffic_this_month` has no entry.
-- [ ] T009 [P] [US1] — Add: with blobs of known age, `measured_at` equals the blob time and `next_expected_at` is exactly `interval_seconds` later (frozen clock, exact ISO strings); disk and databases report 300/1800, mail 900/3600.
-- [ ] T010 [P] [US1] — Add: two servers contributing to one metric → `measured_at` is the **oldest** of the two, not the newest.
-- [ ] T011 [US1] — Run the class; confirm it fails only because the block is missing.
+- [x] T008 [US1] — Create `tests/Feature/UsageFreshnessApiTest.php` on `UsageApiTestCase`: the summary carries `freshness` with exactly the three collector-backed metrics; each entry has the four fields; `web_traffic_this_month` has no entry.
+- [x] T009 [P] [US1] — Add: with blobs of known age, `measured_at` equals the blob time and `next_expected_at` is exactly `interval_seconds` later (frozen clock, exact ISO strings); disk and databases report 300/1800, mail 900/3600.
+- [x] T010 [P] [US1] — Add: two servers contributing to one metric → `measured_at` is the **oldest** of the two, not the newest.
+- [x] T011 [US1] — Run the class; confirm it fails only because the block is missing.
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] — Add `freshness()` to `app/Services/UsageService.php`, folded from the `$blobs` array `summary()` already loads: per metric, the oldest `created` among the contributing servers, plus the two configured values; no new query.
-- [ ] T013 [US1] — Return the block from `summary()` and run the class until the US1 tests pass.
+- [x] T012 [US1] — Add `freshness()` to `app/Services/UsageService.php`, folded from the `$blobs` array `summary()` already loads: per metric, the oldest `created` among the contributing servers, plus the two configured values; no new query.
+- [x] T013 [US1] — Return the block from `summary()` and run the class until the US1 tests pass.
 
 ## Phase 4: User Story 2 - Tell "never measured" apart from "stale" (Priority: P1)
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T014 [US2] — Add: a metric with no collector row → `measured_at: null` and `next_expected_at: null`, with both interval fields still present.
-- [ ] T015 [P] [US2] — Add: a blob older than `stale_after_seconds` → the metric stays `null` (unchanged behaviour) while the freshness entry reports the real timestamp and `next_expected_at`.
-- [ ] T016 [P] [US2] — Add: a corrupt blob behaves like stale data (metric null, freshness timestamp present); a client with no websites, mailboxes or databases reports all-null timestamps.
-- [ ] T017 [US2] — Run the class until green.
+- [x] T014 [US2] — Add: a metric with no collector row → `measured_at: null` and `next_expected_at: null`, with both interval fields still present.
+- [x] T015 [P] [US2] — Add: a blob older than `stale_after_seconds` → the metric stays `null` (unchanged behaviour) while the freshness entry reports the real timestamp and `next_expected_at`.
+- [x] T016 [P] [US2] — Add: a corrupt blob behaves like stale data (metric null, freshness timestamp present); a client with no websites, mailboxes or databases reports all-null timestamps.
+- [x] T017 [US2] — Run the class until green.
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T018 — Add a query-count assertion proving `/usage/summary` issues the same number of queries as before the feature (FR-008, SC-003).
-- [ ] T019 — Full suite on `php:8.3-cli` (expect 1292 + the new tests, no regressions, and the shipped summary tests still green — SC-004) and Pint on every changed file.
-- [ ] T020 — README: mention freshness in the `usage` module row.
-- [ ] T021 — Commit the implementation phase and push.
+- [x] T018 — Add a query-count assertion proving `/usage/summary` issues the same number of queries as before the feature (FR-008, SC-003).
+- [x] T019 — Full suite on `php:8.3-cli` (expect 1292 + the new tests, no regressions, and the shipped summary tests still green — SC-004) and Pint on every changed file.
+- [x] T020 — README: mention freshness in the `usage` module row.
+- [x] T021 — Commit the implementation phase and push.
 - [ ] T022 — Deploy to isp-test and confirm the deployed commit is on `origin/main`.
 - [ ] T023 — Run quickstart §3 live: compare the captured pre-deploy summary with the new one (only `freshness` added), check the interval/stale values and the `next_expected_at` arithmetic, cross-check one `measured_at` against `monitor_data`, and read a temporary resource-less client for the never-measured case.
 - [ ] T024 — Cleanup per quickstart §4 and verify isp-test is back to baseline.
