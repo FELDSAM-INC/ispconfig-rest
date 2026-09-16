@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateShellUserRequest;
 use App\Models\ShellUser;
 use App\Services\SitesConfigService;
 use App\Services\SitesService;
+use App\Support\IspContext;
 use App\Support\LegacyCrypt;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,9 +21,11 @@ use Illuminate\Validation\ValidationException;
  * Shell Users (contract: api/modules/sites/shell-users.yaml; legacy:
  * shell_user_edit.php). Usernames are stored prefixed (shelluser_prefix,
  * prefixed name capped at 32 chars); server_id/dir/puser/pgroup/
- * sys_groupid always derive from the parent web domain; the system SSH
- * authentication mode clears ssh_rsa (password mode) or password (key
- * mode); passwords are stored as SHA-512 crypt hashes.
+ * sys_groupid always derive from the parent web domain; for administrator
+ * keys the system SSH authentication mode clears ssh_rsa (password mode) or
+ * password (key mode), while client and reseller keys are refused instead
+ * (spec 037, EnforcesSshAuthenticationMode); passwords are stored as SHA-512
+ * crypt hashes.
  */
 class ShellUserController extends Controller
 {
@@ -165,11 +168,20 @@ class ShellUserController extends Controller
      */
     protected function applySshAuthenticationMode(array $payload): array
     {
-        $mode = $this->config->sshAuthenticationMode();
-
         if (isset($payload['ssh_rsa']) && is_string($payload['ssh_rsa'])) {
             $payload['ssh_rsa'] = trim($payload['ssh_rsa']);
         }
+
+        // Spec 037: clearing is the administrator path. Client and reseller
+        // keys are refused when they try to set the credential the
+        // installation does not accept (EnforcesSshAuthenticationMode), and an
+        // accepted request of theirs must never destroy a credential that is
+        // already stored — that silent loss is what this spec removes.
+        if (! app(IspContext::class)->authScope()->isAdmin) {
+            return $payload;
+        }
+
+        $mode = $this->config->sshAuthenticationMode();
 
         if ($mode === 'password') {
             $payload['ssh_rsa'] = null;

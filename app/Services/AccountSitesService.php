@@ -91,14 +91,19 @@ class AccountSitesService
     }
 
     /**
-     * @return array{available: bool, chroot_options: array<int, string>}
+     * @return array{available: bool, chroot_options: array<int, string>, authentication: string}
      */
     protected function shell(?object $client): array
     {
         $available = $this->intValue($client, 'limit_shell_user') !== 0;
+        // Spec 037: describes the installation, so it is reported even when the
+        // plan has no SSH access; an unknown value means both are allowed
+        // (legacy's else branch).
+        $mode = $this->config->sshAuthenticationMode();
+        $authentication = in_array($mode, ['password', 'key'], true) ? $mode : 'password_or_key';
 
         if (! $available) {
-            return ['available' => false, 'chroot_options' => []];
+            return ['available' => false, 'chroot_options' => [], 'authentication' => $authentication];
         }
 
         // Legacy tform_base::applyValueLimit('client:ssh_chroot'): the offered
@@ -108,6 +113,7 @@ class AccountSitesService
         return [
             'available' => true,
             'chroot_options' => array_values(array_intersect(self::CHROOT_MODES, $allowed)),
+            'authentication' => $authentication,
         ];
     }
 

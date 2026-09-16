@@ -140,12 +140,18 @@ class SitesConfigService
     }
 
     /**
-     * SSH authentication mode from the [misc] global config
-     * (shell_user_edit.php::onSubmit): 'password', 'key' or '' (both).
+     * SSH authentication mode: 'password', 'key' or '' (both allowed).
+     *
+     * Read from the [sites] section — the one the administrator's Sites tab
+     * writes (admin/form/system_config.tform.php:43, 256-260) and the one the
+     * shell-user form reads to hide a field (shell_user_edit.php:100). Legacy's
+     * save path reads $system_config['misc'] (shell_user_edit.php:131-137),
+     * where the key never exists, so its clearing never runs; spec 037 corrects
+     * the section deliberately instead of mirroring that dead code.
      */
     public function sshAuthenticationMode(): string
     {
-        return (string) ($this->globalConfig('misc')['ssh_authentication'] ?? '');
+        return (string) ($this->globalConfig('sites')['ssh_authentication'] ?? '');
     }
 
     /**

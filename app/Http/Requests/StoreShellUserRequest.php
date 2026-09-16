@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\EnforcesSshAuthenticationMode;
 use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\ShellUser;
 use Closure;
@@ -15,6 +16,7 @@ use Illuminate\Validation\Rule;
  */
 class StoreShellUserRequest extends SitesRequest
 {
+    use EnforcesSshAuthenticationMode;
     use ScopesReferences;
 
     protected function booleanFields(): array

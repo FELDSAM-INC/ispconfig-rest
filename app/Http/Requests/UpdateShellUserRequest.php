@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\EnforcesSshAuthenticationMode;
 use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\ShellUser;
 use Closure;
@@ -12,6 +13,7 @@ use Illuminate\Validation\Rule;
  */
 class UpdateShellUserRequest extends SitesRequest
 {
+    use EnforcesSshAuthenticationMode;
     use ScopesReferences;
 
     protected function booleanFields(): array
@@ -41,6 +43,17 @@ class UpdateShellUserRequest extends SitesRequest
             'quota_size' => ['sometimes', ...$this->quotaRules()],
             'active' => ['sometimes', 'boolean'],
         ];
+    }
+
+    /**
+     * The stored row, so after() can accept a not-allowed credential that is
+     * re-sent unchanged (spec 037).
+     */
+    protected function storedShellUser(): ?ShellUser
+    {
+        $shellUser = $this->route('shellUser');
+
+        return $shellUser instanceof ShellUser ? $shellUser : null;
     }
 
     protected function usernameNotBlacklistedRule(): Closure

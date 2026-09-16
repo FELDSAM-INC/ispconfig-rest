@@ -167,7 +167,7 @@ class MeCapabilitiesApiTest extends TestCase
                     'webdav_user' => '',
                 ],
                 'databases' => ['quota_limit_mb' => null, 'remote_access' => true],
-                'shell' => ['available' => false, 'chroot_options' => []],
+                'shell' => ['available' => false, 'chroot_options' => [], 'authentication' => 'password_or_key'],
                 'cron' => ['types' => ['url'], 'min_interval_minutes' => 5],
             ],
         ]);
@@ -238,7 +238,10 @@ class MeCapabilitiesApiTest extends TestCase
         $response = $this->getJson('/api/v1/me/capabilities', $this->tenantHeaders('clientA'))->assertOk();
 
         $this->assertSame(['quota_limit_mb' => 2048, 'remote_access' => true], $response->json('sites.databases'));
-        $this->assertSame(['available' => true, 'chroot_options' => ['no', 'jailkit']], $response->json('sites.shell'));
+        $this->assertSame(
+            ['available' => true, 'chroot_options' => ['no', 'jailkit'], 'authentication' => 'password_or_key'],
+            $response->json('sites.shell')
+        );
         $this->assertSame(['types' => ['url', 'chrooted'], 'min_interval_minutes' => 15], $response->json('sites.cron'));
 
         // Unlimited quota, no shell access, unconstrained interval, every kind.
@@ -252,7 +255,10 @@ class MeCapabilitiesApiTest extends TestCase
         $response = $this->getJson('/api/v1/me/capabilities', $this->tenantHeaders('clientA'))->assertOk();
 
         $this->assertNull($response->json('sites.databases.quota_limit_mb'));
-        $this->assertSame(['available' => false, 'chroot_options' => []], $response->json('sites.shell'));
+        $this->assertSame(
+            ['available' => false, 'chroot_options' => [], 'authentication' => 'password_or_key'],
+            $response->json('sites.shell')
+        );
         $this->assertSame(['types' => ['url', 'chrooted', 'full'], 'min_interval_minutes' => null], $response->json('sites.cron'));
 
         // Only modes ISPConfig offers survive the client list (legacy applyValueLimit).
@@ -262,6 +268,37 @@ class MeCapabilitiesApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('sites.shell.chroot_options', ['jailkit'])
             ->assertJsonPath('sites.cron.types', ['url']);
+    }
+
+    public function test_sites_shell_authentication_mode(): void
+    {
+        // Spec 037: the mode lives in the [sites] section — the one the
+        // administrator's Sites tab writes (legacy reads it from [misc] when
+        // saving, where it never exists, so its clearing is dead code).
+        $modes = [
+            '' => 'password_or_key',
+            'password' => 'password',
+            'key' => 'key',
+            'something-else' => 'password_or_key',
+        ];
+
+        foreach ($modes as $setting => $expected) {
+            DB::table('sys_ini')->updateOrInsert(['sysini_id' => 1], [
+                'config' => "[sites]\nssh_authentication={$setting}\n[misc]\n",
+            ]);
+
+            $this->getJson('/api/v1/me/capabilities', $this->tenantHeaders('clientA'))
+                ->assertOk()
+                ->assertJsonPath('sites.shell.authentication', $expected, "setting: {$setting}");
+        }
+
+        // Reported even when the plan has no SSH access.
+        $this->setClient('clientA', ['limit_shell_user' => 0]);
+
+        $this->getJson('/api/v1/me/capabilities', $this->tenantHeaders('clientA'))
+            ->assertOk()
+            ->assertJsonPath('sites.shell.available', false)
+            ->assertJsonPath('sites.shell.authentication', 'password_or_key');
     }
 
     public function test_php_modes_intersect_system_and_client_lists(): void

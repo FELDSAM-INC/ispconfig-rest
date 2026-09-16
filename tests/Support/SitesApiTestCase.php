@@ -101,8 +101,12 @@ abstract class SitesApiTestCase extends TestCase
                 'shelluser_prefix=[CLIENTNAME]',
                 'webdavuser_prefix=[CLIENTNAME]',
                 'default_remote_dbserver=',
-                '[misc]',
+                // Spec 037: the SSH authentication mode lives in [sites] — the
+                // section the administrator's Sites tab writes. Legacy's save
+                // path reads [misc], where it never exists, so its clearing is
+                // dead code; the fixture must use the real section.
                 'ssh_authentication=',
+                '[misc]',
             ]),
         ]);
     }
