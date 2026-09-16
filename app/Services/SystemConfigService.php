@@ -180,7 +180,23 @@ class SystemConfigService
         $fields = $this->fields($section);
 
         foreach ($input as $key => $value) {
-            if (! isset($fields[$key]) || ! is_string($value)) {
+            if (! isset($fields[$key])) {
+                continue;
+            }
+
+            // Spec 040: Laravel converts an empty request string to null before
+            // validation, so a text setting could be set but never cleared. An
+            // explicit null clears a string setting — exactly what submitting
+            // an empty field does in ISPConfig's own form. Other types keep
+            // their rules, so numbers, y/n switches and the required
+            // web_php_options still refuse an empty value.
+            if ($value === null && ($fields[$key]['type'] ?? '') === 'string') {
+                $input[$key] = '';
+
+                continue;
+            }
+
+            if (! is_string($value)) {
                 continue;
             }
 
