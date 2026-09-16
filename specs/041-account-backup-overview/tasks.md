@@ -20,8 +20,8 @@ in `tests/Support/`. The OpenAPI specification is the source of truth and lands 
 
 Contract first (constitution I): nothing in `app/` is written before these land.
 
-- [x] T002 [P] — Create `api/components/schemas/AccountBackupLatest.yaml`: `id`, `type`, `created_at`, `size_bytes`, `format`, `job`, `encrypted`, `download_available`, `database_name`, each documented as the same value the `WebBackup` schema carries.
-- [x] T003 [P] — Create `api/components/schemas/AccountBackupOverview.yaml`: `web_domain_id`, `domain`, `server_id`, `backups_available`, `total`, `latest[]` → `AccountBackupLatest`.
+- [x] T002 [P] — Reuse the shipped `api/components/schemas/WebBackup.yaml` for `latest[]` entries instead of defining a second representation, so field parity with the per-website list is structural (correction made 2026-09-16: a reduced schema had invented `type`/`size_bytes`/`format`, which the service does not emit).
+- [x] T003 [P] — Create `api/components/schemas/AccountBackupOverview.yaml`: `web_domain_id`, `domain`, `server_id`, `backups_available`, `total`, `latest[]` → `WebBackup`.
 - [x] T004 — Create `api/modules/me/backups.yaml`: `/me/backups` `get` with `client_id`, `limit`, `offset`; 200 `{data, meta}`; 400 unknown parameter, 401, 403 `feature-not-allowed` (`limit_backup`), 404 unknown/foreign client, 422 `client_id`; description states vhost-only, per-type `latest`, and that visibility equals the per-website list.
 - [x] T005 — Wire the contract: `backups` entry in `api/modules/me/_index.yaml` and `/me/backups` in `api/openapi.yaml`.
 - [x] T006 — Commit the contract phase (`Add the account backup overview contract`) and push.

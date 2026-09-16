@@ -63,8 +63,7 @@ specs/041-account-backup-overview/
 api/modules/me/backups.yaml                     # new contract (paths + operation)
 api/modules/me/_index.yaml                      # + backups entry
 api/openapi.yaml                                # + /me/backups path
-api/components/schemas/AccountBackupOverview.yaml   # new: one website entry
-api/components/schemas/AccountBackupLatest.yaml     # new: one newest-backup entry
+api/components/schemas/AccountBackupOverview.yaml   # new: one website entry; latest[] -> WebBackup.yaml
 app/Http/Controllers/Api/V1/MeBackupsController.php # new: validation + delegation
 app/Services/AccountBackupService.php               # new: the page fold
 app/Services/WebBackupService.php                   # + page-level server-id resolution (R4)
