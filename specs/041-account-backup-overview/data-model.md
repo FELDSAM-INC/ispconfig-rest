@@ -63,6 +63,8 @@ For one request, regardless of the number of websites:
 4. One `web_backup` query for all website ids of the page, ordered newest first.
 5. One `server` query for the distinct server ids of the page (`backup_dir`).
 6. One `client` read for the plan gate (before anything else; refuses early).
+7. One `sys_remoteaction` query for backups with a pending download action, so each entry's `download.state`
+   can report `preparing` (added by spec 042; one query per page, never per backup).
 
 Newest-per-type and per-website totals are folded in PHP from the single result of step 4.
 

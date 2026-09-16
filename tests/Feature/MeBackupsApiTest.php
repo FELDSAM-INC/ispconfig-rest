@@ -183,7 +183,7 @@ class MeBackupsApiTest extends WebBackupApiTestCase
             ->assertJsonPath('meta.total', 5);
 
         $this->assertSame($one, $five, 'the overview must not query per website');
-        $this->assertLessThanOrEqual(6, $five, 'the overview must stay within its fixed query budget');
+        $this->assertLessThanOrEqual(7, $five, 'the overview must stay within its fixed query budget');
     }
 
     /**

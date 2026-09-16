@@ -191,7 +191,13 @@ class WebBackupService
      *
      * @return array<string, mixed>
      */
-    public function backupRepresentation(WebBackup $backup, WebDomain $website): array
+    /**
+     * @param  array<int, true>|null  $preparing  ids with a pending download
+     *                                            action; pass it when mapping
+     *                                            many rows so the lookup runs
+     *                                            once instead of per row.
+     */
+    public function backupRepresentation(WebBackup $backup, WebDomain $website, ?array $preparing = null): array
     {
         $row = $backup->getAttributes();
         $web = $website->getAttributes();
@@ -224,6 +230,7 @@ class WebBackupService
         }
 
         $filesize = (string) $row['filesize'];
+        $sameServer = (int) $row['server_id'] === (int) $web['server_id'];
 
         return [
             'id' => (int) $row['backup_id'],
@@ -239,8 +246,120 @@ class WebBackupService
             'created_at' => $this->timestamp((int) $row['tstamp']),
             'job' => str_starts_with($filename, self::MANUAL_PREFIX) ? 'manual' : 'auto',
             'encrypted' => $password !== '',
-            'download_available' => (int) $row['server_id'] === (int) $web['server_id'],
+            'download_available' => $sameServer,
+            'download' => $this->downloadState(
+                $backup,
+                $website,
+                $filename,
+                $sameServer,
+                $sameServer ? $this->preparedCopy($backup, $website, $filename) : null,
+                $preparing
+            ),
         ];
+    }
+
+    /**
+     * Ids of backups with a pending `backup_download` action, resolved once per
+     * request (spec 042 research R6): list pages map backupRepresentation()
+     * per row, so this must never become a query per backup.
+     *
+     * @return array<int, true>
+     */
+    public function preparingBackupIds(): array
+    {
+        $ids = DB::table('sys_remoteaction')
+            ->where('action_type', 'backup_download')
+            ->where('action_state', 'pending')
+            ->pluck('action_param');
+
+        $map = [];
+
+        foreach ($ids as $id) {
+            if (ctype_digit((string) $id)) {
+                $map[(int) $id] = true;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * The prepared copy of a backup in the website's own `backup` folder, as
+     * ISPConfig's backup_download action delivers it (spec 042 research R4).
+     *
+     * The name always comes from the backup row, never from a request, and the
+     * resolved path must stay inside the resolved folder: the folder is
+     * writable by a customer with shell access, so a symlink pointing outside
+     * it must never be opened.
+     *
+     * @return array{path: string, size: int, modified: int, readable: bool}|null
+     */
+    public function preparedCopy(WebBackup $backup, WebDomain $website, string $filename): ?array
+    {
+        $root = (string) ($website->getAttributes()['document_root'] ?? '');
+
+        if (! str_starts_with($root, '/') || preg_match('#(^|/)\.\.(/|$)#', $root) === 1 || $filename === '') {
+            return null;
+        }
+
+        $folder = @realpath(rtrim($root, '/').'/backup');
+
+        if ($folder === false || ! @is_dir($folder)) {
+            return null;
+        }
+
+        $path = @realpath($folder.'/'.$filename);
+
+        if ($path === false || ! str_starts_with($path, $folder.DIRECTORY_SEPARATOR) || ! @is_file($path)) {
+            return null;
+        }
+
+        $size = @filesize($path);
+        $modified = @filemtime($path);
+
+        if ($size === false || $modified === false) {
+            return null;
+        }
+
+        return [
+            'path' => $path,
+            'size' => (int) $size,
+            'modified' => (int) $modified,
+            'readable' => @is_readable($path),
+        ];
+    }
+
+    /**
+     * The `download` object of a backup representation (spec 042 R6, R7):
+     * whether a copy exists and whether this API process may stream it.
+     *
+     * @param  array{path: string, size: int, modified: int, readable: bool}|null  $copy
+     * @return array<string, mixed>
+     */
+    public function downloadState(WebBackup $backup, WebDomain $website, string $filename, bool $sameServer, ?array $copy, ?array $preparing = null): array
+    {
+        if (! $sameServer) {
+            return ['state' => 'unavailable', 'http' => false, 'filename' => null, 'available_until' => null];
+        }
+
+        $expired = $copy !== null && time() >= $copy['modified'] + self::DOWNLOAD_RETENTION;
+
+        if ($copy !== null && ! $expired) {
+            return [
+                'state' => 'ready',
+                'http' => $copy['readable'],
+                'filename' => $filename,
+                'available_until' => $this->timestamp($copy['modified'] + self::DOWNLOAD_RETENTION),
+            ];
+        }
+
+        $pending = $preparing ?? $this->preparingBackupIds();
+
+        if (isset($pending[(int) $backup->getKey()])) {
+            return ['state' => 'preparing', 'http' => false, 'filename' => $filename, 'available_until' => null];
+        }
+
+        return ['state' => 'not_prepared', 'http' => false, 'filename' => null, 'available_until' => null];
     }
 
     /**

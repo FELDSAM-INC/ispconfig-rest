@@ -55,6 +55,9 @@ class AccountBackupService
             $byWebsite[(int) $row->getAttributes()['parent_domain_id']][] = $row;
         }
 
+        // Pending download actions once per page, never per backup (spec 042).
+        $preparing = $this->backups->preparingBackupIds();
+
         // Availability once per distinct server of the page (R6).
         $available = [];
         foreach ($page as $site) {
@@ -88,7 +91,7 @@ class AccountBackupService
                     continue;
                 }
 
-                $latest[$type] = $this->backups->backupRepresentation($backup, $site);
+                $latest[$type] = $this->backups->backupRepresentation($backup, $site, $preparing);
             }
 
             $entries[] = [

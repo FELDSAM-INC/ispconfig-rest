@@ -64,6 +64,12 @@ class WebBackupApiTest extends WebBackupApiTestCase
                 'job' => 'auto',
                 'encrypted' => false,
                 'download_available' => true,
+                'download' => [
+                    'state' => 'not_prepared',
+                    'http' => false,
+                    'filename' => null,
+                    'available_until' => null,
+                ],
             ]);
     }
 

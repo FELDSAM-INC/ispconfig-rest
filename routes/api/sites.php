@@ -33,6 +33,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('scope.backup')->group(function (): void {
     Route::post('sites/web-domains/{webDomain}/backups/{backup}/restore', [WebBackupController::class, 'restore'])->whereNumber(['webDomain', 'backup']);
     Route::post('sites/web-domains/{webDomain}/backups/{backup}/download', [WebBackupController::class, 'download'])->whereNumber(['webDomain', 'backup']);
+    Route::match(['get', 'head'], 'sites/web-domains/{webDomain}/backups/{backup}/download', [WebBackupController::class, 'downloadFile'])->whereNumber(['webDomain', 'backup']);
     Route::get('sites/web-domains/{webDomain}/backups/{backup}', [WebBackupController::class, 'show'])->whereNumber(['webDomain', 'backup']);
     Route::delete('sites/web-domains/{webDomain}/backups/{backup}', [WebBackupController::class, 'destroy'])->whereNumber(['webDomain', 'backup']);
     Route::get('sites/web-domains/{webDomain}/backups', [WebBackupController::class, 'index'])->whereNumber('webDomain');

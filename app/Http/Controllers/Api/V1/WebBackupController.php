@@ -12,6 +12,8 @@ use App\Services\LockedClientGuard;
 use App\Services\RemoteActionService;
 use App\Services\WebBackupService;
 use App\Support\IspContext;
+use App\Support\Problem;
+use App\Support\ProblemType;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -66,8 +68,10 @@ class WebBackupController extends Controller
             sortAliases: ['created_at' => 'tstamp', 'id' => 'backup_id'],
         );
 
+        $preparing = $this->backups->preparingBackupIds();
+
         $result['data'] = collect($result['data'])
-            ->map(fn (WebBackup $backup): array => $this->backups->backupRepresentation($backup, $webDomain))
+            ->map(fn (WebBackup $backup): array => $this->backups->backupRepresentation($backup, $webDomain, $preparing))
             ->values()
             ->all();
 
@@ -190,6 +194,67 @@ class WebBackupController extends Controller
             $this->backups->jobRepresentation($job, $webDomain, [(int) $model->getKey() => $model]),
             201
         );
+    }
+
+    /**
+     * GET|HEAD /sites/web-domains/{id}/backups/{backup_id}/download — stream the
+     * prepared copy of a backup (spec 042).
+     *
+     * ISPConfig has no HTTP download of its own; this serves the copy its
+     * download action delivers into the website's `backup` folder, and only
+     * when this API process can read it. On a stock installation it cannot
+     * (the copy belongs to the website's user and group), so the honest answer
+     * there is 409 `download-not-readable`. Reads only: nothing is queued,
+     * journaled or modified, and no path is ever disclosed.
+     */
+    public function downloadFile(WebDomain $webDomain, int $backup): \Symfony\Component\HttpFoundation\Response
+    {
+        $model = $this->backups->backupOfWebsite($webDomain, $backup);
+        $representation = $this->backups->backupRepresentation($model, $webDomain);
+        $download = $representation['download'];
+
+        if ($download['state'] === 'unavailable') {
+            return Problem::response(409, 'Conflict', "This backup is stored on another server than the website, so a copy cannot be delivered here; use the website's FTP or SSH access on that server.", [
+                'type' => ProblemType::uri(ProblemType::DOWNLOAD_NOT_READABLE),
+            ]);
+        }
+
+        if ($download['state'] !== 'ready') {
+            return Problem::response(409, 'Conflict', 'No prepared copy of this backup is available. Request one first.', [
+                'type' => ProblemType::uri(ProblemType::DOWNLOAD_NOT_PREPARED),
+            ]);
+        }
+
+        $copy = $this->backups->preparedCopy($model, $webDomain, (string) $representation['filename']);
+
+        if ($copy === null) {
+            return Problem::response(409, 'Conflict', 'No prepared copy of this backup is available. Request one first.', [
+                'type' => ProblemType::uri(ProblemType::DOWNLOAD_NOT_PREPARED),
+            ]);
+        }
+
+        if (! $copy['readable']) {
+            return Problem::response(409, 'Conflict', "This installation delivers backup copies to the website's backup folder; fetch it with the website's FTP or SSH access.", [
+                'type' => ProblemType::uri(ProblemType::DOWNLOAD_NOT_READABLE),
+            ]);
+        }
+
+        $filename = str_replace(['"', "\r", "\n"], '', (string) $representation['filename']);
+
+        $response = response()->file($copy['path'], [
+            'Content-Type' => 'application/octet-stream',
+            'Content-Length' => (string) $copy['size'],
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+
+        // A customer's archive must never be cached by a shared cache. Set the
+        // directives on the response rather than as a raw header: Symfony
+        // recomputes Cache-Control while preparing a file response and would
+        // otherwise replace them (it emitted `no-store, public` here).
+        $response->setPrivate();
+        $response->headers->addCacheControlDirective('no-store');
+
+        return $response;
     }
 
     /**

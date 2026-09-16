@@ -31,38 +31,38 @@ Contract and problem vocabulary first (constitution I); nothing in `app/` before
 
 ### Tests for User Story 1 (REQUIRED) ⚠️
 
-- [ ] T008 [US1] — Create `tests/Feature/WebBackupDownloadApiTest.php` on `WebBackupApiTestCase`, with a real temporary `document_root` per test: key required (401); a readable copy downloads with byte-identical content, `Content-Length`, `Content-Disposition` naming the archive, octet-stream type and `Cache-Control: private, no-store`.
-- [ ] T009 [P] [US1] — Add: `HEAD` returns the identical headers with an empty body; a large-ish file (a few MB) still streams and the response is not buffered in memory.
-- [ ] T010 [P] [US1] — Add: no `sys_datalog` and no `sys_remoteaction` row is written by a download (FR-007, SC-003); no response header, body or problem detail contains the document root or any path (SC-004).
-- [ ] T011 [US1] — Run the class; confirm it fails only because the route is missing.
+- [x] T008 [US1] — Create `tests/Feature/WebBackupDownloadApiTest.php` on `WebBackupApiTestCase`, with a real temporary `document_root` per test: key required (401); a readable copy downloads with byte-identical content, `Content-Length`, `Content-Disposition` naming the archive, octet-stream type and `Cache-Control: private, no-store`.
+- [x] T009 [P] [US1] — Add: `HEAD` returns the identical headers with an empty body; a large-ish file (a few MB) still streams and the response is not buffered in memory.
+- [x] T010 [P] [US1] — Add: no `sys_datalog` and no `sys_remoteaction` row is written by a download (FR-007, SC-003); no response header, body or problem detail contains the document root or any path (SC-004).
+- [x] T011 [US1] — Run the class; confirm it fails only because the route is missing.
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] — Add copy resolution to `app/Services/WebBackupService.php`: absolute/`..`-free `document_root`, `realpath()` of `<root>/backup` and of the candidate, prefix check, regular-file check, readability and mtime; never accept a name from the request (research R4).
-- [ ] T013 [US1] — Add the streamed response in `app/Http/Controllers/Api/V1/WebBackupController.php` (`download` action for `GET`/`HEAD`), delegating resolution to the service.
-- [ ] T014 [US1] — Register the route in `routes/api/sites.php` inside the existing `scope.backup` group, before the `{backup}` show route so it is not shadowed.
-- [ ] T015 [US1] — Run the class until the US1 tests pass; run the full suite to prove nothing else moved.
+- [x] T012 [US1] — Add copy resolution to `app/Services/WebBackupService.php`: absolute/`..`-free `document_root`, `realpath()` of `<root>/backup` and of the candidate, prefix check, regular-file check, readability and mtime; never accept a name from the request (research R4).
+- [x] T013 [US1] — Add the streamed response in `app/Http/Controllers/Api/V1/WebBackupController.php` (`download` action for `GET`/`HEAD`), delegating resolution to the service.
+- [x] T014 [US1] — Register the route in `routes/api/sites.php` inside the existing `scope.backup` group, before the `{backup}` show route so it is not shadowed.
+- [x] T015 [US1] — Run the class until the US1 tests pass; run the full suite to prove nothing else moved.
 
 ## Phase 4: User Story 2 - Be told exactly why a download is not possible (Priority: P1)
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T016 [US2] — Add: no copy → 409 `download-not-prepared`; a copy older than `DOWNLOAD_RETENTION` → 409 `download-not-prepared` even though the file exists.
-- [ ] T017 [P] [US2] — Add: an unreadable copy (`chmod 0000`, test skipped when running as root) → 409 `download-not-readable`; a backup whose `server_id` differs from the website's → 409 `download-not-readable`.
-- [ ] T018 [P] [US2] — Add: a symlink in the backup folder pointing outside it is never opened (treated as not prepared); a directory with the archive's name likewise; cross-tenant backup id → 404; client without `limit_backup` → 403 `feature-not-allowed`.
-- [ ] T019 [P] [US2] — Add representation tests: `download.state` is `unavailable` / `not_prepared` / `preparing` (pending `backup_download` action) / `ready`, `http` reflects readability, and `available_until` is the copy's mtime plus three days.
+- [x] T016 [US2] — Add: no copy → 409 `download-not-prepared`; a copy older than `DOWNLOAD_RETENTION` → 409 `download-not-prepared` even though the file exists.
+- [x] T017 [P] [US2] — Add: an unreadable copy (`chmod 0000`, test skipped when running as root) → 409 `download-not-readable`; a backup whose `server_id` differs from the website's → 409 `download-not-readable`.
+- [x] T018 [P] [US2] — Add: a symlink in the backup folder pointing outside it is never opened (treated as not prepared); a directory with the archive's name likewise; cross-tenant backup id → 404; client without `limit_backup` → 403 `feature-not-allowed`.
+- [x] T019 [P] [US2] — Add representation tests: `download.state` is `unavailable` / `not_prepared` / `preparing` (pending `backup_download` action) / `ready`, `http` reflects readability, and `available_until` is the copy's mtime plus three days.
 
 ### Implementation for User Story 2
 
-- [ ] T020 [US2] — Derive the `download` object in `WebBackupService::backupRepresentation()` from the resolution result and the pending-action lookup, without adding a query per backup on list pages.
-- [ ] T021 [US2] — Map the refusals in the controller to the two problem types with detail texts that name no path.
-- [ ] T022 [US2] — Run the class until green.
+- [x] T020 [US2] — Derive the `download` object in `WebBackupService::backupRepresentation()` from the resolution result and the pending-action lookup, without adding a query per backup on list pages.
+- [x] T021 [US2] — Map the refusals in the controller to the two problem types with detail texts that name no path.
+- [x] T022 [US2] — Run the class until green.
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T023 — Full suite on `php:8.3-cli` (expect 1276 + the new tests, no regressions) and Pint on every changed file.
-- [ ] T024 — README: document the endpoint under Known deviations — ISPConfig has no HTTP download; this API adds one that works only where the operator has granted the API read access to website backup folders, with the security trade-off stated plainly (FR-009).
-- [ ] T025 — Commit the implementation phase and push.
+- [x] T023 — Full suite on `php:8.3-cli` (expect 1276 + the new tests, no regressions) and Pint on every changed file.
+- [x] T024 — README: document the endpoint under Known deviations — ISPConfig has no HTTP download; this API adds one that works only where the operator has granted the API read access to website backup folders, with the security trade-off stated plainly (FR-009).
+- [x] T025 — Commit the implementation phase and push.
 - [ ] T026 — Deploy to isp-test and confirm the deployed commit is on `origin/main`.
 - [ ] T027 — Run quickstart §3 live: expect `download.http: false` and 409 `download-not-readable` on this stock installation, with the copy's owner/mode verified on the shell; plus isolation and the plan gate.
 - [ ] T028 — Cleanup per quickstart §4 (backup before website, then clients, keys, leftovers) and verify the server is back to baseline.
