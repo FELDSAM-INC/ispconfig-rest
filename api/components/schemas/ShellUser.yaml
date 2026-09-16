@@ -16,9 +16,20 @@ description: |
   the legacy `is_allowed_user` check.
 
   ### Authentication
-  Depending on the ISPConfig system setting `misc.ssh_authentication`:
-  - `password` mode: `ssh_rsa` is cleared server-side
-  - `key` mode: `password` is cleared server-side
+  The installation setting `ssh_authentication` decides which credential an SSH
+  account may carry. It is read from the `[sites]` section — the one the
+  administrator's Sites tab writes and the legacy form display reads
+  (`shell_user_edit.php:100`); legacy's own clearing code reads `[misc]`, where
+  the key does not exist, so it never runs (spec 037).
+  - `password` mode: only a password is accepted
+  - `key` mode: only an SSH key is accepted
+  - empty or unknown: both are accepted
+
+  Client and reseller keys are refused with 422 (`error_types` =
+  `feature-not-allowed`) when they send the credential the installation does
+  not accept; an empty value, and on update an unchanged one, stay accepted.
+  For administrator keys the other credential is cleared server-side, as the
+  ISPConfig form intends.
 
   ### Password storage
   `password` is write-only and stored as a SHA-512 crypt hash (legacy

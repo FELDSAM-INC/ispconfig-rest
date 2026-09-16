@@ -67,8 +67,13 @@
         not be blacklisted (e.g. `root`) — violations are rejected with 422
       - `server_id`, `dir`, `puser`, `pgroup` and `sys_groupid` are derived
         from the parent web domain
-      - Depending on the system SSH authentication mode, either `password`
-        (key mode) or `ssh_rsa` (password mode) is cleared
+      - The installation's SSH authentication mode (`ssh_authentication` in the
+        `[sites]` system configuration, readable per account as
+        `sites.shell.authentication` of `GET /me/capabilities`) decides which
+        credential is accepted. Client and reseller keys sending the other one
+        non-empty are refused with 422 on that field
+        (`error_types` = `feature-not-allowed`, spec 037); for administrator
+        keys it is cleared server-side
       - The password is stored as a SHA-512 crypt hash
 
       For client and reseller keys the parent website (`parent_domain_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
@@ -141,8 +146,13 @@
       - The stored username keeps its original prefix
       - When `parent_domain_id` changes, `server_id`, `dir`, `puser`,
         `pgroup` and `sys_groupid` are re-derived from the new parent domain
-      - Depending on the system SSH authentication mode, either `password`
-        (key mode) or `ssh_rsa` (password mode) is cleared
+      - The installation's SSH authentication mode (`ssh_authentication` in the
+        `[sites]` system configuration, readable per account as
+        `sites.shell.authentication` of `GET /me/capabilities`) decides which
+        credential is accepted. Client and reseller keys sending the other one
+        non-empty are refused with 422 on that field
+        (`error_types` = `feature-not-allowed`, spec 037); for administrator
+        keys it is cleared server-side
 
       For client and reseller keys the parent website (`parent_domain_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
     parameters:

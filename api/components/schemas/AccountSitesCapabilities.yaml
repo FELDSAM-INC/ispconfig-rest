@@ -76,6 +76,7 @@ properties:
     required:
       - available
       - chroot_options
+      - authentication
     properties:
       available:
         type: boolean
@@ -90,6 +91,14 @@ properties:
           type: string
           enum: [no, jailkit, ssh-chroot]
         example: [no, jailkit]
+      authentication:
+        type: string
+        enum: [password_or_key, password, key]
+        description: |
+          Which credential an SSH account of this installation may carry (spec 037): `password_or_key` (both),
+          `password` or `key`. Sending the other credential is refused for client and reseller keys. Reported even
+          when SSH access is not available, because it describes the installation rather than the plan.
+        example: password_or_key
   cron:
     type: object
     description: Scheduled task rules of the plan.
