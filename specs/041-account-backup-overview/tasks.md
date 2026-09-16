@@ -30,37 +30,37 @@ Contract first (constitution I): nothing in `app/` is written before these land.
 
 ### Tests for User Story 1 (REQUIRED) ⚠️
 
-- [ ] T007 [US1] — Create `tests/Feature/MeBackupsApiTest.php` on `WebBackupApiTestCase`: key required (401); one entry per vhost website ordered by domain; newest backup per type in `latest`, newest first; website without backups → `latest: []`, `total: 0`; `total` counts visible backups.
-- [ ] T008 [P] [US1] — Add to that class: `backups_available` false for a website on the server without a `backup_dir`; subdomains and alias domains absent; another tenant's website absent; a backup on a foreign server carries `download_available: false`.
-- [ ] T009 [P] [US1] — Add the two promise assertions: field-by-field equality of a `latest` entry with the same row from `GET /sites/web-domains/{id}/backups` (SC-003), and a query-count assertion proving the count does not grow from 1 to 5 websites (SC-002, FR-008).
-- [ ] T010 [US1] — Run the new class and confirm it fails for the right reason (route missing), not on fixture errors.
+- [x] T007 [US1] — Create `tests/Feature/MeBackupsApiTest.php` on `WebBackupApiTestCase`: key required (401); one entry per vhost website ordered by domain; newest backup per type in `latest`, newest first; website without backups → `latest: []`, `total: 0`; `total` counts visible backups.
+- [x] T008 [P] [US1] — Add to that class: `backups_available` false for a website on the server without a `backup_dir`; subdomains and alias domains absent; another tenant's website absent; a backup on a foreign server carries `download_available: false`.
+- [x] T009 [P] [US1] — Add the two promise assertions: field-by-field equality of a `latest` entry with the same row from `GET /sites/web-domains/{id}/backups` (SC-003), and a query-count assertion proving the count does not grow from 1 to 5 websites (SC-002, FR-008).
+- [x] T010 [US1] — Run the new class and confirm it fails for the right reason (route missing), not on fixture errors.
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] — Add page-level server-id resolution to `app/Services/WebBackupService.php` (database servers of many websites in one grouped query), keeping the per-website method as the single definition of the rule (research R4).
-- [ ] T012 [US1] — Create `app/Services/AccountBackupService.php`: count + page of vhost websites under the scoped read predicate, one grouped `web_database` query, one `web_backup` query for the page, `backupsAvailable()` once per distinct server, folding newest-per-type and totals in PHP; every entry field from `backupRepresentation()`.
-- [ ] T013 [US1] — Create `app/Http/Controllers/Api/V1/MeBackupsController.php` using `ReadsAccountQuery` (`client_id`, `limit`, `offset`; unknown → 400) and `AccountCapabilitiesService::resolveTarget()`; delegate to the service.
-- [ ] T014 [US1] — Register `GET me/backups` in `routes/api/me.php` with the module comment naming spec 041.
-- [ ] T015 [US1] — Run the class until green; run the full suite to prove nothing else moved.
+- [x] T011 [US1] — Add page-level server-id resolution to `app/Services/WebBackupService.php` (database servers of many websites in one grouped query), keeping the per-website method as the single definition of the rule (research R4).
+- [x] T012 [US1] — Create `app/Services/AccountBackupService.php`: count + page of vhost websites under the scoped read predicate, one grouped `web_database` query, one `web_backup` query for the page, `backupsAvailable()` once per distinct server, folding newest-per-type and totals in PHP; every entry field from `backupRepresentation()`.
+- [x] T013 [US1] — Create `app/Http/Controllers/Api/V1/MeBackupsController.php` using `ReadsAccountQuery` (`client_id`, `limit`, `offset`; unknown → 400) and `AccountCapabilitiesService::resolveTarget()`; delegate to the service.
+- [x] T014 [US1] — Register `GET me/backups` in `routes/api/me.php` with the module comment naming spec 041.
+- [x] T015 [US1] — Run the class until green; run the full suite to prove nothing else moved.
 
 ## Phase 4: User Story 2 - Same plan gate as the per-website endpoints (Priority: P2)
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T016 [US2] — Add: client key whose client has `limit_backup = 'n'` → 403 with problem type `feature-not-allowed` and `feature: limit_backup`; admin key unaffected by the flag.
-- [ ] T017 [P] [US2] — Add: admin key without `client_id` → 422; with a known client → that client's overview; unknown client → 404; non-numeric/zero → 422; reseller key sees its own websites and may pass one of its clients' ids.
-- [ ] T018 [P] [US2] — Add: unknown query parameter → 400; `limit`/`offset` paging with `meta.total` unchanged; a locked client still reads the overview (spec 019 leaves reads untouched).
+- [x] T016 [US2] — Add: client key whose client has `limit_backup = 'n'` → 403 with problem type `feature-not-allowed` and `feature: limit_backup`; admin key unaffected by the flag.
+- [x] T017 [P] [US2] — Add: admin key without `client_id` → 422; with a known client → that client's overview; unknown client → 404; non-numeric/zero → 422; reseller key sees its own websites and may pass one of its clients' ids.
+- [x] T018 [P] [US2] — Add: unknown query parameter → 400; `limit`/`offset` paging with `meta.total` unchanged; a locked client still reads the overview (spec 019 leaves reads untouched).
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] — Apply the gate in the controller before any work, reusing `WebBackupService::backupAllowed()` and the spec 023 `feature-not-allowed` problem with `feature: limit_backup`.
-- [ ] T020 [US2] — Run the class until green.
+- [x] T019 [US2] — Apply the gate in the controller before any work, reusing `WebBackupService::backupAllowed()` and the spec 023 `feature-not-allowed` problem with `feature: limit_backup`.
+- [x] T020 [US2] — Run the class until green.
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T021 — Full suite on `php:8.3-cli` (expect 1258 + the new tests, no regressions) and Pint on every changed file.
-- [ ] T022 — README: add `GET /me/backups` to the Modules section, stating it is read-only, vhost-only, plan-gated and one call per account.
-- [ ] T023 — Commit the implementation phase and push.
+- [x] T021 — Full suite on `php:8.3-cli` (expect 1258 + the new tests, no regressions) and Pint on every changed file.
+- [x] T022 — README: add `GET /me/backups` to the Modules section, stating it is read-only, vhost-only, plan-gated and one call per account.
+- [x] T023 — Commit the implementation phase and push.
 - [ ] T024 — Deploy to isp-test (`ispconfig-rest update && ispconfig-rest status`) and confirm the deployed commit is on `origin/main`.
 - [ ] T025 — Run quickstart §4 live with temporary clients: baseline, real backup, overview equality with the per-website list, plan gate, isolation, admin `client_id` rules, unknown parameter, paging.
 - [ ] T026 — Cleanup per quickstart §5 and verify nothing is left (no `qa*` client, key, directory or backup file; no pending remote action).
