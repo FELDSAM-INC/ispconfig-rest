@@ -30,6 +30,35 @@ delete keys, clients or data another session created. isp-test's policy is `min_
 8. Mailbox regression: admin key `POST /mail/users` with `abcdefgh` → 422 as before (spec 028), and with a compliant
    password → 201.
 
+## 4. Results on isp-test (2026-09-16, deployed `bfa2e0a`)
+
+Temporary client 48 (`qa038temp`) with website 26 and mail domain `qa038mail.test`. The installation's policy was
+used as it stands (`min_password_length=8`, `min_password_strength=3`); the system configuration was not modified.
+Weak password `abcdefgh`, compliant password `Qa038-Strong!x9`.
+
+| Check | Result |
+|---|---|
+| `POST /clients` weak | 422, `errors.password` = the legacy message naming 8 chars and strength "Good" |
+| `POST /clients` compliant | 201 |
+| Client key `GET /me/capabilities` | `sites.password_policy` = `{min_length: 8, min_strength: 3}`; `mail.password_policy` still `{8, 3, ascii_only: false}` |
+| Weak `database_password`, FTP, shell and WebDAV passwords | 422 on each field with the same message |
+| Journal during those four refusals | 0 new rows |
+| Compliant database user and FTP user | 201 each |
+| `PUT /sites/web-domains/{id}` `stats_password` weak / compliant | 422 / 200 |
+| `PUT /clients/{id}` password weak | 422 |
+| `POST /mail/users` weak (spec 028 regression) | 422 with the same policy message — mailbox enforcement unchanged |
+
+**Not observed live**: the mailbox create with a *compliant* password. The first attempt failed for an unrelated
+reason — the check script omitted the mailbox `name` field (`errors.name: "The name field is required."`) — and the
+corrected call ran in the cleanup pass, whose captured output began after that line; the temporary client was deleted
+in the same pass. Mailbox acceptance is covered by the automated mail suite, which passes unchanged.
+
+Cleanup: mailbox, mail domain, FTP user, database user, website and client deleted through the API;
+`server.updated` reached the last journal id (1110); QA keys 106–109 removed. No `qa038` client, website, mail
+domain, mailbox or client directory remains and nothing is pending. The one credential row still present
+(`c1jozko`, group 2) belongs to client 1 and predates this run; clients 1, 2 and 19 and the remaining keys were not
+touched.
+
 ## 3. Cleanup
 
 1. Delete the created users, the mailbox, the website and the client through the API.
