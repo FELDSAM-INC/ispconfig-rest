@@ -8,7 +8,7 @@
 
 ## Context
 
-Spec 018 exposes ISPConfig's own "download" behaviour: `POST /sites/web-domains/{id}/backups/{backup}/download`
+Spec 018 exposes ISPConfig's own "download" behaviour: `POST /sites/web-domains/{id}/backups/{backup_id}/download`
 queues a `backup_download` remote action, the server copies the archive into the website's own `backup`
 folder, and the customer is expected to fetch it over FTP or SSH. A hosting panel customer who never uses
 FTP cannot get their backup at all.
@@ -115,13 +115,13 @@ delivery. The backup representation reports the same state, so a panel can hide 
 
 | Method | Path | Purpose | Codes |
 |---|---|---|---|
-| GET | `/sites/web-domains/{id}/backups/{backup}/download` | Stream the prepared copy of the backup | 200, 401, 403, 404, 409 |
+| GET | `/sites/web-domains/{id}/backups/{backup_id}/download` | Stream the prepared copy of the backup | 200, 401, 403, 404, 409 |
 | HEAD | same | Headers only (size, filename) | 200, 401, 403, 404, 409 |
 
 Success headers: `Content-Type: application/octet-stream`, `Content-Length`, `Content-Disposition:
 attachment; filename="<archive name>"`, `Cache-Control: private, no-store`.
 
-The existing `POST …/backups/{backup}/download` (prepare a copy) is unchanged; this feature adds the
+The existing `POST …/backups/{backup_id}/download` (prepare a copy) is unchanged; this feature adds the
 retrieval half and the state a consumer needs to choose between them.
 
 Backup representation gains:
@@ -153,7 +153,7 @@ Backup representation gains:
 
 ### Functional Requirements
 
-- **FR-001**: `GET`/`HEAD /sites/web-domains/{id}/backups/{backup}/download` MUST stream the prepared copy of
+- **FR-001**: `GET`/`HEAD /sites/web-domains/{id}/backups/{backup_id}/download` MUST stream the prepared copy of
   that backup when the API process can read it, with `Content-Length`, `Content-Disposition` and an
   octet-stream content type.
 - **FR-002**: The endpoint MUST resolve the file only inside the website's configured `backup` folder, MUST

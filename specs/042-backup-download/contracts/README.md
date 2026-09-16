@@ -5,7 +5,7 @@ repository's `api/` tree and in the problem-type documentation, not in this fold
 
 | File | Content |
 |---|---|
-| `api/modules/sites/web-backups.yaml` | the `GET` and `HEAD` operations of `/sites/web-domains/{id}/backups/{backup}/download`: octet-stream 200 with `Content-Length` and `Content-Disposition`, and the 401/403/404/409 refusals |
+| `api/modules/sites/web-backups.yaml` | the `GET` and `HEAD` operations of `/sites/web-domains/{id}/backups/{backup_id}/download`: octet-stream 200 with `Content-Length` and `Content-Disposition`, and the 401/403/404/409 refusals |
 | `api/components/schemas/WebBackupDownload.yaml` | the `download` object: `state` (`unavailable`, `not_prepared`, `preparing`, `ready`), `http`, `filename`, `available_until` |
 | `api/components/schemas/WebBackup.yaml` | `download` added to the backup representation, so list and show carry it too |
 | `docs/problems.md` | the two new entries, `download-not-prepared` and `download-not-readable` |
@@ -22,5 +22,5 @@ Contract rules specific to this feature:
   a consumer does not treat `false` as a transient error.
 - **No path anywhere.** The contract states that neither responses nor problem details disclose a file system
   location; `filename` is the archive's name only.
-- **The preparation endpoint is unchanged.** `POST …/backups/{backup}/download` keeps its spec 018 meaning
+- **The preparation endpoint is unchanged.** `POST …/backups/{backup_id}/download` keeps its spec 018 meaning
   (queue a copy into the website's folder); this feature adds the retrieval half.

@@ -254,7 +254,9 @@
     summary: Prepare a backup for download
     description: |
       Queues a copy of the backup into the website's `backup` folder, reachable with the website's
-      FTP/SSH users and removed by the server after 3 days. There is no HTTP download. Only for backups
+      FTP/SSH users and removed by the server after 3 days. Once delivered, the copy can also be fetched
+      with `GET /sites/web-domains/{id}/backups/{backup_id}/download` where the installation allows it
+      (see that operation and the backup's `download` object). Only for backups
       stored on the website's server (422 otherwise). Requires read permission on the website. When
       the job has finished, the job's `download` object tells where the file is. No `X-Change-Set-Id`
       header (remote action).
@@ -290,6 +292,127 @@
         $ref: '../../components/responses/Conflict.yaml'
       '422':
         $ref: '../../components/responses/UnprocessableEntity.yaml'
+
+  get:
+    tags:
+      - Web Backups
+    summary: Download a prepared backup copy
+    description: |
+      Streams the copy of the backup that `POST` on this path delivers into the website's `backup` folder.
+
+      ISPConfig itself offers no HTTP download; this API adds one, and it works **only where the API process
+      can read that copy**. On a stock installation the copy belongs to the website's system user and group
+      (mode 0640) while the API runs as the web server user, so this endpoint answers 409
+      `download-not-readable` and the file must be fetched with the website's FTP or SSH access. Check the
+      backup's `download` object (`state` and `http`) before offering a download: `http` is a property of the
+      installation, not a transient error.
+
+      Reads only — nothing is queued, journaled or modified, and no file system path is ever disclosed.
+      `HEAD` returns the same headers without a body, so a size can be shown before downloading.
+    parameters:
+      - name: id
+        in: path
+        description: ID of the web domain (vhost website)
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: backup_id
+        in: path
+        description: ID of the backup (`web_backup.backup_id`)
+        required: true
+        schema:
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: |
+          The archive. `Content-Disposition` carries the archive's file name, `Content-Length` its size, and
+          `Cache-Control: private, no-store` keeps it out of shared caches.
+        headers:
+          Content-Disposition:
+            description: 'attachment; filename="<archive name>"'
+            schema:
+              type: string
+          Content-Length:
+            description: Size of the archive in bytes
+            schema:
+              type: integer
+              format: int64
+          Cache-Control:
+            description: Always `private, no-store`
+            schema:
+              type: string
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        description: |
+          The client's plan does not include backups (`limit_backup`); problem type `feature-not-allowed`.
+        content:
+          application/problem+json:
+            schema:
+              $ref: '../../components/schemas/Problem.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        description: |
+          Either no copy is available (`download-not-prepared`: none prepared, or the prepared one is past
+          its three-day retention) or a copy exists but this API cannot read it
+          (`download-not-readable`: stock permissions, or the backup is stored on another server). The two
+          are distinguished by the problem `type`; neither detail names a path.
+        content:
+          application/problem+json:
+            schema:
+              $ref: '../../components/schemas/Problem.yaml'
+            example:
+              type: https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#download-not-readable
+              title: Conflict
+              status: 409
+              detail: This installation delivers backup copies to the website's backup folder; fetch it with the website's FTP or SSH access.
+  head:
+    tags:
+      - Web Backups
+    summary: Headers of a prepared backup copy
+    description: |
+      The same answer as `GET` on this path, without a body: the headers tell a consumer the archive's name
+      and size, and the same 403/404/409 refusals apply.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: backup_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    responses:
+      '200':
+        description: Headers only (no body)
+        headers:
+          Content-Disposition:
+            schema:
+              type: string
+          Content-Length:
+            schema:
+              type: integer
+              format: int64
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
 
 /sites/web-domains/{id}/backup-jobs:
   get:

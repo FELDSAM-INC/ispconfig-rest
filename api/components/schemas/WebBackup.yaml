@@ -12,6 +12,7 @@ required:
   - job
   - encrypted
   - download_available
+  - download
 properties:
   id:
     type: integer
@@ -68,3 +69,10 @@ properties:
   download_available:
     type: boolean
     description: Whether the backup can be prepared for download (stored on the website's server)
+  download:
+    allOf:
+      - $ref: './WebBackupDownload.yaml'
+    description: |
+      Whether a copy of this backup can be fetched now, and by which route (spec 042). `download_available`
+      above says whether a copy can be *prepared* (the backup is stored on the website's own server);
+      this object says whether one *exists* and whether this API may stream it.

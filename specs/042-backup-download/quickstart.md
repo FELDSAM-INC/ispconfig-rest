@@ -17,7 +17,7 @@ absence of any journal or remote-action row.
 
 ## 2. Shape of the answers
 
-**Ready and readable** — `GET /api/v1/sites/web-domains/{id}/backups/{backup}/download`:
+**Ready and readable** — `GET /api/v1/sites/web-domains/{id}/backups/{backup_id}/download`:
 
 ```
 HTTP/1.1 200 OK
@@ -74,7 +74,7 @@ Use a **temporary** client and website; never a `WHMCS-` customer, and never cli
 3. **Create a backup**: `POST …/backups {"type":"web"}`, wait for the job to leave `pending` (about a
    minute) and for a row to appear in the list. Its `download.state` must be `not_prepared`, `http` false.
 4. **Download without a prepared copy** → 409 `download-not-prepared`.
-5. **Prepare a copy**: `POST …/backups/{backup}/download` → 201 job; while it is pending the representation
+5. **Prepare a copy**: `POST …/backups/{backup_id}/download` → 201 job; while it is pending the representation
    must report `download.state: preparing`. Wait for the server to finish.
 6. **Representation after delivery**: `download.state: ready`, `filename` set, `available_until` about three
    days ahead, and `http: false` on this installation.

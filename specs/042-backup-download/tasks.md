@@ -14,18 +14,18 @@ The OpenAPI specification is the source of truth and lands before the code.
 
 ## Phase 1: Setup
 
-- [ ] T001 — Confirm the baseline suite is green (`php artisan test`, expect 1276 passing on `ceba2a9`).
+- [x] T001 — Confirm the baseline suite is green (`php artisan test`, expect 1276 passing on `ceba2a9`).
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 Contract and problem vocabulary first (constitution I); nothing in `app/` before these land.
 
-- [ ] T002 [P] — Add `DOWNLOAD_NOT_PREPARED` and `DOWNLOAD_NOT_READABLE` to `app/Support/ProblemType.php`, including `NAMES`.
-- [ ] T003 [P] — Create `api/components/schemas/WebBackupDownload.yaml`: `state` (`unavailable`, `not_prepared`, `preparing`, `ready`), `http`, `filename` (nullable), `available_until` (nullable date-time), each documented per data-model.md.
-- [ ] T004 — Add the `download` object to `api/components/schemas/WebBackup.yaml` (required, `$ref` to the new schema), so list and show both carry it.
-- [ ] T005 — Add the `GET`/`HEAD /sites/web-domains/{id}/backups/{backup}/download` operations to `api/modules/sites/web-backups.yaml`: octet-stream 200 with `Content-Length`, `Content-Disposition` and `Cache-Control`, plus 401/403/404/409 with both new types; state that `download.http` is a property of the installation.
-- [ ] T006 — Document both new types in `docs/problems.md` in the house format (heading, **Status**, prose, extension members, what raises them).
-- [ ] T007 — Commit the contract phase (`Add the backup download contract and problem types`) and push.
+- [x] T002 [P] — Add `DOWNLOAD_NOT_PREPARED` and `DOWNLOAD_NOT_READABLE` to `app/Support/ProblemType.php`, including `NAMES`.
+- [x] T003 [P] — Create `api/components/schemas/WebBackupDownload.yaml`: `state` (`unavailable`, `not_prepared`, `preparing`, `ready`), `http`, `filename` (nullable), `available_until` (nullable date-time), each documented per data-model.md.
+- [x] T004 — Add the `download` object to `api/components/schemas/WebBackup.yaml` (required, `$ref` to the new schema), so list and show both carry it.
+- [x] T005 — Add the `GET`/`HEAD /sites/web-domains/{id}/backups/{backup_id}/download` operations to `api/modules/sites/web-backups.yaml`: octet-stream 200 with `Content-Length`, `Content-Disposition` and `Cache-Control`, plus 401/403/404/409 with both new types; state that `download.http` is a property of the installation.
+- [x] T006 — Document both new types in `docs/problems.md` in the house format (heading, **Status**, prose, extension members, what raises them).
+- [x] T007 — Commit the contract phase (`Add the backup download contract and problem types`) and push.
 
 ## Phase 3: User Story 1 - Fetch a prepared backup over HTTP (Priority: P1) 🎯 MVP
 

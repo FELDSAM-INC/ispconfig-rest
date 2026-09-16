@@ -1,0 +1,45 @@
+type: object
+description: |
+  Whether a copy of this backup can be fetched, and by which route (spec 042).
+
+  ISPConfig delivers a backup copy into the website's own `backup` folder, reachable with the website's FTP
+  or SSH access. This API can additionally stream that copy over HTTP — but only on installations where the
+  API process has been granted read access to it. `state` says whether a file exists; `http` says whether
+  **this** API may hand it to you. A consumer offers a download button only when `state` is `ready` **and**
+  `http` is true, offers "prepare a copy" on `not_prepared`, shows progress on `preparing`, and explains the
+  FTP/SSH route when `http` is false.
+required:
+  - state
+  - http
+  - filename
+  - available_until
+properties:
+  state:
+    type: string
+    enum: [unavailable, not_prepared, preparing, ready]
+    description: |
+      `unavailable` — the backup is stored on another server, so a copy can never be delivered to this
+      website; `not_prepared` — no copy exists, or the existing one is past the three-day retention;
+      `preparing` — a download action for this backup is queued and the server has not finished it;
+      `ready` — a copy exists and is within the retention.
+  http:
+    type: boolean
+    description: |
+      Whether this API process can read the prepared copy and therefore stream it from
+      `GET /sites/web-domains/{id}/backups/{backup_id}/download`. This is a property of the installation, not
+      of the backup: on a stock ISPConfig server the copy belongs to the website's system user and group,
+      which the API is not a member of, so this is `false` and the endpoint answers 409
+      `download-not-readable`. It is not a transient error and retrying does not help.
+  filename:
+    type: string
+    nullable: true
+    description: Name of the prepared copy; null unless a copy exists or is being prepared
+    example: manual-web28_2026-09-16_03-32.tar.gz
+  available_until:
+    type: string
+    format: date-time
+    nullable: true
+    description: |
+      When the server removes the prepared copy (its modification time plus three days), in the API
+      timezone; null unless a copy exists.
+    example: "2026-09-19T03:32:08+02:00"

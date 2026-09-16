@@ -5,7 +5,7 @@
 
 ## Summary
 
-- `GET`/`HEAD /sites/web-domains/{id}/backups/{backup}/download` streams the copy that spec 018's
+- `GET`/`HEAD /sites/web-domains/{id}/backups/{backup_id}/download` streams the copy that spec 018's
   preparation action delivers into `<document_root>/backup`, **only** when the API process can read it
   (research R2, R4, R8).
 - Two new problem types make the stock case actionable: `download-not-prepared` (no or expired copy) and

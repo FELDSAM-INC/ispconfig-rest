@@ -25,6 +25,10 @@ final class ProblemType
 
     public const RESOURCE_IN_USE = 'resource-in-use';
 
+    public const DOWNLOAD_NOT_PREPARED = 'download-not-prepared';
+
+    public const DOWNLOAD_NOT_READABLE = 'download-not-readable';
+
     /** Every documented name, in docs/problems.md order. */
     public const NAMES = [
         self::ACCOUNT_LOCKED,
@@ -34,6 +38,8 @@ final class ProblemType
         self::SERVER_NOT_ASSIGNED,
         self::VALIDATION_FAILED,
         self::RESOURCE_IN_USE,
+        self::DOWNLOAD_NOT_PREPARED,
+        self::DOWNLOAD_NOT_READABLE,
     ];
 
     public static function uri(string $name): string

@@ -93,3 +93,34 @@ type, administrator keys included, and nothing is written (spec 039).
 
 No extension members. Other conflict responses in the API (an in-use directive snippet, an in-use client template, a
 reseller that still has clients, a duplicate name) keep `type: about:blank`.
+
+## download-not-prepared
+
+**Status**: 409
+
+No copy of the backup is available to download. ISPConfig does not serve backups from where it stores them; a
+copy must first be delivered into the website's own `backup` folder with
+`POST /sites/web-domains/{id}/backups/{backup_id}/download`, which the server processes within about a minute.
+
+Raised by `GET`/`HEAD /sites/web-domains/{id}/backups/{backup_id}/download` when no copy exists, when the
+folder cannot be resolved, or when the existing copy is past its three-day retention and may vanish at any
+moment (spec 042). Prepare a fresh copy and retry.
+
+No extension members. The backup's own `download` object reports the same situation as `state: not_prepared`,
+so a consumer can avoid the request entirely.
+
+## download-not-readable
+
+**Status**: 409
+
+A copy of the backup exists, but this API cannot read it, so it cannot be streamed over HTTP. Fetch it with
+the website's FTP or SSH access from the website's `backup` folder.
+
+This is the normal answer on a stock ISPConfig installation: the delivered copy belongs to the website's
+system user and group (mode 0640) while the API runs as the web server user, which is a member of neither.
+It is a property of the installation, not a transient failure — retrying does not help, and the API never
+changes those permissions to make itself able to read. The same type is returned when the backup is stored on
+a different server than the website, where a copy can never be delivered (spec 042).
+
+No extension members, and no file system path is disclosed. The backup's own `download` object reports this
+as `http: false`, so a consumer can offer the FTP/SSH explanation instead of a download button.
