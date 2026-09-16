@@ -61,8 +61,8 @@ Contract first (constitution I): nothing in `app/` is written before these land.
 - [x] T021 — Full suite on `php:8.3-cli` (expect 1258 + the new tests, no regressions) and Pint on every changed file.
 - [x] T022 — README: add `GET /me/backups` to the Modules section, stating it is read-only, vhost-only, plan-gated and one call per account.
 - [x] T023 — Commit the implementation phase and push.
-- [ ] T024 — Deploy to isp-test (`ispconfig-rest update && ispconfig-rest status`) and confirm the deployed commit is on `origin/main`.
-- [ ] T025 — Run quickstart §4 live with temporary clients: baseline, real backup, overview equality with the per-website list, plan gate, isolation, admin `client_id` rules, unknown parameter, paging.
+- [x] T024 — Deploy to isp-test (`ispconfig-rest update && ispconfig-rest status`) and confirm the deployed commit is on `origin/main`.
+- [x] T025 — Run quickstart §4 live with temporary clients: baseline, real backup, overview equality with the per-website list, plan gate, isolation, admin `client_id` rules, unknown parameter, paging.
 - [ ] T026 — Cleanup per quickstart §5 and verify nothing is left (no `qa*` client, key, directory or backup file; no pending remote action).
 - [ ] T027 — Record the live results in this file and commit.
 
@@ -93,3 +93,24 @@ to a consumer whose plan includes backups.
 - No migrations, no writes, no file system access anywhere in this feature.
 - The per-website endpoints stay the reference for visibility and representation; if a test ever shows the
   two disagreeing, the overview is wrong, not the detail endpoint.
+
+## Live verification on isp-test (T025, 2026-09-16)
+
+Deployed commit `621dd12`; temporary clients 50 (`qa041a`, `limit_backup = y`) and 51 (`qa041b`), websites 28
+`qa041a-site.test`, 29 `qa041a-second.test` (client A) and 30 `qa041b-site.test` (client B), client-scoped
+keys for both. Every step of quickstart §4 passed.
+
+| Step | Expected | Observed |
+|---|---|---|
+| Baseline overview (client A) | both websites, `backups_available: true`, `total: 0`, `latest: []` | exactly that; `meta.total: 2` |
+| Real backup | job queued, server produces a `web_backup` row | job `pending` → `ok` within 30 s, one row |
+| Overview after the backup | website 28 `total: 1`, one `latest` of type `web`; website 29 untouched | `total: 1`, `latest: ['web']`; 29 still `total: 0` |
+| **SC-003 field parity** | `latest` entry identical to the per-website list row | **IDENTICAL** — `{"id":5,"server_id":1,"parent_domain_id":28,"backup_type":"web","database_name":null,"backup_mode":"rootgz","backup_format":"tar_gzip","filename":"manual-web28_2026-09-16_03-32.tar.gz","filesize":5660,"filesize_approximate":false,"created_at":"2026-09-16T03:32:08+02:00","job":"manual","encrypted":false,"download_available":true}` |
+| Isolation | B must not see A's websites | B saw only `qa041b-site.test`; A only its own two |
+| Plan gate | 403 `feature-not-allowed`, `feature: limit_backup` | exactly that, detail "Backups are not enabled for this account."; 200 again after restoring `limit_backup = y` |
+| Admin `client_id` | 422 without, 200 with, 404 unknown, 422 zero | 422 / 200 / 404 / 422; admin saw client A's two websites |
+| Unknown parameter | 400 | 400 |
+| Paging | `limit=1` → one entry, `meta.total` unchanged | 1 entry, `meta {total: 2, limit: 1, offset: 0}` |
+
+Note on the CLI: keys are minted with `ispconfig-rest key:create <name> [--client-id=N]`; the `api:key:create`
+form printed in the command's own help is rejected by the wrapper.
