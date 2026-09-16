@@ -35,6 +35,31 @@ sets one, restore the original value byte-identical afterwards and verify.
    exact address, then restore the empty value and confirm the `[sites]` section is byte-identical to the backup
    taken before the change.
 
+## 4. Results on isp-test (2026-09-16, deployed `1e7e257`)
+
+Temporary client 40 (`qa036temp`) with `db_servers=1`, `web_servers=1`, `template_master=0`; website 24; database
+user `c40dbuser1`; database `c40shop` on server 1.
+
+| Check | Result |
+|---|---|
+| Client key `GET /me/hosting-links` | 200 |
+| `database_administration` | `{available: true, servers: [{1, isp-test.feldhost.cz, https://isp-test.feldhost.cz:8081/phpmyadmin}]}` — `[SERVERNAME]` resolved |
+| `file_transfer` | `{available: false, url: ""}` — isp-test configures no file manager |
+| Response keys | exactly `client_id`, `database_administration`, `file_transfer`; no `[sites]` value (no `dbname_prefix`, no `c[CLIENTID]`) appears |
+| After creating a database on the assigned server | the server list still holds exactly one entry (no duplicate) |
+| `?foo=1` | 400 |
+| Client key with a foreign `client_id` | 404 |
+| Admin key without `client_id` | 422 |
+| Admin key with the client's id | 200, identical `database_administration` to the client's own view |
+
+Step 6 (changing `webftp_url`) was deliberately not run: it writes the installation's system configuration on a
+server another session was using. Both states of that setting are covered by the automated tests.
+
+Cleanup: database, database user, website and client deleted through the API; `server.updated` reached the last
+journal id; QA keys 89, 90, 92 and 93 removed. No `qa036` client, website, database, database user or client
+directory remains and nothing is pending. Key 91 (`qa dns 005`, another session's) and clients 1, 2 and 19 were not
+touched.
+
 ## 3. Cleanup
 
 1. Delete the database, the website and the client through the API.
