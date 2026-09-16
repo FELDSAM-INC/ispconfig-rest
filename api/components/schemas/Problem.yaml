@@ -10,7 +10,8 @@ properties:
       A URI reference that identifies the problem type. Typed refusals use
       `https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/docs/problems.md#<name>` with `<name>` one of
       `account-locked`, `limit-reached`, `quota-exceeded`, `feature-not-allowed`, `validation-failed`
-      (field type `server-not-assigned`, spec 023); all other problems use `about:blank`.
+      (field type `server-not-assigned`, spec 023) and `resource-in-use` (spec 039); all other problems use
+      `about:blank`.
     default: 'about:blank'
     example: 'about:blank'
   title:

@@ -70,7 +70,15 @@ class WebDatabaseUser extends BaseModel
      */
     protected $appends = [
         'id',
+        'databases_in_use',
     ];
+
+    /**
+     * Databases depending on this user (spec 039), filled by the controller
+     * from WebDatabaseUserUsageService — for a whole list page in one query,
+     * so the accessor never queries by itself.
+     */
+    public int $databasesInUse = 0;
 
     /**
      * server_id is always 0 — database users are provisioned on every
@@ -90,6 +98,14 @@ class WebDatabaseUser extends BaseModel
     protected function id(): Attribute
     {
         return Attribute::get(fn () => $this->getKey());
+    }
+
+    /**
+     * Contract `databases_in_use` — see $databasesInUse.
+     */
+    protected function databasesInUse(): Attribute
+    {
+        return Attribute::get(fn (): int => $this->databasesInUse);
     }
 
     /**

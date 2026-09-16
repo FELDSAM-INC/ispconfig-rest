@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\ProblemConflictException;
 use App\Http\Concerns\HandlesListQuery;
 use App\Http\Concerns\ResolvesClientOwnership;
 use App\Http\Controllers\Controller;
@@ -9,11 +10,14 @@ use App\Http\Requests\StoreWebDatabaseUserRequest;
 use App\Http\Requests\UpdateWebDatabaseUserRequest;
 use App\Models\WebDatabaseUser;
 use App\Services\SitesConfigService;
+use App\Services\WebDatabaseUserUsageService;
 use App\Support\IspContext;
 use App\Support\LegacyCrypt;
+use App\Support\ProblemType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -32,6 +36,7 @@ class WebDatabaseUserController extends Controller
     public function __construct(
         protected SitesConfigService $config,
         protected IspContext $context,
+        protected WebDatabaseUserUsageService $usage,
     ) {}
 
     /**
@@ -58,6 +63,19 @@ class WebDatabaseUserController extends Controller
             extra: ['search'],
         );
 
+        // Spec 039: one grouped query for the whole page, never one per row.
+        $items = $result['data'] instanceof Collection ? $result['data']->all() : $result['data'];
+        $counts = $this->usage->countsFor(array_map(
+            static fn ($user): int => $user instanceof WebDatabaseUser ? (int) $user->getKey() : 0,
+            $items
+        ));
+
+        foreach ($items as $user) {
+            if ($user instanceof WebDatabaseUser) {
+                $user->databasesInUse = $counts[(int) $user->getKey()] ?? 0;
+            }
+        }
+
         return response()->json($result);
     }
 
@@ -66,6 +84,8 @@ class WebDatabaseUserController extends Controller
      */
     public function show(WebDatabaseUser $webDatabaseUser): JsonResponse
     {
+        $webDatabaseUser->databasesInUse = $this->usage->countFor((int) $webDatabaseUser->getKey());
+
         return response()->json($webDatabaseUser);
     }
 
@@ -138,6 +158,17 @@ class WebDatabaseUserController extends Controller
      */
     public function destroy(WebDatabaseUser $webDatabaseUser): Response
     {
+        // Spec 039 / legacy database_user_del.php::onBeforeDelete(): a user a
+        // database still references cannot be deleted — deleting it would
+        // leave that database without credentials. This protects data, not
+        // permissions, so administrator keys are refused as well.
+        if ($this->usage->countFor((int) $webDatabaseUser->getKey()) > 0) {
+            throw new ProblemConflictException(
+                'The user cannot be deleted. It is still being used by a database.',
+                ProblemType::RESOURCE_IN_USE
+            );
+        }
+
         DB::transaction(function () use ($webDatabaseUser): void {
             $webDatabaseUser->delete();
         });

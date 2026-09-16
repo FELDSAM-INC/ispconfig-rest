@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Exceptions\ProblemAuthorizationException;
+use App\Exceptions\ProblemConflictException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -80,6 +81,17 @@ class Problem
             $detail = $e->getMessage() !== '' ? $e->getMessage() : 'You do not have permission to perform this action.';
 
             return self::response(403, 'Forbidden', $detail);
+        }
+
+        // Typed conflicts (spec 039): a dependency refusal that a consumer maps
+        // by type, rendered before the generic HTTP-exception branch below so
+        // it keeps its 409 status with a type URI.
+        $conflict = $e instanceof ProblemConflictException ? $e : $e->getPrevious();
+
+        if ($conflict instanceof ProblemConflictException) {
+            return self::response(409, 'Conflict', $conflict->getMessage(), [
+                'type' => ProblemType::uri($conflict->problemType),
+            ] + $conflict->extensions);
         }
 
         if ($e instanceof HttpExceptionInterface) {
