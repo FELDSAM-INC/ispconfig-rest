@@ -63,8 +63,8 @@ Contract first (constitution I): nothing in `app/` is written before these land.
 - [x] T023 — Commit the implementation phase and push.
 - [x] T024 — Deploy to isp-test (`ispconfig-rest update && ispconfig-rest status`) and confirm the deployed commit is on `origin/main`.
 - [x] T025 — Run quickstart §4 live with temporary clients: baseline, real backup, overview equality with the per-website list, plan gate, isolation, admin `client_id` rules, unknown parameter, paging.
-- [ ] T026 — Cleanup per quickstart §5 and verify nothing is left (no `qa*` client, key, directory or backup file; no pending remote action).
-- [ ] T027 — Record the live results in this file and commit.
+- [x] T026 — Cleanup per quickstart §5 and verify nothing is left (no `qa*` client, key, directory or backup file; no pending remote action).
+- [x] T027 — Record the live results in this file and commit.
 
 ## Dependencies & Execution Order
 
@@ -114,3 +114,19 @@ keys for both. Every step of quickstart §4 passed.
 
 Note on the CLI: keys are minted with `ispconfig-rest key:create <name> [--client-id=N]`; the `api:key:create`
 form printed in the command's own help is rejected by the wrapper.
+
+## Cleanup (T026, 2026-09-16)
+
+isp-test is back to its pre-run baseline, verified row by row: keys `1, 2, 20, 27, 50`; clients `1, 2, 19`;
+6 websites; 0 backup rows; 0 pending remote actions; `sys_datalog` fully processed (1148 = `server.updated`);
+no `qa041` client, `sys_user`, website or client directory; no per-website directory under `/var/backup`.
+All six `qa041*` keys (115–120) were deleted by name; no key belonging to another session was touched.
+
+**Finding worth keeping** (not a defect of this feature): deleting a backup and then its website in quick
+succession leaves the archive on disk. `DELETE /sites/web-domains/{id}/backups/{backup}` returns 204 and
+queues a `backup_delete` remote action, but the server's backup plugin resolves the website row
+(`SELECT * FROM web_domain WHERE domain_id = ?`, `backup_plugin.inc.php:76`) before touching files — once the
+website is gone the action can no longer find it, so `/var/backup/web28/manual-web28_….tar.gz` survived and
+had to be removed by hand. ISPConfig behaves the same way through its own interface. Worth a note for any
+consumer that deletes backups as part of tearing a website down: delete the website first, or let the
+retention purge handle the archives.
