@@ -37,6 +37,37 @@ setting changed.
    both credentials.
 6. Restore `/root/sysini-037.bak` if any step left the blob different, and verify byte-identity.
 
+## 4. Results on isp-test (2026-09-16, deployed `cd5638c`)
+
+Temporary client 41 (`qa037temp`, `limit_shell_user` 2 then 5, `ssh_chroot=no,jailkit`, `template_master=0`) and
+website 25. The `sys_ini` blob was backed up first (2131 bytes).
+
+| Check | Result |
+|---|---|
+| Reported mode with the server's own empty setting | `sites.shell` = `{available: true, chroot_options: [no, jailkit], authentication: password_or_key}` |
+| Setting switched to `key` | `authentication` = `key` |
+| Client key sends a password (key mode) | 422, `errors.password` = "This hosting accepts an SSH key only; a password cannot be set.", `error_types.password` = `feature-not-allowed` |
+| Client key sends a key (key mode) | 201 |
+| Admin key sends both (key mode) | 201, stored password empty |
+| Journal during that section | exactly 2 rows — the two accepted creates |
+| Setting switched to `password` | `authentication` = `password` |
+| Client key sends a key (password mode) | 422, `errors.ssh_rsa` = "This hosting accepts a password only; an SSH key cannot be set.", same problem type |
+| Client key sends a password (password mode) | 201 |
+| Setting restored to empty | `authentication` = `password_or_key` again |
+
+Two notes from the run:
+
+- The first attempt at the password-mode acceptance returned 403: the temporary client's `limit_shell_user` was 2 and
+  both slots were already used by the preceding steps. Raising the limit to 5 and repeating gave the expected 201 —
+  a script artifact, not a behaviour of this feature.
+- Restoring the setting through `PUT /system/config/sites` with `""` is refused (422, "must be a string"), so the
+  restore used a targeted SQL replacement of that one line. See the finding recorded in tasks.md.
+
+Cleanup: all four shell users, the website and the client deleted through the API; `server.updated` reached the last
+journal id; QA keys 94–98 removed. No `qa037` client, shell user, website, client directory or home directory
+remains, nothing is pending, and the `sys_ini` blob is byte-identical to the backup (which was then deleted). Key 91
+(`qa dns 005`, another session's) and clients 1, 2 and 19 were not touched.
+
 ## 3. Cleanup
 
 1. Delete the shell users, the website and the client through the API.
