@@ -92,10 +92,37 @@ Run in Docker: `docker run --rm -u $(id -u):$(id -g) -v "$PWD":/app -w /app php:
 
 ## Phase 7: Deployment & verification
 
-- [ ] T017 Deploy to isp-test (`ispconfig-rest update && ispconfig-rest status`) and confirm the running commit
-- [ ] T018 Run quickstart.md §2 with a temporary client: sign a zone, compare `ds_records` with the server's `dsset-` file and the DNSKEY files, check masking per key type, switch off and on again, and exercise the mirror rule with a temporary mirror row **restored byte-identically afterwards**; then clean up and verify no leftovers
-- [ ] T019 Record the verification results in this file and commit
+- [x] T017 Deploy to isp-test (`ispconfig-rest update && ispconfig-rest status`) and confirm the running commit
+- [x] T018 Run quickstart.md §2 with a temporary client: sign a zone, compare `ds_records` with the server's `dsset-` file and the DNSKEY files, check masking per key type, switch off and on again, and exercise the mirror rule with a temporary mirror row **restored byte-identically afterwards**; then clean up and verify no leftovers
+- [x] T019 Record the verification results in this file and commit
 
 ## Results
 
-_(filled in after T018)_
+Verified on isp-test (deployed commit `b2b2225`) on 2026-09-16 with two temporary clients (`QA032-…`, ids 38 and
+39) and their own client-scoped keys. Everything created for the run was removed afterwards.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | The key really is client-scoped | `GET /me` → scope `client`, `client_id` 38 |
+| 2 | Zone created with the spec 029 wizard | 201 (a zone needs records before ISPConfig will sign it) |
+| 3 | Before enabling | `state` `off`, `available` true, both record lists empty |
+| 4 | Enable with a client key | 200; read immediately → `state` `pending` |
+| 5 | After the server signed | `state` `signed`, `initialized` true, `last_signed` `2026-09-16T02:02:02+02:00`, DS `key_tag` 38304 / `algorithm` 13 / `digest_type` 2, two DNSKEY records (`ksk` and `zsk`) |
+| 6 | DS digest vs the server's `dsset-` file | **identical** after whitespace removal (SC-002) |
+| 7 | KSK public key vs the `K….key` file | **identical** |
+| 8 | Masking | client key: `dnssec_info` `null`; admin key: the raw notes; the client still sees `dnssec_wanted`, `dnssec_initialized` and `dnssec_algo` |
+| 9 | Switch signing off | 200 → `state` `off` while `initialized` stays true and both key files remain on disk (bind parity, research R5) |
+| 10 | Switch it back on | `state` `signed` with the **same DS digest** — the entry already given to a registrar stays valid (SC-005) |
+| 11 | Another client's key | 404 |
+| 12 | Mirrored DNS server (temporary row) | `state` `unavailable`, `available` false; enabling refused with 422 `feature-not-allowed` for the client key **and** for the admin key (legacy hides the block for every user type); disabling still 200 |
+| 13 | Journal during the mirror checks | exactly one `dns_soa` entry — the deliberate *disable* call; both refusals wrote nothing |
+
+**Cleanup**: the zone and both clients were deleted through the API; after the server finished processing, no
+`qa032` rows, bind zone files, DNSSEC key files or `named.conf.local` references remained, the QA keys were deleted
+by SQL, and the temporary mirror row was removed — the `server` table checksum is identical to before the run.
+Keys 1, 2, 20, 27, 50 and clients C1, C2, WHMCS-2 are pre-existing and untouched.
+
+**Note on the first attempt**: it aborted before any check because the client id was read from a `client_id` field
+that `Client.yaml` does not expose (the id is `id`), which left `--client-id` empty and minted an admin key. Two
+temporary clients were left behind and deleted immediately afterwards; the script now asserts the id and confirms
+the key's scope through `/me` before it starts.
