@@ -200,6 +200,18 @@ AccountCapabilities:
 AccountSitesCapabilities:
   $ref: './AccountSitesCapabilities.yaml'
 
+HostingLinks:
+  $ref: './HostingLinks.yaml'
+
+DatabaseAdministrationLink:
+  $ref: './DatabaseAdministrationLink.yaml'
+
+HostingLinkServer:
+  $ref: './HostingLinkServer.yaml'
+
+FileTransferLink:
+  $ref: './FileTransferLink.yaml'
+
 AccountPhpVersion:
   $ref: './AccountPhpVersion.yaml'
 

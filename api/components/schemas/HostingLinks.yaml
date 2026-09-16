@@ -1,0 +1,23 @@
+# Administration and file-transfer links of an account for its own API key (spec 036).
+# Derived per request from the [sites] section of the sys_ini blob and the account's
+# database servers. Read-only; no other system configuration is exposed.
+type: object
+description: |
+  The addresses of the installation's database administration tool and web file manager as they apply to this
+  account. A panel shows a button only when the matching `available` is true.
+additionalProperties: false
+required:
+  - client_id
+  - database_administration
+  - file_transfer
+properties:
+  client_id:
+    type: integer
+    format: int64
+    minimum: 1
+    description: The described client.
+    example: 42
+  database_administration:
+    $ref: './DatabaseAdministrationLink.yaml'
+  file_transfer:
+    $ref: './FileTransferLink.yaml'

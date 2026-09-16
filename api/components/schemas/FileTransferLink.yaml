@@ -1,0 +1,18 @@
+# Web file transfer (file manager) link of an account (spec 036).
+type: object
+description: |
+  Where the account's FTP users can transfer files in a browser, configured per installation (`webftp_url`).
+additionalProperties: false
+required:
+  - available
+  - url
+properties:
+  available:
+    type: boolean
+    description: A file manager address is configured. When false a panel hides the button.
+    example: false
+  url:
+    type: string
+    description: |
+      The configured address, returned verbatim — ISPConfig substitutes no placeholders here. Empty when unset.
+    example: https://files.example.com

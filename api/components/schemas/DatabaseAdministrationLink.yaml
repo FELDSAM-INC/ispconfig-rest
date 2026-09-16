@@ -1,0 +1,24 @@
+# Database administration (phpMyAdmin) link of an account (spec 036).
+type: object
+description: |
+  Where the account's databases can be administered. The address is configured per installation
+  (`phpmyadmin_url`); the per-database link is shown only while the installation switches it on
+  (`dblist_phpmyadmin_link`).
+additionalProperties: false
+required:
+  - available
+  - servers
+properties:
+  available:
+    type: boolean
+    description: |
+      The installation shows a per-database administration link and an address is configured. When false a panel
+      hides the button; `servers` is still returned.
+    example: true
+  servers:
+    type: array
+    description: |
+      Database servers of the account: the assigned database servers in assignment order, then other database
+      servers hosting the account's databases by id. Empty when there are none.
+    items:
+      $ref: './HostingLinkServer.yaml'

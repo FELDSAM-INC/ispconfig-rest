@@ -1,0 +1,63 @@
+# Me — administration and file-transfer links of the calling key's account (spec 036).
+# Available to every valid API key (not admin-gated). Read-only.
+
+/me/hosting-links:
+  get:
+    tags:
+      - Me
+    summary: Administration and file-transfer links of the account
+    description: |
+      Returns the addresses of the installation's database administration tool (phpMyAdmin) and its web file
+      manager, as they apply to this account, so a panel can offer the same buttons the ISPConfig interface shows.
+
+      - `database_administration.available` is true while the installation shows the per-database link
+        (`dblist_phpmyadmin_link`) and an address is configured. `servers` lists the account's database servers —
+        the assigned database servers in assignment order, then other database servers hosting the account's
+        databases — each with the address for that server (`[SERVERNAME]` resolved). A `[DATABASENAME]` placeholder
+        is left in place: the consumer replaces it with the database's own full (prefixed) name.
+      - `file_transfer` mirrors the configured file manager address verbatim; ISPConfig substitutes nothing there.
+
+      Only these two settings are exposed; no other system configuration, no server data beyond id and name and no
+      other client's resources.
+
+      - Client keys get their own account; `client_id` may only be their own client id (any other → 404).
+      - Reseller keys get their own account, or one of their clients by `client_id` (any other → 404).
+      - Admin keys must pass `client_id` (422 when missing, 404 when unknown).
+
+      Other query parameters → 400. Nothing is written.
+    parameters:
+      - name: client_id
+        in: query
+        required: false
+        description: Target client (required for admin keys).
+        schema:
+          type: integer
+          minimum: 1
+    responses:
+      '200':
+        description: Administration and file-transfer links
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/HostingLinks.yaml'
+            example:
+              client_id: 42
+              database_administration:
+                available: true
+                servers:
+                  - server_id: 2
+                    server_name: db1.example.com
+                    url: https://db1.example.com:8081/phpmyadmin
+              file_transfer:
+                available: false
+                url: ''
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

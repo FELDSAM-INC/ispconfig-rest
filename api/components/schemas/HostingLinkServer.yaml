@@ -1,0 +1,25 @@
+# One database server of an account with its administration address (spec 036).
+type: object
+description: A database server of the account and the address that administers its databases.
+additionalProperties: false
+required:
+  - server_id
+  - server_name
+  - url
+properties:
+  server_id:
+    type: integer
+    format: int64
+    minimum: 1
+    example: 2
+  server_name:
+    type: string
+    description: Server name (`server.server_name`).
+    example: db1.example.com
+  url:
+    type: string
+    description: |
+      The configured address with `[SERVERNAME]` replaced by this server's name. A `[DATABASENAME]` placeholder is
+      **left in place**: one entry describes a server, not a database, so the consumer replaces it with the
+      database's own full (prefixed) name, for example `c42_shop`. Empty when no address is configured.
+    example: https://db1.example.com:8081/phpmyadmin

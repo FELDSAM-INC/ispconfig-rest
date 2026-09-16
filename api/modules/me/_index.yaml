@@ -27,3 +27,7 @@ mail-settings:
 # Hosting addresses and name servers of the account (spec 031)
 hosting-addresses:
   $ref: './hosting-addresses.yaml'
+
+# Administration and file-transfer links of the account (spec 036)
+hosting-links:
+  $ref: './hosting-links.yaml'
