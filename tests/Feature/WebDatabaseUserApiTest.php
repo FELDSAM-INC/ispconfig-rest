@@ -135,9 +135,13 @@ class WebDatabaseUserApiTest extends SitesApiTestCase
 
     public function test_create_with_client_id_assigns_owning_group(): void
     {
-        // SitesApiTestCase seeds client 4 -> sys_group groupid 6. Admin
-        // creating for that client: sys_groupid becomes the client's group,
-        // sys_userid stays the acting admin, perms default.
+        // SitesApiTestCase seeds client 4 -> sys_group groupid 6, client_id
+        // 4. Admin creating for that client: sys_groupid becomes the
+        // client's group, sys_userid stays the acting admin, perms default
+        // — and the prefix resolves against the TARGET client's group
+        // (dbuser_prefix=c[CLIENTID] -> 'c4'), matching legacy
+        // (tools_sites::getClientID prefers the record's client_group_id
+        // over the acting session), not the admin's own 'c0'.
         $response = $this->postJson('/api/v1/sites/database-users', [
             'database_user' => 'appuser',
             'database_password' => 'Sup3rSecret',
@@ -146,6 +150,7 @@ class WebDatabaseUserApiTest extends SitesApiTestCase
             ->assertStatus(201)
             ->assertJsonPath('sys_groupid', 6)
             ->assertJsonPath('sys_userid', 1)
+            ->assertJsonPath('database_user_prefix', 'c4')
             ->assertJsonMissingPath('database_password');
 
         $id = (int) $response->json('id');
@@ -153,9 +158,42 @@ class WebDatabaseUserApiTest extends SitesApiTestCase
         $this->assertSame(6, (int) $row->sys_groupid);   // client 4's group
         $this->assertSame(1, (int) $row->sys_userid);    // acting admin
         $this->assertSame('riud', $row->sys_perm_user);
-        $this->assertSame('c0appuser', $row->database_user);
+        $this->assertSame('c4appuser', $row->database_user);
         // client_id is not a web_database_user column and must not be persisted.
         $this->assertFalse(Schema::hasColumn('web_database_user', 'client_id'));
+    }
+
+    public function test_create_with_different_client_ids_yields_distinct_prefixes(): void
+    {
+        // Regression for the bug this fix addresses: one admin-scoped key
+        // creating database-users "for" two different clients must not
+        // collapse both onto the admin's own prefix. SitesApiTestCase
+        // seeds client 3 -> groupid 5 -> client_id 3, client 4 -> groupid 6
+        // -> client_id 4; dbuser_prefix=c[CLIENTID].
+        $forClient3 = $this->postJson('/api/v1/sites/database-users', [
+            'database_user' => 'appuser',
+            'database_password' => 'Sup3rSecret',
+            'client_id' => 3,
+        ], $this->authHeaders())->assertStatus(201);
+
+        $forClient4 = $this->postJson('/api/v1/sites/database-users', [
+            'database_user' => 'appuser',
+            'database_password' => 'Sup3rSecret',
+            'client_id' => 4,
+        ], $this->authHeaders())->assertStatus(201);
+
+        $forClient3->assertJsonPath('database_user_prefix', 'c3');
+        $forClient4->assertJsonPath('database_user_prefix', 'c4');
+
+        $this->assertNotSame(
+            $forClient3->json('database_user_prefix'),
+            $forClient4->json('database_user_prefix'),
+            'database-users created for different clients through the same admin key must not share a prefix'
+        );
+
+        $rows = DB::table('web_database_user')->orderBy('database_user_id')->get();
+        $this->assertSame('c3appuser', $rows[0]->database_user);
+        $this->assertSame('c4appuser', $rows[1]->database_user);
     }
 
     public function test_create_with_unknown_client_id_returns_422(): void
