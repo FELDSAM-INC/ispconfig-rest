@@ -29,6 +29,27 @@ Passwords must satisfy the installation policy (spec 038: 8 characters, strength
 7. Client key: delete the database, then `GET` the user → `databases_in_use` is 0, and the delete now returns 204.
 8. Client key: create a user nothing references → `databases_in_use` is 0 and it deletes with 204.
 
+## 4. Results on isp-test (2026-09-16, deployed `3e2ef1d`)
+
+Temporary client 49 (`qa039temp`) with website 27, database users 6 (`owner`) and 7 (`readonly`), and database 5
+(`shop`) bound to both — 6 as its credentials, 7 as its read-only user.
+
+| Check | Result |
+|---|---|
+| Unused user `GET /sites/database-users/{id}` | `databases_in_use` = 0 |
+| After creating the database — owner / read-only user | `databases_in_use` = 1 each |
+| List `GET /sites/database-users` | carries the field: `owner` = 1, `readonly` = 1 |
+| Client key deletes the owner user | 409, `type` = `…#resource-in-use`, detail "The user cannot be deleted. It is still being used by a database." |
+| Client key deletes the read-only user | 409 — the `database_ro_user_id` column is checked too |
+| Admin key deletes the owner user | 409 — the guard protects data, not permissions |
+| Journal during the three refusals | 0 new rows |
+| After deleting the database | `databases_in_use` = 0, and both users delete with 204 |
+
+Cleanup: website and client deleted through the API; `server.updated` reached the last journal id; QA keys 110–112
+removed. No `qa039` client, website, database or database user remains and nothing is pending. The one database and
+one database user still present (`c1jozko`) belong to client 1 and predate this run; clients 1, 2 and 19 and the
+remaining keys were untouched.
+
 ## 3. Cleanup
 
 1. Delete the remaining database users, the website and the client through the API.
