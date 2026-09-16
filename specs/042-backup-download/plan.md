@@ -85,8 +85,10 @@ Completed in [research.md](research.md). The decisive facts, all read on isp-tes
   `<system_user>:<system_group>` 0640 inside a `root:<system_group>` 0750 folder
   (`backup.inc.php:116-136, 988, 1099-1106`).
 - Copies are purged after three days (`backup.inc.php:1820`).
-- The API runs as `www-data` with no privileged component, so on a stock installation it can read neither the
-  archive nor the copy — the honest answer there is `download-not-readable`.
+- The API runs as `www-data` with no privileged component. It cannot read the archive under `/var/backup`
+  (root-only), but it **can** read the delivered copy: ISPConfig adds the web server user to every client group
+  (`id www-data` → `client0, client1, client19, …`), which is how Apache serves the 0750 client directories.
+  Confirmed live on 2026-09-16 with a byte-identical download.
 
 ## Complexity Tracking
 

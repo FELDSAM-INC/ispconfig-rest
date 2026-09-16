@@ -26,10 +26,11 @@ properties:
     type: boolean
     description: |
       Whether this API process can read the prepared copy and therefore stream it from
-      `GET /sites/web-domains/{id}/backups/{backup_id}/download`. This is a property of the installation, not
-      of the backup: on a stock ISPConfig server the copy belongs to the website's system user and group,
-      which the API is not a member of, so this is `false` and the endpoint answers 409
-      `download-not-readable`. It is not a transient error and retrying does not help.
+      `GET /sites/web-domains/{id}/backups/{backup_id}/download`. This is a property of the installation, not of
+      the backup. It is normally `true`: ISPConfig adds the web server user to every client group, so the copy
+      (owned by the website's system user and group) is readable by the API. It is `false` where that does not
+      hold — hardened permissions, a different runtime user, or a backup stored on another server — and then the
+      endpoint answers 409 `download-not-readable`. That is not a transient error; retrying does not help.
   filename:
     type: string
     nullable: true

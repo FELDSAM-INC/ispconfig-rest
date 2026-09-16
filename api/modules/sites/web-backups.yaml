@@ -300,9 +300,10 @@
     description: |
       Streams the copy of the backup that `POST` on this path delivers into the website's `backup` folder.
 
-      ISPConfig itself offers no HTTP download; this API adds one, and it works **only where the API process
-      can read that copy**. On a stock installation the copy belongs to the website's system user and group
-      (mode 0640) while the API runs as the web server user, so this endpoint answers 409
+      ISPConfig itself offers no HTTP download; this API adds one. It works wherever the API process can read
+      that copy, which is the normal case: ISPConfig adds the web server user to every client group, so a copy
+      owned by the website's system user and group is readable. Where that does not hold — hardened permissions,
+      a different runtime user, or a backup stored on another server — the endpoint answers 409
       `download-not-readable` and the file must be fetched with the website's FTP or SSH access. Check the
       backup's `download` object (`state` and `http`) before offering a download: `http` is a property of the
       installation, not a transient error.

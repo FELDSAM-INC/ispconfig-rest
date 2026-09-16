@@ -28,15 +28,15 @@ FTP cannot get their backup at all.
 - Copies are purged after three days ("delete files older than 3 days", `backup.inc.php:1820`), which is the
   `available_until` spec 018 already documents.
 
-So on a stock installation the API process can read **neither** the archive **nor** the delivered copy: it is
-in neither `root` nor the website's client group. A download endpoint that pretends otherwise would fail in
-production; one that quietly widened those permissions would hand the web server read access to every
-customer's files.
+The archive under `/var/backup` is therefore out of reach for the API. The **delivered copy** is not: ISPConfig
+adds the web server user to every client group (`id www-data` lists `client0, client1, client19, …`), which is how
+Apache serves the 0750 client directories, so a copy at `<system_user>:<system_group>` 0640 is readable by the API
+on a stock installation. Verified live on 2026-09-16: the endpoint streamed a copy whose SHA-256 matched the file
+on disk byte for byte.
 
-This feature therefore specifies what is genuinely possible: an authenticated download endpoint that streams
-the prepared copy **when the installation has been configured so the API may read it**, and that says
-precisely why it cannot when it may not — with the FTP/SSH delivery of spec 018 remaining the documented
-default path.
+This feature therefore streams the prepared copy — never the archive — and says precisely why it cannot when a
+particular installation, a hardened permission set or a multi-server layout puts the copy out of reach. The FTP/SSH
+delivery of spec 018 remains available and is the only route on those installations.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -74,8 +74,9 @@ matching the file. Client B's key gets 404 for the same URL.
 A customer on an installation where the API cannot read backup copies is told to use the folder, instead of
 being handed a broken button.
 
-**Why this priority**: on a stock ISPConfig installation this is the **normal** case; a consumer must be able
-to decide what to show before offering the action.
+**Why this priority**: a copy has to be prepared before it can be fetched, so "not prepared yet" is the common
+first answer; and on hardened or multi-server installations the copy may never be readable here. A consumer must be
+able to decide what to show before offering the action.
 
 **Independent Test**: with no prepared copy → 409 `download-not-prepared`; with a copy present but unreadable
 by the API process → 409 `download-not-readable`; both with a `download` object describing the folder
@@ -167,8 +168,9 @@ Backup representation gains:
   exists — `filename` and `available_until`.
 - **FR-007**: The download MUST NOT write any journal or remote-action row.
 - **FR-008**: Large files MUST be streamed without loading them into memory.
-- **FR-009**: The documentation MUST state plainly that a stock installation cannot stream backups, what an
-  operator must do to enable it, and what the security trade-off of doing so is.
+- **FR-009**: The documentation MUST state plainly where the download works (the delivered copy is readable
+  because ISPConfig puts the web server user in every client group), where it does not (hardened permissions,
+  multi-server layouts), and that the API never changes permissions to make itself able to read.
 
 ### Key Entities
 
@@ -183,8 +185,8 @@ Backup representation gains:
 
 - **SC-001**: On an installation where the copy is readable by the API, a consumer downloads a backup over
   HTTP and the received bytes are identical to the file on disk (verified by checksum).
-- **SC-002**: On a stock installation the endpoint answers 409 with a type that tells the consumer which of
-  the two situations applies, and the panel can decide from the representation alone whether to offer the
+- **SC-002**: When a copy is missing or unreachable, the endpoint answers 409 with a type that tells the consumer
+  which of the two situations applies, and the panel can decide from the representation alone whether to offer the
   button.
 - **SC-003**: No request to the endpoint produces a `sys_datalog` or `sys_remoteaction` row.
 - **SC-004**: No response, header or log line contains a file system path.
@@ -193,7 +195,7 @@ Backup representation gains:
 ## Assumptions
 
 - The copy-to-folder preparation of spec 018 stays the default delivery on installations that do not opt in.
-- No change is made to ISPConfig's permissions, and no privileged helper is introduced; if the operator wants
-  HTTP downloads they grant the API read access themselves, and the documentation describes the trade-off.
+- No change is made to ISPConfig's permissions and no privileged helper is introduced; the endpoint reads only
+  what the API process may already read by ISPConfig's own group design.
 - Range requests are out of scope for this version; the endpoint streams the whole file.
 - Mail backups are out of scope, as in spec 018.

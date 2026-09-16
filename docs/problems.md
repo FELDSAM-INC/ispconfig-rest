@@ -116,11 +116,11 @@ so a consumer can avoid the request entirely.
 A copy of the backup exists, but this API cannot read it, so it cannot be streamed over HTTP. Fetch it with
 the website's FTP or SSH access from the website's `backup` folder.
 
-This is the normal answer on a stock ISPConfig installation: the delivered copy belongs to the website's
-system user and group (mode 0640) while the API runs as the web server user, which is a member of neither.
-It is a property of the installation, not a transient failure — retrying does not help, and the API never
-changes those permissions to make itself able to read. The same type is returned when the backup is stored on
-a different server than the website, where a copy can never be delivered (spec 042).
+Normally the copy *is* readable — ISPConfig adds the web server user to every client group, which is how Apache
+serves the 0750 client directories — so this refusal means the installation differs: hardened permissions, a
+different runtime user for the API, or a backup stored on another server than the website, where a copy can never
+be delivered (spec 042). It is a property of the installation, not a transient failure: retrying does not help,
+and the API never changes permissions to make itself able to read.
 
 No extension members, and no file system path is disclosed. The backup's own `download` object reports this
 as `http: false`, so a consumer can offer the FTP/SSH explanation instead of a download button.

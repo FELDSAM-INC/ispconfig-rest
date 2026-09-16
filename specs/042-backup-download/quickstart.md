@@ -58,12 +58,13 @@ Cache-Control: private, no-store
 Read it as: the file is there (`state`), but this API may not read it (`http: false`) — so a panel explains
 FTP/SSH instead of showing a download button.
 
-## 3. Live check on isp-test — expect the stock (refusing) case
+## 3. Live check on isp-test — the download works here
 
-**This is the important part of the check.** isp-test runs the API as `www-data`, while the delivered copy is
-`<system_user>:<system_group>` mode 0640 inside a `root:<system_group>` 0750 folder. The API is in neither
-group, so a correct implementation reports `http: false` and refuses with `download-not-readable`. Seeing a
-200 here would mean the guard is broken, not that the feature works.
+isp-test runs the API as `www-data`, and ISPConfig adds that user to every client group (`id www-data` →
+`client0, client1, client19, …`), which is how Apache serves the 0750 client directories. The delivered copy at
+`<system_user>:<system_group>` 0640 is therefore readable, so the endpoint answers **200** and streams it. Prove it
+by checksum, not by status code alone. The refusals are exercised separately: before a copy is prepared
+(`download-not-prepared`), and — where reproducible — with an unreadable copy (`download-not-readable`).
 
 Use a **temporary** client and website; never a `WHMCS-` customer, and never clients 1, 2 or 19.
 
@@ -77,11 +78,13 @@ Use a **temporary** client and website; never a `WHMCS-` customer, and never cli
 5. **Prepare a copy**: `POST …/backups/{backup_id}/download` → 201 job; while it is pending the representation
    must report `download.state: preparing`. Wait for the server to finish.
 6. **Representation after delivery**: `download.state: ready`, `filename` set, `available_until` about three
-   days ahead, and `http: false` on this installation.
-7. **Download** → 409 `download-not-readable`, and the problem detail must name no path.
-8. **Prove the readable path without weakening the server**: verify on the shell that the copy exists with
-   the expected owner and mode (`ls -l <document_root>/backup`), and that `sudo -u www-data test -r <file>`
-   fails. The 200 path stays covered by the local tests, which use a directory the test process owns.
+   days ahead, and `http: true` on this installation.
+7. **Download** → 200. Compare the SHA-256 of the response with the file on disk — they must be identical — and
+   check the headers (`Content-Type: application/octet-stream`, `Content-Disposition`, `Content-Length`,
+   `Cache-Control` carrying `private` and `no-store`; Symfony may order the directives as `no-store, private`).
+   `HEAD` must return the same headers with no body.
+8. **Record the on-disk truth**: `ls -ld <document_root>/backup` and `ls -l` the copy, plus `id www-data`, so the
+   reason the read succeeds is documented rather than assumed.
 9. **Isolation**: a second temporary client's key must get 404 for the first client's backup id.
 10. **Plan gate**: set `limit_backup = 'n'` on the temporary client → 403 `feature-not-allowed`; restore it.
 

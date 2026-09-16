@@ -63,10 +63,10 @@ Contract and problem vocabulary first (constitution I); nothing in `app/` before
 - [x] T023 — Full suite on `php:8.3-cli` (expect 1276 + the new tests, no regressions) and Pint on every changed file.
 - [x] T024 — README: document the endpoint under Known deviations — ISPConfig has no HTTP download; this API adds one that works only where the operator has granted the API read access to website backup folders, with the security trade-off stated plainly (FR-009).
 - [x] T025 — Commit the implementation phase and push.
-- [ ] T026 — Deploy to isp-test and confirm the deployed commit is on `origin/main`.
-- [ ] T027 — Run quickstart §3 live: expect `download.http: false` and 409 `download-not-readable` on this stock installation, with the copy's owner/mode verified on the shell; plus isolation and the plan gate.
-- [ ] T028 — Cleanup per quickstart §4 (backup before website, then clients, keys, leftovers) and verify the server is back to baseline.
-- [ ] T029 — Record the live results in this file and commit.
+- [x] T026 — Deploy to isp-test and confirm the deployed commit is on `origin/main`.
+- [x] T027 — Run quickstart §3 live: the download works here (200, SHA-256 identical to the file on disk), with the copy's owner/mode and `id www-data` recorded; plus `download-not-prepared`, isolation and the plan gate.
+- [x] T028 — Cleanup per quickstart §4 (backup before website, then clients, keys, leftovers) and verify the server is back to baseline.
+- [x] T029 — Record the live results in this file and commit.
 
 ## Dependencies & Execution Order
 
@@ -93,6 +93,59 @@ where the refusal is the normal answer; both ship together because a download bu
 ## Notes
 
 - No migrations, no writes, no permission changes, no privileged helper.
-- On isp-test the correct live result is a refusal (`http: false`, 409 `download-not-readable`); a 200 there
-  would mean the readability guard is broken.
+- On isp-test the download succeeds (`http: true`, 200 with byte-identical content) because ISPConfig puts the
+  web server user in every client group. `download-not-readable` is for installations where that does not hold.
 - Range requests are deliberately out of scope for this version (research R8).
+
+## Live verification on isp-test (T027, 2026-09-16)
+
+Deployed commit `e5149e2`. Temporary clients 52 (`qa042a`, `limit_backup = y`) and 53, website 31
+`qa042a-site.test` on server 1, client-scoped keys for both.
+
+| Step | Expected | Observed |
+|---|---|---|
+| Download of a nonexistent backup id | 404 | 404 |
+| Representation before a copy | `not_prepared`, `http: false`, nulls | exactly that, `download_available: true` |
+| Download without a copy | 409 `download-not-prepared` | 409, type `download-not-prepared`, no path in the body |
+| While the copy job is pending | `preparing`, filename set | `{"state":"preparing","http":false,"filename":"manual-web31_2026-09-16_03-52.tar.gz","available_until":null}` |
+| Representation after delivery | `ready`, `available_until` ≈ +3 days | `{"state":"ready","http":true,"filename":"manual-web31_…tar.gz","available_until":"2026-09-19T03:53:01+02:00"}` |
+| **Download (SC-001)** | byte-identical stream | **200**, SHA-256 `20459cf4…d011a` on both sides, 5665 bytes; `content-type: application/octet-stream`, `content-disposition: attachment; filename="manual-web31_2026-09-16_03-52.tar.gz"`, `cache-control: no-store, private` |
+| `HEAD` | same headers, no body | same headers, plus `accept-ranges`/`last-modified` from the file response |
+| Isolation | client B on A's backup → 404 | 404 |
+| Plan gate | `limit_backup = n` → 403 | 403 |
+
+### The premise of this spec was wrong, and the documents were corrected
+
+The specification predicted 409 `download-not-readable` here, on the assumption that the API (as `www-data`)
+is in neither `root` nor the website's client group. The live check disproved it:
+
+```
+id www-data → uid=33(www-data) … groups=33(www-data),5003(ispapps),5004(ispconfig),
+              5005(client0),5006(client1),5007(client19),5008(client52)
+getent group client52 → client52:x:5008:www-data
+copy: -rw-r----- web31:client52   folder: drwxr-x--- root:client52
+```
+
+**ISPConfig adds the web server user to every client group** — that is how Apache serves the 0750 client
+directories — so the delivered copy is readable and the download works on a stock installation. The archives
+under `/var/backup` stay `root:root` 0700 and are never touched, which is why streaming the *copy* is the
+right design. `research.md` (R2), `spec.md`, `plan.md`, `quickstart.md`, `WebBackupDownload.yaml`,
+`web-backups.yaml`, `docs/problems.md` and `README.md` were rewritten to state this; `download-not-readable`
+now documents the cases where it genuinely applies (hardened permissions, a different runtime user, or a
+backup stored on another server). No code changed — the implementation was already correct.
+
+This also raises the weight of the path guard rather than lowering it: because the API is in *every* client
+group, an unchecked symlink in a customer's backup folder could reach another customer's files. The guard
+(`realpath` + prefix + regular-file check) is implemented and covered by tests.
+
+## Cleanup (T028, 2026-09-16)
+
+Backup deleted **before** the website (the spec 041 finding), then both clients through the API; the journal
+reached `server.updated` (1156 = 1156) with no pending remote action. Keys `qa042*` (121–125) deleted by name.
+Final state matches the pre-run baseline: keys `1, 2, 20, 27, 50`; clients `1, 2, 19`; 6 websites; 0 backup
+rows; no `qa042` client or website; client directories `client0, client1, client19`; `www-data` back to
+`www-data, ispapps, ispconfig, client0, client1, client19`.
+
+One residue needed a manual step: `/var/backup/web31` remained as an **empty** directory — `backup_delete`
+removes the archive but not the per-website folder — and was removed by hand. Worth knowing for any consumer
+that tears websites down.

@@ -25,15 +25,25 @@ terms and must not contradict any legacy rule. It deliberately reuses legacy's a
 | `<backup_dir>/web<id>/<archive>` | `root:root` 0700 | same |
 | `<document_root>/backup` (delivery folder) | `root:<system_group>` 0750 | `backup.inc.php:116-136` (`secureBackupDir()`) |
 | `<document_root>/backup/<archive>` (the copy) | `<system_user>:<system_group>` 0640 | `backup.inc.php:1099-1106` |
-| API process | `www-data:www-data` | php-fpm pool `ispconfig-rest.conf`, Apache :8090 |
+| API process | `www-data`, **and a member of every `clientN` group** | php-fpm pool `ispconfig-rest.conf`, Apache :8090; verified with `id www-data` on isp-test |
 
-**Decision**: the endpoint streams **only** the delivered copy, and **only** when the API process can read
-it. The backup directory itself is never touched. On a stock installation the API is in neither `root` nor
-the client's group, so the honest answer there is a typed 409, not a 200.
+**Decision**: the endpoint streams **only** the delivered copy, and **only** when the API process can read it.
+The backup directory itself is never touched.
+
+**Corrected on 2026-09-16 by the live check (R11)**: the copy *is* readable on a stock installation. ISPConfig adds
+the web server user to every client group — `id www-data` on isp-test lists `client0, client1, client19, client52` —
+which is how Apache serves the 0750 client directories. The copy at `<system_user>:<system_group>` 0640 therefore
+falls inside a group the API already belongs to, while `/var/backup` (root-only) stays unreachable. Streaming the
+*copy* rather than the archive is exactly what makes the feature work without any privilege change; a download
+returned 200 with a SHA-256 identical to the file on disk.
 
 **Why**: the alternatives are worse. Reading `/var/backup` would require root. Making the copy readable for
-everyone would expose every customer's archive to the web server. Adding a privileged helper would put a
-setuid path into a product whose whole security story is "the API is an ordinary web application".
+everyone would expose every customer's archive beyond the group ISPConfig already grants. Adding a privileged
+helper would put a setuid path into a product whose whole security story is "the API is an ordinary web
+application".
+
+Because the API is in every client group, the path guard of R4 carries more weight, not less: an unchecked symlink
+in a customer's backup folder could reach another customer's files. That guard is implemented and tested.
 
 **Rejected**: running the API as root (unacceptable); a setuid/sudo helper (new privileged surface, and
 ISPConfig itself offers no such hook); `chmod`-ing the copy from the API (the API may not even enter the
