@@ -127,7 +127,10 @@ the stored row.
 - **FR-005**: On update, a not-allowed field whose submitted value equals the stored one MUST be accepted.
 - **FR-006**: Administrator keys MUST NOT be refused; for them the not-allowed credential is cleared server-side, as
   the legacy form intends.
-- **FR-007**: In every accepted case the stored row MUST carry the allowed credential and an empty other credential.
+- **FR-007**: The clearing MUST happen only for administrator keys. An accepted request from a client or reseller
+  key MUST leave an existing not-allowed credential untouched — a customer request that changes nothing must never
+  destroy a credential (that silent loss is the defect this feature removes). Such accounts keep the credential until
+  an administrator or the customer changes it.
 - **FR-008**: The contract (`AccountSitesCapabilities.yaml`, `api/modules/me/capabilities.yaml`, `ShellUser.yaml`,
   `api/modules/sites/shell-users.yaml`) and the README MUST describe the reported mode, the refusal and the corrected
   section before the implementation.

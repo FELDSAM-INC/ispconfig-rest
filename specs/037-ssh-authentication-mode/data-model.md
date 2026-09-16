@@ -25,13 +25,17 @@ For client and reseller keys only; administrator keys are never refused.
 Accepted in every mode: the allowed credential; the not-allowed field as `null` or `""`; on update, the not-allowed
 field re-sent unchanged. Refusals happen during validation, so nothing is written and no `sys_datalog` row appears.
 
-## Stored result (unchanged)
+## Stored result
 
 | Mode | Administrator key sends both | Scoped key sends the allowed one |
 |---|---|---|
 | `password_or_key` | both stored | stored |
-| `password` | password stored, `ssh_rsa` cleared | password stored |
-| `key` | key stored, `password` cleared | key stored |
+| `password` | password stored, `ssh_rsa` cleared | password stored; an existing `ssh_rsa` is left untouched |
+| `key` | key stored, `password` cleared | key stored; an existing `password` is left untouched |
+
+Clearing is the administrator path only. A client or reseller key is refused when it tries to *change* the
+not-allowed credential, and an accepted request from such a key never destroys one that is already stored — otherwise
+a customer who only changes a quota would silently lose the credential, which is the defect this feature removes.
 
 ## Not changed
 
