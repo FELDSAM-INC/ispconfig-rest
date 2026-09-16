@@ -61,6 +61,9 @@ properties:
     description: |
       Password for HTTP authentication. Write-only — never returned in
       responses. Stored as a SHA-512 crypt hash (legacy `CRYPT` encryption).
+      Must satisfy the installation's password policy (spec 038), readable per
+      account as `sites.password_policy` of `GET /me/capabilities`; a weaker
+      value is refused with 422 on this field.
     example: "securePassword123"
 
   active:

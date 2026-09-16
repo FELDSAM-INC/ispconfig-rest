@@ -19,7 +19,10 @@
       `sites` (spec 035) describes the hosting options: the name prefixes new databases, database users, FTP, SSH and
       WebDAV accounts of this account receive, the plan's database quota cap and remote-access permission, whether
       SSH access is available, with which isolation modes and which credential the installation accepts for it, and
-      which kinds of scheduled task the account may create with which shortest interval.
+      which kinds of scheduled task the account may create with which shortest interval. It also carries
+      `password_policy` (spec 038): the length and strength every credential of the account must satisfy — database
+      users, FTP, SSH, WebDAV and web folder users, the website statistics password and the control-panel password.
+      Mailboxes keep their own `mail.password_policy`, which adds the mail-only ASCII restriction.
 
       - Client keys get their own account; `client_id` may only be their own client id (any other → 404).
       - Reseller keys get their own account, or one of their clients by `client_id` (that client's own view; any
@@ -97,6 +100,9 @@
                     - url
                     - chrooted
                   min_interval_minutes: 5
+                password_policy:
+                  min_length: 8
+                  min_strength: 3
       '400':
         $ref: '../../components/responses/BadRequest.yaml'
       '401':

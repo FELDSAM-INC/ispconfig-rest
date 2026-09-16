@@ -200,6 +200,9 @@ AccountCapabilities:
 AccountSitesCapabilities:
   $ref: './AccountSitesCapabilities.yaml'
 
+PasswordPolicy:
+  $ref: './PasswordPolicy.yaml'
+
 HostingLinks:
   $ref: './HostingLinks.yaml'
 

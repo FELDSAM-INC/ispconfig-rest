@@ -12,6 +12,7 @@ required:
   - databases
   - shell
   - cron
+  - password_policy
 properties:
   prefixes:
     type: object
@@ -124,3 +125,10 @@ properties:
           The shortest interval between two runs the plan allows, in minutes (`limit_cron_frequency`). Null when the
           plan does not constrain it (a value of 0 or 1 never refuses a schedule).
         example: 5
+  password_policy:
+    description: |
+      The installation's password rules for this account's credentials — database users, FTP, SSH, WebDAV and web
+      folder users, the website statistics password and the control-panel password (spec 038). Mailboxes use
+      `mail.password_policy`, which adds the mail-only ASCII restriction.
+    allOf:
+      - $ref: './PasswordPolicy.yaml'

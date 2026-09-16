@@ -70,6 +70,9 @@ properties:
       Database password (plaintext in the request only). Write-only — never
       returned. The server derives and stores the MySQL, SHA2 and PostgreSQL
       hash columns from this value.
+      Must satisfy the installation's password policy (spec 038), readable per
+      account as `sites.password_policy` of `GET /me/capabilities`; a weaker
+      value is refused with 422 on this field.
     example: "securepassword123"
 
   client_id:

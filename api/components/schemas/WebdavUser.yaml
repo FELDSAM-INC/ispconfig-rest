@@ -75,6 +75,9 @@ properties:
       WebDAV password. Write-only — never returned in responses. Stored as
       the digest hash `md5(username:dir:password)`; password changes are
       re-digested with the stored username and dir.
+      Must satisfy the installation's password policy (spec 038), readable per
+      account as `sites.password_policy` of `GET /me/capabilities`; a weaker
+      value is refused with 422 on this field.
     example: "securePassword123"
 
   dir:

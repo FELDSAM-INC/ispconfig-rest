@@ -156,7 +156,10 @@ properties:
     type: string
     minLength: 8
     writeOnly: true
-    description: Password (write-only, never returned in responses)
+    description: |
+      Control-panel password (write-only, never returned in responses). Must satisfy the installation's password
+      policy — `min_password_length` and `min_password_strength`, readable per account as `sites.password_policy` of
+      `GET /me/capabilities` (spec 038). A weaker value is refused with 422 on this field and nothing is written.
     example: "s3cr3tP@ssw0rd"
 
   # Bank Information
