@@ -21,11 +21,11 @@ OpenAPI specification is the source of truth and lands before the code.
 
 Contract and configuration first (constitution I); nothing in `app/` before these land.
 
-- [ ] T003 [P] — Create `api/components/schemas/UsageFreshness.yaml`: `interval_seconds`, `stale_after_seconds`, `measured_at` (nullable), `next_expected_at` (nullable), documenting that the intervals are installation facts present even without a measurement, that `measured_at` is reported even when the value is stale, and that both timestamps are null together.
-- [ ] T004 [P] — Add `usage.interval` to `config/api.php` (`harddisk_quota` 300, `database_size` 300, `email_quota` 900) with a comment naming the ISPConfig cron classes the values come from.
-- [ ] T005 — Add `freshness` to `api/components/schemas/UsageSummary.yaml` in both `properties` and `required` (the schema is `additionalProperties: false`), referencing the new schema per metric.
-- [ ] T006 — Extend the `api/modules/usage/summary.yaml` description: what the block means, how a consumer decides a value is outdated, why `web_traffic_this_month` has no entry, and that an unknown value is shown as "not measured yet", never `0`.
-- [ ] T007 — Commit the contract phase (`Add the usage freshness contract`) and push.
+- [x] T003 [P] — Create `api/components/schemas/UsageFreshness.yaml`: `interval_seconds`, `stale_after_seconds`, `measured_at` (nullable), `next_expected_at` (nullable), documenting that the intervals are installation facts present even without a measurement, that `measured_at` is reported even when the value is stale, and that both timestamps are null together.
+- [x] T004 [P] — Add `usage.interval` to `config/api.php` (`harddisk_quota` 300, `database_size` 300, `email_quota` 900) with a comment naming the ISPConfig cron classes the values come from.
+- [x] T005 — Add `freshness` to `api/components/schemas/UsageSummary.yaml` in both `properties` and `required` (the schema is `additionalProperties: false`), referencing the new schema per metric.
+- [x] T006 — Extend the `api/modules/usage/summary.yaml` description: what the block means, how a consumer decides a value is outdated, why `web_traffic_this_month` has no entry, and that an unknown value is shown as "not measured yet", never `0`.
+- [x] T007 — Commit the contract phase (`Add the usage freshness contract`) and push.
 
 ## Phase 3: User Story 1 - Explain a usage figure truthfully (Priority: P1) 🎯 MVP
 

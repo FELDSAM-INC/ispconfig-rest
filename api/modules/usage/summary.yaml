@@ -18,6 +18,19 @@
       Collector-based values are `null` when the collector data is missing, stale (older than 30 minutes for
       disk and databases, 60 minutes for mail storage) or corrupt. `web_traffic_this_month` counts only active
       websites. Calendar periods use the API timezone (`period.timezone`). All sizes are bytes.
+
+      `freshness` (spec 043) explains those figures: per collector-backed metric it reports how often the
+      collector runs (`interval_seconds`), the age at which this API stops trusting the data
+      (`stale_after_seconds`), when it was last collected (`measured_at`) and when the next run is due
+      (`next_expected_at`). `measured_at` is reported **even when the value itself has aged out**, which is how
+      a consumer tells "measured three hours ago" from "never measured": a metric that was never collected has
+      both timestamps `null` while the intervals stay present.
+
+      Deciding whether a value is outdated: `measured_at` null means never measured; otherwise the value is
+      current while `now - measured_at` is at most `stale_after_seconds`, the same threshold this API applies
+      when it reports the metric as `null`. An unknown value must be shown as "not measured yet" and never as
+      `0` — a missing measurement is not a measurement of zero. `web_traffic_this_month` has no freshness entry
+      because it is summed from daily traffic counters rather than produced by a collector.
     parameters:
       - name: client_id
         in: query

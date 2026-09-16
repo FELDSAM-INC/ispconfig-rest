@@ -1,0 +1,49 @@
+type: object
+description: |
+  How one collector-backed usage figure is produced and how current it is (spec 043).
+
+  Disk, mailbox storage and database sizes are not measured on request: ISPConfig's server collectors write
+  them on a schedule and this API reads the newest values. The two interval fields describe the installation
+  and are always present, even when nothing has been collected yet; the two timestamps describe the last
+  measurement and are `null` together when none exists.
+additionalProperties: false
+required:
+  - interval_seconds
+  - stale_after_seconds
+  - measured_at
+  - next_expected_at
+properties:
+  interval_seconds:
+    type: integer
+    description: |
+      How often the collector runs, in seconds — 300 for disk and database sizes, 900 for mailbox storage by
+      default. Taken from the schedule compiled into ISPConfig's cron classes and configurable, so an
+      installation that changed it can report the truth.
+    example: 300
+  stale_after_seconds:
+    type: integer
+    description: |
+      The age at which this API stops trusting the data: beyond it the metric's `used_bytes` and `measured_at`
+      are reported as `null`. Defaults are 1800 for disk and database sizes and 3600 for mailbox storage.
+    example: 1800
+  measured_at:
+    type: string
+    format: date-time
+    nullable: true
+    description: |
+      When the figure was collected, in the API timezone — the **oldest** contributing collection time when
+      the account's resources span several servers, because the total is only as current as its oldest part.
+
+      Reported **even when the value has aged out**, which is the point of this object: the metric itself then
+      reports `null`, and only this timestamp distinguishes "measured three hours ago" from "never measured".
+      `null` means no collector row exists for this account's servers at all.
+    example: "2026-09-16T04:05:01+02:00"
+  next_expected_at:
+    type: string
+    format: date-time
+    nullable: true
+    description: |
+      `measured_at` plus `interval_seconds`: when the next collector run is due. `null` whenever `measured_at`
+      is null. A value in the past means the collector is overdue; server clocks are reported as they are and
+      never corrected.
+    example: "2026-09-16T04:10:01+02:00"

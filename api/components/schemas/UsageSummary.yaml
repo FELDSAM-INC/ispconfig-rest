@@ -9,6 +9,7 @@ required:
   - web_traffic_this_month
   - counts
   - period
+  - freshness
 properties:
   client_id:
     type: integer
@@ -110,3 +111,27 @@ properties:
         type: string
         description: The API timezone used for calendar periods.
         example: Europe/Prague
+  freshness:
+    type: object
+    description: |
+      How current the collector-backed figures above are (spec 043): one entry per metric that a collector
+      produces. `web_traffic_this_month` has no entry — it is summed from daily traffic counters, not
+      collected.
+    additionalProperties: false
+    required:
+      - web_disk
+      - mail_storage
+      - database_size
+    properties:
+      web_disk:
+        description: Collection rules and last collection time of the disk figures (`harddisk_quota`).
+        allOf:
+          - $ref: './UsageFreshness.yaml'
+      mail_storage:
+        description: Collection rules and last collection time of the mailbox storage figures (`email_quota`).
+        allOf:
+          - $ref: './UsageFreshness.yaml'
+      database_size:
+        description: Collection rules and last collection time of the database size figures (`database_size`).
+        allOf:
+          - $ref: './UsageFreshness.yaml'
