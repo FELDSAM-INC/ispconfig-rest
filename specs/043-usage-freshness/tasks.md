@@ -56,10 +56,10 @@ Contract and configuration first (constitution I); nothing in `app/` before thes
 - [x] T019 — Full suite on `php:8.3-cli` (expect 1292 + the new tests, no regressions, and the shipped summary tests still green — SC-004) and Pint on every changed file.
 - [x] T020 — README: mention freshness in the `usage` module row.
 - [x] T021 — Commit the implementation phase and push.
-- [ ] T022 — Deploy to isp-test and confirm the deployed commit is on `origin/main`.
-- [ ] T023 — Run quickstart §3 live: compare the captured pre-deploy summary with the new one (only `freshness` added), check the interval/stale values and the `next_expected_at` arithmetic, cross-check one `measured_at` against `monitor_data`, and read a temporary resource-less client for the never-measured case.
-- [ ] T024 — Cleanup per quickstart §4 and verify isp-test is back to baseline.
-- [ ] T025 — Record the live results in this file and commit.
+- [x] T022 — Deploy to isp-test and confirm the deployed commit is on `origin/main`.
+- [x] T023 — Run quickstart §3 live: compare the captured pre-deploy summary with the new one (only `freshness` added), check the interval/stale values and the `next_expected_at` arithmetic, cross-check one `measured_at` against `monitor_data`, and read a temporary resource-less client for the never-measured case.
+- [x] T024 — Cleanup per quickstart §4 and verify isp-test is back to baseline.
+- [x] T025 — Record the live results in this file and commit.
 
 ## Dependencies & Execution Order
 
@@ -88,3 +88,41 @@ would leave the original problem unsolved.
 - No migrations, no writes, no new endpoint, no change to any existing field.
 - The cadence cannot be derived from stored data (`monitor_data` keeps only the newest row per server and
   type), which is why it is configuration — see research R2.
+
+## Live verification on isp-test (T023, 2026-09-16)
+
+Deployed commit `c00e3f7` (identical to local HEAD). The pre-deploy capture from T002 made the strongest
+check possible: a field-by-field comparison against **real** data.
+
+| Check | Expected | Observed |
+|---|---|---|
+| Added keys | only `freshness` | only `freshness`; nothing removed |
+| Existing fields | unchanged | all identical except `web_disk.measured_at`, explained below |
+| Cadence / stale age | 300/1800, 900/3600, 300/1800 | exactly that |
+| `next_expected_at − measured_at` | equals `interval_seconds` | disk 300 s, mail 900 s — exact |
+| Cross-check with `monitor_data` | API time = newest row | `harddisk_quota` 04:10:01 and `email_quota` 04:00:01 match |
+| Never measured (temporary client with no resources) | all timestamps null, intervals present | all three metrics null/null, intervals 300/900/300 present |
+| Writes | none by this feature | `sys_remoteaction` unchanged (15 → 15); the only journal rows were the temporary client's create/delete |
+
+### The one changed field is a collector run, not a regression
+
+`web_disk.measured_at` moved from `04:05:01` (baseline, captured 04:05:09) to `04:10:01`. The disk collector
+runs every 5 minutes and `monitor_data`'s newest `harddisk_quota` row is exactly `04:10:01`; `used_bytes`,
+`allocated_bytes`, `limit_bytes` and `used_percent` are byte-identical, and `mail_storage` (15-minute cadence)
+did not move at all. The metric and the new `freshness` block agree on the new collection time. So the
+additive promise holds: this feature changed no existing value.
+
+### The distinction the feature adds, seen on real data
+
+Client 19 has websites and mailboxes but **no databases**, so `database_size` reports `used_bytes: null` and
+`measured_at: null` — while a `database_size` blob does exist on server 1 (04:10:01). The freshness block
+reports `measured_at: null` for it, because no server *contributes* to that metric for this account. A
+consumer therefore renders "not measured yet" rather than `0`, and can still explain disk and mail with their
+real collection times.
+
+## Cleanup (T024, 2026-09-16)
+
+Temporary client 54 deleted through the API, journal drained (`server.updated` = last `sys_datalog` id, no
+pending remote action), `qa043*` keys removed by name, and both capture files deleted from the server. Final
+state matches the pre-run baseline: keys `1, 2, 20, 27, 50`; clients `1, 2, 19`; 6 websites; 0 backup rows;
+no `qa043` client or system user; client directories `client0, client1, client19`.
