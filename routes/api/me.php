@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\MeBackupsController;
 use App\Http\Controllers\Api\V1\MeCapabilitiesController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\MeHostingAddressesController;
@@ -39,3 +40,6 @@ Route::get('me/hosting-addresses', MeHostingAddressesController::class);
 
 // Administration and file-transfer links of the account — api/modules/me/hosting-links.yaml (spec 036)
 Route::get('me/hosting-links', MeHostingLinksController::class);
+
+// Backup overview of the account's websites — api/modules/me/backups.yaml (spec 041)
+Route::get('me/backups', MeBackupsController::class);

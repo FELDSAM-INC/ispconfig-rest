@@ -122,6 +122,36 @@ class WebBackupService
     }
 
     /**
+     * Database servers of many websites in one grouped query (spec 041
+     * research R4): the page-level form of databaseServerIds(), so an
+     * account-wide overview never queries per website. The composition rule
+     * itself stays defined by backupServerIds().
+     *
+     * @param  array<int, int>  $websiteIds
+     * @return array<int, array<int, int>> website id => distinct server ids
+     */
+    public function databaseServerIdsOfMany(array $websiteIds): array
+    {
+        if ($websiteIds === []) {
+            return [];
+        }
+
+        $rows = DB::table('web_database')
+            ->whereIn('parent_domain_id', $websiteIds)
+            ->distinct()
+            ->orderBy('server_id')
+            ->get(['parent_domain_id', 'server_id']);
+
+        $byWebsite = [];
+
+        foreach ($rows as $row) {
+            $byWebsite[(int) $row->parent_domain_id][] = (int) $row->server_id;
+        }
+
+        return $byWebsite;
+    }
+
+    /**
      * Backups listed for the website (R6): its rows on the website's and its
      * databases' servers.
      */

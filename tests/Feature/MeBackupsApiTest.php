@@ -164,10 +164,11 @@ class MeBackupsApiTest extends WebBackupApiTestCase
         $website = $this->website('clientA');
         $this->backup($website);
 
-        DB::enableQueryLog();
+        // The first authenticated request of a run also writes the key's
+        // last_used_at; that is auth bookkeeping, not the endpoint's work.
         $this->getJson(self::URL, $this->tenantHeaders('clientA'))->assertOk();
-        $one = count(DB::getQueryLog());
-        DB::disableQueryLog();
+
+        $one = $this->endpointQueries('clientA');
 
         for ($i = 0; $i < 4; $i++) {
             $extra = $this->website('clientA');
@@ -175,15 +176,32 @@ class MeBackupsApiTest extends WebBackupApiTestCase
             $this->backup($extra, ['backup_type' => 'mysql', 'filename' => 'db_c1_x_2026-09-15_00-00.sql.gz']);
         }
 
-        DB::flushQueryLog();
-        DB::enableQueryLog();
+        $five = $this->endpointQueries('clientA');
+
         $this->getJson(self::URL, $this->tenantHeaders('clientA'))
             ->assertOk()
             ->assertJsonPath('meta.total', 5);
-        $five = count(DB::getQueryLog());
-        DB::disableQueryLog();
 
         $this->assertSame($one, $five, 'the overview must not query per website');
+        $this->assertLessThanOrEqual(6, $five, 'the overview must stay within its fixed query budget');
+    }
+
+    /**
+     * Queries the endpoint itself runs, excluding API-key authentication
+     * bookkeeping (`api_keys`, `sys_user`), which is not per-website work.
+     */
+    private function endpointQueries(string $tenant): int
+    {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->getJson(self::URL, $this->tenantHeaders($tenant))->assertOk();
+        $queries = array_column(DB::getQueryLog(), 'query');
+        DB::disableQueryLog();
+
+        return count(array_filter(
+            $queries,
+            static fn (string $sql): bool => ! str_contains($sql, '"api_keys"') && ! str_contains($sql, '"sys_user"')
+        ));
     }
 
     public function test_client_without_the_backup_limit_is_refused(): void
