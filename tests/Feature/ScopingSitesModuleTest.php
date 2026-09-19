@@ -183,6 +183,27 @@ class ScopingSitesModuleTest extends TestCase
         $this->assertNotSame(404, $ownStatus);
     }
 
+    public function test_parent_filter_keeps_vhost_subdomains_scoped_to_the_key(): void
+    {
+        foreach (['clientA', 'clientB'] as $owner) {
+            DB::table('web_domain')->insert($this->ownedBy($owner, [
+                'server_id' => 1,
+                'domain' => 'blog.'.$owner.'.test',
+                'type' => 'vhostsubdomain',
+                'parent_domain_id' => $this->vhosts[$owner],
+                'active' => 'y',
+            ]));
+        }
+
+        $this->getJson('/api/v1/sites/web-domains?parent_domain_id='.$this->vhosts['clientA'], $this->tenantHeaders('clientA'))
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.domain', 'blog.clientA.test');
+
+        foreach (['clientA', 'reseller'] as $reader) {
+            $this->getJson('/api/v1/sites/web-domains?parent_domain_id='.$this->vhosts['clientB'], $this->tenantHeaders($reader))
+                ->assertOk()->assertJsonPath('meta.total', 0)->assertJsonCount(0, 'data');
+        }
+    }
+
     public function test_create_web_folder_is_stamped_with_the_key_identity(): void
     {
         $this->postJson('/api/v1/sites/web-folders', [

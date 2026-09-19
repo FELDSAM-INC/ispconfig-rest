@@ -85,6 +85,29 @@ class WebDomainApiTest extends SitesApiTestCase
             ->assertJsonPath('status', 400);
     }
 
+    public function test_list_filters_vhost_domains_by_parent(): void
+    {
+        $parentId = $this->seedVhost(['domain' => 'parent.test']);
+        $otherId = $this->seedVhost(['domain' => 'other.test']);
+        $this->seedVhost(['domain' => 'blog.parent.test', 'type' => 'vhostsubdomain', 'parent_domain_id' => $parentId]);
+        $this->seedVhost(['domain' => 'alias.test', 'type' => 'vhostalias', 'parent_domain_id' => $parentId]);
+        $this->seedVhost(['domain' => 'shared.parent.test', 'type' => 'subdomain', 'parent_domain_id' => $parentId]);
+        $this->seedVhost(['domain' => 'blog.other.test', 'type' => 'vhostsubdomain', 'parent_domain_id' => $otherId]);
+
+        $this->getJson('/api/v1/sites/web-domains?parent_domain_id='.$parentId, $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('data.0.domain', 'alias.test')
+            ->assertJsonPath('data.1.domain', 'blog.parent.test');
+
+        $this->getJson('/api/v1/sites/web-domains?parent_domain_id=999999', $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+
+        $this->getJson('/api/v1/sites/web-domains?parent_domain_id=abc', $this->authHeaders())
+            ->assertStatus(400);
+    }
+
     public function test_list_rejects_bad_parameters_with_400_problem(): void
     {
         foreach (['sort=evil_column', 'order=upwards', 'limit=0', 'offset=-1'] as $param) {
