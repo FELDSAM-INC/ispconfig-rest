@@ -249,6 +249,8 @@ immediately, so rolling this out is the operator's decision. Audit the generator
 
 Engineering rules live in [`.specify/memory/constitution.md`](.specify/memory/constitution.md); per-module specifications in [`specs/`](specs/). The legacy ISPConfig source used as the parity reference is expected (untracked) at `source_code/`.
 
+Web-domain responses include read-only `auto_alias`: the alternate hostname resolved from the hosting server's Website auto alias template, or null when unset/non-linkable. It supports the same four placeholders as ISPConfig's Apache/nginx plugins and each vhost's own ID and domain. The field is available with ordinary website read access; no server configuration is exposed. It does not imply DNS readiness or certificate coverage. See [spec 046](specs/046-website-autoalias/spec.md).
+
 ## License
 
 BSD-3-Clause — see the LICENSE file for details.

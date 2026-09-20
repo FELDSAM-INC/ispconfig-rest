@@ -55,6 +55,32 @@ class SitesConfigService
         return $this->parseIni((string) $blob)[$section] ?? [];
     }
 
+    /** Resolve the vhost autoalias like the Apache/nginx plugins, without exposing server config. */
+    public function websiteAutoalias(array $record): ?string
+    {
+        $pattern = $this->serverConfig((int) ($record['server_id'] ?? 0), 'web')['website_autoalias'] ?? '';
+        if ($pattern === '') {
+            return null;
+        }
+
+        // The plugins use this vhost's group, not the requesting user or the parent website.
+        $clientId = 0;
+        $username = '';
+        if (str_contains($pattern, '[client_id]') || str_contains($pattern, '[client_username]')) {
+            $clientId = (int) DB::table('sys_group')->where('groupid', (int) ($record['sys_groupid'] ?? 0))->value('client_id');
+        }
+        if (str_contains($pattern, '[client_username]')) {
+            $username = (string) DB::table('client')->where('client_id', $clientId)->value('username');
+        }
+        $alias = str_replace(
+            ['[client_id]', '[website_id]', '[client_username]', '[website_domain]'],
+            [(string) $clientId, (string) ($record['domain_id'] ?? ''), $username, (string) ($record['domain'] ?? '')],
+            $pattern
+        );
+
+        return $alias !== '' && filter_var($alias, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false ? $alias : null;
+    }
+
     /**
      * Resolve a name prefix pattern for a record (legacy
      * tools_sites::replacePrefix, admin path of getClientName/getClientID).
