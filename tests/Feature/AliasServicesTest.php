@@ -217,12 +217,26 @@ class AliasServicesTest extends SitesApiTestCase
         $this->assertDatabaseCount('mail_forwarding', 0);
     }
 
-    public function test_mail_list_identifies_alias_and_target_without_per_row_reads(): void
+    #[DataProvider('kinds')]
+    public function test_mail_list_identifies_alias_and_target_without_per_row_reads(string $type): void
     {
-        $this->create()->assertCreated();
+        $id = $this->create($type)->assertCreated()->json('id');
         $this->getJson('/api/v1/mail/domains?domain=alias.test', $this->tenantHeaders('clientA'))
             ->assertOk()->assertJsonPath('data.0.domain_alias.domain', 'primary.test')
-            ->assertJsonPath('data.0.domain_alias.active', true);
+            ->assertJsonPath('data.0.domain_alias.active', true)
+            ->assertJsonPath('data.0.domain_alias.website', ['id' => $id, 'type' => $type, 'parent_domain_id' => $this->parent]);
+    }
+
+    public function test_mail_alias_website_reference_is_absent_when_missing_foreign_or_ambiguous(): void
+    {
+        $id = $this->create()->assertCreated()->json('id');
+        DB::table('web_domain')->where('domain_id', $id)->delete();
+        $this->getJson('/api/v1/mail/domains?domain=alias.test', $this->tenantHeaders('clientA'))->assertOk()->assertJsonPath('data.0.domain_alias.website', null);
+        $foreign = $this->seedVhost($this->ownedBy('clientB', ['domain' => 'alias.test', 'type' => 'alias', 'parent_domain_id' => $this->parent, 'sys_perm_other' => 'r']));
+        $this->getJson('/api/v1/mail/domains?domain=alias.test', $this->tenantHeaders('clientA'))->assertOk()->assertJsonPath('data.0.domain_alias.website', null);
+        DB::table('web_domain')->where('domain_id', $foreign)->update($this->ownedBy('clientA'));
+        $this->seedVhost($this->ownedBy('clientA', ['domain' => 'alias.test', 'type' => 'vhostalias', 'parent_domain_id' => $this->parent]));
+        $this->getJson('/api/v1/mail/domains?domain=alias.test', $this->tenantHeaders('clientA'))->assertOk()->assertJsonPath('data.0.domain_alias.website', null);
     }
 
     public function test_managed_alias_cannot_silently_change_its_service_identity(): void

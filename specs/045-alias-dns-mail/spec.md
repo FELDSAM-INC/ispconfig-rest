@@ -19,3 +19,5 @@ Feature tests: both alias types, tenant scoping, limits/rollback, DNS clone and 
 ## Reference and deployment
 
 Existing REST models define the ISPConfig `dns_soa`, `dns_rr`, `mail_domain` and `mail_forwarding` schemas. Mail aliases use `mail_forwarding.type=aliasdomain` and require source/destination mail domains (spec 003/024). The relationship/synchronization behavior is an explicit extension requested by the owner, not an ISPConfig native field. Install/update creates the API-owned table and a one-minute scheduled reconciliation task; deploy API before WHMCS.
+
+Mail alias metadata also supplies nullable `website` (id, type, parent_domain_id) for the single readable website alias with the same domain and ownership group. The lookup is batched. Missing, foreign or ambiguous website matches return null. This allows the mail list to link to website alias settings without additional per-row API requests.

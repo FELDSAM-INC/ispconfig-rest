@@ -84,11 +84,18 @@ class AliasServicesService
                 $scope = app(IspContext::class)->authScope();
                 $domains = $scope->applyReadPredicate(DB::table('mail_domain'), 'r')->pluck('domain_id', 'domain');
                 $aliases = $scope->applyReadPredicate(DB::table('mail_forwarding')->where('type', 'aliasdomain'), 'r')->get();
+                $websites = Schema::hasTable('web_domain') ? $scope->applyReadPredicate(DB::table('web_domain'), 'r')
+                    ->whereIn('type', ['alias', 'vhostalias'])->get(['domain_id', 'domain', 'type', 'parent_domain_id', 'sys_groupid'])
+                    ->groupBy(fn ($row) => $row->sys_groupid.':'.$row->domain) : collect();
                 foreach ($aliases as $alias) {
                     $name = ltrim($alias->source, '@');
                     $target = ltrim($alias->destination, '@');
+                    $matches = $websites->get($alias->sys_groupid.':'.$name, collect());
+                    $website = $matches->count() === 1 ? $matches->first() : null;
                     $this->mailAliases[$name] = ['domain' => $target, 'active' => $alias->active === 'y',
-                        'mail_domain_id' => isset($domains[$target]) ? (int) $domains[$target] : null];
+                        'mail_domain_id' => isset($domains[$target]) ? (int) $domains[$target] : null,
+                        'website' => $website === null ? null : ['id' => (int) $website->domain_id,
+                            'type' => $website->type, 'parent_domain_id' => (int) $website->parent_domain_id]];
                 }
             }
         }

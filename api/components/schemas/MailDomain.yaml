@@ -219,3 +219,15 @@ description: |
         type: integer
         nullable: true
         description: Readable destination mail domain ID, or null if no longer available.
+      website:
+        type: object
+        nullable: true
+        description: Readable website alias with the same domain and owner, or null when absent or ambiguous.
+        properties:
+          id:
+            type: integer
+          type:
+            type: string
+            enum: [alias, vhostalias]
+          parent_domain_id:
+            type: integer
