@@ -12,7 +12,7 @@ foreach (['worker_control', 'fixture_source', 'fixture_copy', 'fixture_import', 
 $pdo->exec('CREATE DATABASE worker_control');
 $pdo->exec('USE worker_control');
 $pdo->exec('CREATE TABLE api_database_workers(server_id INT PRIMARY KEY, heartbeat INT)');
-$pdo->exec('CREATE TABLE api_database_operations(id VARCHAR(36) PRIMARY KEY,database_id INT,target_database_id INT NULL,sys_groupid INT,server_id INT,database_name VARCHAR(64),action VARCHAR(8),status VARCHAR(12),created_at INT,updated_at INT,expires_at INT,error VARCHAR(80) NULL)');
+$pdo->exec('CREATE TABLE api_database_operations(id VARCHAR(36) PRIMARY KEY,database_id INT,target_database_id INT NULL,sys_groupid INT,server_id INT,database_name VARCHAR(64),action VARCHAR(8),status VARCHAR(12),created_at INT,updated_at INT,expires_at INT,error VARCHAR(80) NULL,upload_bytes BIGINT NULL,uploaded_bytes BIGINT DEFAULT 0,download_bytes BIGINT NULL)');
 $pdo->exec('CREATE TABLE api_database_operation_chunks(operation_id VARCHAR(36),sequence INT,content MEDIUMTEXT,PRIMARY KEY(operation_id,sequence))');
 $pdo->exec('CREATE TABLE web_database(database_id INT PRIMARY KEY,sys_groupid INT,server_id INT,database_name VARCHAR(64),type VARCHAR(16),active CHAR(1))');
 $pdo->exec('CREATE TABLE sys_group(groupid INT PRIMARY KEY, client_id INT)');
@@ -30,12 +30,12 @@ $pdo->exec("CREATE TRIGGER fixture_source.tr BEFORE INSERT ON fixture_source.t F
 $pdo->exec('CREATE EVENT fixture_source.ev ON SCHEDULE EVERY 1 DAY DISABLE DO INSERT INTO fixture_source.t VALUES (3,\'event\')');
 $pdo->exec('CREATE TABLE fixture_foreign.secret (id INT)');
 mkdir('/tmp/worker-jobs', 0711);
-$worker = new DatabaseWorker($pdo, $pdo, 1, ['host' => '127.0.0.1', 'user' => 'root', 'password' => 'fixture-only', 'control_database' => 'worker_control'], 65534, 65534, '/tmp/worker-jobs');
+$worker = new DatabaseWorker($pdo, $pdo, 1, ['host' => '127.0.0.1', 'user' => 'root', 'password' => 'fixture-only', 'control_database' => 'worker_control'], 65534, 65534, '/tmp/worker-jobs', '/tmp/worker.log');
 function queue($id, $action, $database = 1, $target = null, $dump = null)
 {
     global $pdo;
     $names = [1 => 'fixture_source', 2 => 'fixture_copy', 3 => 'fixture_import'];
-    $s = $pdo->prepare('INSERT INTO api_database_operations VALUES(?,?,?,?,?,?,?,?,?,?,?,?)');
+    $s = $pdo->prepare('INSERT INTO api_database_operations(id,database_id,target_database_id,sys_groupid,server_id,database_name,action,status,created_at,updated_at,expires_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)');
     $s->execute([$id, $database, $target, 5, 1, $names[$database], $action, 'queued', time(), time(), time() + 86400, null]);
     if ($dump !== null) {
         $pdo->prepare('INSERT INTO api_database_operation_chunks VALUES(?,?,?)')->execute([$id, 0, base64_encode($dump)]);
@@ -93,6 +93,7 @@ $oversized = '';
 for ($i = 0; $i < 65; $i++) {
     $oversized .= deflate_add($compressor, str_repeat('x', 1048576), $i === 64 ? ZLIB_FINISH : ZLIB_NO_FLUSH);
 }
+$worker = new DatabaseWorker($pdo, $pdo, 1, ['host' => '127.0.0.1', 'user' => 'root', 'password' => 'fixture-only', 'control_database' => 'worker_control'], 65534, 65534, '/tmp/worker-jobs', '/tmp/worker.log', 67108864);
 queue('gzip_limit', 'import', 3, null, $oversized);
 $worker->run();
 check(status('gzip_limit') === 'failed', 'Oversized gzip refused');

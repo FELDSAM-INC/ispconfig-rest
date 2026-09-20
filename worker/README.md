@@ -1,7 +1,7 @@
 # Database operations worker
 
 Optional component for import, export and copy. Install on **each database server**
-whose databases should offer the operations. Requires PHP 8.3 CLI (pdo_mysql,
+whose databases should offer the operations. Requires 64-bit PHP 8.3 CLI (pdo_mysql,
 posix), MySQL 8 / MariaDB 10.4+, native mysql/mysqldump clients and util-linux
 setpriv. PostgreSQL is not advertised. The API and WHMCS never hold local database
 administrator credentials.
@@ -25,9 +25,41 @@ records. One process per server uses flock. Jobs are not retried after execution
 starts. If a worker stops during import, inspect the database before retrying.
 Import is intentionally destructive and is not transactional across DDL.
 
-SQL and gzip SQL uploads up to 8 MiB are supported (64 MiB inflated). Export/copy SQL is capped at 64 MiB
-and compressed download at 16 MiB. Artifacts expire after 24 hours. The worker
-cleans expired jobs on its next run. No SQL, credentials or client stderr is logged.
+SQL and gzip uploads support **2 GiB**, with **4 GiB uncompressed SQL** for import,
+export and copy, and **2 GiB compressed exports**. These limits leave room for a
+1 GiB database's SQL/hex overhead. Large statements still obey the local MySQL
+`max_allowed_packet`. Allow temporary disk space for the raw/normalized dump and
+archive, plus the destination database for copy. Transport artifacts are stored as
+base64 chunks in the API-owned master table (about 4/3 of the transferred size);
+provision master storage accordingly. Artifacts expire 24 hours after completion.
+The worker cleans expired/failed jobs and abandoned files on its next run.
+
+Browser imports use 768 KiB chunks, so PHP does not need a multi-gigabyte upload
+limit. The API accepts `upload_bytes` at job creation, starts in `uploading`, accepts
+sequential `PUT .../operations/{id}/chunks/{sequence}` with `dump_base64`, then
+`POST .../operations/{id}/upload-complete` only after every byte arrived. Identical
+chunk retries and finalization are idempotent. `DELETE .../operations/{id}` cancels
+unfinished uploads only. Idle uploads expire after 30 minutes. The legacy inline
+`dump_base64` create payload retains its 8 MiB bound; use chunking for large files.
+
+The worker uses native `mysqldump --quick` and `mysql` through `proc_open`, with
+file descriptors, protected option files and no shell interpolation. SQL scanning,
+gzip, chunk reads and HTTP downloads have bounded memory. Worker PHP memory is
+128 MiB; job execution allows four hours with 10-second heartbeats during every
+processing stage. Web downloads allow four hours too; reverse-proxy/FPM request
+timeouts must accommodate the transfer. Queued jobs are not expired merely because
+a previous large job takes more than 30 minutes.
+
+There is no separate worker login. It reads ISPConfig's local `config.inc.php` and
+`mysql_clientdb.conf`; these credentials never reach the API browser client.
+Diagnostics are in `/var/log/ispconfig-rest-database-worker.log` (root:root 0600),
+rotated weekly with eight compressed rotations. Log entries include job/server IDs,
+action, phase, bytes, elapsed time, completion and numeric MySQL error/SQLSTATE.
+SQL contents, passwords and raw stderr are never logged. Follow a job with:
+
+```
+sudo tail -f /var/log/ispconfig-rest-database-worker.log
+```
 
 Imports run with a database-scoped principal and an unprivileged OS identity;
 local infile and mysql shell commands are disabled. The `ispcp_job_<database_id>`
@@ -55,3 +87,9 @@ the disposable server's network namespace and uses a fixture-only credential.
 It verifies data/views/triggers/routines/events, untouched source data, export/import
 round-trip, locked credentials, private file cleanup and refused cross-database,
 FILE, LOCAL INFILE, shell and foreign DEFINER operations.
+
+For the opt-in large-data check, run the same command with
+`tests/Integration/database-worker-large.php`. It seeds **1 GiB of random binary
+data**, verifies every row's SHA-256 after copy and export/import, checks the
+compressed export exceeds 1 GiB, and asserts peak PHP memory below 64 MiB. Allow
+several minutes and at least 15 GiB of disposable container disk space.

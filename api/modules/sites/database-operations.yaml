@@ -8,7 +8,7 @@
       Requires update permission, an unlocked owner, active MySQL database and a
       fresh worker heartbeat on its server. Copy provisions a new database through
       normal validation, prefixes, limits and datalog. Never overwrites a copy target.
-      At most one queued/running job per source. Import may partially apply on error.
+      At most one uploading/queued/running job per source. Import may partially apply on error.
       Export/copy include schema, data, views, routines, triggers and events.
     requestBody:
       required: true
@@ -17,7 +17,7 @@
           schema: {$ref: '../../components/schemas/DatabaseOperationCreate.yaml'}
     responses:
       '201':
-        description: Job queued; no claim the physical operation has completed
+        description: Job queued, or awaiting upload; no claim the physical operation has completed
         headers:
           X-Change-Set-Id:
             $ref: '../../components/headers/ChangeSetId.yaml'
@@ -33,6 +33,15 @@
   parameters:
     - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
     - {name: operation, in: path, required: true, schema: {type: string, format: uuid}}
+  delete:
+    tags: [Databases]
+    summary: Cancel an unfinished upload (does not cancel a queued or running import)
+    responses:
+      '204': {description: Upload cancelled}
+      '401': {$ref: '../../components/responses/Unauthorized.yaml'}
+      '403': {$ref: '../../components/responses/Forbidden.yaml'}
+      '404': {$ref: '../../components/responses/NotFound.yaml'}
+      '409': {description: Upload already finalized}
   get:
     tags: [Databases]
     summary: Read a database operation
@@ -53,10 +62,51 @@
     summary: Download the completed export (24-hour expiry)
     responses:
       '200':
-        description: Gzip SQL attachment, at most 16 MiB; Cache-Control private, no-store
+        description: Gzip SQL attachment, at most 2 GiB; Cache-Control private, no-store
         content:
           application/gzip:
             schema: {type: string, format: binary}
       '401': {$ref: '../../components/responses/Unauthorized.yaml'}
       '404': {$ref: '../../components/responses/NotFound.yaml'}
       '409': {description: Export is not complete}
+/sites/databases/{id}/operations/{operation}/chunks/{sequence}:
+  parameters:
+    - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+    - {name: operation, in: path, required: true, schema: {type: string, format: uuid}}
+    - {name: sequence, in: path, required: true, schema: {type: integer, minimum: 0}}
+  put:
+    tags: [Databases]
+    summary: Append an import chunk, in sequence (identical retries are idempotent)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '../../components/schemas/DatabaseOperationChunk.yaml'}
+    responses:
+      '200':
+        description: Upload progress; job remains uploading
+        content:
+          application/json:
+            schema: {$ref: '../../components/schemas/DatabaseOperation.yaml'}
+      '401': {$ref: '../../components/responses/Unauthorized.yaml'}
+      '403': {$ref: '../../components/responses/Forbidden.yaml'}
+      '404': {$ref: '../../components/responses/NotFound.yaml'}
+      '409': {description: 'Wrong sequence, changed retry, or finalized upload'}
+      '422': {$ref: '../../components/responses/UnprocessableEntity.yaml'}
+/sites/databases/{id}/operations/{operation}/upload-complete:
+  parameters:
+    - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+    - {name: operation, in: path, required: true, schema: {type: string, format: uuid}}
+  post:
+    tags: [Databases]
+    summary: Queue an import only after all declared bytes have arrived
+    responses:
+      '200':
+        description: Complete upload queued (idempotent)
+        content:
+          application/json:
+            schema: {$ref: '../../components/schemas/DatabaseOperation.yaml'}
+      '401': {$ref: '../../components/responses/Unauthorized.yaml'}
+      '403': {$ref: '../../components/responses/Forbidden.yaml'}
+      '404': {$ref: '../../components/responses/NotFound.yaml'}
+      '409': {description: Upload incomplete or failed}

@@ -553,6 +553,10 @@ paths:
     $ref: './modules/sites/database-operations.yaml#~1sites~1databases~1{id}~1operations'
   /sites/databases/{id}/operations/{operation}:
     $ref: './modules/sites/database-operations.yaml#~1sites~1databases~1{id}~1operations~1{operation}'
+  /sites/databases/{id}/operations/{operation}/chunks/{sequence}:
+    $ref: './modules/sites/database-operations.yaml#~1sites~1databases~1{id}~1operations~1{operation}~1chunks~1{sequence}'
+  /sites/databases/{id}/operations/{operation}/upload-complete:
+    $ref: './modules/sites/database-operations.yaml#~1sites~1databases~1{id}~1operations~1{operation}~1upload-complete'
   /sites/databases/{id}/operations/{operation}/download:
     $ref: './modules/sites/database-operations.yaml#~1sites~1databases~1{id}~1operations~1{operation}~1download'
   /sites/databases:

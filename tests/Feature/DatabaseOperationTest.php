@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Services\DatabaseOperationService;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\ClientSchema;
 use Tests\Support\SitesApiTestCase;
@@ -139,6 +140,63 @@ class DatabaseOperationTest extends SitesApiTestCase
         $job = $this->postJson($this->path(), ['action' => 'import', 'confirm' => true, 'dump_base64' => base64_encode($gzip)], $this->tenantHeaders('clientA'))
             ->assertCreated()->assertJsonMissingPath('dump_base64')->json('id');
         $this->assertSame($gzip, base64_decode(DB::table('api_database_operation_chunks')->where('operation_id', $job)->value('content')));
+    }
+
+    public function test_chunked_import_orders_retries_and_requires_complete_upload(): void
+    {
+        $headers = $this->tenantHeaders('clientA');
+        $size = DatabaseOperationService::CHUNK;
+        $job = $this->postJson($this->path(), ['action' => 'import', 'confirm' => true, 'upload_bytes' => $size + 7], $headers)
+            ->assertCreated()->assertJsonPath('status', 'uploading')->assertJsonPath('uploaded_bytes', 0)->json('id');
+        $base = $this->path($job);
+        $this->postJson($base.'/upload-complete', [], $headers)->assertConflict();
+        $this->putJson($base.'/chunks/1', ['dump_base64' => base64_encode('SELECT;')], $headers)->assertConflict();
+        $chunk = ['dump_base64' => base64_encode(str_repeat(' ', $size))];
+        $this->putJson($base.'/chunks/0', $chunk)->assertUnauthorized();
+        $this->putJson($base.'/chunks/0', $chunk, $this->tenantHeaders('clientB'))->assertNotFound();
+        $this->putJson($base.'/chunks/0', ['dump_base64' => '!'], $headers)->assertUnprocessable();
+        $this->putJson($base.'/chunks/0', ['dump_base64' => base64_encode('short')], $headers)->assertUnprocessable();
+        $this->putJson($base.'/chunks/0', $chunk, $headers)->assertOk()->assertJsonPath('uploaded_bytes', $size);
+        $this->putJson($base.'/chunks/0', $chunk, $headers)->assertOk()->assertJsonPath('uploaded_bytes', $size);
+        $this->putJson($base.'/chunks/0', ['dump_base64' => base64_encode(str_repeat('x', $size))], $headers)->assertConflict();
+        $this->putJson($base.'/chunks/1', ['dump_base64' => base64_encode('SELECT;')], $headers)->assertOk()->assertJsonPath('uploaded_bytes', $size + 7);
+        $this->postJson($base.'/upload-complete', [], $headers)->assertOk()->assertJsonPath('status', 'queued');
+        $this->postJson($base.'/upload-complete', [], $headers)->assertOk()->assertJsonPath('status', 'queued');
+        $this->deleteJson($base, [], $headers)->assertConflict();
+        $this->putJson($base.'/chunks/0', $chunk, $headers)->assertConflict();
+        $this->assertDatabaseCount('api_database_operation_chunks', 2);
+        $this->assertDatabaseCount('sys_datalog', 0);
+    }
+
+    public function test_large_upload_declaration_limits_cancellation_and_write_permissions(): void
+    {
+        $headers = $this->tenantHeaders('clientA');
+        foreach ([0, 2147483649] as $size) {
+            $this->postJson($this->path(), ['action' => 'import', 'confirm' => true, 'upload_bytes' => $size], $headers)->assertUnprocessable();
+        }
+        $this->postJson($this->path(), ['action' => 'import', 'confirm' => true, 'upload_bytes' => 10, 'dump_base64' => base64_encode('SELECT 1;')], $headers)->assertUnprocessable();
+        $job = $this->postJson($this->path(), ['action' => 'import', 'confirm' => true, 'upload_bytes' => 2147483648], $headers)->assertCreated()->assertJsonPath('upload_bytes', 2147483648)->json('id');
+        DB::table('web_database')->where('database_id', $this->database)->update(['sys_perm_group' => 'r', 'sys_perm_user' => 'r']);
+        $this->postJson($this->path($job).'/upload-complete', [], $headers)->assertForbidden();
+        $this->deleteJson($this->path($job), [], $headers)->assertForbidden();
+        DB::table('web_database')->where('database_id', $this->database)->update(['sys_perm_group' => 'riud', 'sys_perm_user' => 'riud']);
+        DB::table('client')->where('client_id', $this->tenant('clientA')['client_id'])->update(['locked' => 'y']);
+        $this->putJson($this->path($job).'/chunks/0', ['dump_base64' => 'U0VMRUNU'], $headers)->assertForbidden();
+        DB::table('client')->where('client_id', $this->tenant('clientA')['client_id'])->update(['locked' => 'n']);
+        $this->deleteJson($this->path($job), [], $this->tenantHeaders('clientB'))->assertNotFound();
+        $this->deleteJson($this->path($job), [], $headers)->assertNoContent();
+        $this->postJson($this->path($job).'/upload-complete', [], $headers)->assertConflict();
+        $this->postJson($this->path(), ['action' => 'export'], $headers)->assertCreated();
+    }
+
+    public function test_queued_work_survives_long_jobs_but_idle_uploads_expire(): void
+    {
+        $headers = $this->tenantHeaders('clientA');
+        $job = $this->postJson($this->path(), ['action' => 'export'], $headers)->assertCreated()->json('id');
+        DB::table('api_database_operations')->where('id', $job)->update(['updated_at' => time() - 7200]);
+        $this->getJson($this->path($job), $headers)->assertOk()->assertJsonPath('status', 'queued');
+        DB::table('api_database_operations')->where('id', $job)->update(['status' => 'uploading']);
+        $this->getJson($this->path($job), $headers)->assertOk()->assertJsonPath('status', 'failed')->assertJsonPath('error', 'operation_expired');
     }
 
     public function test_capabilities_are_server_specific_and_disappear_without_worker(): void

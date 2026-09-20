@@ -31,4 +31,23 @@ SQL;
         $this->assertSame($sql, SqlDump::portable($sql));
         $this->assertSame("CREATE DEFINER=CURRENT_USER PROCEDURE p() SELECT 'unchanged';", SqlDump::portable("CREATE DEFINER='root'@'localhost' PROCEDURE p() SELECT 'unchanged';"));
     }
+
+    public function test_stream_matches_lexer_across_all_boundary_positions(): void
+    {
+        $sql = "/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`localhost`*/ /*!50003 VIEW v AS SELECT `source`.`id` FROM source.t */;\n";
+        $sql .= "INSERT INTO t VALUES ('escaped \\' and doubled '' quote', 0x".str_repeat('abcdef0123456789', 30000).");\n";
+        $sql .= '/* comment '.str_repeat('x', 200000)." */\nINSERT INTO t VALUES ('".str_repeat('plain data ', 20000)."');";
+        foreach (range(0, 160, 7) as $offset) {
+            $input = fopen('php://temp', 'w+b');
+            $output = fopen('php://temp', 'w+b');
+            $original = str_repeat(' ', 131072 - 4096 - $offset).$sql;
+            fwrite($input, $original);
+            rewind($input);
+            SqlDump::stream($input, $output, 'source', 'target');
+            rewind($output);
+            $this->assertSame(SqlDump::portable($original, 'source', 'target'), stream_get_contents($output));
+            fclose($input);
+            fclose($output);
+        }
+    }
 }

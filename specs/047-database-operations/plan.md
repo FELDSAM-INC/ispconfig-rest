@@ -22,3 +22,17 @@ Constitution: OpenAPI authored first; no ISPConfig table migrations or direct
 metadata writes; API-owned state is exempt. Physical SQL import/export is the
 owner-requested extension documented in spec.md. No native ISPConfig endpoint is
 misrepresented as implementing these operations.
+
+
+## Large database follow-up (2026-09-20)
+
+Owner requested at least 1 GiB databases and worker logging. Native proc_open /
+mysqldump / mysql remain the execution layer. Uploads now use 768 KiB chunks with
+an uploading state, exact declared byte count (up to 2 GiB), ordered idempotent
+writes, explicit finalize and cancel. API-owned migration adds transfer sizes.
+Generated SQL normalization, gzip and PDO chunk iteration are bounded-memory;
+4 GiB raw SQL, 2 GiB compressed export, 4-hour job deadline and progress heartbeats.
+Queued work survives another job's long runtime. Downloads use keyset batches.
+Root-only rotated diagnostics contain IDs, phases and numeric MySQL errors only.
+Tests include auth/ownership/locks, incomplete/changed/reordered chunk rejection,
+retry/finalize/cancel, lexer buffer boundaries and actual 1 GiB random binary data.

@@ -4,5 +4,6 @@ additionalProperties: false
 properties:
   action: {type: string, enum: [import, export, copy]}
   database_name: {type: string, pattern: '^[a-zA-Z0-9_]{2,64}$', description: 'Required for copy; unprefixed name of a NEW database. Other settings inherit from the source.'}
-  dump_base64: {type: string, format: byte, maxLength: 11184812, description: 'Required for import. Strict base64 of SQL or gzip SQL, at most 8 MiB decoded upload and 64 MiB inflated SQL.'}
+  dump_base64: {type: string, format: byte, maxLength: 11184812, description: 'Legacy inline import only, up to 8 MiB. For larger imports send upload_bytes, then sequential chunks and upload-complete. Mutually exclusive with upload_bytes.'}
   confirm: {type: boolean, description: 'Must be true for import; acknowledges existing data can be replaced and failures may partially apply.'}
+  upload_bytes: {type: integer, minimum: 1, maximum: 2147483648, description: 'Size of a chunked SQL or gzip upload, up to 2 GiB. Inflated SQL limit is 4 GiB. Creates an uploading job; nothing is imported before upload-complete.'}

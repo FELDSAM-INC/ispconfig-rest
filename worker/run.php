@@ -9,7 +9,7 @@ if (PHP_SAPI !== 'cli' || ! function_exists('posix_geteuid') || posix_geteuid() 
     exit("Run the database worker as root from the installed root-owned directory.\n");
 }
 umask(0077);
-ini_set('memory_limit', '512M');
+ini_set('memory_limit', '128M');
 $workspace = '/var/lib/ispconfig-rest-database-worker';
 $lock = fopen($workspace.'/worker.lock', 'c');
 if (! $lock || ! flock($lock, LOCK_EX | LOCK_NB)) {
@@ -38,6 +38,7 @@ try {
     ], (int) $account['uid'], (int) $account['gid'], $workspace))->run();
 } catch (Throwable $e) {
     // Connection errors can include credentials or server topology; logs contain no exception body.
+    file_put_contents('/var/log/ispconfig-rest-database-worker.log', json_encode(['time' => gmdate('c'), 'event' => 'worker_failed', 'exception' => get_class($e), 'code' => (string) $e->getCode()])."\n", FILE_APPEND | LOCK_EX);
     fwrite(STDERR, "Database worker failed. Check installation, master table grants and local database availability.\n");
     exit(1);
 }

@@ -82,6 +82,9 @@ Route::delete('sites/shell-users/{shellUser}', [ShellUserController::class, 'des
 
 // Database operations — scoped through the existing database route binding.
 Route::post('sites/databases/{webDatabase}/operations', [DatabaseOperationController::class, 'store'])->whereNumber('webDatabase');
+Route::put('sites/databases/{webDatabase}/operations/{operation}/chunks/{sequence}', [DatabaseOperationController::class, 'chunk'])->whereNumber('webDatabase')->whereUuid('operation')->whereNumber('sequence');
+Route::post('sites/databases/{webDatabase}/operations/{operation}/upload-complete', [DatabaseOperationController::class, 'finish'])->whereNumber('webDatabase')->whereUuid('operation');
+Route::delete('sites/databases/{webDatabase}/operations/{operation}', [DatabaseOperationController::class, 'destroy'])->whereNumber('webDatabase')->whereUuid('operation');
 Route::get('sites/databases/{webDatabase}/operations/{operation}/download', [DatabaseOperationController::class, 'download'])->whereNumber('webDatabase')->whereUuid('operation');
 Route::get('sites/databases/{webDatabase}/operations/{operation}', [DatabaseOperationController::class, 'show'])->whereNumber('webDatabase')->whereUuid('operation');
 

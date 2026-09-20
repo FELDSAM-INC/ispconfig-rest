@@ -1,0 +1,5 @@
+type: object
+required: [dump_base64]
+additionalProperties: false
+properties:
+  dump_base64: {type: string, format: byte, minLength: 4, maxLength: 1048576, description: 'Strict base64, up to 786432 decoded bytes. All chunks except the last must be exactly chunk_size bytes.'}

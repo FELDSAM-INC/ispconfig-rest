@@ -10,13 +10,21 @@ use RuntimeException;
 /** Standalone, root-owned worker; no Laravel dependency on database servers. */
 final class DatabaseWorker
 {
-    public const MAX_SQL = 67108864;
+    public const MAX_SQL = 4294967296;
 
-    public const MAX_ARCHIVE = 16777216;
+    public const MAX_ARCHIVE = 2147483648;
 
     private string $directory;
 
     private int $started;
+
+    private string $jobId = '';
+
+    private int $lastHeartbeat = 0;
+
+    private string $phase = '';
+
+    private int $lastLog = 0;
 
     public function __construct(
         private PDO $master,
@@ -26,6 +34,9 @@ final class DatabaseWorker
         private int $uid,
         private int $gid,
         private string $workspace = '/var/lib/ispconfig-rest-database-worker',
+        private string $logFile = '/var/log/ispconfig-rest-database-worker.log',
+        private int $sqlLimit = self::MAX_SQL,
+        private int $timeout = 14400,
     ) {}
 
     private function query(string $sql, array $values = []): \PDOStatement
@@ -38,6 +49,7 @@ final class DatabaseWorker
 
     public function run(): void
     {
+        $this->jobId = '';
         // run.php holds the server-wide flock. A running job here belongs to a
         // previous worker process that died, so never replay its partial import.
         foreach ($this->query("SELECT * FROM api_database_operations WHERE server_id=? AND (status='running' OR error='operation_expired')", [$this->serverId])->fetchAll(PDO::FETCH_ASSOC) as $interrupted) {
@@ -63,9 +75,10 @@ final class DatabaseWorker
             }
         }
         $this->query('INSERT INTO api_database_workers (server_id,heartbeat) VALUES (?,?) ON DUPLICATE KEY UPDATE heartbeat=VALUES(heartbeat)', [$this->serverId, time()]);
-        $this->query("UPDATE api_database_operations SET status='failed', error='operation_expired', updated_at=? WHERE server_id=? AND status IN ('queued','running') AND updated_at<?", [time(), $this->serverId, time() - 1800]);
+        $this->query("UPDATE api_database_operations SET status='failed', error='operation_expired', updated_at=? WHERE server_id=? AND status IN ('uploading','running') AND updated_at<?", [time(), $this->serverId, time() - 1800]);
         $this->query('DELETE c FROM api_database_operation_chunks c JOIN api_database_operations j ON j.id=c.operation_id WHERE j.server_id=? AND (j.expires_at<? OR j.status=\'failed\')', [$this->serverId, time()]);
         $this->query('DELETE FROM api_database_operations WHERE server_id=? AND expires_at<?', [$this->serverId, time()]);
+        $this->log('heartbeat');
         $jobs = $this->query("SELECT * FROM api_database_operations WHERE server_id=? AND status='queued' ORDER BY created_at LIMIT 3", [$this->serverId])->fetchAll(PDO::FETCH_ASSOC);
         foreach ($jobs as $job) {
             if (! $this->ready($job)) {
@@ -76,6 +89,9 @@ final class DatabaseWorker
             }
             $error = null;
             $this->started = time();
+            $this->jobId = $job['id'];
+            $this->lastHeartbeat = 0;
+            $this->log('started', ['action' => $job['action'], 'database_id' => (int) $job['database_id']]);
             $this->directory = $this->workspace.'/'.bin2hex(random_bytes(16));
             mkdir($this->directory, 0710);
             chgrp($this->directory, $this->gid);
@@ -86,6 +102,7 @@ final class DatabaseWorker
                 // Never store stderr, SQL, paths or credentials in public job state.
                 $error = in_array($e->getMessage(), ['dump_too_large', 'operation_timeout', 'database_changed', 'database_locked'], true)
                     ? $e->getMessage() : 'operation_failed';
+                $this->log('failed', ['error' => $error, 'exception' => get_class($e), 'code' => (string) $e->getCode()]);
             } finally {
                 foreach (glob($this->directory.'/*') ?: [] as $file) {
                     unlink($file);
@@ -95,7 +112,34 @@ final class DatabaseWorker
             if ($error !== null || $job['action'] !== 'export') {
                 $this->query('DELETE FROM api_database_operation_chunks WHERE operation_id=?', [$job['id']]);
             }
-            $this->query('UPDATE api_database_operations SET status=?,error=?,updated_at=? WHERE id=? AND status=\'running\'', [$error === null ? 'complete' : 'failed', $error, time(), $job['id']]);
+            $this->query('UPDATE api_database_operations SET status=?,error=?,updated_at=?,expires_at=? WHERE id=? AND status=\'running\'', [$error === null ? 'complete' : 'failed', $error, time(), time() + 86400, $job['id']]);
+            if ($error === null) {
+                $this->log('complete', ['seconds' => time() - $this->started]);
+            }
+        }
+    }
+
+    private function log(string $event, array $fields = []): void
+    {
+        file_put_contents($this->logFile, json_encode(['time' => gmdate('c'), 'server_id' => $this->serverId, 'job' => $this->jobId, 'event' => $event] + $fields, JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND | LOCK_EX);
+        chmod($this->logFile, 0600);
+    }
+
+    private function tick(string $phase, int $bytes = 0): void
+    {
+        $now = time();
+        if ($now - $this->started > $this->timeout) {
+            throw new RuntimeException('operation_timeout');
+        }
+        if ($now - $this->lastHeartbeat >= 10) {
+            $this->query('UPDATE api_database_workers SET heartbeat=? WHERE server_id=?', [$now, $this->serverId]);
+            $this->query("UPDATE api_database_operations SET updated_at=? WHERE id=? AND status='running'", [$now, $this->jobId]);
+            $this->lastHeartbeat = $now;
+        }
+        if ($phase !== $this->phase || $now - $this->lastLog >= 60) {
+            $this->log('progress', ['phase' => $phase, 'bytes' => $bytes, 'seconds' => $now - $this->started]);
+            $this->phase = $phase;
+            $this->lastLog = $now;
         }
     }
 
@@ -159,14 +203,23 @@ final class DatabaseWorker
     private function execute(array $job): void
     {
         $source = $this->database((int) $job['database_id'], $job);
+        $this->tick('preparing');
         $sqlFile = $this->directory.'/dump.sql';
         if ($job['action'] === 'import') {
             $file = fopen($sqlFile, 'xb');
-            foreach ($this->query('SELECT content FROM api_database_operation_chunks WHERE operation_id=? ORDER BY sequence', [$job['id']]) as $chunk) {
+            $sequence = -1;
+            while ($chunk = $this->query('SELECT sequence,content FROM api_database_operation_chunks WHERE operation_id=? AND sequence>? ORDER BY sequence LIMIT 1', [$job['id'], $sequence])->fetch(PDO::FETCH_ASSOC)) {
+                if ((int) $chunk['sequence'] !== ++$sequence) {
+                    throw new RuntimeException('invalid_dump');
+                }
                 $decoded = base64_decode($chunk['content'], true);
-                if ($decoded === false || fwrite($file, $decoded) !== strlen($decoded) || ftell($file) > 8388608) {
+                if ($decoded === false || fwrite($file, $decoded) !== strlen($decoded) || ftell($file) > self::MAX_ARCHIVE) {
                     throw new RuntimeException('dump_too_large');
                 }
+                $this->tick('receiving', ftell($file));
+            }
+            if (isset($job['upload_bytes']) && ftell($file) !== (int) $job['upload_bytes']) {
+                throw new RuntimeException('invalid_dump');
             }
             fclose($file);
             $header = file_get_contents($sqlFile, false, null, 0, 3);
@@ -183,7 +236,8 @@ final class DatabaseWorker
                             throw new RuntimeException('invalid_dump');
                         }
                         $bytes += strlen($chunk);
-                        if ($bytes > self::MAX_SQL) {
+                        $this->tick('decompressing', $bytes);
+                        if ($bytes > $this->sqlLimit) {
                             throw new RuntimeException('dump_too_large');
                         }
                         if (fwrite($output, $chunk) !== strlen($chunk)) {
@@ -207,21 +261,29 @@ final class DatabaseWorker
         }
         if ($job['action'] !== 'import') {
             $targetName = $job['action'] === 'copy' ? $this->database((int) $job['target_database_id'], $job)['database_name'] : '';
-            $portable = SqlDump::portable(file_get_contents($sqlFile), $source['database_name'], $targetName);
-            if (strlen($portable) > self::MAX_SQL) {
-                throw new RuntimeException('dump_too_large');
+            $portableFile = $this->directory.'/portable.sql';
+            $input = fopen($sqlFile, 'rb');
+            $output = fopen($portableFile, 'xb');
+            try {
+                SqlDump::stream($input, $output, $source['database_name'], $targetName, function (int $bytes): void {
+                    if ($bytes > $this->sqlLimit) {
+                        throw new RuntimeException('dump_too_large');
+                    }
+                    $this->tick('normalizing', $bytes);
+                });
+            } finally {
+                fclose($input);
+                fclose($output);
             }
-            if (file_put_contents($sqlFile, $portable) !== strlen($portable)) {
-                throw new RuntimeException('operation_failed');
-            }
-            unset($portable);
+            rename($portableFile, $sqlFile);
         }
         if ($job['action'] === 'export') {
             $archive = $this->directory.'/dump.sql.gz';
             $input = fopen($sqlFile, 'rb');
             $output = gzopen($archive, 'wb6');
             while (! feof($input)) {
-                $chunk = fread($input, 196608);
+                $chunk = fread($input, 786432);
+                $this->tick('compressing', ftell($input));
                 if (gzwrite($output, $chunk) !== strlen($chunk)) {
                     throw new RuntimeException('operation_failed');
                 }
@@ -236,12 +298,14 @@ final class DatabaseWorker
             $input = fopen($archive, 'rb');
             $sequence = 0;
             while (! feof($input)) {
-                $chunk = fread($input, 196608);
+                $chunk = fread($input, 786432);
+                $this->tick('publishing', ftell($input));
                 if ($chunk !== '') {
                     $this->query('INSERT INTO api_database_operation_chunks (operation_id,sequence,content) VALUES (?,?,?)', [$job['id'], $sequence++, base64_encode($chunk)]);
                 }
             }
             fclose($input);
+            $this->query('UPDATE api_database_operations SET download_bytes=? WHERE id=?', [filesize($archive), $job['id']]);
 
             return;
         }
@@ -275,6 +339,8 @@ final class DatabaseWorker
 
     private function process(array $command, string $input, string $output): void
     {
+        $phase = $command[0] === '/usr/bin/mysqldump' ? 'dumping' : 'importing';
+        $this->tick($phase);
         $error = $this->directory.'/stderr';
         $process = proc_open($command, [0 => ['file', $input, 'r'], 1 => ['file', $output, 'w'], 2 => ['file', $error, 'w']], $pipes, $this->directory, ['PATH' => '/usr/bin:/bin', 'HOME' => $this->directory]);
         if (! is_resource($process)) {
@@ -284,18 +350,19 @@ final class DatabaseWorker
             do {
                 $status = proc_get_status($process);
                 clearstatcache();
-                if (filesize($output) > self::MAX_SQL || filesize($error) > 1048576) {
+                if (filesize($output) > $this->sqlLimit || filesize($error) > 1048576) {
                     throw new RuntimeException('dump_too_large');
                 }
-                if (time() - $this->started > 600) {
-                    throw new RuntimeException('operation_timeout');
-                }
-                $this->query('UPDATE api_database_workers SET heartbeat=? WHERE server_id=?', [time(), $this->serverId]);
+                $this->tick($phase, filesize($output));
                 if ($status['running']) {
                     usleep(250000);
                 }
             } while ($status['running']);
             if ($status['exitcode'] !== 0) {
+                // Record only numeric MySQL error / SQLSTATE, never SQL or error text.
+                $stderr = file_get_contents($error, false, null, 0, 65536);
+                preg_match('/ERROR ([0-9]+)(?: \(([A-Z0-9]{5})\))?/', $stderr, $diagnostic);
+                $this->log('process_failed', ['phase' => $phase, 'exit' => $status['exitcode'], 'mysql_error' => $diagnostic[1] ?? null, 'sqlstate' => $diagnostic[2] ?? null]);
                 throw new RuntimeException('operation_failed');
             }
         } finally {

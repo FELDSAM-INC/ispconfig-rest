@@ -18,8 +18,8 @@ unchanged owner/server/name. Starting a job additionally requires update permiss
 and an unlocked owner. One active job per source database; no automatic retries of
 partially executed imports. Queued jobs expire after 30 minutes, execution after
 10 minutes. Artifacts expire after 24 hours. SQL imports are explicit overwrites
-and may partially apply on failure. An import accepts SQL or gzip SQL uploads up to 8 MiB (64 MiB inflated);
-exports/copies accept SQL up to 64 MiB and compressed artifacts up to 16 MiB.
+and may partially apply on failure. An import accepts SQL or gzip SQL uploads up to 2 GiB (4 GiB inflated);
+exports/copies accept SQL up to 4 GiB and compressed artifacts up to 2 GiB.
 
 Imports execute as a temporary database-scoped principal, never as the database
 administrator. Native client shell commands and local infile are disabled. The
@@ -41,3 +41,17 @@ Tenant/permission/lock checks, copy limits and source preservation, capabilities
 job lifecycle and download expiry are covered by API tests. Real MariaDB fixtures
 exercise schema/data/view copy, import/export, failure and malicious SQL isolation.
 Both WHMCS themes are rendered with their actual CSS and JavaScript tabs checked.
+
+
+## Large database follow-up (2026-09-20)
+
+Owner requested at least 1 GiB databases and worker logging. Native proc_open /
+mysqldump / mysql remain the execution layer. Uploads now use 768 KiB chunks with
+an uploading state, exact declared byte count (up to 2 GiB), ordered idempotent
+writes, explicit finalize and cancel. API-owned migration adds transfer sizes.
+Generated SQL normalization, gzip and PDO chunk iteration are bounded-memory;
+4 GiB raw SQL, 2 GiB compressed export, 4-hour job deadline and progress heartbeats.
+Queued work survives another job's long runtime. Downloads use keyset batches.
+Root-only rotated diagnostics contain IDs, phases and numeric MySQL errors only.
+Tests include auth/ownership/locks, incomplete/changed/reordered chunk rejection,
+retry/finalize/cancel, lexer buffer boundaries and actual 1 GiB random binary data.

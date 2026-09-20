@@ -24,6 +24,10 @@ class ChangeSetHeaderContractTest extends TestCase
      * @var array<int, string>
      */
     private const NON_JOURNALING_WRITES = [
+        // Database transfer state/chunks are API-owned and never journal ISPConfig metadata.
+        'PUT /sites/databases/{id}/operations/{operation}/chunks/{sequence}',
+        'POST /sites/databases/{id}/operations/{operation}/upload-complete',
+        'DELETE /sites/databases/{id}/operations/{operation}',
         'POST /system/api-keys',
         'PUT /system/api-keys/{id}',
         'DELETE /system/api-keys/{id}',
