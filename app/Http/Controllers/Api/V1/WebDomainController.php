@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreWebDomainRequest;
 use App\Http\Requests\UpdateWebDomainRequest;
 use App\Models\WebDomain;
+use App\Services\AliasClientDomainService;
 use App\Services\WebDomainService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +27,10 @@ class WebDomainController extends Controller
 {
     use HandlesListQuery;
 
-    public function __construct(protected WebDomainService $service) {}
+    public function __construct(
+        protected WebDomainService $service,
+        protected AliasClientDomainService $clientDomains,
+    ) {}
 
     /**
      * GET /sites/web-domains — paginated list; `search` matches the
@@ -73,7 +77,12 @@ class WebDomainController extends Controller
     {
         $clientId = $request->filled('client_id') ? $request->integer('client_id') : null;
 
-        $domain = DB::transaction(fn () => $this->service->create($request->payload(), $clientId));
+        $domain = DB::transaction(function () use ($request, $clientId): WebDomain {
+            $domain = $this->service->create($request->payload(), $clientId);
+            $this->clientDomains->ensure($domain);
+
+            return $domain;
+        });
 
         return response()->json($domain, 201);
     }

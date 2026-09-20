@@ -108,6 +108,15 @@
         server; client and reseller keys may omit `server_id`
 
       For client and reseller keys the parent website (`parent_domain_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
+
+      When Client Domains is enabled (`domains.use_domain_module=y`), creating a
+      `vhostalias` also registers its normalized name in Client Domains under the
+      parent website's owning client (spec 044). A same-owner registration is
+      reused; a different owner returns 409. The registration and vhost creation
+      are atomic and share the change set. The parent must belong to the acting
+      key's client scope (403 otherwise). Admin-owned parents without a client,
+      primary vhosts and vhost subdomains do not trigger this registration.
+      Deleting the vhost alias keeps the registration for possible mail/DNS use.
     requestBody:
       required: true
       content:

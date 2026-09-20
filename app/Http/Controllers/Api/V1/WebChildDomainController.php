@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreWebChildDomainRequest;
 use App\Http\Requests\UpdateWebChildDomainRequest;
 use App\Models\WebChildDomain;
+use App\Services\AliasClientDomainService;
 use App\Services\DatalogService;
 use App\Services\SitesService;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +30,7 @@ class WebChildDomainController extends Controller
     public function __construct(
         protected SitesService $service,
         protected DatalogService $datalog,
+        protected AliasClientDomainService $clientDomains,
     ) {}
 
     /**
@@ -80,6 +82,7 @@ class WebChildDomainController extends Controller
 
         DB::transaction(function () use ($child): void {
             $child->save();
+            $this->clientDomains->ensure($child);
         });
 
         return response()->json($child->refresh(), 201);

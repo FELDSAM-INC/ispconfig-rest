@@ -72,6 +72,16 @@
         server (database unique key on `server_id`, `ip_address`, `domain`)
 
       For client and reseller keys the parent website (`parent_domain_id`) must be visible to the key (ISPConfig `getAuthSQL('r')`); one the key cannot see is rejected exactly like a nonexistent one (spec 024).
+
+      When Client Domains is enabled (`domains.use_domain_module=y`), creating an
+      alias also registers its normalized name in Client Domains under the parent
+      website's owning client (spec 044). An existing registration under that same
+      client is reused; a different owner returns 409 without changing either
+      resource. Registration and alias creation are one transaction and share the
+      change set. The parent must belong to the acting key's client scope (403
+      otherwise). Admin-owned parents without a client are excluded. Subdomains
+      do not create additional Client Domains entries. Deleting the alias keeps
+      the registration, which may also be used for mail or DNS.
     requestBody:
       required: true
       content:
