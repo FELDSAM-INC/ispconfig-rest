@@ -2,6 +2,7 @@
 
 namespace App\Models\Concerns;
 
+use App\Services\SitesConfigService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -13,6 +14,18 @@ use Illuminate\Support\Facades\DB;
  */
 trait HasSitesDisplayFields
 {
+    /** Expose only the redirect dialect, never the server configuration blob. */
+    protected function lookupWebServerType(int $serverId): ?string
+    {
+        if ($serverId <= 0) {
+            return null;
+        }
+
+        $type = app(SitesConfigService::class)->serverConfig($serverId, 'web')['server_type'] ?? null;
+
+        return in_array($type, ['apache', 'nginx'], true) ? $type : null;
+    }
+
     protected function lookupServerName(?int $serverId): ?string
     {
         if ($serverId === null || $serverId <= 0) {

@@ -138,6 +138,7 @@ class WebDomain extends BaseModel
     protected $appends = [
         'id',
         'server_name',
+        'web_server_type',
     ];
 
     /**
@@ -205,6 +206,11 @@ class WebDomain extends BaseModel
     protected function serverName(): Attribute
     {
         return Attribute::get(fn () => $this->lookupServerName((int) ($this->getAttributes()['server_id'] ?? 0)));
+    }
+
+    protected function webServerType(): Attribute
+    {
+        return Attribute::get(fn () => $this->lookupWebServerType((int) ($this->getAttributes()['server_id'] ?? 0)));
     }
 
     /**

@@ -72,7 +72,7 @@ class WebChildDomain extends BaseModel
         'redirect_type', 'redirect_path', 'seo_redirect',
         'ssl_letsencrypt_exclude', 'active',
         'sys_userid', 'sys_groupid', 'sys_perm_user', 'sys_perm_group',
-        'sys_perm_other', 'server_name', 'parent_domain',
+        'sys_perm_other', 'server_name', 'parent_domain', 'web_server_type',
     ];
 
     /**
@@ -94,6 +94,7 @@ class WebChildDomain extends BaseModel
         'id',
         'server_name',
         'parent_domain',
+        'web_server_type',
     ];
 
     /**
@@ -124,6 +125,11 @@ class WebChildDomain extends BaseModel
     protected function serverName(): Attribute
     {
         return Attribute::get(fn () => $this->lookupServerName((int) ($this->getAttributes()['server_id'] ?? 0)));
+    }
+
+    protected function webServerType(): Attribute
+    {
+        return Attribute::get(fn () => $this->lookupWebServerType((int) ($this->getAttributes()['server_id'] ?? 0)));
     }
 
     protected function parentDomain(): Attribute

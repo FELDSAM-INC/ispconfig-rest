@@ -170,6 +170,19 @@ properties:
     example: ""
 
   # Response-only convenience fields
+  web_server_type:
+    type: string
+    nullable: true
+    enum: [apache, nginx, null]
+    readOnly: true
+    description: |
+      Web server engine from this domain's server.config [web] server_type.
+      The server is inherited from the parent website. Null when missing or
+      unsupported. Available on readable domains for all key types; no other
+      server configuration is exposed. Use Apache `R=301,L` or nginx
+      `permanent` for an HTTP 301 redirect.
+    example: nginx
+
   server_name:
     type: string
     readOnly: true
