@@ -1,3 +1,4 @@
+# Spec 045: alias DNS/mail services and synchronized DNS write guards; see schemas.
 # DNS Resource Record endpoints
 /dns/records:
   get:
@@ -81,6 +82,8 @@
       - DNS Records
     summary: Create a new DNS resource record
     description: |
+      Synchronized alias zones and their records reject direct writes with 409
+      (spec 045). Managed alias zones cannot be deleted while the website alias exists.
       Creates a new DNS resource record in an existing zone. The write is
       journaled to `sys_datalog` and the parent zone's SOA serial is bumped
       automatically (legacy parity). `server_id` is inherited from the zone.
@@ -140,6 +143,8 @@
           schema:
             $ref: '../../components/schemas/DnsRecord.yaml'
     responses:
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
       '201':
         description: DNS record created successfully
         headers:
@@ -197,6 +202,8 @@
       - DNS Records
     summary: Update DNS record
     description: |
+      Synchronized alias zones and their records reject direct writes with 409
+      (spec 045). Managed alias zones cannot be deleted while the website alias exists.
       Updates an existing DNS record. The record's `stamp` and `serial` are
       refreshed and the parent zone's SOA serial is bumped automatically
       (legacy parity).
@@ -226,6 +233,8 @@
           schema:
             $ref: '../../components/schemas/DnsRecord.yaml'
     responses:
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
       '200':
         description: DNS record updated successfully
         headers:
@@ -253,6 +262,8 @@
       - DNS Records
     summary: Delete DNS record
     description: |
+      Synchronized alias zones and their records reject direct writes with 409
+      (spec 045). Managed alias zones cannot be deleted while the website alias exists.
       Deletes a DNS record by ID (journaled to `sys_datalog`). The parent
       zone's SOA serial is bumped automatically (legacy parity).
     parameters:
@@ -264,6 +275,8 @@
           type: integer
           format: int64
     responses:
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
       '204':
         description: DNS record deleted successfully
         headers:

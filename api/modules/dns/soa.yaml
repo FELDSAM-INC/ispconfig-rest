@@ -1,3 +1,4 @@
+# Spec 045: alias DNS/mail services and synchronized DNS write guards; see schemas.
 # DNS SOA (Start of Authority) endpoints
 /dns/soa:
   get:
@@ -68,6 +69,8 @@
       - DNS
     summary: Create a new DNS zone
     description: |
+      Synchronized alias zones and their records reject direct writes with 409
+      (spec 045). Managed alias zones cannot be deleted while the website alias exists.
       Creates a new DNS zone with the specified configuration.
 
       The write is journaled to ISPConfig's `sys_datalog` and applied
@@ -165,6 +168,8 @@
       - DNS
     summary: Update DNS zone
     description: |
+      Synchronized alias zones and their records reject direct writes with 409
+      (spec 045). Managed alias zones cannot be deleted while the website alias exists.
       Updates an existing DNS zone configuration.
 
       ### Partial Updates
@@ -240,6 +245,8 @@
       - DNS
     summary: Delete DNS zone
     description: |
+      Synchronized alias zones and their records reject direct writes with 409
+      (spec 045). Managed alias zones cannot be deleted while the website alias exists.
       Deletes a DNS zone and everything in it (journaled to `sys_datalog`).
 
       As in the ISPConfig panel (`dns_soa_del.php`, spec 034) the zone is first
@@ -255,6 +262,8 @@
           type: integer
           format: int64
     responses:
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
       '204':
         description: DNS zone deleted successfully
         headers:
@@ -275,6 +284,8 @@
       - DNS
     summary: Create a DNS zone from a template (zone wizard)
     description: |
+      Synchronized alias zones and their records reject direct writes with 409
+      (spec 045). Managed alias zones cannot be deleted while the website alias exists.
       Creates a DNS zone and its records from a zone template — the ISPConfig DNS wizard
       (`dns_wizard.php`, spec 029).
 

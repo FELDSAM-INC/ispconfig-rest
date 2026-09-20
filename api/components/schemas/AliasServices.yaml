@@ -1,0 +1,17 @@
+type: object
+description: API-owned alias service relationship (spec 045), never ISPConfig web_domain columns.
+properties:
+  dns_zone_id:
+    type: integer
+  primary_zone_id:
+    type: integer
+    nullable: true
+  primary_domain:
+    type: string
+  dns_sync:
+    type: boolean
+  mail_service:
+    type: boolean
+  mail_alias_id:
+    type: integer
+    nullable: true

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\AliasServicesService;
 use App\Services\DatalogService;
 use App\Support\IspContext;
 use App\Support\ProblemTypeCollector;
@@ -14,6 +15,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->scoped(AliasServicesService::class);
+        $this->app->rebinding('request', fn ($app) => $app->forgetInstance(AliasServicesService::class));
+
         // One acting ISPConfig identity per request (see App\Support\IspContext).
         $this->app->scoped(IspContext::class);
 

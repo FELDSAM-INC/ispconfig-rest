@@ -8,6 +8,7 @@ use App\Http\Requests\StoreWebDomainRequest;
 use App\Http\Requests\UpdateWebDomainRequest;
 use App\Models\WebDomain;
 use App\Services\AliasClientDomainService;
+use App\Services\AliasServicesService;
 use App\Services\WebDomainService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -80,6 +81,7 @@ class WebDomainController extends Controller
         $domain = DB::transaction(function () use ($request, $clientId): WebDomain {
             $domain = $this->service->create($request->payload(), $clientId);
             $this->clientDomains->ensure($domain);
+            app(AliasServicesService::class)->configure($domain, $request->payload());
 
             return $domain;
         });
@@ -93,7 +95,12 @@ class WebDomainController extends Controller
      */
     public function update(UpdateWebDomainRequest $request, WebDomain $webDomain): JsonResponse
     {
-        $domain = DB::transaction(fn () => $this->service->update($webDomain, $request->payload()));
+        $domain = DB::transaction(function () use ($request, $webDomain): WebDomain {
+            $domain = $this->service->update($webDomain, $request->payload());
+            app(AliasServicesService::class)->configure($domain, $request->payload());
+
+            return $domain;
+        });
 
         return response()->json($domain);
     }

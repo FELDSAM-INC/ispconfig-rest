@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\YesNoBoolean;
+use App\Services\AliasServicesService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 /**
@@ -144,5 +145,13 @@ class MailDomain extends BaseModel
     public function scopeForServer($query, int $serverId)
     {
         return $query->where('server_id', $serverId);
+    }
+
+    public function attributesToArray()
+    {
+        $data = parent::attributesToArray();
+        $data['domain_alias'] = app(AliasServicesService::class)->mailDomainMetadata((string) $this->domain);
+
+        return $data;
     }
 }

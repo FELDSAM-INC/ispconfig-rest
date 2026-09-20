@@ -268,3 +268,19 @@ properties:
     readOnly: true
     description: The rendered zone file content (server-managed)
     example: "$ORIGIN example.com.\n$TTL 3600\n@ IN SOA ns1.example.com. admin.example.com. (\n  2026070401 ; serial\n  28800     ; refresh\n  7200      ; retry\n  604800    ; expire\n  3600      ; minimum\n)"
+
+  alias_sync:
+    readOnly: true
+    nullable: true
+    description: Managed alias zone; synchronized zones reject all independent writes (409).
+    type: object
+    properties:
+      web_domain_id:
+        type: integer
+      primary_zone_id:
+        type: integer
+        nullable: true
+      primary_domain:
+        type: string
+      enabled:
+        type: boolean

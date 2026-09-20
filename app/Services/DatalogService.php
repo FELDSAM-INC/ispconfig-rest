@@ -97,6 +97,8 @@ class DatalogService
         // The request's change set now has an entry (spec 015 X-Change-Set-Id).
         $context->recordJournalEntry();
 
+        app(AliasServicesService::class)->changed($table, $oldRecord, $newRecord);
+
         return $datalogId;
     }
 
@@ -113,6 +115,7 @@ class DatalogService
      */
     public function insertRecord(string $table, string $primaryKey, array $data): int
     {
+        app(AliasServicesService::class)->assertDnsWrite($table, [], $data);
         $id = (int) DB::table($table)->insertGetId($data, $primaryKey);
         $newRecord = (array) DB::table($table)->where($primaryKey, $id)->first();
 
@@ -132,6 +135,8 @@ class DatalogService
     {
         $oldRecord = (array) DB::table($table)->where($primaryKey, $id)->first();
 
+        app(AliasServicesService::class)->assertDnsWrite($table, $oldRecord, array_merge($oldRecord, $data));
+        app(AliasServicesService::class)->assertWebsiteIdentity($table, $oldRecord, array_merge($oldRecord, $data));
         DB::table($table)->where($primaryKey, $id)->update($data);
 
         $newRecord = (array) DB::table($table)->where($primaryKey, $id)->first();
@@ -152,6 +157,7 @@ class DatalogService
             return;
         }
 
+        app(AliasServicesService::class)->assertDnsWrite($table, $oldRecord, [], true);
         DB::table($table)->where($primaryKey, $id)->delete();
 
         $this->log($table, $primaryKey, $id, 'd', $oldRecord, []);

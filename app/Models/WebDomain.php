@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\YesNoBoolean;
 use App\Models\Concerns\HasSitesDisplayFields;
+use App\Services\AliasServicesService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 /**
@@ -320,5 +321,14 @@ class WebDomain extends BaseModel
         }
 
         return true;
+    }
+
+    public function attributesToArray()
+    {
+        $data = parent::attributesToArray();
+        $data['alias_services'] = in_array($this->type, ['alias', 'vhostalias'], true)
+            ? app(AliasServicesService::class)->websiteMetadata((int) $this->getKey()) : null;
+
+        return $data;
     }
 }

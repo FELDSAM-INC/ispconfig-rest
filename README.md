@@ -79,7 +79,7 @@ php artisan key:generate
 Edit `.env` with your ISPConfig database credentials (`DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`), then create the API's own key table and mint a key:
 
 ```bash
-php artisan migrate            # creates only the api_keys table — ISPConfig tables are never migrated
+php artisan migrate            # creates API-owned tables only — ISPConfig tables are never migrated
 php artisan api:key:create "my integration"
 ```
 
@@ -252,3 +252,27 @@ Engineering rules live in [`.specify/memory/constitution.md`](.specify/memory/co
 ## License
 
 BSD-3-Clause — see the LICENSE file for details.
+
+### Website alias DNS and mail services (045)
+
+Alias creation/update accepts `dns_sync` and `mail_service`. Sending either opts into coordinated services:
+a DNS zone is always created or reused under the website's owning client, independently of the mail switch.
+The alias DNS zone starts as a copy of the primary when available, or with assigned name servers and web
+addresses. Synchronization requires an existing primary zone; it copies record and SOA changes and rejects
+direct edits to the alias zone. Disable synchronization to keep and independently edit the copied records.
+Opaque TXT/CAA payloads retain their bytes; domain-valued record names and targets are translated to the
+alias. DNSSEC keys and signatures are independently generated for each zone. Primary-zone deletion is
+refused while synchronized aliases depend on it. Managed website aliases cannot be renamed/reparented.
+
+Mail creates `@alias` → `@primary` routing and requires an existing active primary mail domain. Account
+limits and ownership checks apply to every created resource; any failure rolls back the whole operation.
+`alias_services` on web domains, `alias_sync` on DNS zones and `domain_alias` on mail domains expose their
+relationships. No ISPConfig schema changes are made; links live in `api_alias_services`.
+
+Run migrations before deploying a consuming panel. The database login needs permission to create the
+API-owned table (use the installer's privileged migration path when needed). Install/update registers
+`/etc/cron.d/ispconfig-rest`, which runs the Laravel scheduler as the API service user every minute.
+For an existing installation updated by an older manager, run `ispconfig-rest schedule:install` once.
+`php artisan aliases:sync-dns` also performs reconciliation manually. API DNS changes propagate within the
+same transaction; changes made directly in ISPConfig are picked up by the next successful scheduled run.
+Failures are reported in the API log and retried on the next run; unchanged zones create no datalog noise.

@@ -8,6 +8,7 @@ use App\Http\Requests\StoreWebChildDomainRequest;
 use App\Http\Requests\UpdateWebChildDomainRequest;
 use App\Models\WebChildDomain;
 use App\Services\AliasClientDomainService;
+use App\Services\AliasServicesService;
 use App\Services\DatalogService;
 use App\Services\SitesService;
 use Illuminate\Http\JsonResponse;
@@ -80,9 +81,10 @@ class WebChildDomainController extends Controller
         $child = new WebChildDomain($payload);
         $this->service->deriveServerAndGroup($child, $parent);
 
-        DB::transaction(function () use ($child): void {
+        DB::transaction(function () use ($child, $payload): void {
             $child->save();
             $this->clientDomains->ensure($child);
+            app(AliasServicesService::class)->configure($child, $payload);
         });
 
         return response()->json($child->refresh(), 201);
@@ -132,8 +134,9 @@ class WebChildDomainController extends Controller
         $webChildDomain->fill($payload);
         $this->service->deriveServerAndGroup($webChildDomain, $parent);
 
-        DB::transaction(function () use ($webChildDomain, $reparented, $oldParentId): void {
+        DB::transaction(function () use ($webChildDomain, $reparented, $oldParentId, $payload): void {
             $webChildDomain->save();
+            app(AliasServicesService::class)->configure($webChildDomain, $payload);
 
             if ($reparented) {
                 // Forced no-op update of the old parent vhost (legacy

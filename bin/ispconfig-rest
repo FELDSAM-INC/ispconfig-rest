@@ -122,6 +122,17 @@ cmd_status() {
   fi
 }
 
+cmd_schedule_install() {
+  need_root
+  install -d -m 0755 /etc/cron.d
+  cat > /etc/cron.d/ispconfig-rest <<'CRON'
+# API-owned background work: run as the installation's unprivileged service user.
+* * * * * root /usr/local/bin/ispconfig-rest schedule:run >/dev/null 2>&1
+CRON
+  chmod 0644 /etc/cron.d/ispconfig-rest
+  ok "One-minute API scheduler installed"
+}
+
 cmd_update() {
   need_root
   info "Updating ISPConfig REST API in $INSTALL_DIR"
@@ -150,6 +161,7 @@ cmd_update() {
   # refresh the manager itself if it changed
   if [ -f "$INSTALL_DIR/bin/ispconfig-rest" ]; then install -m 0755 "$INSTALL_DIR/bin/ispconfig-rest" /usr/local/bin/ispconfig-rest; fi
 
+  cmd_schedule_install
   reload_server
   ok "Update complete ($(cat "$INSTALL_DIR/VERSION" 2>/dev/null))"
 }
@@ -203,6 +215,8 @@ cmd_uninstall() {
 
 case "${1:-}" in
   update)        cmd_update;;
+  schedule:install) cmd_schedule_install;;
+  schedule:run)   run_as "$PHP_BIN" artisan schedule:run;;
   status)        cmd_status;;
   version|-v|--version) cmd_version;;
   start|stop|restart)   cmd_service "$1";;

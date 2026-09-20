@@ -203,3 +203,19 @@ description: |
 
   ### Local Delivery
   - `local_delivery: false` makes the domain relay-only
+
+  domain_alias:
+    type: object
+    readOnly: true
+    nullable: true
+    description: Alias-domain routing, or null for a standalone mail domain (spec 045).
+    properties:
+      domain:
+        type: string
+        description: Destination domain, without the @ prefix.
+      active:
+        type: boolean
+      mail_domain_id:
+        type: integer
+        nullable: true
+        description: Readable destination mail domain ID, or null if no longer available.

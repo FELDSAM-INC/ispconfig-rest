@@ -4,7 +4,7 @@
 #
 # Installs the REST API onto an existing ISPConfig 3.3 server:
 #   • reads the runtime DB credentials from ISPConfig's own config file;
-#   • creates the API-owned api_keys table using a privileged (root) DB login,
+#   • creates the API-owned metadata tables using a privileged (root) DB login,
 #     the way ISPConfig's own installer does — so the runtime user never needs
 #     CREATE rights;
 #   • serves the app from a DEDICATED web-server vhost backed by a dedicated
@@ -342,9 +342,9 @@ chown "$RUN_USER":"$RUN_USER" "$ENV_FILE"; chmod 600 "$ENV_FILE"
 grep -q '^APP_KEY=base64:' "$ENV_FILE" || { run_as "$PHP_BIN" artisan key:generate --force; ok "Application key generated"; }
 
 # ---------------------------------------------------------------------------
-# Create the api_keys table with a privileged DB login (root)
+# Create the API-owned tables with a privileged DB login (root)
 # ---------------------------------------------------------------------------
-step "Creating the api_keys table (privileged login)"
+step "Creating API-owned tables (privileged login)"
 migrate_privileged() {
   if [ -n "$DB_ADMIN_PASS" ] || [ "$DB_ADMIN_USER" != "root" ]; then
     run_as env DB_USERNAME="$DB_ADMIN_USER" DB_PASSWORD="$DB_ADMIN_PASS" "$PHP_BIN" artisan migrate --force
@@ -355,7 +355,7 @@ migrate_privileged() {
 }
 if migrate_privileged; then MIGRATE_OK=1; else MIGRATE_OK=0; fi
 chown -R "$RUN_USER":"$RUN_USER" "$INSTALL_DIR/storage" "$INSTALL_DIR/bootstrap/cache" 2>/dev/null || true
-if [ "$MIGRATE_OK" = "1" ]; then ok "api_keys table ready"
+if [ "$MIGRATE_OK" = "1" ]; then ok "API-owned tables ready"
 else warn "Privileged migration failed. Provide --db-admin-pass (if MySQL root needs a password) or create the table manually, then run 'ispconfig-rest update'."; fi
 
 step "Optimizing"
@@ -532,6 +532,7 @@ EOF
 chmod 600 "$STATE_DIR/install.conf"
 install -m 0755 "$INSTALL_DIR/bin/ispconfig-rest" "$MANAGER_PATH"
 ok "Installed $MANAGER_PATH"
+"$MANAGER_PATH" schedule:install
 
 # ---------------------------------------------------------------------------
 # Optional admin API key

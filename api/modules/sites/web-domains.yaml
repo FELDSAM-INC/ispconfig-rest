@@ -1,3 +1,4 @@
+# Spec 045: alias DNS/mail services and synchronized DNS write guards; see schemas.
 # Web Domain endpoints
 /sites/web-domains:
   get:
@@ -65,6 +66,9 @@
       - Web Domains
     summary: Create a new web domain
     description: |
+      Alias DNS/mail coordination is available through `dns_sync` and `mail_service`
+      (spec 045). Sending either creates/reuses a DNS zone atomically with the alias.
+      Managed aliases cannot be renamed, reparented or assigned to another owner (409).
       Client and reseller keys whose client does not have `limit_backup` enabled receive 403 when the
       request contains `backup_*` fields.
 
@@ -181,6 +185,9 @@
       - Web Domains
     summary: Update web domain
     description: |
+      Alias DNS/mail coordination is available through `dns_sync` and `mail_service`
+      (spec 045). Sending either creates/reuses a DNS zone atomically with the alias.
+      Managed aliases cannot be renamed, reparented or assigned to another owner (409).
       Client and reseller keys whose client does not have `limit_backup` enabled receive 403 when the
       request contains `backup_*` fields.
 
@@ -249,6 +256,9 @@
       - Web Domains
     summary: Delete web domain
     description: |
+      Alias DNS/mail coordination is available through `dns_sync` and `mail_service`
+      (spec 045). Sending either creates/reuses a DNS zone atomically with the alias.
+      Managed aliases cannot be renamed, reparented or assigned to another owner (409).
       Deletes a web domain by ID.
 
       ### Cascade (legacy parity)
@@ -272,6 +282,8 @@
           type: integer
           format: int64
     responses:
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
       '204':
         description: Web domain deletion queued successfully (including the cascade described above)
         headers:

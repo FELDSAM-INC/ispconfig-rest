@@ -1,3 +1,4 @@
+# Spec 045: alias DNS/mail services and synchronized DNS write guards; see schemas.
 # Web Child Domain endpoints
 /sites/web-child-domains:
   get:
@@ -60,6 +61,9 @@
       - Web Child Domains
     summary: Create a new web child domain
     description: |
+      Alias DNS/mail coordination is available through `dns_sync` and `mail_service`
+      (spec 045). Sending either creates/reuses a DNS zone atomically with the alias.
+      Managed aliases cannot be renamed, reparented or assigned to another owner (409).
       Creates a new web child domain (subdomain or alias domain).
 
       ### Server-side behavior (legacy parity)
@@ -146,6 +150,9 @@
       - Web Child Domains
     summary: Update web child domain
     description: |
+      Alias DNS/mail coordination is available through `dns_sync` and `mail_service`
+      (spec 045). Sending either creates/reuses a DNS zone atomically with the alias.
+      Managed aliases cannot be renamed, reparented or assigned to another owner (409).
       Updates an existing web child domain. Only include the fields you want
       to change; omitted fields remain unchanged.
 
@@ -200,6 +207,9 @@
       - Web Child Domains
     summary: Delete web child domain
     description: |
+      Alias DNS/mail coordination is available through `dns_sync` and `mail_service`
+      (spec 045). Sending either creates/reuses a DNS zone atomically with the alias.
+      Managed aliases cannot be renamed, reparented or assigned to another owner (409).
       Deletes a web child domain by ID. The web server configuration is
       updated asynchronously. This action cannot be undone.
     parameters:
@@ -211,6 +221,8 @@
           type: integer
           format: int64
     responses:
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
       '204':
         description: Web child domain deleted successfully
         headers:

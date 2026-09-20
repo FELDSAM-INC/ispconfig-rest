@@ -14,7 +14,7 @@ abstract class WebChildDomainRequest extends SitesRequest
 {
     protected function booleanFields(): array
     {
-        return ['ssl_letsencrypt_exclude', 'active'];
+        return ['dns_sync', 'mail_service', 'ssl_letsencrypt_exclude', 'active'];
     }
 
     protected function normalizesDomain(): bool
@@ -28,6 +28,8 @@ abstract class WebChildDomainRequest extends SitesRequest
     protected function commonRules(): array
     {
         return [
+            'dns_sync' => ['sometimes', 'boolean'],
+            'mail_service' => ['sometimes', 'boolean'],
             'subdomain' => ['sometimes', Rule::in(['none', 'www', '*'])],
             'redirect_type' => ['sometimes', 'nullable', Rule::in(['', 'no', 'R', 'L', 'R,L', 'R=301,L', 'last', 'break', 'redirect', 'permanent', 'proxy'])],
             'redirect_path' => [

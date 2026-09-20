@@ -21,7 +21,7 @@ abstract class WebDomainRequest extends SitesRequest
 
     protected function booleanFields(): array
     {
-        return [
+        return ['dns_sync', 'mail_service',
             'cgi', 'ssi', 'suexec', 'perl', 'ruby', 'python',
             'enable_pagespeed', 'active', 'rewrite_to_https', 'ssl',
             'ssl_letsencrypt', 'ssl_letsencrypt_exclude', 'proxy_protocol',
@@ -43,6 +43,8 @@ abstract class WebDomainRequest extends SitesRequest
     protected function commonRules(): array
     {
         return [
+            'dns_sync' => ['sometimes', 'boolean'],
+            'mail_service' => ['sometimes', 'boolean'],
             'ip_address' => ['sometimes', 'nullable', 'string', 'max:39'],
             'ipv6_address' => ['sometimes', 'nullable', 'string', 'max:255'],
             'vhost_type' => ['sometimes', Rule::in(['name', 'ip'])],

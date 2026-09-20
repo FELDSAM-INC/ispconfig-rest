@@ -840,3 +840,21 @@ properties:
     readOnly: true
     description: Name of the server hosting the web domain
     example: "web1.example.com"
+
+  dns_sync:
+    type: boolean
+    description: |
+      Alias/vhostalias only (spec 045). Sending this or mail_service opts into
+      coordinated DNS/mail services. A DNS zone is always created/reused.
+      True copies and continuously synchronizes the owned primary DNS zone;
+      false retains an independently editable copy. Default false.
+  mail_service:
+    type: boolean
+    description: |
+      Alias/vhostalias only. Enable @alias -> @primary mail routing; requires
+      an owned primary mail domain. Default false. All side effects are atomic.
+  alias_services:
+    readOnly: true
+    nullable: true
+    allOf:
+      - $ref: './AliasServices.yaml'

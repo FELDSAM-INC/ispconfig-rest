@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AliasServicesService;
 use App\Services\ClientLimitService;
 use App\Services\DatalogService;
 use App\Services\LockedClientGuard;
@@ -188,6 +189,8 @@ abstract class BaseModel extends Model
             App::make(ClientLimitService::class)->checkQuotaSum($this);
         }
 
+        app(AliasServicesService::class)->assertDnsWrite($this->getTable(), $oldRecord, $this->getAttributes());
+        app(AliasServicesService::class)->assertWebsiteIdentity($this->getTable(), $oldRecord, $this->getAttributes());
         $saved = parent::save($options);
 
         if ($saved) {
@@ -239,6 +242,7 @@ abstract class BaseModel extends Model
             throw new AuthorizationException('You do not have permission to delete this resource.');
         }
 
+        app(AliasServicesService::class)->assertDnsWrite($this->getTable(), $oldRecord, [], true);
         $deleted = parent::delete();
 
         if ($deleted) {

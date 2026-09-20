@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\YesNoBoolean;
+use App\Services\AliasServicesService;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -139,6 +140,8 @@ class DnsSoa extends BaseModel
         if (array_key_exists('dnssec_info', $data) && ! $this->authScope()->isAdmin) {
             $data['dnssec_info'] = null;
         }
+
+        $data['alias_sync'] = app(AliasServicesService::class)->zoneMetadata((int) $this->getKey());
 
         return $data;
     }
