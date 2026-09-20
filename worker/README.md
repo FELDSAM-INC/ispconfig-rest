@@ -25,20 +25,24 @@ records. One process per server uses flock. Jobs are not retried after execution
 starts. If a worker stops during import, inspect the database before retrying.
 Import is intentionally destructive and is not transactional across DDL.
 
-SQL and gzip uploads support **2 GiB**, with **4 GiB uncompressed SQL** for import,
-export and copy, and **2 GiB compressed exports**. These limits leave room for a
-1 GiB database's SQL/hex overhead. Large statements still obey the local MySQL
-`max_allowed_packet`. Allow temporary disk space for the raw/normalized dump and
+SQL and gzip uploads support **2 GiB**, with **2 GiB compressed exports**. There is
+no fixed uncompressed SQL limit for import, export or copy. Each processing stage
+checks available temporary disk space and stops before the last 64 MiB is consumed.
+Large statements still obey the local MySQL `max_allowed_packet`. Allow temporary disk space for the raw/normalized dump and
 archive, plus the destination database for copy. Transport artifacts are stored as
 base64 chunks in the API-owned master table (about 4/3 of the transferred size);
 provision master storage accordingly. Artifacts expire 24 hours after completion.
 The worker cleans expired/failed jobs and abandoned files on its next run.
 
-Browser imports use 768 KiB chunks, so PHP does not need a multi-gigabyte upload
-limit. The API accepts `upload_bytes` at job creation, starts in `uploading`, accepts
-sequential `PUT .../operations/{id}/chunks/{sequence}` with `dump_base64`, then
-`POST .../operations/{id}/upload-complete` only after every byte arrived. Identical
-chunk retries and finalization are idempotent. `DELETE .../operations/{id}` cancels
+Browser imports negotiate 8/4/2 MiB or 768 KiB chunks according to WHMCS PHP upload
+and POST limits and the API database packet limit. Four requests can upload in
+parallel; WHMCS releases its session lock before network calls. The API accepts
+`upload_bytes` and optional `chunk_size` at job creation, starts in `uploading`,
+and accepts `PUT .../operations/{id}/chunks/{sequence}` with `dump_base64`. Negotiated
+chunks may arrive out of order; `POST .../operations/{id}/upload-complete` succeeds
+only after every exact-length chunk arrived. Identical chunk retries and
+finalization are idempotent. Existing jobs without a negotiated chunk size retain
+768 KiB sequential uploads, so upgrades do not disrupt uploads already in progress. `DELETE .../operations/{id}` cancels
 unfinished uploads only. Idle uploads expire after 30 minutes. The legacy inline
 `dump_base64` create payload retains its 8 MiB bound; use chunking for large files.
 
@@ -49,6 +53,15 @@ gzip, chunk reads and HTTP downloads have bounded memory. Worker PHP memory is
 processing stage. Web downloads allow four hours too; reverse-proxy/FPM request
 timeouts must accommodate the transfer. Queued jobs are not expired merely because
 a previous large job takes more than 30 minutes.
+
+Database quota is separate from dump size: it measures table and index storage,
+using the same `information_schema.TABLES` data/index sizes as ISPConfig. Import
+and copy check this before SQL execution, every two seconds during execution and
+after completion. A quota failure terminates the job's SQL sessions and reports
+`database_quota_exceeded`; it never raises the configured quota. This is monitored
+enforcement, not a byte-exact storage cap: a large statement can overshoot between
+checks, and previously applied statements remain. Export remains available when a
+database exceeds quota. Insufficient temporary space reports `insufficient_disk_space`.
 
 There is no separate worker login. It reads ISPConfig's local `config.inc.php` and
 `mysql_clientdb.conf`; these credentials never reach the API browser client.
@@ -93,3 +106,10 @@ For the opt-in large-data check, run the same command with
 data**, verifies every row's SHA-256 after copy and export/import, checks the
 compressed export exceeds 1 GiB, and asserts peak PHP memory below 64 MiB. Allow
 several minutes and at least 15 GiB of disposable container disk space.
+
+For quota and gzip expansion checks, run `tests/Integration/database-worker-quota.php`
+in the same disposable container setup. It verifies rejection before import and
+termination during import when storage exceeds quota, then imports **5.36 GiB of
+uncompressed SQL** into a database whose actual table/index storage fits a **1 MiB
+quota**. It checks trailing SQL execution, unchanged quota, account locking and
+peak PHP memory below 96 MiB. Allow at least 7 GiB temporary disk space.

@@ -14,13 +14,13 @@ $pdo->exec('USE worker_control');
 $pdo->exec('CREATE TABLE api_database_workers(server_id INT PRIMARY KEY, heartbeat INT)');
 $pdo->exec('CREATE TABLE api_database_operations(id VARCHAR(36) PRIMARY KEY,database_id INT,target_database_id INT NULL,sys_groupid INT,server_id INT,database_name VARCHAR(64),action VARCHAR(8),status VARCHAR(12),created_at INT,updated_at INT,expires_at INT,error VARCHAR(80) NULL,upload_bytes BIGINT NULL,uploaded_bytes BIGINT DEFAULT 0,download_bytes BIGINT NULL)');
 $pdo->exec('CREATE TABLE api_database_operation_chunks(operation_id VARCHAR(36),sequence INT,content MEDIUMTEXT,PRIMARY KEY(operation_id,sequence))');
-$pdo->exec('CREATE TABLE web_database(database_id INT PRIMARY KEY,sys_groupid INT,server_id INT,database_name VARCHAR(64),type VARCHAR(16),active CHAR(1))');
+$pdo->exec('CREATE TABLE web_database(database_id INT PRIMARY KEY,sys_groupid INT,server_id INT,database_name VARCHAR(64),type VARCHAR(16),active CHAR(1),database_quota BIGINT DEFAULT -1)');
 $pdo->exec('CREATE TABLE sys_group(groupid INT PRIMARY KEY, client_id INT)');
 $pdo->exec('CREATE TABLE client(client_id INT PRIMARY KEY,locked CHAR(1))');
 $pdo->exec("INSERT INTO sys_group VALUES(5,1); INSERT INTO client VALUES(1,'n')");
 foreach ([1 => 'fixture_source', 2 => 'fixture_copy', 3 => 'fixture_import', 4 => 'fixture_foreign'] as $id => $name) {
     $pdo->exec('CREATE DATABASE '.$name);
-    $pdo->exec("INSERT INTO web_database VALUES($id,5,1,'$name','mysql','y')");
+    $pdo->exec("INSERT INTO web_database(database_id,sys_groupid,server_id,database_name,type,active) VALUES($id,5,1,'$name','mysql','y')");
 }
 $pdo->exec('CREATE TABLE fixture_source.t (id INT PRIMARY KEY, v TEXT)');
 $pdo->exec("INSERT INTO fixture_source.t VALUES(1,'first'),(2,'CREATE DEFINER=`root`@`localhost` VIEW `fixture_source`.`t`')");

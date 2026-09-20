@@ -16,6 +16,8 @@ class DatabaseOperationService
 
     public const CHUNK = 786432;
 
+    public const MAX_CHUNK = 8388608;
+
     public const MAX_UPLOAD = 2147483648;
 
     /** Request-scoped cache keeps list serialization to one heartbeat query. */
@@ -76,6 +78,7 @@ class DatabaseOperationService
                 'id' => $id, 'database_id' => (int) $source->getKey(), 'target_database_id' => $target?->getKey(),
                 'sys_groupid' => (int) $source->sys_groupid, 'server_id' => (int) $source->server_id,
                 'database_name' => $source->database_name_full, 'action' => $input['action'], 'status' => isset($input['upload_bytes']) ? 'uploading' : 'queued',
+                'chunk_size' => isset($input['chunk_size']) ? $this->chunkSize((int) $input['chunk_size']) : null,
                 'upload_bytes' => $input['upload_bytes'] ?? ($dump === null ? null : strlen($dump)),
                 'uploaded_bytes' => $dump === null ? 0 : strlen($dump), 'download_bytes' => null,
                 'created_at' => time(), 'updated_at' => time(), 'expires_at' => time() + 86400, 'error' => null,
@@ -91,6 +94,18 @@ class DatabaseOperationService
         });
     }
 
+    private function chunkSize(int $requested): int
+    {
+        $maxPacket = DB::connection()->getDriverName() === 'mysql'
+            ? (int) DB::selectOne('SELECT @@max_allowed_packet AS bytes')->bytes : 16777216;
+        foreach ([8388608, 4194304, 2097152, self::CHUNK] as $size) {
+            if ($size <= $requested && 4 * (int) ceil($size / 3) + 65536 <= $maxPacket) {
+                return $size;
+            }
+        }
+        abort(409, 'The database packet limit is too small for uploads.');
+    }
+
     private function writable(WebDatabase $source, string $id): object
     {
         $job = $this->find($source, $id);
@@ -104,23 +119,32 @@ class DatabaseOperationService
     {
         $this->writable($source, $id);
         $bytes = base64_decode($encoded, true);
-        if ($bytes === false || $bytes === '' || strlen($bytes) > self::CHUNK) {
+        if ($bytes === false || $bytes === '' || strlen($bytes) > self::MAX_CHUNK) {
             throw ValidationException::withMessages(['dump_base64' => 'Invalid upload chunk.']);
         }
+        $length = strlen($bytes);
+        $content = base64_encode($bytes);
+        if ($content === $encoded) {
+            $content = $encoded;
+        }
+        unset($bytes);
 
-        return DB::transaction(function () use ($id, $sequence, $bytes): array {
+        return DB::transaction(function () use ($id, $sequence, $length, $content): array {
             $job = DB::table('api_database_operations')->where('id', $id)->lockForUpdate()->first();
             abort_unless($job->action === 'import' && $job->status === 'uploading', 409);
-            $expected = min(self::CHUNK, (int) $job->upload_bytes - $sequence * self::CHUNK);
-            abort_unless($expected > 0 && strlen($bytes) === $expected, 422, 'Incorrect chunk length.');
+            $size = (int) ($job->chunk_size ?? self::CHUNK);
+            $expected = min($size, (int) $job->upload_bytes - $sequence * $size);
+            abort_unless($expected > 0 && $length === $expected, 422, 'Incorrect chunk length.');
             $chunks = DB::table('api_database_operation_chunks')->where('operation_id', $id)->where('sequence', $sequence);
             $stored = $chunks->value('content');
             if ($stored !== null) {
-                abort_unless(hash_equals($stored, base64_encode($bytes)), 409, 'Chunk differs from the previous upload.');
+                abort_unless(hash_equals($stored, $content), 409, 'Chunk differs from the previous upload.');
             } else {
-                abort_unless($sequence * self::CHUNK === (int) $job->uploaded_bytes, 409, 'Upload chunks in sequence.');
-                $chunks->insert(['operation_id' => $id, 'sequence' => $sequence, 'content' => base64_encode($bytes)]);
-                $job->uploaded_bytes += strlen($bytes);
+                if ($job->chunk_size === null) {
+                    abort_unless($sequence * $size === (int) $job->uploaded_bytes, 409, 'Upload chunks in sequence.');
+                }
+                $chunks->insert(['operation_id' => $id, 'sequence' => $sequence, 'content' => $content]);
+                $job->uploaded_bytes += $length;
             }
             DB::table('api_database_operations')->where('id', $id)->update(['uploaded_bytes' => $job->uploaded_bytes, 'updated_at' => time()]);
 
@@ -177,7 +201,8 @@ class DatabaseOperationService
         return [
             'upload_bytes' => isset($row->upload_bytes) ? (int) $row->upload_bytes : null,
             'uploaded_bytes' => (int) ($row->uploaded_bytes ?? 0),
-            'download_bytes' => isset($row->download_bytes) ? (int) $row->download_bytes : null, 'chunk_size' => self::CHUNK,
+            'download_bytes' => isset($row->download_bytes) ? (int) $row->download_bytes : null, 'chunk_size' => (int) ($row->chunk_size ?? self::CHUNK),
+            'upload_concurrency' => isset($row->chunk_size) ? 4 : 1,
             'id' => $row->id, 'action' => $row->action, 'status' => $row->status,
             'database_id' => (int) $row->database_id, 'target_database_id' => $row->target_database_id === null ? null : (int) $row->target_database_id,
             'created_at' => gmdate('c', $row->created_at), 'expires_at' => gmdate('c', $row->expires_at), 'error' => $row->error,

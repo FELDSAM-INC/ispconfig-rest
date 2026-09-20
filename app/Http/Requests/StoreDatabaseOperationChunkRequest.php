@@ -13,6 +13,6 @@ class StoreDatabaseOperationChunkRequest extends FormRequest
 
     public function rules(): array
     {
-        return ['dump_base64' => ['required', 'string', 'max:1048576']];
+        return ['dump_base64' => ['required', 'string', 'max:11184812']];
     }
 }

@@ -16,10 +16,10 @@ PostgreSQL do not advertise these actions. No browser or WHMCS receives credenti
 Jobs are API-owned records, scoped through the current readable database and its
 unchanged owner/server/name. Starting a job additionally requires update permission
 and an unlocked owner. One active job per source database; no automatic retries of
-partially executed imports. Queued jobs expire after 30 minutes, execution after
-10 minutes. Artifacts expire after 24 hours. SQL imports are explicit overwrites
-and may partially apply on failure. An import accepts SQL or gzip SQL uploads up to 2 GiB (4 GiB inflated);
-exports/copies accept SQL up to 4 GiB and compressed artifacts up to 2 GiB.
+partially executed imports. Idle uploads expire after 30 minutes; queued jobs survive other jobs' runtime,
+and execution is limited to four hours. Artifacts expire after 24 hours. SQL imports are explicit overwrites
+and may partially apply on failure. An import accepts SQL or gzip SQL uploads up to 2 GiB; compressed exports are
+limited to 2 GiB. Uncompressed SQL is bounded by available temporary disk space.
 
 Imports execute as a temporary database-scoped principal, never as the database
 administrator. Native client shell commands and local infile are disabled. The
@@ -46,12 +46,34 @@ Both WHMCS themes are rendered with their actual CSS and JavaScript tabs checked
 ## Large database follow-up (2026-09-20)
 
 Owner requested at least 1 GiB databases and worker logging. Native proc_open /
-mysqldump / mysql remain the execution layer. Uploads now use 768 KiB chunks with
+mysqldump / mysql remain the execution layer. The first large-file implementation used 768 KiB chunks with
 an uploading state, exact declared byte count (up to 2 GiB), ordered idempotent
 writes, explicit finalize and cancel. API-owned migration adds transfer sizes.
 Generated SQL normalization, gzip and PDO chunk iteration are bounded-memory;
-4 GiB raw SQL, 2 GiB compressed export, 4-hour job deadline and progress heartbeats.
+initially 4 GiB raw SQL, 2 GiB compressed export, a 4-hour deadline and progress
+heartbeats. The raw SQL limit is superseded below.
 Queued work survives another job's long runtime. Downloads use keyset batches.
 Root-only rotated diagnostics contain IDs, phases and numeric MySQL errors only.
 Tests include auth/ownership/locks, incomplete/changed/reordered chunk rejection,
 retry/finalize/cancel, lexer buffer boundaries and actual 1 GiB random binary data.
+
+## Parallel uploads and quota follow-up (2026-09-20)
+
+New imports negotiate 8/4/2 MiB or 768 KiB chunks and allow four concurrent requests,
+including out-of-order arrival. Exact lengths, total size and retry identity remain
+enforced. Legacy jobs keep sequential 768 KiB chunks. A nullable API-owned chunk-size
+column freezes the protocol per job; MySQL packet limits can reduce the requested size.
+
+The reported 293 MB gzip expands to 5.36 GB: dump size is not database storage size.
+The worker no longer imposes a 4 GiB raw SQL limit; available temporary disk space
+(with a 64 MiB reserve) bounds processing instead. Uploaded/compressed artifacts
+remain limited to 2 GiB. Failures log phase and processed bytes; successful gzip
+expansion logs the final uncompressed byte count.
+
+Import/copy checks the configured table+index storage quota before, during and after
+SQL execution using ISPConfig's measure. MySQL 8 statistics expiry is disabled for
+these reads. On quota failure, terminate only the job principal's sessions, rotate
+and lock its password, and expose a safe quota-specific error. Checks every two
+seconds are not a byte-perfect hard quota and cannot roll back already applied SQL.
+Export remains available above quota. Tests cover quota failure before/during SQL
+and successful 5.36 GiB expansion into a database that fits its unchanged quota.

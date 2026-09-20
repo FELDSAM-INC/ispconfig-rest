@@ -1,5 +1,5 @@
 type: object
-required: [id, action, status, database_id, target_database_id, created_at, expires_at, error, upload_bytes, uploaded_bytes, download_bytes, chunk_size]
+required: [id, action, status, database_id, target_database_id, created_at, expires_at, error, upload_bytes, uploaded_bytes, download_bytes, chunk_size, upload_concurrency]
 properties:
   id: {type: string, format: uuid}
   action: {type: string, enum: [import, export, copy]}
@@ -8,8 +8,9 @@ properties:
   target_database_id: {type: integer, nullable: true}
   created_at: {type: string, format: date-time}
   expires_at: {type: string, format: date-time}
-  error: {type: string, nullable: true, description: 'Generic safe failure code, never SQL or server diagnostics.'}
+  error: {type: string, nullable: true, description: 'Safe failure code, including database_quota_exceeded or insufficient_disk_space; never SQL or server diagnostics.'}
   upload_bytes: {type: integer, nullable: true}
   uploaded_bytes: {type: integer, minimum: 0}
   download_bytes: {type: integer, nullable: true}
-  chunk_size: {type: integer, enum: [786432]}
+  chunk_size: {type: integer, enum: [786432, 2097152, 4194304, 8388608]}
+  upload_concurrency: {type: integer, enum: [1, 4]}

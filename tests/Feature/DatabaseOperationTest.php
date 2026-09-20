@@ -199,6 +199,38 @@ class DatabaseOperationTest extends SitesApiTestCase
         $this->getJson($this->path($job), $headers)->assertOk()->assertJsonPath('status', 'failed')->assertJsonPath('error', 'operation_expired');
     }
 
+    public function test_negotiated_chunks_accept_out_of_order_arrival_and_refuse_holes_or_changed_retries(): void
+    {
+        $headers = $this->tenantHeaders('clientA');
+        $size = 2097152;
+        $job = $this->postJson($this->path(), ['action' => 'import', 'confirm' => true, 'upload_bytes' => $size * 2 + 7, 'chunk_size' => $size], $headers)
+            ->assertCreated()->assertJsonPath('chunk_size', $size)->assertJsonPath('upload_concurrency', 4)->json('id');
+        $base = $this->path($job);
+        $this->putJson($base.'/chunks/2', ['dump_base64' => base64_encode('SELECT;')], $headers)->assertOk()->assertJsonPath('uploaded_bytes', 7);
+        $this->postJson($base.'/upload-complete', [], $headers)->assertConflict();
+        $chunk = ['dump_base64' => base64_encode(str_repeat(' ', $size))];
+        $this->putJson($base.'/chunks/1', $chunk, $headers)->assertOk()->assertJsonPath('uploaded_bytes', $size + 7);
+        $this->putJson($base.'/chunks/1', $chunk, $headers)->assertOk()->assertJsonPath('uploaded_bytes', $size + 7);
+        $this->postJson($base.'/upload-complete', [], $headers)->assertConflict();
+        $this->putJson($base.'/chunks/3', $chunk, $headers)->assertUnprocessable();
+        $this->putJson($base.'/chunks/0', $chunk, $headers)->assertOk()->assertJsonPath('uploaded_bytes', $size * 2 + 7);
+        $this->postJson($base.'/upload-complete', [], $headers)->assertOk()->assertJsonPath('status', 'queued');
+        $this->assertSame(3, DB::table('api_database_operation_chunks')->where('operation_id', $job)->count());
+    }
+
+    public function test_eight_megabyte_chunks_and_legacy_in_progress_uploads_keep_their_size(): void
+    {
+        $headers = $this->tenantHeaders('clientA');
+        $legacy = $this->postJson($this->path(), ['action' => 'import', 'confirm' => true, 'upload_bytes' => 10], $headers)
+            ->assertCreated()->assertJsonPath('chunk_size', 786432)->assertJsonPath('upload_concurrency', 1)->json('id');
+        $this->deleteJson($this->path($legacy), [], $headers)->assertNoContent();
+        $size = 8388608;
+        $job = $this->postJson($this->path(), ['action' => 'import', 'confirm' => true, 'upload_bytes' => $size, 'chunk_size' => $size], $headers)
+            ->assertCreated()->assertJsonPath('chunk_size', $size)->json('id');
+        $this->putJson($this->path($job).'/chunks/0', ['dump_base64' => base64_encode(str_repeat(' ', $size))], $headers)->assertOk()->assertJsonPath('uploaded_bytes', $size);
+        $this->postJson($this->path($job).'/upload-complete', [], $headers)->assertOk()->assertJsonPath('status', 'queued');
+    }
+
     public function test_capabilities_are_server_specific_and_disappear_without_worker(): void
     {
         $this->getJson('/api/v1/sites/databases/'.$this->database, $this->tenantHeaders('clientA'))->assertOk()->assertJsonPath('operations', ['import', 'export', 'copy']);

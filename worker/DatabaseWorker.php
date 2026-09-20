@@ -10,7 +10,8 @@ use RuntimeException;
 /** Standalone, root-owned worker; no Laravel dependency on database servers. */
 final class DatabaseWorker
 {
-    public const MAX_SQL = 4294967296;
+    // Zero means no artificial raw-SQL limit; actual temporary disk space is checked.
+    public const MAX_SQL = 0;
 
     public const MAX_ARCHIVE = 2147483648;
 
@@ -25,6 +26,8 @@ final class DatabaseWorker
     private string $phase = '';
 
     private int $lastLog = 0;
+
+    private int $phaseBytes = 0;
 
     public function __construct(
         private PDO $master,
@@ -56,11 +59,7 @@ final class DatabaseWorker
             $user = 'ispcp_job_'.($interrupted['target_database_id'] ?: $interrupted['database_id']);
             $account = $this->local->quote($user).'@'.$this->local->quote($this->credentials['host']);
             $this->local->exec('ALTER USER IF EXISTS '.$account.' ACCOUNT LOCK');
-            foreach ($this->local->query('SHOW PROCESSLIST')->fetchAll(PDO::FETCH_ASSOC) as $process) {
-                if ($process['User'] === $user) {
-                    $this->local->exec('KILL '.(int) $process['Id']);
-                }
-            }
+            $this->killSessions($user);
             $this->query("UPDATE api_database_operations SET status='failed',error='operation_interrupted',updated_at=? WHERE id=?", [time(), $interrupted['id']]);
         }
         // Private files abandoned by a crashed worker; never follow symlinks.
@@ -100,9 +99,9 @@ final class DatabaseWorker
                 $this->execute($job);
             } catch (\Throwable $e) {
                 // Never store stderr, SQL, paths or credentials in public job state.
-                $error = in_array($e->getMessage(), ['dump_too_large', 'operation_timeout', 'database_changed', 'database_locked'], true)
+                $error = in_array($e->getMessage(), ['dump_too_large', 'operation_timeout', 'database_changed', 'database_locked', 'database_quota_exceeded', 'insufficient_disk_space'], true)
                     ? $e->getMessage() : 'operation_failed';
-                $this->log('failed', ['error' => $error, 'exception' => get_class($e), 'code' => (string) $e->getCode()]);
+                $this->log('failed', ['error' => $error, 'exception' => get_class($e), 'code' => (string) $e->getCode(), 'phase' => $this->phase, 'bytes' => $this->phaseBytes]);
             } finally {
                 foreach (glob($this->directory.'/*') ?: [] as $file) {
                     unlink($file);
@@ -128,6 +127,11 @@ final class DatabaseWorker
     private function tick(string $phase, int $bytes = 0): void
     {
         $now = time();
+        $this->phaseBytes = $bytes;
+        $free = disk_free_space($this->workspace);
+        if ($free === false || $free < 67108864) {
+            throw new RuntimeException('insufficient_disk_space');
+        }
         if ($now - $this->started > $this->timeout) {
             throw new RuntimeException('operation_timeout');
         }
@@ -181,6 +185,41 @@ final class DatabaseWorker
         }
     }
 
+    private function killSessions(string $user): void
+    {
+        $statement = $this->local->prepare('SELECT ID FROM information_schema.PROCESSLIST WHERE USER=?');
+        $statement->execute([$user]);
+        foreach ($statement->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            try {
+                $this->local->exec('KILL '.(int) $id);
+            } catch (\PDOException $e) {
+                if ((int) ($e->errorInfo[1] ?? 0) !== 1094) {
+                    throw $e;
+                } // The connection can finish between SELECT and KILL.
+            }
+        }
+    }
+
+    private function checkQuota(array $database): void
+    {
+        $quota = (int) ($database['database_quota'] ?? -1);
+        if ($quota < 1) {
+            return;
+        }
+        // Same data+index measure as ISPConfig's database-size monitor. MySQL 8
+        // otherwise caches information_schema statistics for up to 24 hours.
+        if (stripos((string) $this->local->getAttribute(PDO::ATTR_SERVER_VERSION), 'mariadb') === false) {
+            $this->local->exec('SET SESSION information_schema_stats_expiry=0');
+        }
+        $statement = $this->local->prepare('SELECT COALESCE(SUM(data_length+index_length),0) FROM information_schema.TABLES WHERE table_schema=?');
+        $statement->execute([$database['database_name']]);
+        $used = (int) $statement->fetchColumn();
+        if ($used >= $quota * 1048576) {
+            $this->log('quota_exceeded', ['database_id' => (int) $database['database_id'], 'used_bytes' => $used, 'quota_bytes' => $quota * 1048576]);
+            throw new RuntimeException('database_quota_exceeded');
+        }
+    }
+
     private function safeName(string $name): void
     {
         if (! preg_match('/^[a-zA-Z0-9_]{1,64}$/D', $name) || in_array(strtolower($name), array_map('strtolower', ['mysql', 'information_schema', 'performance_schema', 'sys', $this->credentials['control_database']]), true)) {
@@ -204,6 +243,9 @@ final class DatabaseWorker
     {
         $source = $this->database((int) $job['database_id'], $job);
         $this->tick('preparing');
+        if ($job['action'] !== 'export') {
+            $this->checkQuota($source);
+        }
         $sqlFile = $this->directory.'/dump.sql';
         if ($job['action'] === 'import') {
             $file = fopen($sqlFile, 'xb');
@@ -237,7 +279,7 @@ final class DatabaseWorker
                         }
                         $bytes += strlen($chunk);
                         $this->tick('decompressing', $bytes);
-                        if ($bytes > $this->sqlLimit) {
+                        if ($this->sqlLimit > 0 && $bytes > $this->sqlLimit) {
                             throw new RuntimeException('dump_too_large');
                         }
                         if (fwrite($output, $chunk) !== strlen($chunk)) {
@@ -251,6 +293,7 @@ final class DatabaseWorker
                     gzclose($input);
                     fclose($output);
                 }
+                $this->log('decompressed', ['bytes' => $bytes]);
                 unlink($compressed);
             }
         } else {
@@ -266,7 +309,7 @@ final class DatabaseWorker
             $output = fopen($portableFile, 'xb');
             try {
                 SqlDump::stream($input, $output, $source['database_name'], $targetName, function (int $bytes): void {
-                    if ($bytes > $this->sqlLimit) {
+                    if ($this->sqlLimit > 0 && $bytes > $this->sqlLimit) {
                         throw new RuntimeException('dump_too_large');
                     }
                     $this->tick('normalizing', $bytes);
@@ -331,16 +374,26 @@ final class DatabaseWorker
             $this->defaults($defaults, $user, $password);
             chgrp($defaults, $this->gid);
             chmod($defaults, 0640);
-            $this->process(['/usr/bin/setpriv', '--reuid='.$this->uid, '--regid='.$this->gid, '--clear-groups', '--no-new-privs', '--', '/usr/bin/mysql', '--defaults-extra-file='.$defaults, '--binary-mode', '--local-infile=0', '--batch', '--', $target['database_name']], $sqlFile, $this->directory.'/output');
+            $monitor = function () use ($target, $job): void {
+                $this->checkQuota($this->database((int) $target['database_id'], $job));
+            };
+            $monitor();
+            $this->process(['/usr/bin/setpriv', '--reuid='.$this->uid, '--regid='.$this->gid, '--clear-groups', '--no-new-privs', '--', '/usr/bin/mysql', '--defaults-extra-file='.$defaults, '--binary-mode', '--local-infile=0', '--batch', '--', $target['database_name']], $sqlFile, $this->directory.'/output', $monitor);
+            $monitor();
         } finally {
-            $this->local->exec('ALTER USER '.$account.' IDENTIFIED BY '.$this->local->quote(bin2hex(random_bytes(32))).' ACCOUNT LOCK');
+            try {
+                $this->killSessions($user);
+            } finally {
+                $this->local->exec('ALTER USER '.$account.' IDENTIFIED BY '.$this->local->quote(bin2hex(random_bytes(32))).' ACCOUNT LOCK');
+            }
         }
     }
 
-    private function process(array $command, string $input, string $output): void
+    private function process(array $command, string $input, string $output, ?callable $monitor = null): void
     {
         $phase = $command[0] === '/usr/bin/mysqldump' ? 'dumping' : 'importing';
         $this->tick($phase);
+        $lastMonitor = 0;
         $error = $this->directory.'/stderr';
         $process = proc_open($command, [0 => ['file', $input, 'r'], 1 => ['file', $output, 'w'], 2 => ['file', $error, 'w']], $pipes, $this->directory, ['PATH' => '/usr/bin:/bin', 'HOME' => $this->directory]);
         if (! is_resource($process)) {
@@ -350,10 +403,14 @@ final class DatabaseWorker
             do {
                 $status = proc_get_status($process);
                 clearstatcache();
-                if (filesize($output) > $this->sqlLimit || filesize($error) > 1048576) {
+                if (($this->sqlLimit > 0 && filesize($output) > $this->sqlLimit) || filesize($error) > 1048576) {
                     throw new RuntimeException('dump_too_large');
                 }
                 $this->tick($phase, filesize($output));
+                if ($monitor !== null && time() - $lastMonitor >= 2) {
+                    $monitor();
+                    $lastMonitor = time();
+                }
                 if ($status['running']) {
                     usleep(250000);
                 }

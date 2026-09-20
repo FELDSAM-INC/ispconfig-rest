@@ -76,7 +76,11 @@
     - {name: sequence, in: path, required: true, schema: {type: integer, minimum: 0}}
   put:
     tags: [Databases]
-    summary: Append an import chunk, in sequence (identical retries are idempotent)
+    summary: Store an import chunk (identical retries are idempotent)
+    description: |
+      Negotiated uploads accept up to four requests in parallel, in any arrival order.
+      Each sequence has a fixed size and offset. Missing chunks prevent finalization.
+      Legacy uploads remain sequential. Uploaded byte counts are totals, not offsets.
     requestBody:
       required: true
       content:
