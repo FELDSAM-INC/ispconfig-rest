@@ -1,0 +1,62 @@
+/sites/databases/{id}/operations:
+  parameters:
+    - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+  post:
+    tags: [Databases]
+    summary: Queue a database import, export or copy
+    description: |
+      Requires update permission, an unlocked owner, active MySQL database and a
+      fresh worker heartbeat on its server. Copy provisions a new database through
+      normal validation, prefixes, limits and datalog. Never overwrites a copy target.
+      At most one queued/running job per source. Import may partially apply on error.
+      Export/copy include schema, data, views, routines, triggers and events.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '../../components/schemas/DatabaseOperationCreate.yaml'}
+    responses:
+      '201':
+        description: Job queued; no claim the physical operation has completed
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
+        content:
+          application/json:
+            schema: {$ref: '../../components/schemas/DatabaseOperation.yaml'}
+      '401': {$ref: '../../components/responses/Unauthorized.yaml'}
+      '403': {$ref: '../../components/responses/Forbidden.yaml'}
+      '404': {$ref: '../../components/responses/NotFound.yaml'}
+      '409': {description: 'Worker unavailable, database inactive or an operation already pending'}
+      '422': {$ref: '../../components/responses/UnprocessableEntity.yaml'}
+/sites/databases/{id}/operations/{operation}:
+  parameters:
+    - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+    - {name: operation, in: path, required: true, schema: {type: string, format: uuid}}
+  get:
+    tags: [Databases]
+    summary: Read a database operation
+    responses:
+      '200':
+        description: Current job status
+        content:
+          application/json:
+            schema: {$ref: '../../components/schemas/DatabaseOperation.yaml'}
+      '401': {$ref: '../../components/responses/Unauthorized.yaml'}
+      '404': {$ref: '../../components/responses/NotFound.yaml'}
+/sites/databases/{id}/operations/{operation}/download:
+  parameters:
+    - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+    - {name: operation, in: path, required: true, schema: {type: string, format: uuid}}
+  get:
+    tags: [Databases]
+    summary: Download the completed export (24-hour expiry)
+    responses:
+      '200':
+        description: Gzip SQL attachment, at most 16 MiB; Cache-Control private, no-store
+        content:
+          application/gzip:
+            schema: {type: string, format: binary}
+      '401': {$ref: '../../components/responses/Unauthorized.yaml'}
+      '404': {$ref: '../../components/responses/NotFound.yaml'}
+      '409': {description: Export is not complete}

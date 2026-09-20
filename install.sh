@@ -383,6 +383,7 @@ pm.max_children = 10
 pm.process_idle_timeout = 10s
 pm.max_requests = 500
 php_admin_value[expose_php] = off
+php_admin_value[post_max_size] = 16M
 php_admin_flag[display_errors] = off
 EOF
   systemctl reload "$FPM_SERVICE" 2>/dev/null || systemctl restart "$FPM_SERVICE"
@@ -414,6 +415,7 @@ Listen ${PUBLIC_PORT}
 <VirtualHost _default_:${PUBLIC_PORT}>
     ServerName ${HOSTNAME_FQDN}
     DocumentRoot ${INSTALL_DIR}/public
+    LimitRequestBody 16777216
 
     SSLEngine On
     SSLProtocol All -SSLv3 -TLSv1 -TLSv1.1
@@ -456,6 +458,7 @@ server {
     server_name ${HOSTNAME_FQDN};
     root ${INSTALL_DIR}/public;
     index index.php;
+    client_max_body_size 16m;
 
     ssl_certificate     ${certfile};
     ssl_certificate_key ${ISPCONFIG_SSL_DIR}/ispserver.key;

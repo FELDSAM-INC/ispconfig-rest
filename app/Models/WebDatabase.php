@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\YesNoBoolean;
 use App\Models\Concerns\HasSitesDisplayFields;
+use App\Services\DatabaseOperationService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 /**
@@ -87,6 +88,7 @@ class WebDatabase extends BaseModel
         'database_name_full',
         'server_name',
         'parent_domain',
+        'operations',
     ];
 
     /**
@@ -138,6 +140,11 @@ class WebDatabase extends BaseModel
     protected function databaseNameFull(): Attribute
     {
         return Attribute::get(fn () => $this->getAttributes()['database_name'] ?? null);
+    }
+
+    protected function operations(): Attribute
+    {
+        return Attribute::get(fn () => app(DatabaseOperationService::class)->capabilities($this));
     }
 
     protected function serverName(): Attribute

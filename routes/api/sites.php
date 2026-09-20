@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\CronJobController;
+use App\Http\Controllers\Api\V1\DatabaseOperationController;
 use App\Http\Controllers\Api\V1\FtpUserController;
 use App\Http\Controllers\Api\V1\ShellUserController;
 use App\Http\Controllers\Api\V1\WebBackupController;
@@ -78,6 +79,11 @@ Route::post('sites/shell-users', [ShellUserController::class, 'store']);
 Route::get('sites/shell-users/{shellUser}', [ShellUserController::class, 'show'])->whereNumber('shellUser');
 Route::put('sites/shell-users/{shellUser}', [ShellUserController::class, 'update'])->whereNumber('shellUser');
 Route::delete('sites/shell-users/{shellUser}', [ShellUserController::class, 'destroy'])->whereNumber('shellUser');
+
+// Database operations — scoped through the existing database route binding.
+Route::post('sites/databases/{webDatabase}/operations', [DatabaseOperationController::class, 'store'])->whereNumber('webDatabase');
+Route::get('sites/databases/{webDatabase}/operations/{operation}/download', [DatabaseOperationController::class, 'download'])->whereNumber('webDatabase')->whereUuid('operation');
+Route::get('sites/databases/{webDatabase}/operations/{operation}', [DatabaseOperationController::class, 'show'])->whereNumber('webDatabase')->whereUuid('operation');
 
 // Databases — api/modules/sites/databases.yaml
 Route::get('sites/databases', [WebDatabaseController::class, 'index']);

@@ -34,6 +34,12 @@ required:
   - database_name
   - database_user_id
 properties:
+  operations:
+    type: array
+    readOnly: true
+    description: Available operations on this active MySQL database; empty without a recent server worker heartbeat.
+    items: {type: string, enum: [import, export, copy]}
+
   id:
     type: integer
     format: int64

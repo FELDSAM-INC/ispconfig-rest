@@ -1,0 +1,11 @@
+type: object
+required: [id, action, status, database_id, target_database_id, created_at, expires_at, error]
+properties:
+  id: {type: string, format: uuid}
+  action: {type: string, enum: [import, export, copy]}
+  status: {type: string, enum: [queued, running, complete, failed]}
+  database_id: {type: integer}
+  target_database_id: {type: integer, nullable: true}
+  created_at: {type: string, format: date-time}
+  expires_at: {type: string, format: date-time}
+  error: {type: string, nullable: true, description: 'Generic safe failure code, never SQL or server diagnostics.'}

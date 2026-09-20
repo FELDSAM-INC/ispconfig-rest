@@ -549,6 +549,12 @@ paths:
     $ref: './modules/sites/web-folder-users.yaml#/~1sites~1web-folder-users'
   /sites/web-folder-users/{id}:
     $ref: './modules/sites/web-folder-users.yaml#/~1sites~1web-folder-users~1{id}'
+  /sites/databases/{id}/operations:
+    $ref: './modules/sites/database-operations.yaml#~1sites~1databases~1{id}~1operations'
+  /sites/databases/{id}/operations/{operation}:
+    $ref: './modules/sites/database-operations.yaml#~1sites~1databases~1{id}~1operations~1{operation}'
+  /sites/databases/{id}/operations/{operation}/download:
+    $ref: './modules/sites/database-operations.yaml#~1sites~1databases~1{id}~1operations~1{operation}~1download'
   /sites/databases:
     $ref: './modules/sites/databases.yaml#/~1sites~1databases'
   /sites/databases/{id}:
