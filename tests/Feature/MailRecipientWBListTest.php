@@ -142,4 +142,16 @@ class MailRecipientWBListTest extends TestCase
         $this->getJson('/api/v1/mail/fetchmail?destination=box%40b-dom.test', $headers)
             ->assertOk()->assertJsonCount(0, 'data');
     }
+
+    public function test_reseller_created_rule_remains_visible_to_recipient_customer(): void
+    {
+        $this->setClientLimit('clientA', 'limit_spamfilter_wblist', -1);
+        $response = $this->postJson("/api/v1/mail/users/{$this->boxA}/wblist", [
+            'email' => '@sender.test', 'wb' => 'B',
+        ], $this->tenantHeaders('reseller'))->assertCreated();
+        $this->getJson('/api/v1/mail/spamfilter/wblist/'.$response->json('id'), $this->tenantHeaders('clientA'))
+            ->assertOk()->assertJsonPath('email', '@sender.test');
+        $this->getJson('/api/v1/mail/spamfilter/wblist/'.$response->json('id'), $this->tenantHeaders('clientB'))
+            ->assertNotFound();
+    }
 }

@@ -43,6 +43,8 @@ class MailRecipientWBListController extends Controller
                 'rid' => (int) $rid,
                 'server_id' => (int) $recipient->server_id,
             ]);
+            // Reseller/admin-created rules belong to the recipient's customer group too.
+            $entry->setAttribute('sys_groupid', (int) $recipient->sys_groupid);
             $entry->save();
 
             return $entry->refresh();
