@@ -72,6 +72,9 @@
                 autoresponder: true
                 mail_filters: true
                 custom_rules: false
+                recipient_wblist: true
+                spamfilter_wblist: true
+                fetchmail: true
                 spamfilter_policy: true
                 dkim: true
                 custom_login: false

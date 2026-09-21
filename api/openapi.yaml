@@ -373,6 +373,10 @@ paths:
     $ref: './modules/mail/spamfilter-users.yaml#/~1mail~1spamfilter~1users'
   /mail/spamfilter/users/{id}:
     $ref: './modules/mail/spamfilter-users.yaml#/~1mail~1spamfilter~1users~1{id}'
+  /mail/domains/{id}/wblist:
+    $ref: './modules/mail/recipient-wblist.yaml#/~1mail~1domains~1{id}~1wblist'
+  /mail/users/{id}/wblist:
+    $ref: './modules/mail/recipient-wblist.yaml#/~1mail~1users~1{id}~1wblist'
   /mail/spamfilter/wblist:
     $ref: './modules/mail/spamfilter-wblist.yaml#/~1mail~1spamfilter~1wblist'
   /mail/spamfilter/wblist/{id}:

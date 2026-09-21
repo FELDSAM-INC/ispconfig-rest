@@ -1,0 +1,114 @@
+'/mail/domains/{id}/wblist':
+  post:
+    tags:
+      - 'Mail Spamfilter'
+    summary: 'Create a sender rule for a mail domain'
+    description: 'Requires a readable and writable recipient and non-zero limit_spamfilter_wblist. Account and reseller count limits apply. The server and recipient profile are derived from the URL; rid and server_id input are prohibited. A missing spamfilter profile is created in the same transaction with the default/inherited policy (0); existing policy is preserved. Any failure rolls back both writes.'
+    parameters:
+      -
+        name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - email
+              - wb
+            properties:
+              email:
+                type: string
+                maxLength: 255
+              wb:
+                type: string
+                enum:
+                  - W
+                  - B
+              priority:
+                type: integer
+                minimum: 1
+                maximum: 10
+                default: 5
+              active:
+                type: boolean
+                default: true
+    responses:
+      201:
+        description: 'Sender rule created'
+        headers:
+          X-Change-Set-Id:
+            $ref: ../../components/headers/ChangeSetId.yaml
+        content:
+          application/json:
+            schema:
+              $ref: ../../components/schemas/SpamfilterWBList.yaml
+      401:
+        $ref: ../../components/responses/Unauthorized.yaml
+      403:
+        $ref: ../../components/responses/Forbidden.yaml
+      404:
+        $ref: ../../components/responses/NotFound.yaml
+      422:
+        $ref: ../../components/responses/UnprocessableEntity.yaml
+'/mail/users/{id}/wblist':
+  post:
+    tags:
+      - 'Mail Spamfilter'
+    summary: 'Create a sender rule for a mailbox'
+    description: 'Requires a readable and writable recipient and non-zero limit_spamfilter_wblist. Account and reseller count limits apply. The server and recipient profile are derived from the URL; rid and server_id input are prohibited. A missing spamfilter profile is created in the same transaction with the default/inherited policy (0); existing policy is preserved. Any failure rolls back both writes.'
+    parameters:
+      -
+        name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - email
+              - wb
+            properties:
+              email:
+                type: string
+                maxLength: 255
+              wb:
+                type: string
+                enum:
+                  - W
+                  - B
+              priority:
+                type: integer
+                minimum: 1
+                maximum: 10
+                default: 5
+              active:
+                type: boolean
+                default: true
+    responses:
+      201:
+        description: 'Sender rule created'
+        headers:
+          X-Change-Set-Id:
+            $ref: ../../components/headers/ChangeSetId.yaml
+        content:
+          application/json:
+            schema:
+              $ref: ../../components/schemas/SpamfilterWBList.yaml
+      401:
+        $ref: ../../components/responses/Unauthorized.yaml
+      403:
+        $ref: ../../components/responses/Forbidden.yaml
+      404:
+        $ref: ../../components/responses/NotFound.yaml
+      422:
+        $ref: ../../components/responses/UnprocessableEntity.yaml

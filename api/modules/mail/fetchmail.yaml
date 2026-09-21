@@ -25,6 +25,11 @@
         description: Filter by source server hostname or IP
         schema:
           type: string
+      - name: destination
+        in: query
+        description: Filter by the exact destination mailbox address
+        schema:
+          type: string
       - name: active
         in: query
         description: Filter by active status

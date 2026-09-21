@@ -26,7 +26,7 @@ class MeCapabilitiesApiTest extends TestCase
     ];
 
     private const MAIL_KEYS = [
-        'autoresponder', 'mail_filters', 'custom_rules', 'spamfilter_policy', 'dkim', 'custom_login', 'password_policy',
+        'autoresponder', 'mail_filters', 'custom_rules', 'recipient_wblist', 'spamfilter_wblist', 'fetchmail', 'spamfilter_policy', 'dkim', 'custom_login', 'password_policy',
     ];
 
     private const SITES_KEYS = ['prefixes', 'databases', 'shell', 'cron', 'password_policy'];
@@ -153,6 +153,9 @@ class MeCapabilitiesApiTest extends TestCase
                 'autoresponder' => true,
                 'mail_filters' => true,
                 'custom_rules' => false,
+                'recipient_wblist' => true,
+                'spamfilter_wblist' => false,
+                'fetchmail' => true,
                 'spamfilter_policy' => false,
                 'dkim' => false,
                 'custom_login' => false,
@@ -485,6 +488,9 @@ class MeCapabilitiesApiTest extends TestCase
             'autoresponder' => true,
             'mail_filters' => false,
             'custom_rules' => false,
+            'recipient_wblist' => true,
+            'spamfilter_wblist' => false,
+            'fetchmail' => true,
             'spamfilter_policy' => false,
             'dkim' => false,
             'custom_login' => true,

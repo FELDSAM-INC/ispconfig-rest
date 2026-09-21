@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\MailDomainController;
 use App\Http\Controllers\Api\V1\MailDomainDkimController;
 use App\Http\Controllers\Api\V1\MailForwardingController;
 use App\Http\Controllers\Api\V1\MailGetController;
+use App\Http\Controllers\Api\V1\MailRecipientWBListController;
 use App\Http\Controllers\Api\V1\MailRelayDomainController;
 use App\Http\Controllers\Api\V1\MailRelayRecipientController;
 use App\Http\Controllers\Api\V1\MailTransportController;
@@ -174,3 +175,7 @@ Route::post('mail/fetchmail', [MailGetController::class, 'store']);
 Route::get('mail/fetchmail/{mailGet}', [MailGetController::class, 'show'])->whereNumber('mailGet');
 Route::put('mail/fetchmail/{mailGet}', [MailGetController::class, 'update'])->whereNumber('mailGet');
 Route::delete('mail/fetchmail/{mailGet}', [MailGetController::class, 'destroy'])->whereNumber('mailGet');
+
+// Recipient-bound blacklist/whitelist creation; same account limit as the generic resource.
+Route::post('mail/domains/{mailDomain}/wblist', [MailRecipientWBListController::class, 'domain'])->whereNumber('mailDomain')->middleware('scope.limit:limit_spamfilter_wblist');
+Route::post('mail/users/{mailUser}/wblist', [MailRecipientWBListController::class, 'mailbox'])->whereNumber('mailUser')->middleware('scope.limit:limit_spamfilter_wblist');

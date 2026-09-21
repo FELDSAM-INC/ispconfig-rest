@@ -59,6 +59,9 @@ class AccountMailService
             'mail_filters' => $this->tabOn($mail, self::MAIL_FILTER_TAB),
             // Custom rules are an administrator-only tab (mail_user.tform.php:474).
             'custom_rules' => false,
+            'recipient_wblist' => true,
+            'spamfilter_wblist' => (int) (DB::table('client')->where('client_id', $clientId)->value('limit_spamfilter_wblist') ?? -1) !== 0,
+            'fetchmail' => true,
             'spamfilter_policy' => $this->policyReadable($clientId),
             'dkim' => $this->dkimAvailable($clientId),
             'custom_login' => ($mail['enable_custom_login'] ?? 'n') === 'y',

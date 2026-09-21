@@ -36,6 +36,7 @@ class MailGetController extends Controller
             filters: [
                 'type' => 'string',
                 'source_server' => 'wildcard',
+                'destination' => 'string',
                 'active' => 'boolean',
             ]
         );

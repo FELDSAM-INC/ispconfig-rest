@@ -166,6 +166,15 @@ properties:
         type: boolean
         description: Custom mail filter scripts (`custom_mailfilter`) can be changed — administrators only, so always false.
         example: false
+      recipient_wblist:
+        type: boolean
+        description: Recipient-bound blacklist/whitelist creation endpoints are available.
+      spamfilter_wblist:
+        type: boolean
+        description: The account has access to blacklist/whitelist writes (non-zero limit_spamfilter_wblist); count limits still apply.
+      fetchmail:
+        type: boolean
+        description: Fetchmail endpoints support filtering by the exact destination mailbox; count limits still apply.
       spamfilter_policy:
         type: boolean
         description: At least one spam filter level (`/mail/spamfilter/policies`) is readable by the account.
