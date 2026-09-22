@@ -6,6 +6,7 @@ use App\Casts\YesNoBoolean;
 use App\Models\Concerns\HasSitesDisplayFields;
 use App\Services\AliasServicesService;
 use App\Services\SitesConfigService;
+use App\Services\WebLogService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 /**
@@ -138,6 +139,7 @@ class WebDomain extends BaseModel
      * @var array<int, string>
      */
     protected $appends = [
+        'logs_available',
         'id',
         'server_name',
         'web_server_type',
@@ -214,6 +216,11 @@ class WebDomain extends BaseModel
     protected function webServerType(): Attribute
     {
         return Attribute::get(fn () => $this->lookupWebServerType((int) ($this->getAttributes()['server_id'] ?? 0)));
+    }
+
+    protected function logsAvailable(): Attribute
+    {
+        return Attribute::get(fn () => app(WebLogService::class)->available($this));
     }
 
     protected function autoAlias(): Attribute

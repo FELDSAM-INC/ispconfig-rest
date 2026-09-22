@@ -31,7 +31,11 @@ class StoreWebFolderRequest extends SitesRequest
                 'integer',
                 $this->readable(Rule::exists('web_domain', 'domain_id')->whereIn('type', ['vhost', 'vhostsubdomain', 'vhostalias'])),
             ],
-            'path' => ['required', 'string', 'max:255', 'regex:/^[\w\.\-\/]{1,255}$/'],
+            'path' => ['required', 'string', 'max:255', 'regex:/^[\w\.\-\/]{1,255}$/', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (is_string($value) && preg_match('#(^|/)\.{1,2}(/|$)#', $value)) {
+                    $fail('The directory path must stay within the website document root.');
+                }
+            }],
             'active' => ['sometimes', 'boolean'],
         ];
     }

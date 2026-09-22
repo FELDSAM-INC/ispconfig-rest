@@ -11,6 +11,16 @@ use Tests\Support\SitesApiTestCase;
  */
 class WebFolderApiTest extends SitesApiTestCase
 {
+    public function test_directory_traversal_is_rejected(): void
+    {
+        $parent = $this->seedVhost();
+        foreach (['../outside', '/a/../../b', '/a/./b'] as $path) {
+            $this->postJson('/api/v1/sites/web-folders', ['parent_domain_id' => $parent, 'path' => $path], $this->authHeaders())
+                ->assertUnprocessable()->assertJsonValidationErrors('path');
+        }
+        $this->assertDatabaseCount('web_folder', 0);
+    }
+
     protected function seedFolder(int $parentId, array $overrides = []): int
     {
         return (int) DB::table('web_folder')->insertGetId(array_merge([

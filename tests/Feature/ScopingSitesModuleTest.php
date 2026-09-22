@@ -20,6 +20,14 @@ class ScopingSitesModuleTest extends TestCase
     use RefreshDatabase;
     use TenantFixtures;
 
+    public function test_web_logs_never_queue_reads_for_another_tenant(): void
+    {
+        DB::table('api_web_log_workers')->insert(['server_id' => 1, 'heartbeat' => time()]);
+        $foreign = $this->vhosts['clientB'];
+        $this->getJson('/api/v1/sites/web-domains/'.$foreign.'/logs/access', $this->tenantHeaders('clientA'))->assertNotFound();
+        $this->assertDatabaseCount('api_web_log_reads', 0);
+    }
+
     /** @var array<string, int> web_domain ids per owner (type vhost) */
     protected array $vhosts = [];
 

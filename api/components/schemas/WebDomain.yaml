@@ -29,6 +29,10 @@ description: |
 required:
   - domain
 properties:
+  logs_available:
+    type: boolean
+    readOnly: true
+    description: Per-website access/error log previews are available locally or through a current web log worker.
   id:
     type: integer
     format: int64

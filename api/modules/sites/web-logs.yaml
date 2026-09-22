@@ -1,0 +1,66 @@
+/sites/web-domains/{id}/logs/{kind}:
+  get:
+    tags: [Web Domains]
+    summary: Read a bounded page of website access or error logs
+    description: |
+      Uses the same customer read scope as the website. Available when the API
+      reads that server locally or a web log worker has a current heartbeat.
+      Responses are private/no-store. No paths or credentials are accepted.
+      Latest lines are returned in chronological order; `before` loads older
+      entries, including dated access logs and numbered error archives.
+      A changed inode or truncated file resets to the latest entries and sets
+      `rotated`. Each response is bounded to 256 KiB before UTF-8 normalization.
+      Gzip archives are limited to 128 MiB expanded and five seconds of processing.
+      Remote reads return 202 pending; retry the identical query after one second.
+      Results live at most sixty seconds in API-owned transport tables, never
+      sys_datalog. See web-log-worker/README.md for installation and grants.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+      - name: kind
+        in: path
+        required: true
+        schema: { type: string, enum: [access, error] }
+      - name: lines
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 1000, default: 200 }
+      - name: before
+        in: query
+        description: Opaque authenticated cursor bound to the website, owner group and log type.
+        schema: { type: string, maxLength: 4096 }
+    responses:
+      '200':
+        description: Ready log slice or explicitly unavailable source
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state: { type: string, enum: [ready, unavailable] }
+                text: { type: string, description: "Raw log text; render as text, never HTML." }
+                file: { type: string, nullable: true }
+                lines: { type: integer, minimum: 0, maximum: 1000 }
+                before: { type: string, nullable: true }
+                rotated: { type: boolean }
+                truncated: { type: boolean }
+                reason: { type: string, enum: [logs_unavailable, logs_archive_limit, logs_archive_invalid, logs_rotated] }
+      '202':
+        description: Remote worker is preparing the slice
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state: { type: string, enum: [pending] }
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'

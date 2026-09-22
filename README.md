@@ -278,3 +278,7 @@ For an existing installation updated by an older manager, run `ispconfig-rest sc
 `php artisan aliases:sync-dns` also performs reconciliation manually. API DNS changes propagate within the
 same transaction; changes made directly in ISPConfig are picked up by the next successful scheduled run.
 Failures are reported in the API log and retried on the next run; unchanged zones create no datalog noise.
+
+Website access/error log previews are available at `GET /sites/web-domains/{id}/logs/{access|error}`.
+`logs_available` on each web-domain response controls whether a client panel offers the tool.
+For local reads or multi-server setup see [web log reader installation](web-log-worker/README.md).

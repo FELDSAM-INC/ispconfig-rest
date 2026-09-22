@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\WebDomainController;
 use App\Http\Controllers\Api\V1\WebDomainSslController;
 use App\Http\Controllers\Api\V1\WebFolderController;
 use App\Http\Controllers\Api\V1\WebFolderUserController;
+use App\Http\Controllers\Api\V1\WebLogController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -44,6 +45,8 @@ Route::middleware('scope.backup')->group(function (): void {
     Route::get('sites/web-domains/{webDomain}/backup-settings', [WebBackupSettingsController::class, 'show'])->whereNumber('webDomain');
     Route::put('sites/web-domains/{webDomain}/backup-settings', [WebBackupSettingsController::class, 'update'])->whereNumber('webDomain');
 });
+
+Route::get('sites/web-domains/{webDomain}/logs/{kind}', [WebLogController::class, 'show'])->whereNumber('webDomain')->whereIn('kind', ['access', 'error']);
 
 // Web Domain SSL subresource — api/modules/sites/web-domains.yaml (most specific first)
 Route::get('sites/web-domains/{webDomain}/ssl/status', [WebDomainSslController::class, 'status'])->whereNumber('webDomain');
