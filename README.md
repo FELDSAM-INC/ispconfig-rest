@@ -16,6 +16,12 @@ See the [changelog](CHANGELOG.md) for release notes and upgrade requirements.
 - Composer
 - Network access to an ISPConfig 3.3 MySQL database (`dbispconfig`) — reverse-engineered against 3.3.0p1, validated live against 3.3.1p1
 
+Optional components run on the servers that own the data:
+
+- [Database worker](worker/README.md) for database import, export and copy.
+- [Web log worker](web-log-worker/README.md) for remote website logs and runtime settings.
+- [File manager worker](file-manager-worker/README.md) for jailed SFTP accounts used by the WHMCS FileGator integration.
+
 ## Install on an ISPConfig server (recommended)
 
 Run the installer on your existing ISPConfig 3.3 host and it wires everything up:

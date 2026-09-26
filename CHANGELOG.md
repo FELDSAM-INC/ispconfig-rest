@@ -5,6 +5,11 @@ the HTTP API remains under `/api/v1`.
 
 ## Unreleased
 
+- Add an optional [file manager worker](file-manager-worker/README.md) for automatic
+  jailed SFTP access from the WHMCS FileGator integration. Install on each webserver;
+  it provisions root-owned jails and restricted SFTP identities from local ISPConfig
+  website records. Upgrades the earlier WHMCS-distributed helper without replacing
+  keys, users or website mounts. No API endpoint or database migration is needed.
 - Expose the discovered public ISPConfig login URL as `panel_url` in `GET /me`.
   Reads the master's active Apache/nginx interface vhost; supports an API-side
   `ISPCONFIG_PANEL_URL` override for reverse proxies. No database migration is required.
