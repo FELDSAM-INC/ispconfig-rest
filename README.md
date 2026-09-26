@@ -20,7 +20,7 @@ Optional components run on the servers that own the data:
 
 - [Database worker](worker/README.md) for database import, export and copy.
 - [Web log worker](web-log-worker/README.md) for remote website logs and runtime settings.
-- [File manager worker](file-manager-worker/README.md) for jailed SFTP accounts used by the WHMCS FileGator integration.
+- [File manager worker](file-manager-worker/README.md) for jailed SFTP accounts used by the WHMCS file manager.
 
 ## Install on an ISPConfig server (recommended)
 

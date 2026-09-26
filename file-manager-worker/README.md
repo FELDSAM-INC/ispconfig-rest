@@ -1,9 +1,9 @@
 # File manager worker
 
-Optional server component for the WHMCS FileGator integration. Install it on
+Optional server component for the WHMCS file manager. Install it on
 **each ISPConfig webserver** whose websites should offer file management, even
 when the REST API runs only on the master. Like the database worker, the installed
-code is root-owned and runs once a minute. FileGator's UI, customer authorization
+code is root-owned and runs once a minute. The file manager UI, customer authorization
 and SFTP client stay in WHMCS; this worker exposes no HTTP endpoint.
 
 ## Install or upgrade
