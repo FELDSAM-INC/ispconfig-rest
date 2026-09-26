@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Services\ApiKeyService;
+use App\Services\PanelUrlService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,13 +14,13 @@ use Illuminate\Http\Request;
  */
 class MeController extends Controller
 {
-    public function __construct(protected ApiKeyService $service) {}
+    public function __construct(protected ApiKeyService $service, protected PanelUrlService $panel) {}
 
     /**
      * GET /me — key id, name, scope, bound client and acted-as identity.
      */
     public function show(Request $request): JsonResponse
     {
-        return response()->json($this->service->identity($request));
+        return response()->json($this->service->identity($request) + ['panel_url' => $this->panel->url()]);
     }
 }

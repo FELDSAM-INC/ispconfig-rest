@@ -21,6 +21,7 @@ class MeApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['panel.url' => null, 'panel.vhosts' => []]);
 
         TenantSchema::create();
         $this->seedTenants();
@@ -42,6 +43,7 @@ class MeApiTest extends TestCase
                 'client_id' => null,
                 'sys_userid' => 1,
                 'sys_groupid' => 1,
+                'panel_url' => null,
             ]);
     }
 
@@ -58,6 +60,7 @@ class MeApiTest extends TestCase
                 'client_id' => $clientA['client_id'],
                 'sys_userid' => $clientA['userid'],
                 'sys_groupid' => $clientA['groupid'],
+                'panel_url' => null,
             ]);
     }
 
@@ -89,6 +92,7 @@ class MeApiTest extends TestCase
                 'client_id' => null,
                 'sys_userid' => 1,
                 'sys_groupid' => 1,
+                'panel_url' => null,
             ]);
     }
 
@@ -98,5 +102,12 @@ class MeApiTest extends TestCase
 
         $this->getJson('/api/v1/me', $this->tenantHeaders('clientA'))->assertStatus(401);
         $this->getJson('/api/v1/me')->assertStatus(401);
+    }
+
+    public function test_public_panel_url_is_visible_to_scoped_keys_without_credentials(): void
+    {
+        config(['panel.url' => 'https://panel.example.test:9443/']);
+        $this->getJson('/api/v1/me', $this->tenantHeaders('clientA'))
+            ->assertOk()->assertJsonPath('panel_url', 'https://panel.example.test:9443/');
     }
 }

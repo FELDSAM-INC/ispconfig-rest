@@ -11,6 +11,11 @@
       Returns the identity and scope of the API key making the request: key id and label, scope
       (`admin`, `reseller` or `client`), the bound client id, and the ISPConfig user and group the
       key acts as. The local development key reports `key_id: null`.
+      `panel_url` gives the public ISPConfig login address, separate from the REST API address.
+      The API reads the active ISPConfig Apache/nginx vhost for the scheme and port, using its
+      explicit server name or the configured API hostname. `ISPCONFIG_PANEL_URL` can override
+      discovery for a reverse proxy or another public address. No request Host header is used.
+      When discovery is unavailable, `panel_url` is null.
     responses:
       '200':
         description: Identity of the calling key

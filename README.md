@@ -156,6 +156,12 @@ Admin keys manage keys remotely under `/system/api-keys` (client and reseller ke
 
 Any valid key can call `GET /me` to read its own identity and scope.
 
+The response also includes `panel_url`, the public ISPConfig login address. The API discovers the protocol and port
+from the master's active ISPConfig Apache/nginx vhost and uses its explicit server name or the hostname in `APP_URL`.
+It never uses the incoming Host header. If the vhost cannot be read or the result is ambiguous, the field is null.
+For a reverse proxy or a custom public address, set `ISPCONFIG_PANEL_URL` in the API's `.env` and rebuild the config
+cache. This exposes only the login URL, without credentials or other ISPConfig configuration.
+
 ## Conventions
 
 - **Lists**: `GET /api/v1/{module}/{resource}?limit=25&offset=0&sort=domain&order=asc` returns `{ "data": [...], "meta": { "total", "limit", "offset" } }`. Unknown query parameters are rejected with `400` — filters are never silently ignored.

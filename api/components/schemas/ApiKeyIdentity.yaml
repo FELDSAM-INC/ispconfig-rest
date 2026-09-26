@@ -39,3 +39,9 @@ properties:
     type: integer
     description: ISPConfig group the key acts as
     example: 61
+  panel_url:
+    type: string
+    format: uri
+    nullable: true
+    description: Public ISPConfig interface URL, discovered from the master's panel vhost; null when unavailable. Contains no credentials.
+    example: https://panel.example.com:8080/

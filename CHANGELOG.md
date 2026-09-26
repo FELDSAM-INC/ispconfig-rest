@@ -3,6 +3,12 @@
 Release notes for ISPConfig REST API. Versions refer to the application release;
 the HTTP API remains under `/api/v1`.
 
+## Unreleased
+
+- Expose the discovered public ISPConfig login URL as `panel_url` in `GET /me`.
+  Reads the master's active Apache/nginx interface vhost; supports an API-side
+  `ISPCONFIG_PANEL_URL` override for reverse proxies. No database migration is required.
+
 ## [1.0.0] - 2026-09-26
 
 This first stable release includes the changes since `v1.0.0-rc.3`. It expands the
