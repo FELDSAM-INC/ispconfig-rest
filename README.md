@@ -8,6 +8,8 @@ The API connects directly to ISPConfig's `dbispconfig` MySQL database, but **nev
 
 The OpenAPI 3 contract in [`api/`](api/) is the source of truth — the PHP implements it, not the other way around. Explore it live at `/api/documentation` (Swagger UI).
 
+See the [changelog](CHANGELOG.md) for release notes and upgrade requirements.
+
 ## Requirements
 
 - PHP ≥ 8.3
@@ -195,7 +197,7 @@ Any valid key can call `GET /me` to read its own identity and scope.
 php artisan test
 ```
 
-The suite (560+ tests) runs against an in-memory sqlite database with ISPConfig-shaped schemas and asserts, among other things, the exact byte format of every `sys_datalog` payload. CI runs on every push (`.github/workflows/tests.yml`).
+The suite runs against an in-memory SQLite database with ISPConfig-shaped schemas and asserts, among other things, the exact byte format of every `sys_datalog` payload. CI checks PHP 8.3, 8.4 and 8.5 on `main` pushes and pull requests (`.github/workflows/tests.yml`).
 
 ## Known deviations from legacy ISPConfig
 
