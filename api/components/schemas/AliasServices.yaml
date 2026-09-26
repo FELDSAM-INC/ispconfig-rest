@@ -3,6 +3,7 @@ description: API-owned alias service relationship (spec 045), never ISPConfig we
 properties:
   dns_zone_id:
     type: integer
+    nullable: true
   primary_zone_id:
     type: integer
     nullable: true

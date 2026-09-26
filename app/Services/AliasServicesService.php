@@ -51,7 +51,7 @@ class AliasServicesService
         $mail = $this->mailStates();
 
         return [
-            'dns_zone_id' => (int) $link->dns_zone_id,
+            'dns_zone_id' => $link->dns_zone_id === null ? null : (int) $link->dns_zone_id,
             'primary_zone_id' => $link->primary_zone_id === null ? null : (int) $link->primary_zone_id,
             'primary_domain' => $link->primary_domain,
             'dns_sync' => (bool) $link->dns_sync,
@@ -119,7 +119,7 @@ class AliasServicesService
     /** Called inside the web-domain transaction. Legacy requests without either switch stay unchanged. */
     public function configure(BaseModel $alias, array $payload): void
     {
-        if (! array_key_exists('dns_sync', $payload) && ! array_key_exists('mail_service', $payload)) {
+        if (! array_key_exists('dns_sync', $payload) && ! array_key_exists('mail_service', $payload) && ! array_key_exists('dns_service', $payload)) {
             return;
         }
         if (! in_array($alias->type, ['alias', 'vhostalias'], true)) {
@@ -145,20 +145,20 @@ class AliasServicesService
         if ($zone !== null && (int) $zone->sys_groupid !== $group) {
             throw new ConflictHttpException('This DNS domain is already in use.');
         }
-        $created = $zone === null;
+        $created = $zone === null && ($payload['dns_service'] ?? ($link === null || $link->dns_zone_id !== null || $sync));
         $this->internal = true;
         try {
             if ($created) {
                 $zone = $this->createZone($alias, $parent, $primary);
             }
-            $other = DB::table('api_alias_services')->where('dns_zone_id', $zone->id)->where('web_domain_id', '!=', $alias->getKey())->exists();
+            $other = $zone !== null && DB::table('api_alias_services')->where('dns_zone_id', $zone->id)->where('web_domain_id', '!=', $alias->getKey())->exists();
             if ($other) {
                 throw new ConflictHttpException('This DNS domain is already managed by another alias.');
             }
-            $values = ['sys_groupid' => $group, 'dns_zone_id' => $zone->id, 'primary_zone_id' => $primary?->id,
+            $values = ['sys_groupid' => $group, 'dns_zone_id' => $zone?->id, 'primary_zone_id' => $primary?->id,
                 'primary_domain' => $parent->domain, 'dns_sync' => $sync];
             DB::table('api_alias_services')->updateOrInsert(['web_domain_id' => $alias->getKey()], $values);
-            if (($created || $sync) && $primary !== null) {
+            if ($zone !== null && ($created || $sync) && $primary !== null) {
                 $this->copyZone($alias->getKey(), $primary, $zone, $link === null || ! $link->dns_sync);
             }
             if (array_key_exists('mail_service', $payload)) {

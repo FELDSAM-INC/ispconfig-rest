@@ -1,0 +1,109 @@
+/sites/domain-services:
+  get:
+    tags: [Web Domains]
+    summary: Domain inventory of the calling client account
+    description: |
+      Includes client-domain registrations, web domains, mail domains and DNS zones,
+      deduplicated by name and scoped to the key's own client group and read permissions.
+      Names without a web_domain row have hosting_type=none; no dummy vhost is created.
+      Admin keys without a client account are rejected.
+    parameters:
+      - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+      - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 100}}
+    responses:
+      '200':
+        description: Paginated domain inventory
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      domain: {type: string}
+                      hosting_type: {type: string, enum: [webhosting, none, alias]}
+                      dns_service: {type: boolean}
+                      mail_service: {type: boolean}
+                meta:
+                  type: object
+                  properties:
+                    total: {type: integer}
+                    page: {type: integer}
+                    limit: {type: integer}
+  post:
+    tags: [Web Domains]
+    summary: Register a domain and create its selected services atomically
+    description: |
+      Uses a client account key. Registers the name in ISPConfig's domain table.
+      webhosting provisions a normal vhost; none provisions no website; alias creates
+      a shared alias under an owned primary website. Server assignments, permissions,
+      limits and datalog behavior are the same as the individual resource endpoints.
+      The transaction rolls back all records and datalog entries on any failure.
+      Unchecked services are not created or disabled if already present. Existing
+      services owned by the caller are reused; foreign ownership is a conflict.
+      Alias mail requires an active primary mail domain and creates native alias routing.
+      A 301 alias uses the parent's protocol and preferred domain and the server's engine.
+      DNS starts with assigned name servers, website IP addresses when available and
+      an MX for an active mail domain. Existing DNS records are retained.
+      Requires the allow_alias_without_dns API migration.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [domain, hosting_type, dns_service, mail_service]
+            properties:
+              domain: {type: string, maxLength: 253}
+              hosting_type: {type: string, enum: [webhosting, none, alias]}
+              dns_service: {type: boolean}
+              mail_service: {type: boolean}
+              parent_domain_id: {type: integer, minimum: 1, description: Required for alias}
+              redirect_301: {type: boolean, default: false}
+              hd_quota: {type: integer, description: Website quota in MiB}
+              traffic_quota: {type: integer, description: Website traffic quota in MiB}
+              php: {type: string}
+              server_php_id: {type: integer}
+    responses:
+      '201':
+        description: Registered domain and queued ISPConfig changes
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                domain: {type: string}
+                hosting_type: {type: string}
+                website_id: {type: integer, nullable: true}
+      '403': {description: Account locked, unavailable permission or resource limit}
+      '409': {description: Domain already hosted or conflicting ownership}
+      '422': {description: Invalid fields or unavailable assigned service server}
+/sites/domain-services/activate:
+  post:
+    tags: [Web Domains]
+    summary: Activate DNS or Mail for a domain already owned by this account
+    description: |
+      Idempotent, transactional activation. Never registers an arbitrary unknown domain.
+      Existing inactive services are enabled; missing services are created. Does not
+      enable the other service. Mail activation fills a missing apex MX in an existing
+      active zone while preserving configured mail routing. ISPConfig applies changes
+      asynchronously, as for other datalog writes.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [domain, service]
+            properties:
+              domain: {type: string, maxLength: 253}
+              service: {type: string, enum: [dns, mail]}
+    responses:
+      '200': {description: Service is active or its activation is queued}
+      '403': {description: Locked account or resource limit}
+      '404': {description: Domain not owned by the account}
+      '409': {description: Conflicting ownership or alias routing}
+      '422': {description: Invalid service or missing configuration}

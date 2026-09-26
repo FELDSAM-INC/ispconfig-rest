@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\CronJobController;
 use App\Http\Controllers\Api\V1\DatabaseOperationController;
+use App\Http\Controllers\Api\V1\DomainServicesController;
 use App\Http\Controllers\Api\V1\FtpUserController;
 use App\Http\Controllers\Api\V1\ShellUserController;
 use App\Http\Controllers\Api\V1\WebBackupController;
@@ -29,6 +30,10 @@ use Illuminate\Support\Facades\Route;
 | All other sites resources use distinct literal prefixes and cannot shadow
 | each other.
 */
+
+Route::get('sites/domain-services', [DomainServicesController::class, 'index']);
+Route::post('sites/domain-services', [DomainServicesController::class, 'store']);
+Route::post('sites/domain-services/activate', [DomainServicesController::class, 'activate']);
 
 // Website backups — api/modules/sites/web-backups.yaml (feature 018), most specific first.
 // scope.backup (vhost-only 404, limit_backup 403) runs after route-model binding.

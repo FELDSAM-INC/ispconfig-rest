@@ -282,3 +282,13 @@ Failures are reported in the API log and retried on the next run; unchanged zone
 Website access/error log previews are available at `GET /sites/web-domains/{id}/logs/{access|error}`.
 `logs_available` on each web-domain response controls whether a client panel offers the tool.
 For local reads or multi-server setup see [web log reader installation](web-log-worker/README.md).
+
+### Combined domain creation
+
+`GET/POST /sites/domain-services` and `POST /sites/domain-services/activate` support
+client-account domain registration with optional Webhosting, Mail, DNS, or a shared
+alias. No hosting uses the native client-domain registry without provisioning a
+vhost. Selected resources and their datalog records are transactional. Existing
+services are reused and activation is idempotent. See
+[the contract](api/modules/sites/domain-services.yaml). Run migrations first; alias
+service metadata now permits a missing DNS zone when DNS was left unchecked.

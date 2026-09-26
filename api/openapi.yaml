@@ -505,6 +505,10 @@ paths:
     $ref: './modules/usage/databases.yaml#/~1usage~1databases~1{id}'
 
   # Sites module paths
+  /sites/domain-services:
+    $ref: './modules/sites/domain-services.yaml#/~1sites~1domain-services'
+  /sites/domain-services/activate:
+    $ref: './modules/sites/domain-services.yaml#/~1sites~1domain-services~1activate'
   /sites/web-domains:
     $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains'
   /sites/web-domains/{id}:
