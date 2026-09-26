@@ -60,9 +60,12 @@ password login or user rc is allowed. The public key is restricted to the WHMCS
 egress IP. Normal website/SSH accounts are unaffected. Vhost aliases/subdomains
 have separate jails for their web folders. Mounts are restored after reboot.
 
-The private trash directory is `<document_root>/.ispcp-trash-<website ID>`,
+The private trash directory is `<document_root>/private/.ispcp-trash-<website ID>`,
 mode 0700, owned by the website UID/GID. It is outside the public web folder and
-bind-mounted as `/trash`. Even vhosts sharing a UID get separate trash mounts.
+bind-mounted as `/trash`. Creation runs as the website UID through a pinned
+directory descriptor; the ISPConfig parent remains immutable. The existing
+private directory must be owned by the website UID/GID, must not be writable
+by group/others, and must share the web directory’s filesystem. Even vhosts sharing a UID get separate trash mounts.
 Existing unsafe owners, permissions or symlinks fail closed, without changing
 customer directory permissions. Reserved trash paths cannot be used as web
 folders. Trash remains charged to the site's filesystem quota; it is not purged

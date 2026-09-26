@@ -68,6 +68,42 @@ def bind_directory(fd, target):
         run(['/usr/bin/mount', '-o', 'remount,bind,nosuid,nodev,noexec', str(target)])
 
 
+def private_trash(rootfd, website, user, group, device):
+    # ISPConfig makes the website parent immutable. Its existing private folder
+    # is writable by the website account; never clear the parent's immutable bit.
+    privatefd = os.open('private', os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=rootfd)
+    try:
+        info = os.fstat(privatefd)
+        if info.st_uid != user.pw_uid or info.st_gid != group.gr_gid or info.st_mode & 0o022 or info.st_dev != device:
+            raise ValueError('unsafe private directory')
+        name = '.ispcp-trash-' + str(website)
+        child = os.fork()
+        if child == 0:
+            status = 1
+            try:
+                os.setgroups([])
+                os.setgid(group.gr_gid)
+                os.setuid(user.pw_uid)
+                try:
+                    os.mkdir(name, 0o700, dir_fd=privatefd)
+                except FileExistsError:
+                    pass
+                status = 0
+            finally:
+                os._exit(status)
+        _, status = os.waitpid(child, 0)
+        if status != 0:
+            raise ValueError('private trash unavailable')
+        fd = os.open(name, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=privatefd)
+        info = os.fstat(fd)
+        if info.st_uid != user.pw_uid or info.st_gid != group.gr_gid or info.st_mode & 0o077 or info.st_dev != device:
+            os.close(fd)
+            raise ValueError('unsafe trash directory')
+        return fd
+    finally:
+        os.close(privatefd)
+
+
 def provision(site, key):
     website = int(site['id'])
     if website < 1:
@@ -84,7 +120,7 @@ def provision(site, key):
         raise ValueError('unsafe identity')
     root = site['document_root'].rstrip('/')
     folder = site.get('web_folder') if site['type'] != 'vhost' else 'web'
-    if not folder or not re.fullmatch(r'[a-zA-Z0-9_./-]+', folder) or folder.startswith('/') or folder.startswith('.ispcp-trash-'):
+    if not folder or not re.fullmatch(r'[a-zA-Z0-9_./-]+', folder) or folder.startswith('/') or folder == 'private' or any(part.startswith('.ispcp-trash-') for part in folder.split('/')):
         raise ValueError('invalid web folder')
     source = root + '/' + folder
     jail = BASE / 'jails' / name
@@ -120,19 +156,10 @@ def provision(site, key):
             password = run(['/usr/bin/openssl', 'passwd', '-6', '-stdin'], input=secrets.token_hex(48).encode()).stdout.decode().strip()
             run(['/usr/sbin/useradd', '--non-unique', '--uid', str(user.pw_uid), '--gid', str(group.gr_gid), '--groups', 'ispcp-files', '--no-create-home', '--home-dir', str(jail), '--shell', '/usr/sbin/nologin', '--password', password, name])
         bind_directory(fd, jail / 'web')
-        # Outside the public web folder, on the website filesystem and charged to
-        # its UID quota. Separate IDs also isolate vhosts sharing a Linux user.
-        trash_name = '.ispcp-trash-' + str(website)
+        # Separate IDs also isolate vhosts sharing a Linux user. Creation runs
+        # unprivileged; root only validates and mounts the pinned descriptor.
+        trashfd = private_trash(rootfd, website, user, group, source_stat.st_dev)
         try:
-            os.mkdir(trash_name, 0o700, dir_fd=rootfd)
-            os.chown(trash_name, user.pw_uid, group.gr_gid, dir_fd=rootfd, follow_symlinks=False)
-        except FileExistsError:
-            pass
-        trashfd = os.open(trash_name, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=rootfd)
-        try:
-            info = os.fstat(trashfd)
-            if info.st_uid != user.pw_uid or info.st_gid != group.gr_gid or info.st_mode & 0o077:
-                raise ValueError('unsafe trash directory')
             bind_directory(trashfd, jail / 'trash')
         finally:
             os.close(trashfd)

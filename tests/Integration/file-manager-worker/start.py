@@ -22,12 +22,24 @@ for number in [20001, 20002]:
     os.chown(root/'web', number, number)
     (root/'web'/'hello.txt').write_text('hello '+str(number))
     os.chown(root/'web'/'hello.txt', number, number)
-    (root/'private').mkdir()
+    (root/'private').mkdir(mode=0o710)
+    os.chown(root/'private', number, number)
     (root/'private'/'secret.txt').write_text('outside-web-root')
     os.symlink('/etc/passwd', root/'web'/'escape')
     os.symlink('../private', root/'web'/'sibling')
     site = {'id': number, 'server_id': 1, 'sys_groupid': number, 'domain': str(number)+'.test', 'type':'vhost', 'document_root':str(root), 'web_folder':'', 'system_user':user, 'system_group':group}
-    helper.provision(site, 'restrict '+key)
+    original_mkdir = helper.os.mkdir
+    def immutable_parent(path, mode=0o777, *, dir_fd=None):
+        if dir_fd is not None:
+            parent = os.fstat(dir_fd)
+            if (parent.st_dev, parent.st_ino) == (root.stat().st_dev, root.stat().st_ino):
+                raise PermissionError('immutable website parent')
+        return original_mkdir(path, mode, dir_fd=dir_fd)
+    helper.os.mkdir = immutable_parent
+    try:
+        helper.provision(site, 'restrict '+key)
+    finally:
+        helper.os.mkdir = original_mkdir
     pathlib.Path('/fixture/output/'+str(number)+'.json').write_text(json.dumps(site))
 # A vhost sharing the primary site's UID still gets its own web/trash mounts.
 root = pathlib.Path('/var/www/clients/client20001/web20001')
@@ -40,7 +52,7 @@ helper.provision(site, 'restrict '+key)
 pathlib.Path('/fixture/output/20003.json').write_text(json.dumps(site))
 # Existing symlinks in the reserved private location fail closed without chmod
 # or writes through the link. No account key may survive failed reconciliation.
-os.symlink(root/'web', root/'.ispcp-trash-20004')
+os.symlink(root/'web', root/'private'/'.ispcp-trash-20004')
 try:
     helper.provision(dict(site, id=20004), 'restrict '+key)
     raise AssertionError('unsafe trash path accepted')
