@@ -10,10 +10,12 @@ use App\Models\WebDomain;
 use App\Services\AliasClientDomainService;
 use App\Services\AliasServicesService;
 use App\Services\WebDomainService;
+use App\Services\WebRuntimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 /**
  * Web Domains (contract: api/modules/sites/web-domains.yaml).
@@ -67,7 +69,7 @@ class WebDomainController extends Controller
      */
     public function show(WebDomain $webDomain): JsonResponse
     {
-        return response()->json($webDomain);
+        return response()->json($webDomain->toArray() + ['runtime_settings' => app(WebRuntimeService::class)->view($webDomain)], 200, ['Cache-Control' => 'private, no-store']);
     }
 
     /**
@@ -95,7 +97,13 @@ class WebDomainController extends Controller
      */
     public function update(UpdateWebDomainRequest $request, WebDomain $webDomain): JsonResponse
     {
-        $domain = DB::transaction(function () use ($request, $webDomain): WebDomain {
+        $checkedIdentity = $webDomain->only(['server_id', 'sys_groupid', 'document_root', 'web_folder', 'type', 'domain']);
+        app(WebRuntimeService::class)->preflight($webDomain, $request->payload());
+        $domain = DB::transaction(function () use ($request, $webDomain, $checkedIdentity): WebDomain {
+            $webDomain = WebDomain::query()->readable()->whereKey($webDomain->getKey())->lockForUpdate()->firstOrFail();
+            if ($request->has('runtime_settings') && $webDomain->only(array_keys($checkedIdentity)) !== $checkedIdentity) {
+                throw new ConflictHttpException('The website changed during the directory check. Reload and try again.');
+            }
             $domain = $this->service->update($webDomain, $request->payload());
             app(AliasServicesService::class)->configure($domain, $request->payload());
 

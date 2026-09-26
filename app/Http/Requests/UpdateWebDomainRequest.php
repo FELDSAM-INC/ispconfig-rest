@@ -32,6 +32,10 @@ class UpdateWebDomainRequest extends WebDomainRequest
         );
 
         return array_merge($this->commonRules(), [
+            'runtime_settings' => ['sometimes', 'array:document_root_subdir,environment'],
+            'runtime_settings.document_root_subdir' => ['present_with:runtime_settings', 'nullable', 'string', 'max:200'],
+            'runtime_settings.environment' => ['present_with:runtime_settings', 'array', 'max:100'],
+            'runtime_settings.environment.*' => ['nullable', 'string', 'max:4096'],
             'server_id' => [
                 'sometimes',
                 'integer',

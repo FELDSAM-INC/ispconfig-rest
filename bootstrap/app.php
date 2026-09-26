@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trimStrings(except: ['runtime_settings.environment.*']);
         $middleware->alias([
             'api.key' => ApiKeyAuth::class,
             'change.set' => AttachChangeSetId::class,

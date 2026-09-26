@@ -155,7 +155,7 @@
     tags:
       - Web Domains
     summary: Get web domain by ID
-    description: Returns a single web domain by its ID
+    description: Returns a single web domain by its ID, including runtime_settings and its feature availability. This response is private and not cacheable.
     parameters:
       - name: id
         in: path
@@ -200,6 +200,12 @@
       SSL certificate fields cannot change without SSL in the plan; plain client keys cannot change `domain`,
       `ip_address`, `ipv6_address` or `vhost_type` of a `vhost`; `subdomain = "*"` is refused for
       `vhostsubdomain` and `vhostalias`. Admin keys are not restricted.
+
+      `runtime_settings` accepts a relative public subdirectory and literal application environment
+      for primary and child vhosts. The optional reader verifies folders on the actual web server
+      before any website changes are saved; failed checks leave every website setting unchanged.
+      Empty values restore the base folder/remove variables. See WebRuntimeSettings and
+      web-log-worker/README.md for deployment requirements. Simple aliases inherit the parent.
 
       Updates an existing web domain. Only include the fields you want to
       change; omitted fields remain unchanged.

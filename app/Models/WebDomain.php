@@ -7,6 +7,7 @@ use App\Models\Concerns\HasSitesDisplayFields;
 use App\Services\AliasServicesService;
 use App\Services\SitesConfigService;
 use App\Services\WebLogService;
+use App\Services\WebRuntimeService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 /**
@@ -140,6 +141,7 @@ class WebDomain extends BaseModel
      */
     protected $appends = [
         'logs_available',
+        'public_document_root',
         'id',
         'server_name',
         'web_server_type',
@@ -216,6 +218,11 @@ class WebDomain extends BaseModel
     protected function webServerType(): Attribute
     {
         return Attribute::get(fn () => $this->lookupWebServerType((int) ($this->getAttributes()['server_id'] ?? 0)));
+    }
+
+    protected function publicDocumentRoot(): Attribute
+    {
+        return Attribute::get(fn () => app(WebRuntimeService::class)->publicRoot($this));
     }
 
     protected function logsAvailable(): Attribute

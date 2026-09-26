@@ -70,6 +70,9 @@
     responses:
       '201':
         description: Registered domain and queued ISPConfig changes
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
         content:
           application/json:
             schema:
@@ -78,7 +81,7 @@
                 domain: {type: string}
                 hosting_type: {type: string}
                 website_id: {type: integer, nullable: true}
-      '403': {description: Account locked, unavailable permission or resource limit}
+      '403': {description: 'Account locked, unavailable permission or resource limit'}
       '409': {description: Domain already hosted or conflicting ownership}
       '422': {description: Invalid fields or unavailable assigned service server}
 /sites/domain-services/activate:
@@ -102,7 +105,11 @@
               domain: {type: string, maxLength: 253}
               service: {type: string, enum: [dns, mail]}
     responses:
-      '200': {description: Service is active or its activation is queued}
+      '200':
+        description: Service is active or its activation is queued
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
       '403': {description: Locked account or resource limit}
       '404': {description: Domain not owned by the account}
       '409': {description: Conflicting ownership or alias routing}

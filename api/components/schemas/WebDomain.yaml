@@ -29,6 +29,13 @@ description: |
 required:
   - domain
 properties:
+  public_document_root:
+    type: string
+    nullable: true
+    readOnly: true
+    description: Serving directory including the managed child subfolder. Does not change the base document_root.
+  runtime_settings:
+    $ref: './WebRuntimeSettings.yaml'
   logs_available:
     type: boolean
     readOnly: true

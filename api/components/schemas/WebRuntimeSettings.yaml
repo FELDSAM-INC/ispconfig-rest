@@ -1,0 +1,43 @@
+type: object
+additionalProperties: false
+required: [document_root_subdir, environment]
+description: |
+  Optional detail-response settings; writable only on PUT /sites/web-domains/{id}.
+  Omit the object to keep both settings. Empty subdirectory and environment reset them.
+  Compiled into managed Apache/nginx directive blocks, preserving administrator directives.
+  Raw directives remain restricted to administrator/authorized reseller keys.
+properties:
+  document_root_subdir:
+    type: string
+    maxLength: 200
+    example: app/public
+    description: |
+      Relative to web (primary vhost) or the vhost child's immutable web_folder.
+      Only existing real directories below that folder; no links, absolute paths,
+      dot segments, consecutive dots or configuration syntax. Empty restores the base folder.
+      The current web-server reader must verify it before the website transaction.
+      The read check takes at most 12 seconds. Missing/stale/old readers fail closed.
+  environment:
+    type: object
+    maxProperties: 100
+    additionalProperties:
+      type: string
+      maxLength: 4096
+    description: |
+      Literal per-request application variables. Names match [A-Z_][A-Z0-9_]{0,63};
+      server/PHP/CGI control variables are reserved. Single-line UTF-8 values,
+      max 4096 bytes each and 16 KiB names+values total. Whitespace is preserved.
+      Empty values are supported. Not process-global, SSH or cron environment.
+      nginx requires an upgraded reader and its root-owned literal constants include.
+      Values and generated directives must be omitted from integration logs.
+  document_root_available:
+    type: boolean
+    readOnly: true
+    description: A current reader can verify folders on the website's server.
+  environment_available:
+    type: boolean
+    readOnly: true
+    description: Apache, or nginx with the upgraded reader/constants installed.
+  base_folder:
+    type: string
+    readOnly: true

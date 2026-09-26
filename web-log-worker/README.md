@@ -40,3 +40,46 @@ Use FTP for those archives. Current plain-text logs may be much larger: reads
 seek backwards in bounded blocks. No arbitrary paths or symlinks outside the
 website's own canonical log directory are followed. Log rotation resets the view
 with a notice. Responses use `Cache-Control: private, no-store`.
+
+## Public document root and environment variables
+
+After updating REST, run its migrations, then re-run this installer on each web
+server. It adds `WebRuntimeDirectory.php` and advertises `runtime_version=1` with
+the existing heartbeat. No new master DB grants or listener are required. Existing
+reader versions still serve logs; they do not enable directory changes or nginx
+environment editing. Upgrade every web server that should offer these settings.
+
+The API's website detail now returns `runtime_settings`. A customer can update
+both settings through the normal website PUT, without permission to enter raw
+Apache/nginx directives. The base `document_root`, system user and `web_folder`
+remain fixed. The user must first create a child folder (for example `app/public`)
+via FTP/SSH. Before saving, this reader checks the owning website, server and group
+again and walks the base folder and requested child components. Missing directories,
+symlinks and traversal are rejected. This is a check at save time, not an OS jail;
+normal filesystem ownership and web-server restrictions still apply afterward.
+
+Apache uses DocumentRoot and SetEnvIfExpr with a base64-decoding expression.
+nginx uses ISPConfig's native `##subroot …##` and `##merge##` handling, appending
+FastCGI parameters inside the existing PHP/CGI locations. PHP-FPM chroot paths are
+adjusted without changing the jail. Values are request environment, not shell/cron
+or global PHP-FPM process environment.
+
+On nginx the installer adds `/etc/nginx/conf.d/ispcp-runtime.conf` in the **http**
+context. Its root-owned geo constants make dollar signs, braces, angle brackets
+and hashes literal, preventing nginx/ISPConfig template expansion of application
+secrets. The installer checks `nginx -T` (without printing configuration) and
+refuses a conflicting file or missing include. It does not reload nginx; ISPConfig
+reloads it with the subsequent website update. Do not delete this constants file
+while any managed environment is configured. A heartbeat only advertises the
+feature while the installed constants match the worker's copy.
+
+Managed blocks in both native directive columns are replaced idempotently and
+removed when both settings are cleared; unrelated administrator directives stay
+unchanged. An administrator-defined document root cannot be overridden. ISPConfig
+continues provisioning through its datalog and normal config validation/reload.
+Environment values appear in the website's private configuration: integrations
+must redact the runtime object and native directives from diagnostic logs.
+
+Verified against ISPConfig 3.3.1p1 sources and real Apache 2.4/nginx PHP-FPM requests.
+Apache expression reference: https://httpd.apache.org/docs/2.4/expr.html
+nginx FastCGI reference: https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html

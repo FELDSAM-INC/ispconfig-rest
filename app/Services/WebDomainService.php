@@ -253,6 +253,8 @@ class WebDomainService
         // writable; web_folder cannot be changed after creation — legacy
         // onSubmit restores it from the DB).
         unset($payload['web_folder']);
+        $runtime = $payload['runtime_settings'] ?? null;
+        unset($payload['runtime_settings']);
 
         if (isset($payload['stats_password']) && $payload['stats_password'] !== '') {
             $payload['stats_password'] = LegacyCrypt::hash($payload['stats_password']);
@@ -292,6 +294,7 @@ class WebDomainService
             $domain->setRawAttributes(array_merge($attributes, $forced));
         }
 
+        app(WebRuntimeService::class)->apply($domain, $runtime);
         $domain->save();
 
         return $domain->refresh();
