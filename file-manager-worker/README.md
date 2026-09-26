@@ -55,10 +55,21 @@ credentials or customer file contents. Other websites still reconcile.
 
 Each login shares the website's UID/GID to preserve ownership and filesystem
 quotas. Its root-owned OpenSSH chroot contains only a bind mount of that website's
-web directory and a read-only identity fingerprint. No shell, PTY, forwarding,
+web directory, a private trash mount and a read-only identity fingerprint. No shell, PTY, forwarding,
 password login or user rc is allowed. The public key is restricted to the WHMCS
 egress IP. Normal website/SSH accounts are unaffected. Vhost aliases/subdomains
 have separate jails for their web folders. Mounts are restored after reboot.
+
+The private trash directory is `<document_root>/.ispcp-trash-<website ID>`,
+mode 0700, owned by the website UID/GID. It is outside the public web folder and
+bind-mounted as `/trash`. Even vhosts sharing a UID get separate trash mounts.
+Existing unsafe owners, permissions or symlinks fail closed, without changing
+customer directory permissions. Reserved trash paths cannot be used as web
+folders. Trash remains charged to the site's filesystem quota; it is not purged
+automatically. Updating the worker is required before using WHMCS trash/restore.
+WHMCS verifies a recovery copy before removing originals; separate bind mounts
+require copying (OpenSSH `copy-data` where supported), with temporary extra disk
+space. The worker never reads or deletes trash contents as root.
 
 The `/identity` fingerprint is SHA-256 of newline-joined fields, with null values
 represented as empty strings: `id`, `server_id`, `sys_groupid`, `domain`, `type`,
@@ -74,7 +85,7 @@ Large trees may need manual cleanup. The worker does not raise filesystem quotas
 First disable the server in WHMCS's private file-manager configuration. Remove or
 disable `/etc/cron.d/ispconfig-rest-file-manager-worker` (and any recognized legacy
 job) before removing authorized keys; otherwise reconciliation recreates them.
-Unmount each `jail/web` before removing a jail. **Never recursively delete a
+Unmount both `jail/web` and `jail/trash` before removing a jail. **Never recursively delete a
 mounted jail: it contains customer files.** Remove only dedicated `ispcp-fm-*`
 accounts without `userdel -r`, because their UID is shared with a website.
 Remove the dedicated SSH include only after validating with `sshd -t`.

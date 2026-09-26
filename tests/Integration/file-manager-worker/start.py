@@ -29,6 +29,24 @@ for number in [20001, 20002]:
     site = {'id': number, 'server_id': 1, 'sys_groupid': number, 'domain': str(number)+'.test', 'type':'vhost', 'document_root':str(root), 'web_folder':'', 'system_user':user, 'system_group':group}
     helper.provision(site, 'restrict '+key)
     pathlib.Path('/fixture/output/'+str(number)+'.json').write_text(json.dumps(site))
+# A vhost sharing the primary site's UID still gets its own web/trash mounts.
+root = pathlib.Path('/var/www/clients/client20001/web20001')
+(root/'subweb').mkdir(mode=0o750)
+os.chown(root/'subweb', 20001, 20001)
+(root/'subweb'/'hello.txt').write_text('hello shared-uid vhost')
+os.chown(root/'subweb'/'hello.txt', 20001, 20001)
+site = {'id':20003, 'server_id':1, 'sys_groupid':20001, 'domain':'sub.test', 'type':'vhostsubdomain', 'document_root':str(root), 'web_folder':'subweb', 'system_user':'web20001', 'system_group':'client20001'}
+helper.provision(site, 'restrict '+key)
+pathlib.Path('/fixture/output/20003.json').write_text(json.dumps(site))
+# Existing symlinks in the reserved private location fail closed without chmod
+# or writes through the link. No account key may survive failed reconciliation.
+os.symlink(root/'web', root/'.ispcp-trash-20004')
+try:
+    helper.provision(dict(site, id=20004), 'restrict '+key)
+    raise AssertionError('unsafe trash path accepted')
+except OSError:
+    assert not (helper.ETC/'keys'/'ispcp-fm-20004').exists()
+assert (root/'web').stat().st_mode & 0o777 == 0o750
 pathlib.Path('/etc/ssh/sshd_config').write_text('Port 22\nHostKey /etc/ssh/ssh_host_ed25519_key\nUsePAM no\nSubsystem sftp internal-sftp\nInclude /fixture/helper/sshd.conf\n')
 pathlib.Path('/fixture/output/hostkey.pub').write_text(pathlib.Path('/etc/ssh/ssh_host_ed25519_key.pub').read_text())
 os.execv('/usr/sbin/sshd', ['/usr/sbin/sshd', '-D', '-e'])

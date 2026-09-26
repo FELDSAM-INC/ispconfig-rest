@@ -55,6 +55,19 @@ def atomic(path, value, mode=0o600):
     os.replace(temporary, path)
 
 
+def bind_directory(fd, target):
+    source_stat = os.fstat(fd)
+    target.mkdir(mode=0o755, exist_ok=True)
+    current = target.lstat()
+    if not stat.S_ISDIR(current.st_mode):
+        raise ValueError('unsafe mount target')
+    if (current.st_dev, current.st_ino) != (source_stat.st_dev, source_stat.st_ino):
+        if os.path.ismount(target):
+            run(['/usr/bin/umount', str(target)])
+        run(['/usr/bin/mount', '--no-canonicalize', '--bind', '/proc/self/fd/' + str(fd), str(target)], pass_fds=(fd,))
+        run(['/usr/bin/mount', '-o', 'remount,bind,nosuid,nodev,noexec', str(target)])
+
+
 def provision(site, key):
     website = int(site['id'])
     if website < 1:
@@ -71,7 +84,7 @@ def provision(site, key):
         raise ValueError('unsafe identity')
     root = site['document_root'].rstrip('/')
     folder = site.get('web_folder') if site['type'] != 'vhost' else 'web'
-    if not folder or not re.fullmatch(r'[a-zA-Z0-9_./-]+', folder) or folder.startswith('/'):
+    if not folder or not re.fullmatch(r'[a-zA-Z0-9_./-]+', folder) or folder.startswith('/') or folder.startswith('.ispcp-trash-'):
         raise ValueError('invalid web folder')
     source = root + '/' + folder
     jail = BASE / 'jails' / name
@@ -106,14 +119,23 @@ def provision(site, key):
             # A random unknown password hash keeps OpenSSH public-key auth usable; password authentication is forbidden.
             password = run(['/usr/bin/openssl', 'passwd', '-6', '-stdin'], input=secrets.token_hex(48).encode()).stdout.decode().strip()
             run(['/usr/sbin/useradd', '--non-unique', '--uid', str(user.pw_uid), '--gid', str(group.gr_gid), '--groups', 'ispcp-files', '--no-create-home', '--home-dir', str(jail), '--shell', '/usr/sbin/nologin', '--password', password, name])
-        target = jail / 'web'
-        target.mkdir(mode=0o755, exist_ok=True)
-        current = target.stat()
-        if (current.st_dev, current.st_ino) != (source_stat.st_dev, source_stat.st_ino):
-            if os.path.ismount(target):
-                run(['/usr/bin/umount', str(target)])
-            run(['/usr/bin/mount', '--no-canonicalize', '--bind', '/proc/self/fd/' + str(fd), str(target)], pass_fds=(fd,))
-            run(['/usr/bin/mount', '-o', 'remount,bind,nosuid,nodev,noexec', str(target)])
+        bind_directory(fd, jail / 'web')
+        # Outside the public web folder, on the website filesystem and charged to
+        # its UID quota. Separate IDs also isolate vhosts sharing a Linux user.
+        trash_name = '.ispcp-trash-' + str(website)
+        try:
+            os.mkdir(trash_name, 0o700, dir_fd=rootfd)
+            os.chown(trash_name, user.pw_uid, group.gr_gid, dir_fd=rootfd, follow_symlinks=False)
+        except FileExistsError:
+            pass
+        trashfd = os.open(trash_name, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=rootfd)
+        try:
+            info = os.fstat(trashfd)
+            if info.st_uid != user.pw_uid or info.st_gid != group.gr_gid or info.st_mode & 0o077:
+                raise ValueError('unsafe trash directory')
+            bind_directory(trashfd, jail / 'trash')
+        finally:
+            os.close(trashfd)
         atomic(jail / 'identity', binding(site) + '\n', 0o644)
         atomic(auth, key + '\n', 0o644)
         stamp = jail / 'cleanup-at'
