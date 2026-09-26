@@ -142,6 +142,7 @@ class WebDomain extends BaseModel
     protected $appends = [
         'logs_available',
         'public_document_root',
+        'runtime_capabilities',
         'id',
         'server_name',
         'web_server_type',
@@ -228,6 +229,11 @@ class WebDomain extends BaseModel
     protected function logsAvailable(): Attribute
     {
         return Attribute::get(fn () => app(WebLogService::class)->available($this));
+    }
+
+    protected function runtimeCapabilities(): Attribute
+    {
+        return Attribute::get(fn () => app(WebRuntimeService::class)->capabilities($this));
     }
 
     protected function autoAlias(): Attribute

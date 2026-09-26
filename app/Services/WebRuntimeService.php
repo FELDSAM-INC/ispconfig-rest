@@ -18,14 +18,20 @@ class WebRuntimeService
 
     public function view(WebDomain $site): array
     {
-        $settings = $this->settings($site);
+        return $this->settings($site) + $this->capabilities($site) + [
+            'base_folder' => $site->type === 'vhost' ? 'web' : (string) $site->web_folder,
+        ];
+    }
+
+    /** Safe for list responses: availability only, without application variables or directives. */
+    public function capabilities(WebDomain $site): array
+    {
         $engine = $site->web_server_type;
         $worker = $this->workerAvailable((int) $site->server_id);
 
-        return $settings + [
+        return [
             'document_root_available' => in_array($engine, ['apache', 'nginx'], true) && $worker,
             'environment_available' => $engine === 'apache' || ($engine === 'nginx' && $worker),
-            'base_folder' => $site->type === 'vhost' ? 'web' : (string) $site->web_folder,
         ];
     }
 

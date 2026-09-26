@@ -26,6 +26,33 @@ final class WebRuntimeApiTest extends SitesApiTestCase
         DB::table('api_web_log_workers')->updateOrInsert(['server_id' => $server], ['runtime_version' => $version, 'heartbeat' => $heartbeat ?? time()]);
     }
 
+    public function test_list_capabilities_follow_each_server_and_worker_without_environment_values(): void
+    {
+        TenantSchema::create();
+        $this->seedTenants();
+        $apache = $this->seedVhost($this->ownedBy('clientA', ['domain' => 'apache.test', 'server_id' => 1]));
+        $nginx = $this->seedVhost($this->ownedBy('clientA', ['domain' => 'nginx.test', 'server_id' => 2, 'type' => 'vhostsubdomain']));
+        $this->seedVhost($this->ownedBy('clientB', ['domain' => 'foreign.test']));
+        $headers = $this->tenantHeaders('clientA');
+        $this->putJson('/api/v1/sites/web-domains/'.$apache, $this->body('', ['APP_SECRET' => 'private-value']), $headers)->assertOk();
+
+        foreach ([[0, time(), false], [1, time() - 200, false], [1, time(), true]] as [$version, $heartbeat, $available]) {
+            $this->worker(1, $version, $heartbeat);
+            $this->worker(2, $version, $heartbeat);
+            $list = $this->getJson('/api/v1/sites/web-domains', $headers)->assertOk()->assertJsonPath('meta.total', 2);
+            $list->assertJsonPath('data.0.runtime_capabilities', ['document_root_available' => $available, 'environment_available' => true])
+                ->assertJsonPath('data.1.runtime_capabilities', ['document_root_available' => $available, 'environment_available' => $available]);
+            foreach ([0 => $apache, 1 => $nginx] as $index => $id) {
+                $list->assertJsonMissingPath('data.'.$index.'.runtime_settings');
+                $detail = $this->getJson('/api/v1/sites/web-domains/'.$id, $headers)->assertOk();
+                foreach ($list->json('data.'.$index.'.runtime_capabilities') as $key => $value) {
+                    $detail->assertJsonPath('runtime_settings.'.$key, $value);
+                }
+            }
+            $this->assertStringNotContainsString('private-value', json_encode(array_column($list->json('data'), 'runtime_capabilities')));
+        }
+    }
+
     public function test_apache_environment_is_datalogged_round_trips_literal_values_and_removal_preserves_admin_directives(): void
     {
         $id = $this->seedVhost(['apache_directives' => "Header always set X-Example yes\n", 'nginx_directives' => "add_header X-Example yes;\n"]);

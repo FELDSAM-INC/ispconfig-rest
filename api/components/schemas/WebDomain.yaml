@@ -36,6 +36,19 @@ properties:
     description: Serving directory including the managed child subfolder. Does not change the base document_root.
   runtime_settings:
     $ref: './WebRuntimeSettings.yaml'
+  runtime_capabilities:
+    type: object
+    readOnly: true
+    additionalProperties: false
+    required: [document_root_available, environment_available]
+    description: Availability of runtime controls in list and detail responses; contains no environment values or directives.
+    properties:
+      document_root_available:
+        type: boolean
+        description: A current reader can verify folders on the website's server.
+      environment_available:
+        type: boolean
+        description: Apache, or nginx with the upgraded reader/constants installed.
   logs_available:
     type: boolean
     readOnly: true
