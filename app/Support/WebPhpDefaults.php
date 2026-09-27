@@ -46,7 +46,7 @@ final class WebPhpDefaults
         };
     }
 
-    private static function read(string $path): string
+    private static function trustedPath(string $path): string
     {
         $real = realpath($path);
         if ($real === false) {
@@ -63,7 +63,13 @@ final class WebPhpDefaults
                 $candidate = dirname($candidate);
             } while ($candidate !== '/');
         }
-        $handle = @fopen($real, 'rb');
+
+        return $real;
+    }
+
+    private static function read(string $path): string
+    {
+        $handle = @fopen(self::trustedPath($path), 'rb');
         if (! $handle) {
             throw new RuntimeException('php_settings_unavailable');
         }
@@ -79,7 +85,61 @@ final class WebPhpDefaults
         }
     }
 
-    public static function collect(string $path): array
+    /** PHP 8.5 includes OPcache in the binary, without a zend_extension INI entry. */
+    public static function builtInOpcache(string $binary): ?bool
+    {
+        if ($binary === '' || $binary[0] !== '/' || ! preg_match('/\Aphp(?:-cgi)?[0-9.]*\z/', basename($binary))) {
+            return null;
+        }
+        try {
+            $binary = self::trustedPath($binary);
+            $runner = self::trustedPath('/usr/sbin/runuser');
+        } catch (RuntimeException) {
+            return null;
+        }
+        // Only a trusted native PHP binary, never an administrator's shell wrapper.
+        $handle = @fopen($binary, 'rb');
+        if (! $handle) {
+            return null;
+        }
+        $native = fread($handle, 4) === "\x7fELF";
+        fclose($handle);
+        if (! $native || ! is_executable($binary)) {
+            return null;
+        }
+        $process = @proc_open([$runner, '-u', 'nobody', '--', $binary, '-n', '-v'],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes,
+            '/', ['PATH' => '/usr/bin:/bin', 'PHP_INI_SCAN_DIR' => '']);
+        if (! is_resource($process)) {
+            return null;
+        }
+        stream_set_blocking($pipes[1], false);
+        $output = '';
+        $deadline = microtime(true) + 2;
+        try {
+            do {
+                $output .= stream_get_contents($pipes[1], 8193 - strlen($output));
+                $status = proc_get_status($process);
+                if (! $status['running']) {
+                    $output .= stream_get_contents($pipes[1], 8193 - strlen($output));
+
+                    return strlen($output) <= 8192 && $status['exitcode'] === 0 && preg_match('/^PHP [0-9]+\.[0-9]+\./', $output)
+                        ? str_contains($output, 'with Zend OPcache') : null;
+                }
+                usleep(10000);
+            } while (strlen($output) <= 8192 && microtime(true) < $deadline);
+        } finally {
+            fclose($pipes[1]);
+            if ($status['running'] ?? true) {
+                proc_terminate($process);
+            }
+            proc_close($process);
+        }
+
+        return null;
+    }
+
+    public static function collect(string $path, ?bool $builtInOpcache = null): array
     {
         if ($path === '' || $path[0] !== '/' || str_contains($path, '..') || str_contains($path, "\0")) {
             throw new RuntimeException('php_settings_unavailable');
@@ -93,7 +153,7 @@ final class WebPhpDefaults
             throw new RuntimeException('php_settings_unavailable');
         }
         sort($files, SORT_STRING);
-        $opcache = false;
+        $opcache = $builtInOpcache;
         foreach (array_merge([$ini], $files) as $file) {
             $content = $file === $ini ? $base : self::read($file);
             if ($file !== $ini) {
@@ -107,7 +167,7 @@ final class WebPhpDefaults
         }
         $settings = array_replace($settings, $scan);
         // PHP's documented defaults, only for directives whose absence is unambiguous.
-        $settings += ['disable_functions' => '', 'opcache.enable' => $opcache ? 'on' : 'off'];
+        $settings += ['disable_functions' => '', 'opcache.enable' => $opcache === null ? null : ($opcache ? 'on' : 'off')];
 
         return ['values' => $settings, 'scan' => $scan, 'opcache' => $opcache];
     }
@@ -118,18 +178,22 @@ final class WebPhpDefaults
         $query->execute([$server]);
         $config = parse_ini_string((string) $query->fetchColumn(), true, INI_SCANNER_RAW) ?: [];
         $web = $config['web'] ?? [];
-        $versions = $db->prepare('SELECT server_php_id, php_fastcgi_ini_dir, php_fpm_ini_dir FROM server_php WHERE server_id = ?');
+        $versions = $db->prepare('SELECT server_php_id, php_fastcgi_binary, php_fastcgi_ini_dir, php_fpm_ini_dir FROM server_php WHERE server_id = ?');
         $versions->execute([$server]);
         $rows = array_merge([[
             'server_php_id' => 0,
+            'php_fastcgi_binary' => $config['fastcgi']['fastcgi_bin'] ?? '',
             'php_fastcgi_ini_dir' => $config['fastcgi']['fastcgi_phpini_path'] ?? $web['php_ini_path_cgi'] ?? '',
             'php_fpm_ini_dir' => $web['php_fpm_ini_path'] ?? '',
         ]], $versions->fetchAll(PDO::FETCH_ASSOC));
         $save = $db->prepare('INSERT INTO api_web_php_defaults (server_id, server_php_id, mode, settings, measured_at) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE settings = VALUES(settings), measured_at = VALUES(measured_at)');
         foreach ($rows as $row) {
+            $builtIn = self::builtInOpcache((string) ($row['php_fastcgi_binary'] ?? ''));
             foreach (['cgi' => 'php_fastcgi_ini_dir', 'fpm' => 'php_fpm_ini_dir'] as $mode => $column) {
                 try {
-                    $settings = self::collect((string) ($row[$column] ?? ''));
+                    $paired = dirname(rtrim((string) ($row['php_fastcgi_ini_dir'] ?? ''), '/'))
+                        === dirname(rtrim((string) ($row['php_fpm_ini_dir'] ?? ''), '/'));
+                    $settings = self::collect((string) ($row[$column] ?? ''), $mode === 'cgi' || $paired ? $builtIn : null);
                 } catch (RuntimeException) {
                     $settings = ['values' => [], 'scan' => [], 'opcache' => false, 'unavailable' => true];
                 }

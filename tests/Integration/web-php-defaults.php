@@ -22,6 +22,25 @@ try {
         || $values['values']['opcache.enable'] !== 'on' || ! $values['opcache']) {
         throw new RuntimeException('Incorrect scan precedence');
     }
+    unlink($root.'/conf.d/10-opcache.ini');
+    if (WebPhpDefaults::collect($root, true)['values']['opcache.enable'] !== 'on'
+        || WebPhpDefaults::collect($root, false)['values']['opcache.enable'] !== 'off'
+        || WebPhpDefaults::collect($root)['values']['opcache.enable'] !== null) {
+        throw new RuntimeException('Built-in / unknown OPcache detection failed');
+    }
+    file_put_contents($root.'/conf.d/10-opcache.ini', 'opcache.enable=off');
+    if (WebPhpDefaults::collect($root, true)['values']['opcache.enable'] !== 'off') {
+        throw new RuntimeException('Built-in OPcache must respect configured disable');
+    }
+    $native = WebPhpDefaults::builtInOpcache(PHP_BINARY);
+    if ($native !== (PHP_VERSION_ID >= 80500)) {
+        throw new RuntimeException('Native PHP OPcache probe failed');
+    }
+    file_put_contents($root.'/php-cgi', "#!/bin/sh\ntouch $root/executed\n");
+    chmod($root.'/php-cgi', 0755);
+    if (WebPhpDefaults::builtInOpcache($root.'/php-cgi') !== null || file_exists($root.'/executed')) {
+        throw new RuntimeException('PHP wrapper must never be executed');
+    }
     foreach (['writable', 'untrusted_owner', 'untrusted_link', 'oversized'] as $case) {
         chmod($root.'/php.ini', 0600);
         chown($root.'/php.ini', 0);

@@ -14,6 +14,13 @@ It does not run PHP applications, create public diagnostic scripts, or use the
 REST server's own `ini_get()` values. Snapshots expire after 150 seconds. An old,
 missing or stale worker leaves controls read-only and unknown values unavailable.
 
+PHP 8.5 includes OPcache in the binary. The worker checks the configured root-owned
+native CGI binary using `-n -v` as `nobody`, with an empty PHP scan path and a bounded
+timeout/output. No INI, website code or shell wrapper is executed. The matching FPM
+configuration in the same version directory uses that build capability; standalone
+FPM configurations still detect OPcache from their INI extension entries. Unknown
+capabilities remain unavailable. See the [PHP RFC](https://wiki.php.net/rfc/make_opcache_required).
+
 Supported handlers are Apache CGI/FastCGI and PHP-FPM (including nginx's
 `fast-cgi` selection, which ISPConfig implements using FPM). For custom PHP
 installations the configured INI directory must contain `php.ini`; additional
@@ -36,7 +43,8 @@ plugins and `php_fpm_pool.conf.master` on development. Both plugins append requi
 PHP snippets after custom PHP settings. PHP-FPM's global function restriction is
 documented in [the PHP manual](https://www.php.net/manual/en/install.fpm.configuration.php).
 
-Deployment: run the API migration, then reinstall `web-log-worker/install.sh` on
+Deployment: run the API migration with a privileged database login (the runtime
+ISPConfig account normally lacks CREATE permission), then reinstall `web-log-worker/install.sh` on
 each web server from a root-owned checkout/staging directory. The worker adds
 `api_web_php_defaults` snapshots; no ISPConfig schema is changed. Existing PHP
 limits and settings are unchanged until a customer saves an editable value.
