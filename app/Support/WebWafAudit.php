@@ -35,6 +35,38 @@ final class WebWafAudit
         return mb_strcut(preg_replace('/[\x00-\x1f\x7f]/', ' ', mb_convert_encoding($value, 'UTF-8', 'UTF-8')), 0, $limit, 'UTF-8');
     }
 
+    /** Only known CRS summary formats may supply dynamic values, and only bounded integers. */
+    public static function description(int $id, string $template, string $rendered = ''): string
+    {
+        $labels = [949110 => 'Inbound anomaly score exceeded', 959100 => 'Outbound anomaly score exceeded',
+            980130 => 'Inbound anomaly score exceeded', 980140 => 'Outbound anomaly score exceeded'];
+        if (! isset($labels[$id])) {
+            return $template;
+        }
+        $number = '([0-9]{1,9})';
+        $categories = ['SQLI', 'XSS', 'RFI', 'LFI', 'RCE', 'PHPI', 'HTTP', 'SESS'];
+        if ($id === 980130) {
+            $pattern = 'Inbound Anomaly Score Exceeded \(Total Inbound Score: '.$number.' - '.implode(',', array_map(fn ($name) => $name.'='.$number, $categories)).'\): individual paranoia level scores: '.implode(', ', array_fill(0, 4, $number));
+        } elseif ($id === 980140) {
+            $pattern = 'Outbound Anomaly Score Exceeded \(score '.$number.'\): individual paranoia level scores: '.implode(', ', array_fill(0, 4, $number));
+        } else {
+            $pattern = ($id === 949110 ? 'Inbound' : 'Outbound').' Anomaly Score Exceeded \(Total Score: '.$number.'\)';
+        }
+        if (! preg_match('/\A'.$pattern.'\z/D', $rendered, $scores)) {
+            return $labels[$id];
+        }
+        $details = ['total: '.(int) $scores[1]];
+        if ($id === 980130) {
+            foreach ($categories as $index => $name) {
+                if ((int) $scores[$index + 2] > 0) {
+                    $details[] = $name.': '.(int) $scores[$index + 2];
+                }
+            }
+        }
+
+        return $labels[$id].' ('.implode('; ', $details).')';
+    }
+
     public static function blockedTransactions(string $text): array
     {
         $ids = [];
@@ -84,6 +116,7 @@ final class WebWafAudit
                 $id = (int) ($details['ruleId'] ?? 0);
                 $data = (string) ($details['data'] ?? '');
                 $severity = (string) ($details['severity'] ?? '');
+                $rendered = is_string($message['message'] ?? null) ? $message['message'] : '';
             } elseif (is_string($message)) {
                 if (! preg_match('/\[id "([0-9]+)"\]/', $message, $match)) {
                     continue;
@@ -92,6 +125,9 @@ final class WebWafAudit
                 $data = $message;
                 preg_match('/\[severity "([A-Z0-9_]+)"\]/', $message, $level);
                 $severity = $level[1] ?? '';
+                // Deliberately reject escaped/dynamic text instead of decoding arbitrary log values.
+                preg_match('/\[msg "([^"\\\\]*)"\]/', $message, $renderedMessage);
+                $rendered = $renderedMessage[1] ?? '';
             } else {
                 continue;
             }
@@ -102,7 +138,7 @@ final class WebWafAudit
             $out[$id] = ['event_key' => hash('sha256', $unique.':'.$id), 'occurred_at' => $occurred, 'rule_id' => $id,
                 'outcome' => $blocked ? 'blocked' : 'detected', 'client_ip' => filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '',
                 'method' => preg_match('/\A[A-Z]{1,16}\z/D', $method) ? $method : '', 'path' => $path,
-                'parameter' => $parameter[1] ?? '', 'message' => $catalog[$id] ?? 'Rule '.$id.' matched',
+                'parameter' => $parameter[1] ?? '', 'message' => self::description($id, $catalog[$id] ?? 'Rule '.$id.' matched', $rendered),
                 'severity' => preg_match('/\A[A-Za-z0-9_]{0,32}\z/D', $severity) ? $severity : '',
                 'source' => isset($catalog[$id]) ? 'owasp' : ($id >= 300000 && $id <= 399999 ? 'atomic' : 'other')];
         }

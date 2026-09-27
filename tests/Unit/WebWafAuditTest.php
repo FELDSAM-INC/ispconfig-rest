@@ -48,4 +48,36 @@ final class WebWafAuditTest extends TestCase
             $this->assertSame([], WebWafAudit::events($record));
         }
     }
+
+    public function test_summary_scores_are_validated_numbers_on_both_engines(): void
+    {
+        $cases = [
+            [949110, 'Inbound Anomaly Score Exceeded (Total Score: 5)', 'Inbound anomaly score exceeded (total: 5)'],
+            [959100, 'Outbound Anomaly Score Exceeded (Total Score: 4)', 'Outbound anomaly score exceeded (total: 4)'],
+            [980130, 'Inbound Anomaly Score Exceeded (Total Inbound Score: 8 - SQLI=5,XSS=3,RFI=0,LFI=0,RCE=0,PHPI=0,HTTP=0,SESS=0): individual paranoia level scores: 8, 0, 0, 0', 'Inbound anomaly score exceeded (total: 8; SQLI: 5; XSS: 3)'],
+            [980140, 'Outbound Anomaly Score Exceeded (score 4): individual paranoia level scores: 4, 0, 0, 0', 'Outbound anomaly score exceeded (total: 4)'],
+        ];
+        foreach ($cases as [$id, $native, $expected]) {
+            $nginx = $this->nginx();
+            $nginx['transaction']['messages'][0]['details']['ruleId'] = (string) $id;
+            $nginx['transaction']['messages'][0]['message'] = $native;
+            $this->assertSame($expected, WebWafAudit::events($nginx, [$id => 'Summary [value]'])[0]['message']);
+            $apache = ['transaction' => ['transaction_id' => 'apache-summary', 'time' => date('c')],
+                'audit_data' => ['engine_mode' => 'ENABLED', 'messages' => ['Warning [id "'.$id.'"] [msg "'.$native.'"] [data "PRIVATE_DATA"]']]];
+            $this->assertSame($expected, WebWafAudit::events($apache, [$id => 'Summary [value]'])[0]['message']);
+        }
+    }
+
+    public function test_unknown_missing_or_unsafe_scores_have_concise_fallback_without_echoing_log_text(): void
+    {
+        foreach (['', 'Unexpected PRIVATE_MESSAGE', 'Inbound Anomaly Score Exceeded (Total Score: [value])',
+            'Inbound Anomaly Score Exceeded (Total Score: 1234567890)', 'Inbound Anomaly Score Exceeded (Total Score: -1)',
+            'Inbound Anomaly Score Exceeded (Total Score: 5<script>)', 'Inbound Anomaly Score Exceeded (Total Score: 5) PRIVATE_DATA'] as $native) {
+            $record = $this->nginx();
+            $record['transaction']['messages'][0]['details']['ruleId'] = '949110';
+            $record['transaction']['messages'][0]['message'] = $native;
+            $this->assertSame('Inbound anomaly score exceeded', WebWafAudit::events($record, [949110 => 'Summary [value]'])[0]['message']);
+        }
+        $this->assertSame('SQL injection', WebWafAudit::description(942100, 'SQL injection', 'PRIVATE_MESSAGE'));
+    }
 }

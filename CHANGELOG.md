@@ -5,6 +5,10 @@ the HTTP API remains under `/api/v1`.
 
 ## Unreleased
 
+- Show validated numeric anomaly scores in WAF summary events instead of `[value]`
+  placeholders. Unknown formats and historical summary entries use concise text;
+  request values remain excluded from event descriptions.
+
 - Add website-scoped WAF settings and sanitized security events at
   `/sites/web-domains/{id}/waf` and `/waf/events`, plus a [server installer](waf-server/README.md)
   for Apache/nginx ModSecurity and OWASP CRS. Supports detection/enforcing mode,

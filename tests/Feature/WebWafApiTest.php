@@ -171,4 +171,19 @@ final class WebWafApiTest extends SitesApiTestCase
         $this->getJson($url.'/waf', $this->tenantHeaders('clientB'))->assertOk()->assertJsonPath('settings.enabled', false)->assertJsonPath('settings.exclusions', [])->assertJsonPath('settings.ip_allowlist', []);
 
     }
+
+    public function test_old_placeholder_messages_get_a_fallback_without_losing_new_numeric_scores(): void
+    {
+        $id = $this->seedVhost();
+        $site = (array) DB::table('web_domain')->where('domain_id', $id)->first();
+        $messages = ['Inbound Anomaly Score Exceeded (Total Score: [value])', 'Inbound anomaly score exceeded (total: 5)'];
+        foreach ($messages as $message) {
+            DB::table('api_web_waf_events')->insert(['event_key' => hash('sha256', $message), 'server_id' => 1, 'website_id' => $id,
+                'identity' => WebWafPolicy::identity($site), 'occurred_at' => time(), 'rule_id' => 949110, 'outcome' => 'detected',
+                'client_ip' => '127.0.0.1', 'method' => 'GET', 'path' => '/test', 'message' => $message, 'source' => 'owasp']);
+        }
+        $this->getJson('/api/v1/sites/web-domains/'.$id.'/waf/events', $this->authHeaders())->assertOk()
+            ->assertJsonPath('data.0.message', 'Inbound anomaly score exceeded (total: 5)')
+            ->assertJsonPath('data.1.message', 'Inbound anomaly score exceeded');
+    }
 }

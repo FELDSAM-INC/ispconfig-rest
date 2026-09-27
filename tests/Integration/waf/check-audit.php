@@ -29,6 +29,15 @@ foreach ($data['events'] as $event) {
         throw new RuntimeException('Rule context missing');
     }
 }
+$summary = array_filter($data['events'], fn ($event) => $event['rule_id'] === 949110);
+if (! $summary) {
+    throw new RuntimeException('Native summary event missing');
+}
+foreach ($summary as $event) {
+    if ($event['message'] !== 'Inbound anomaly score exceeded (total: 5)') {
+        throw new RuntimeException('Native summary score missing or incorrect');
+    }
+}
 echo 'PASS '.$argv[1]." audit metadata, real interventions, privacy, argument names, cursor\n";
 
 $unsafe = '/tmp/waf-audit-safety';

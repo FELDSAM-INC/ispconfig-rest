@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\WebDomain;
+use App\Support\WebWafAudit;
 use App\Support\WebWafPolicy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -129,7 +130,7 @@ final class WebWafService
         $data = $query->orderByDesc('id')->offset($offset)->limit($limit)->get()->map(function ($row): array {
             return ['id' => (int) $row->id, 'occurred_at' => gmdate('Y-m-d\TH:i:s\Z', $row->occurred_at), 'rule_id' => (int) $row->rule_id,
                 'outcome' => $row->outcome, 'client_ip' => $row->client_ip, 'method' => $row->method, 'path' => $row->path,
-                'parameter' => $row->parameter, 'message' => $row->message, 'severity' => $row->severity, 'source' => $row->source];
+                'parameter' => $row->parameter, 'message' => str_contains($row->message, '[value]') ? WebWafAudit::description((int) $row->rule_id, $row->message) : $row->message, 'severity' => $row->severity, 'source' => $row->source];
         })->all();
 
         return ['data' => $data, 'meta' => ['total' => $total, 'limit' => $limit, 'offset' => $offset]];
