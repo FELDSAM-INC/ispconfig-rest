@@ -8,9 +8,9 @@ $policy = WordPressPolicy::compile('', WordPressPolicy::SERVER);
 file_put_contents('/etc/apache2/conf-enabled/wp-test.conf', "Listen 8088\n<VirtualHost *:8088>\nDocumentRoot /tmp/wp-test\n<Directory /tmp/wp-test>\nRequire all granted\nAllowOverride All\n</Directory>\n".$policy."</VirtualHost>\n");
 mkdir('/tmp/wp-test/wp-content/uploads', 0755, true);
 mkdir('/tmp/wp-test/listing', 0755, true);
-file_put_contents('/tmp/wp-test/.htaccess', "Require all granted\nOptions +Indexes\n");
+file_put_contents('/tmp/wp-test/.htaccess', "Require all granted\nOptions +Indexes\n<If \"true\">\nRequire all granted\nOptions +Indexes\n</If>\n");
 // Try assigning a different handler to an innocent extension in the protected directory.
-file_put_contents('/tmp/wp-test/wp-content/uploads/.htaccess', "SetHandler server-status\n");
+file_put_contents('/tmp/wp-test/wp-content/uploads/.htaccess', "<If \"true\">\nSetHandler server-status\n</If>\n");
 foreach (['index.html', 'xmlrpc.php', 'wp-config.php', 'wp-content/uploads/test.php', 'wp-content/uploads/static.jpg', 'listing/file.txt', 'backup.zip'] as $file) {
     file_put_contents('/tmp/wp-test/'.$file, 'STATIC FIXTURE');
 }

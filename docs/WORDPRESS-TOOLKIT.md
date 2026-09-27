@@ -35,7 +35,8 @@ must-use plugins remain untrusted code inside that sandbox.
 - Server protections require Apache 2.4. nginx installations retain applicable
   WordPress/configuration measures; Apache measures are unavailable with a reason.
   Fixed managed blocks preserve WAF, runtime and other administrator directives.
-  Server rule status remains pending until the generated vhost contains the block.
+  Vhost conditions are applied after per-directory conditions, including hostile
+  `.htaccess` `<If>` overrides. Server rule status remains pending until the generated vhost contains the block.
 - Paths unsafe for Apache syntax can still be inventoried; server measures are
   disabled for those paths. Symlinked installations/configs are rejected.
 - Permissions require PHP-FPM or suexec FastCGI. WordPress files become 0644,

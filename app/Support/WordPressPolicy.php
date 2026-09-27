@@ -64,17 +64,23 @@ final class WordPressPolicy
             $staticFolder = ['includes_php' => 'wp-includes/', 'uploads_php' => 'wp-content/uploads/', 'cache_php' => '(?:wp-content/(?:cache|w3tc-config)|cache)/'][$measure] ?? null;
             if ($staticFolder !== null) {
                 $lines[] = '<LocationMatch "(?i)^'.$prefix.$staticFolder.'">';
-                $lines[] = '  SetHandler default-handler';
-                $lines[] = '  Options -ExecCGI';
+                $lines[] = '  <If "true">';
+                $lines[] = '    SetHandler default-handler';
+                $lines[] = '    Options -ExecCGI';
+                $lines[] = '  </If>';
                 $lines[] = '</LocationMatch>';
             }
             if (isset($patterns[$measure])) {
                 $lines[] = '<LocationMatch "(?i)^'.$prefix.$patterns[$measure].'">';
-                $lines[] = '  Require all denied';
+                $lines[] = '  <If "true">';
+                $lines[] = '    Require all denied';
+                $lines[] = '  </If>';
                 $lines[] = '</LocationMatch>';
             } elseif ($measure === 'indexes') {
                 $lines[] = '<LocationMatch "^'.$prefix.'">';
-                $lines[] = '  Options -Indexes';
+                $lines[] = '  <If "true">';
+                $lines[] = '    Options -Indexes';
+                $lines[] = '  </If>';
                 $lines[] = '</LocationMatch>';
             } else {
                 $lines[] = '<LocationMatch "^'.$prefix.'">';
