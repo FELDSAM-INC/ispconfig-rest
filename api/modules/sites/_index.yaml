@@ -47,3 +47,6 @@ webdav-users:
 
 database-operations:
   $ref: './database-operations.yaml'
+
+web-waf:
+  $ref: './web-waf.yaml'

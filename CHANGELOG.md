@@ -5,6 +5,13 @@ the HTTP API remains under `/api/v1`.
 
 ## Unreleased
 
+- Add website-scoped WAF settings and sanitized security events at
+  `/sites/web-domains/{id}/waf` and `/waf/events`, plus a [server installer](waf-server/README.md)
+  for Apache/nginx ModSecurity and OWASP CRS. Supports detection/enforcing mode,
+  rule/path/argument exceptions, IP allowlists and optional server-local Atomicorp
+  licensing. Requires the new WAF migration and installation on each webserver.
+  Websites opt in; existing traffic is not automatically switched to enforcing.
+
 - Add an optional [file manager worker](file-manager-worker/README.md) for automatic
   jailed SFTP access from the WHMCS FileGator integration. Install on each webserver;
   it provisions root-owned jails and restricted SFTP identities from local ISPConfig

@@ -1,0 +1,23 @@
+type: object
+additionalProperties: false
+properties:
+  expected_revision: {type: string, writeOnly: true, pattern: '^[a-f0-9]{64}$'}
+  enabled: {type: boolean, default: false}
+  mode: {type: string, enum: [detection, enforcing], default: detection}
+  atomic: {type: boolean, default: false, description: Add the server's licensed Atomicorp feed to OWASP CRS.}
+  exclusions:
+    type: array
+    maxItems: 100
+    items:
+      type: object
+      additionalProperties: false
+      required: [rule_id]
+      properties:
+        rule_id: {type: integer, minimum: 1, maximum: 2147483647}
+        path: {type: string, maxLength: 512, description: Exact URL path, without query string; empty applies website-wide.}
+        parameter: {type: string, maxLength: 128, description: Optional exact request argument name; empty excludes the entire rule.}
+  ip_allowlist:
+    type: array
+    maxItems: 100
+    description: IPv4/IPv6 addresses or CIDRs bypassing WAF for this website only. Uses the web server's trusted client address.
+    items: {type: string, maxLength: 49}

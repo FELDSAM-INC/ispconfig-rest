@@ -8,6 +8,7 @@ use App\Services\AliasServicesService;
 use App\Services\SitesConfigService;
 use App\Services\WebLogService;
 use App\Services\WebRuntimeService;
+use App\Services\WebWafService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 /**
@@ -141,6 +142,7 @@ class WebDomain extends BaseModel
      */
     protected $appends = [
         'logs_available',
+        'waf_available',
         'public_document_root',
         'runtime_capabilities',
         'id',
@@ -224,6 +226,11 @@ class WebDomain extends BaseModel
     protected function publicDocumentRoot(): Attribute
     {
         return Attribute::get(fn () => app(WebRuntimeService::class)->publicRoot($this));
+    }
+
+    protected function wafAvailable(): Attribute
+    {
+        return Attribute::get(fn () => app(WebWafService::class)->available($this));
     }
 
     protected function logsAvailable(): Attribute

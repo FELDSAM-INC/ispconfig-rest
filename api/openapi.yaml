@@ -513,6 +513,10 @@ paths:
     $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains'
   /sites/web-domains/{id}:
     $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains~1{id}'
+  /sites/web-domains/{id}/waf:
+    $ref: './modules/sites/web-waf.yaml#/~1sites~1web-domains~1{id}~1waf'
+  /sites/web-domains/{id}/waf/events:
+    $ref: './modules/sites/web-waf.yaml#/~1sites~1web-domains~1{id}~1waf~1events'
   /sites/web-domains/{id}/logs/{kind}:
     $ref: './modules/sites/web-logs.yaml#/~1sites~1web-domains~1{id}~1logs~1{kind}'
   /sites/web-domains/{id}/ssl/status:

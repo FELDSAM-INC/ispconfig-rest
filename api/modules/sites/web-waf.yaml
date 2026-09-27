@@ -1,0 +1,50 @@
+/sites/web-domains/{id}/waf:
+  parameters:
+    - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+  get:
+    tags: [Web Domains]
+    summary: Website WAF settings and server capabilities
+    description: Website read scope. No license keys, raw directives or paths are returned. Private/no-store.
+    responses:
+      '200': {description: WAF settings, content: {application/json: {schema: {$ref: '../../components/schemas/WebWaf.yaml'}}}}
+      '401': {$ref: '../../components/responses/Unauthorized.yaml'}
+      '404': {$ref: '../../components/responses/NotFound.yaml'}
+  put:
+    tags: [Web Domains]
+    summary: Change website WAF settings
+    description: |
+      Partial update requiring website update permission and an unlocked account.
+      Arrays replace their previous values. Compiles a restricted configuration
+      into native vhost directives through ISPConfig datalog. Successful writes
+      confirm desired settings; ISPConfig validates and applies asynchronously.
+      Exclusions and IP allowlists apply only to this website. OWASP CRS remains
+      the base ruleset; Atomicorp can be selected only on a configured server.
+    requestBody:
+      required: true
+      content: {application/json: {schema: {$ref: '../../components/schemas/WebWafSettings.yaml'}}}
+    responses:
+      '200': {description: Updated desired settings, headers: {X-Change-Set-Id: {$ref: '../../components/headers/ChangeSetId.yaml'}}, content: {application/json: {schema: {$ref: '../../components/schemas/WebWaf.yaml'}}}}
+      '401': {$ref: '../../components/responses/Unauthorized.yaml'}
+      '403': {$ref: '../../components/responses/Forbidden.yaml'}
+      '404': {$ref: '../../components/responses/NotFound.yaml'}
+      '409': {$ref: '../../components/responses/Conflict.yaml'}
+      '422': {$ref: '../../components/responses/UnprocessableEntity.yaml'}
+/sites/web-domains/{id}/waf/events:
+  get:
+    tags: [Web Domains]
+    summary: Read sanitized WAF detections and interventions for a website
+    description: |
+      Newest events first; private/no-store. Exact website/server/owner identity
+      is checked. Request/response bodies, headers, query strings and matched
+      values are never returned. The worker retains a bounded recent history.
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+      - {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
+      - {name: outcome, in: query, schema: {type: string, enum: [blocked, detected]}}
+      - {name: rule_id, in: query, schema: {type: integer, minimum: 1, maximum: 2147483647}}
+    responses:
+      '200': {description: Event page, content: {application/json: {schema: {$ref: '../../components/schemas/WebWafEvents.yaml'}}}}
+      '401': {$ref: '../../components/responses/Unauthorized.yaml'}
+      '404': {$ref: '../../components/responses/NotFound.yaml'}
+      '422': {$ref: '../../components/responses/UnprocessableEntity.yaml'}

@@ -1,0 +1,26 @@
+type: object
+required: [data, meta]
+properties:
+  data:
+    type: array
+    items:
+      type: object
+      required: [id, occurred_at, rule_id, outcome, path, message]
+      properties:
+        id: {type: integer}
+        occurred_at: {type: string, format: date-time}
+        rule_id: {type: integer}
+        outcome: {type: string, enum: [blocked, detected]}
+        client_ip: {type: string}
+        method: {type: string}
+        path: {type: string, description: URL path only. No query string or body.}
+        parameter: {type: string, description: Argument name only, never its value.}
+        message: {type: string, maxLength: 512}
+        severity: {type: string, maxLength: 32}
+        source: {type: string, enum: [owasp, atomic, other]}
+  meta:
+    type: object
+    properties:
+      total: {type: integer}
+      limit: {type: integer}
+      offset: {type: integer}

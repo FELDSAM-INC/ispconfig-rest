@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\WebDomainSslController;
 use App\Http\Controllers\Api\V1\WebFolderController;
 use App\Http\Controllers\Api\V1\WebFolderUserController;
 use App\Http\Controllers\Api\V1\WebLogController;
+use App\Http\Controllers\Api\V1\WebWafController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -59,6 +60,11 @@ Route::post('sites/web-domains/{webDomain}/ssl/renew', [WebDomainSslController::
 Route::get('sites/web-domains/{webDomain}/ssl', [WebDomainSslController::class, 'show'])->whereNumber('webDomain');
 Route::post('sites/web-domains/{webDomain}/ssl', [WebDomainSslController::class, 'store'])->whereNumber('webDomain');
 Route::delete('sites/web-domains/{webDomain}/ssl', [WebDomainSslController::class, 'destroy'])->whereNumber('webDomain');
+
+// Website WAF — authenticated, scoped subresources.
+Route::get('sites/web-domains/{webDomain}/waf/events', [WebWafController::class, 'index'])->whereNumber('webDomain');
+Route::get('sites/web-domains/{webDomain}/waf', [WebWafController::class, 'show'])->whereNumber('webDomain');
+Route::put('sites/web-domains/{webDomain}/waf', [WebWafController::class, 'update'])->whereNumber('webDomain');
 
 // Web Domains — api/modules/sites/web-domains.yaml
 Route::get('sites/web-domains', [WebDomainController::class, 'index']);

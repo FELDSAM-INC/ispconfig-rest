@@ -29,6 +29,7 @@ description: |
 required:
   - domain
 properties:
+  waf_available: {type: boolean, readOnly: true, description: WAF server tool is installed and reporting a current heartbeat.}
   public_document_root:
     type: string
     nullable: true

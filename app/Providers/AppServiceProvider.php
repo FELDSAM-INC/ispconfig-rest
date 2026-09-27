@@ -6,6 +6,7 @@ use App\Services\AliasServicesService;
 use App\Services\DatabaseOperationService;
 use App\Services\DatalogService;
 use App\Services\WebLogService;
+use App\Services\WebWafService;
 use App\Support\IspContext;
 use App\Support\ProblemTypeCollector;
 use Illuminate\Support\ServiceProvider;
@@ -20,6 +21,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(AliasServicesService::class);
         $this->app->scoped(DatabaseOperationService::class);
         $this->app->scoped(WebLogService::class);
+        $this->app->scoped(WebWafService::class);
+        $this->app->rebinding('request', fn ($app) => $app->forgetInstance(WebWafService::class));
         $this->app->rebinding('request', fn ($app) => $app->forgetInstance(WebLogService::class));
         $this->app->rebinding('request', fn ($app) => $app->forgetInstance(AliasServicesService::class));
 

@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+[[ $(id -u) = 0 ]] || { echo 'Run as root.' >&2; exit 1; }
+case "${1:-status}" in
+    atomic-key)
+        read -r -s -p 'Atomicorp server API key: ' waf_license_key </dev/tty
+        printf '\n' >/dev/tty
+        printf '%s\n' "$waf_license_key" | php /usr/local/lib/ispconfig-rest-waf/configure.php atomic-key
+        unset waf_license_key
+        ;;
+    status|atomic-disable|refresh)
+        php /usr/local/lib/ispconfig-rest-waf/configure.php "${1:-status}"
+        ;;
+    *) echo 'Usage: ispconfig-waf status|atomic-key|atomic-disable|refresh' >&2; exit 1;;
+esac

@@ -71,6 +71,7 @@ class WebDomainService
         }
 
         $domain->fill($payload);
+        app(WebWafService::class)->refreshIdentity($domain);
         $record = $domain->getAttributes();
 
         $isChildVhost = in_array($record['type'], ['vhostsubdomain', 'vhostalias'], true);
@@ -262,6 +263,7 @@ class WebDomainService
         }
 
         $domain->fill($payload);
+        app(WebWafService::class)->refreshIdentity($domain);
         $record = $domain->getAttributes();
 
         // Unique key check when domain/ip changed (contract: 409).

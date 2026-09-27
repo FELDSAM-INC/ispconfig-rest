@@ -1,0 +1,10 @@
+type: object
+required: [available, atomic_available, settings]
+properties:
+  revision: {type: string, pattern: '^[a-f0-9]{64}$', description: Pass as expected_revision to prevent concurrent configuration replacement.}
+  available: {type: boolean}
+  atomic_available: {type: boolean}
+  engine: {type: string, nullable: true, enum: [apache, nginx]}
+  rules_version: {type: string, nullable: true}
+  settings: {$ref: './WebWafSettings.yaml'}
+  configured: {type: boolean, description: A managed configuration exists in ISPConfig; application follows the normal asynchronous datalog process.}
