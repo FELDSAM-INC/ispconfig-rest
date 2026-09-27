@@ -5,6 +5,12 @@ the HTTP API remains under `/api/v1`.
 
 ## Unreleased
 
+- Add `ispconfig-rest server-tools install|update|status` to discover ISPConfig
+  servers and deploy the database, web-log/runtime and file-manager workers plus
+  WAF through verified, passwordless SSH. Supports dry runs, server/component
+  selection, restricted table grants, trusted release staging and preserved
+  server configuration. See the [CLI guide](server-tools/README.md).
+
 - Show validated numeric anomaly scores in WAF summary events instead of `[value]`
   placeholders. Unknown formats and historical summary entries use concise text;
   request values remain excluded from event descriptions.

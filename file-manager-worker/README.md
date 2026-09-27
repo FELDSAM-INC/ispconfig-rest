@@ -1,5 +1,9 @@
 # File manager worker
 
+The [server tools CLI](../server-tools/README.md) can discover webservers and install
+or update this worker over SSH. Select `--components file-manager`; first-time
+installation also requires `--file-manager-key` (the WHMCS public key) and `--whmcs-ip`.
+
 Optional server component for the WHMCS file manager. Install it on
 **each ISPConfig webserver** whose websites should offer file management, even
 when the REST API runs only on the master. Like the database worker, the installed

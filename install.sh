@@ -534,6 +534,7 @@ PHP_BIN="$(command -v "$PHP_BIN")"
 EOF
 chmod 600 "$STATE_DIR/install.conf"
 install -m 0755 "$INSTALL_DIR/bin/ispconfig-rest" "$MANAGER_PATH"
+"$MANAGER_PATH" server-tools:manager-install
 ok "Installed $MANAGER_PATH"
 "$MANAGER_PATH" schedule:install
 

@@ -13,6 +13,8 @@
 #   ispconfig-rest key:list [--client-id N]     list API keys (never shows secrets)
 #   ispconfig-rest key:revoke ID                  revoke (deactivate) an API key
 #   ispconfig-rest firewall:allow PORT [--proto tcp]  open a port in the ISPConfig firewall
+#   ispconfig-rest server-tools install|update|status [OPTIONS]  workers + WAF on ISPConfig servers
+#   ispconfig-rest server-tools install --help      SSH, server selection and component options
 #   ispconfig-rest artisan ...            run an artisan command as the run user
 #   ispconfig-rest version                installed version + commit
 #   ispconfig-rest uninstall              remove service + manager (keeps DB data)
@@ -36,6 +38,38 @@ die(){  printf '%s\n' "${C_R}✗${C_RESET} $*" >&2; exit 1; }
 
 need_root(){ [ "$(id -u)" = "0" ] || die "This command must run as root (use sudo)."; }
 run_as(){ sudo -u "$RUN_USER" env -C "$INSTALL_DIR" "$@"; }
+
+cmd_server_tools() {
+  need_root
+  command -v python3 >/dev/null || die "Install Python 3.8+ on this REST host first."
+  local helper=/usr/local/lib/ispconfig-rest-cli/manage.py
+  # Older manager versions refresh only this script during update. Bootstrap
+  # the new helpers from the same published commit without running API code as root.
+  { [ -f "$helper" ] && [ -f /usr/local/lib/ispconfig-rest-cli/remote.php ]; } || install_server_tools_manager
+  shift
+  ISPCP_TOOLS_INSTALL_DIR="$INSTALL_DIR" ISPCP_TOOLS_RUN_USER="$RUN_USER" ISPCP_TOOLS_PHP="$PHP_BIN" ISPCP_TOOLS_BRANCH="${BRANCH:-main}" \
+    python3 "$helper" "$@"
+}
+
+install_server_tools_manager() {
+  local revision stage
+  revision="$(run_as git rev-parse HEAD)"
+  [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || die "Cannot determine installed release."
+  stage="$(mktemp -d /root/ispconfig-rest-cli.XXXXXXXX)"
+  if ! (
+    trap 'rm -rf -- "$stage"' EXIT
+    git init --bare "$stage/repository" >/dev/null 2>&1 || exit 1
+    git -c core.hooksPath=/dev/null -c protocol.file.allow=never -C "$stage/repository" fetch --no-tags https://github.com/FELDSAM-INC/ispconfig-rest.git "${BRANCH:-main}" || exit 1
+    # The checkout's revision is untrusted input. It must belong to the branch
+    # selected in root-owned install.conf, not merely an arbitrary public object.
+    git -C "$stage/repository" merge-base --is-ancestor "$revision" FETCH_HEAD || exit 1
+    for file in manage.py remote.php; do
+      git -C "$stage/repository" show "$revision:server-tools/$file" > "$stage/$file" || exit 1
+    done
+    install -d -o root -g root -m 0755 /usr/local/lib/ispconfig-rest-cli || exit 1
+    install -o root -g root -m 0644 "$stage/manage.py" "$stage/remote.php" /usr/local/lib/ispconfig-rest-cli/ || exit 1
+  ); then die "Could not install trusted server-tools helpers for $revision."; fi
+}
 
 # API timezone alignment (spec 017 FR-015): ISPConfig writes traffic dates in
 # the server's local time, so APP_TIMEZONE follows the system timezone unless
@@ -160,6 +194,7 @@ cmd_update() {
   run_as "$PHP_BIN" artisan route:cache  >/dev/null 2>&1 || true
   # refresh the manager itself if it changed
   if [ -f "$INSTALL_DIR/bin/ispconfig-rest" ]; then install -m 0755 "$INSTALL_DIR/bin/ispconfig-rest" /usr/local/bin/ispconfig-rest; fi
+  install_server_tools_manager
 
   cmd_schedule_install
   reload_server
@@ -207,6 +242,7 @@ cmd_uninstall() {
     ok "Removed php-fpm pool"
   fi
   rm -f /usr/local/bin/ispconfig-rest
+  rm -f /usr/local/lib/ispconfig-rest-cli/manage.py /usr/local/lib/ispconfig-rest-cli/remote.php
   ok "Removed manager. Left in place: $INSTALL_DIR, $STATE_FILE, and the API-owned"
   ok "DB tables (api_keys, migrations)."
   echo "  To fully remove:  rm -rf $INSTALL_DIR /etc/ispconfig-rest"
@@ -225,6 +261,12 @@ case "${1:-}" in
   key:list)      cmd_key_list "$@";;
   key:revoke)    cmd_key_revoke "$@";;
   firewall:allow) cmd_firewall_allow "$@";;
+  server-tools)  cmd_server_tools "$@";;
+  server-tools:manager-install) need_root; install_server_tools_manager;;
+  workers:install|workers:update|waf:install|waf:update)
+    tool_action="${1#*:}"; tool_group="${1%%:*}"; shift
+    if [ "$tool_group" = waf ]; then tool_components=waf; else tool_components=database,web-logs,file-manager; fi
+    cmd_server_tools server-tools "$tool_action" --components "$tool_components" "$@";;
   artisan)       cmd_artisan "$@";;
   uninstall)     cmd_uninstall;;
   ""|help|-h|--help)

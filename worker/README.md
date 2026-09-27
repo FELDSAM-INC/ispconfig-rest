@@ -1,5 +1,9 @@
 # Database operations worker
 
+For automatic installation/upgrades from the REST host, use
+`sudo ispconfig-rest server-tools install --components database`.
+See the [server tools CLI guide](../server-tools/README.md) for SSH setup and dry runs.
+
 Optional component for import, export and copy. Install on **each database server**
 whose databases should offer the operations. Requires 64-bit PHP 8.3 CLI (pdo_mysql,
 posix), MySQL 8 / MariaDB 10.4+, native mysql/mysqldump clients and util-linux

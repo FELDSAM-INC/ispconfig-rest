@@ -6,6 +6,16 @@ on:
   pull_request:
 
 jobs:
+  server-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check server tools CLI
+        run: |
+          python3 -m unittest discover -s tests/Integration/server-tools -p 'test_*.py'
+          bash -n bin/ispconfig-rest install.sh
+          sh -n worker/install.sh
+
   phpunit:
     runs-on: ubuntu-latest
     strategy:

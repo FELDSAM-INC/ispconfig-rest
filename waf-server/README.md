@@ -1,5 +1,9 @@
 # Per-website ModSecurity WAF
 
+For automatic installation/upgrades from the REST host, use
+`sudo ispconfig-rest server-tools install --components waf`.
+See the [server tools CLI guide](../server-tools/README.md) for SSH setup and dry runs.
+
 Install this optional tool on **each ISPConfig webserver**, including slave servers. The REST API can remain on the master. Debian/Ubuntu distribution packages supply ModSecurity and OWASP CRS; Apache uses ModSecurity 2, nginx uses libmodsecurity 3 and the ABI-matched distribution connector. A custom nginx build needs a matching connector and is not automatically supported by this installer. PHP CLI 8.3+, pdo_mysql and mbstring are required.
 
 ## Install

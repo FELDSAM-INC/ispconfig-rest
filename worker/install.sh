@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+[ "$#" = 0 ] || { [ "$#" = 1 ] && [ "$1" = --no-run ]; } || { echo 'Usage: install.sh [--no-run]' >&2; exit 1; }
 [ "$(id -u)" = 0 ] || { echo 'Run as root.' >&2; exit 1; }
 [ -f /usr/local/ispconfig/server/lib/mysql_clientdb.conf ] || { echo 'ISPConfig database credentials are missing.' >&2; exit 1; }
 for program in php mysql mysqldump setpriv; do command -v "$program" >/dev/null; done
@@ -28,4 +29,6 @@ cat > /etc/logrotate.d/ispconfig-rest-database-worker <<'ROTATE'
     create 0600 root root
 }
 ROTATE
-php /usr/local/lib/ispconfig-rest-database-worker/run.php
+if [ "${1:-}" != --no-run ]; then
+    php /usr/local/lib/ispconfig-rest-database-worker/run.php
+fi

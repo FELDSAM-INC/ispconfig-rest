@@ -21,6 +21,12 @@ Optional components run on the servers that own the data:
 - [Database worker](worker/README.md) for database import, export and copy.
 - [Web log worker](web-log-worker/README.md) for remote website logs and runtime settings.
 - [File manager worker](file-manager-worker/README.md) for jailed SFTP accounts used by the WHMCS file manager.
+- [WAF installer](waf-server/README.md) for Apache/nginx ModSecurity and OWASP CRS.
+
+Install or update these from the REST host with
+`sudo ispconfig-rest server-tools install` / `server-tools update`.
+The [server tools CLI guide](server-tools/README.md) covers automatic ISPConfig
+server discovery, SSH key setup, component selection and the file-manager public key.
 
 ## Install on an ISPConfig server (recommended)
 

@@ -1,5 +1,9 @@
 # Per-website access and error log reader
 
+For automatic installation/upgrades from the REST host, use
+`sudo ispconfig-rest server-tools install --components web-logs`.
+See the [server tools CLI guide](../server-tools/README.md) for SSH setup and dry runs.
+
 Run API migrations first (`ispconfig-rest update`). For a single-server API whose
 runtime already reads the site's logs, set `WEB_LOG_SERVER_ID` in the API `.env`
 to that machine's ISPConfig server ID and rebuild its config cache. This enables
