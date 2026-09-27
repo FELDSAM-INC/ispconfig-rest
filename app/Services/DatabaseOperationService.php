@@ -57,7 +57,10 @@ class DatabaseOperationService
             DB::table('api_database_workers')->where('server_id', $source->server_id)->lockForUpdate()->first();
             $busy = DB::table('api_database_operations')->whereIn('status', ['uploading', 'queued', 'running'])
                 ->where(fn ($q) => $q->where('database_id', $source->getKey())->orWhere('target_database_id', $source->getKey()))->exists();
-            abort_if($busy, 409, 'A database operation is already pending.');
+            $wordpressBusy = Schema::hasTable('api_wordpress_jobs') && DB::table('api_wordpress_jobs as wp')
+                ->join('api_database_operations as backup', 'backup.id', '=', 'wp.backup_id')
+                ->where('backup.database_id', $source->getKey())->whereIn('wp.status', ['queued', 'running', 'recovery_required'])->exists();
+            abort_if($busy || $wordpressBusy, 409, 'A database or WordPress operation is already pending.');
             $target = null;
             if ($input['action'] === 'copy') {
                 $payload = array_intersect_key($source->toArray(), array_flip([

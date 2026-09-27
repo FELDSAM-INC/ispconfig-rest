@@ -20,7 +20,11 @@ final class ServerToolsRemote
         'waf' => [
             'web_domain' => 'SELECT', 'api_web_waf_workers' => 'SELECT,INSERT,UPDATE', 'api_web_waf_events' => 'SELECT,INSERT,DELETE',
         ],
-        'file-manager' => [],
+        'file-manager' => [
+            'web_domain' => 'SELECT', 'server' => 'SELECT', 'server_php' => 'SELECT', 'sys_group' => 'SELECT', 'client' => 'SELECT', 'web_database' => 'SELECT',
+            'api_database_workers' => 'SELECT', 'api_database_operations' => 'SELECT',
+            'api_wordpress_workers' => 'SELECT,INSERT,UPDATE', 'api_wordpress_sites' => 'SELECT,INSERT,UPDATE', 'api_wordpress_jobs' => 'SELECT,INSERT,UPDATE,DELETE',
+        ],
     ];
 
     public static function config(): array

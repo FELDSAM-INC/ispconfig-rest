@@ -42,6 +42,7 @@ if ! /usr/sbin/sshd -t; then
 fi
 rm -f "$backup"
 rm -f "$previous_include"
+sh "$worker_source/wordpress-install.sh"
 # A normal ISPConfig installation already declares the SFTP subsystem.
 /usr/sbin/sshd -T | grep -q '^subsystem sftp ' || { echo 'The SFTP subsystem is missing.' >&2; exit 1; }
 systemctl reload ssh.service
