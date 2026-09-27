@@ -131,6 +131,19 @@ class WordPressWorkerTest(unittest.TestCase):
             response.read.return_value = json.dumps(expected).encode()
             toolkit.http_verify_once('http://example.test', 'probe.php', 'nonce', expected)
 
+    def test_permission_hardening_preserves_native_statistics_permissions(self):
+        with tempfile.TemporaryDirectory() as temp:
+            toolkit = tools.Toolkit({'path': '', 'php': []})
+            toolkit.root = Path(temp)
+            toolkit.config = Path(temp, 'wp-config.php');toolkit.config.write_text('<?php')
+            toolkit.config.chmod(0o644)
+            stats = Path(temp, 'stats');stats.mkdir()
+            protected = stats / '.htaccess';protected.write_text('native');protected.chmod(0o640)
+            toolkit.permissions(apply=True)
+            self.assertTrue(toolkit.permissions())
+            self.assertEqual(0o640, protected.stat().st_mode & 0o777)
+            self.assertEqual(0o600, toolkit.config.stat().st_mode & 0o777)
+
     def test_terminal_recovery_is_not_applied_a_second_time(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(sandbox, 'STATE', Path(temp)), patch.object(sandbox, 'account', return_value=(os.geteuid(), os.getegid())), patch.object(sandbox, 'identity', return_value='site'):
             recovery = Path(temp, 'test.recovery');recovery.mkdir(mode=0o700)

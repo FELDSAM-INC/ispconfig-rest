@@ -40,7 +40,7 @@ must-use plugins remain untrusted code inside that sandbox.
 - Paths unsafe for Apache syntax can still be inventoried; server measures are
   disabled for those paths. Symlinked installations/configs are rejected.
 - Permissions require PHP-FPM or suexec FastCGI. WordPress files become 0644,
-  directories 0755 and wp-config.php 0600. ISPConfig's protected statistics launcher
+  directories 0755 and wp-config.php 0600. ISPConfig's reserved statistics directory
   is excluded. Symlinks, hardlinks and other foreign-owned files prevent this action.
 - Prefix/admin changes require a dedicated, local, customer-owned MySQL database,
   a live database export worker, a healthy local HTTP response and explicit consent.
@@ -80,7 +80,7 @@ minutes even if the process is killed. A later re-check with the fault removed
 successfully applied all eight local/hosting security measures.
 
 Regression results: REST 1,542 tests / 12,025 assertions (one existing skip),
-worker Python 12 tests, server-tools Python 17 tests; real Apache nine HTTP
+worker Python 13 tests, server-tools Python 17 tests; real Apache nine HTTP
 assertions including encoded queries and `.htaccess` overrides. Module 3,489
 PHP tests / 103,465 assertions (four existing skips); browser renders for default
 and Lagom2 at 1440, 960 and 390px, with `vars/minified.css` loaded.

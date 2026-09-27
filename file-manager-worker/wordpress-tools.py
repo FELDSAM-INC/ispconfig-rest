@@ -235,6 +235,10 @@ class Toolkit:
         count = 0
         correct = True
         for base, directories, files, directory_fd in os.fwalk(self.root, follow_symlinks=False):
+            # ISPConfig regenerates this reserved directory and its 0640 access file.
+            # Its permissions are not WordPress permissions and must remain native.
+            if self.path == '' and pathlib.Path(base) == self.root:
+                directories[:] = [name for name in directories if name != 'stats']
             current = os.fstat(directory_fd)
             if current.st_uid != os.geteuid():
                 raise Failure('unsafe_wordpress_files')
@@ -249,9 +253,6 @@ class Toolkit:
                 info = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
                 if stat.S_ISLNK(info.st_mode):
                     raise Failure('symlinked_files')
-                # ISPConfig's protected statistics launcher is not a WordPress file.
-                if self.path == '' and pathlib.Path(base, name) == self.root / 'stats/index.php' and info.st_uid != os.geteuid() and stat.S_ISREG(info.st_mode):
-                    continue
                 is_dir = stat.S_ISDIR(info.st_mode)
                 if (not is_dir and not stat.S_ISREG(info.st_mode)) or (not is_dir and info.st_nlink != 1) or info.st_uid != os.geteuid():
                     raise Failure('unsafe_wordpress_files')
