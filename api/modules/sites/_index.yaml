@@ -50,3 +50,7 @@ database-operations:
 
 web-waf:
   $ref: './web-waf.yaml'
+
+# WordPress Toolkit Lite
+wordpress:
+  $ref: './wordpress.yaml'

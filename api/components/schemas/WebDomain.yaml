@@ -29,6 +29,12 @@ description: |
 required:
   - domain
 properties:
+  wordpress:
+    type: object
+    readOnly: true
+    properties:
+      available: {type: boolean}
+      count: {type: integer, minimum: 0}
   waf_available: {type: boolean, readOnly: true, description: WAF server tool is installed and reporting a current heartbeat.}
   public_document_root:
     type: string

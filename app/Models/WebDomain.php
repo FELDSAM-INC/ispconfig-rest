@@ -9,6 +9,7 @@ use App\Services\SitesConfigService;
 use App\Services\WebLogService;
 use App\Services\WebRuntimeService;
 use App\Services\WebWafService;
+use App\Services\WordPressService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 /**
@@ -143,6 +144,7 @@ class WebDomain extends BaseModel
     protected $appends = [
         'logs_available',
         'waf_available',
+        'wordpress',
         'public_document_root',
         'runtime_capabilities',
         'id',
@@ -226,6 +228,11 @@ class WebDomain extends BaseModel
     protected function publicDocumentRoot(): Attribute
     {
         return Attribute::get(fn () => app(WebRuntimeService::class)->publicRoot($this));
+    }
+
+    protected function wordpress(): Attribute
+    {
+        return Attribute::get(fn () => app(WordPressService::class)->summary($this));
     }
 
     protected function wafAvailable(): Attribute

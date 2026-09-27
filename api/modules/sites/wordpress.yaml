@@ -1,0 +1,69 @@
+/sites/web-domains/{id}/wordpress:
+  parameters:
+    - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+  get:
+    tags: [Web Domains]
+    summary: Cached WordPress installations and security results for this vhost
+    description: |
+      Requires website read permission. Results are bound to website, server, owner
+      and document root. No database credentials, configuration contents or salts
+      are returned. Worker availability is explicit; nginx does not offer Apache
+      measures. Native configuration changes are asynchronous, and are reported
+      pending until the worker observes the regenerated vhost.
+    responses:
+      '200': {description: Installations, worker capability and current job, content: {application/json: {schema: {$ref: '../../components/schemas/WordPress.yaml'}}}}
+      '401': {$ref: '../../components/responses/Unauthorized.yaml'}
+      '404': {$ref: '../../components/responses/NotFound.yaml'}
+/sites/web-domains/{id}/wordpress/jobs:
+  post:
+    tags: [Web Domains]
+    summary: Scan WordPress or check, secure and revert selected security measures
+    description: |
+      Website update permission and an unlocked account are required. Work runs
+      as the website user in the file-manager worker's command sandbox. Only one
+      active job per vhost is accepted. Paths and commands cannot be supplied.
+      Irreversible measures require explicit confirmation. Prefix and admin login
+      changes also require a completed existing database export, site verification
+      and automatic rollback on failure. Unsupported database layouts are rejected
+      before mutation. Server protections use managed native Apache directives,
+      never .htaccess. Jobs and cached installations are invalidated on transfer
+      or a change of site identity. Responses are private/no-store.
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [action]
+            properties:
+              action: {type: string, enum: [rescan, check, secure, revert]}
+              installation: {type: string, pattern: '^[a-f0-9]{32}$'}
+              measures:
+                type: array
+                maxItems: 19
+                uniqueItems: true
+                items: {type: string, enum: [xmlrpc, config, htfiles, sensitive, potential, indexes, includes_php, uploads_php, cache_php, author, bots, file_editor, concatenate, salts, pingbacks, permissions, languages, prefix, admin_login]}
+              confirmed: {type: boolean, default: false}
+              backup: {type: boolean, default: false}
+              admin_login: {type: string, pattern: '^[A-Za-z][A-Za-z0-9_.-]{2,59}$'}
+    responses:
+      '201': {description: Queued job, content: {application/json: {schema: {$ref: '../../components/schemas/WordPressJob.yaml'}}}}
+      '401': {$ref: '../../components/responses/Unauthorized.yaml'}
+      '403': {$ref: '../../components/responses/Forbidden.yaml'}
+      '404': {$ref: '../../components/responses/NotFound.yaml'}
+      '409': {$ref: '../../components/responses/Conflict.yaml'}
+      '422': {$ref: '../../components/responses/UnprocessableEntity.yaml'}
+/sites/web-domains/{id}/wordpress/jobs/{job}:
+  get:
+    tags: [Web Domains]
+    summary: Read a website-scoped WordPress job
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      - {name: job, in: path, required: true, schema: {type: string, format: uuid}}
+    responses:
+      '200': {description: Job status, content: {application/json: {schema: {$ref: '../../components/schemas/WordPressJob.yaml'}}}}
+      '401': {$ref: '../../components/responses/Unauthorized.yaml'}
+      '404': {$ref: '../../components/responses/NotFound.yaml'}

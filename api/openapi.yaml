@@ -513,6 +513,12 @@ paths:
     $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains'
   /sites/web-domains/{id}:
     $ref: './modules/sites/web-domains.yaml#/~1sites~1web-domains~1{id}'
+  /sites/web-domains/{id}/wordpress:
+    $ref: './modules/sites/wordpress.yaml#/~1sites~1web-domains~1{id}~1wordpress'
+  /sites/web-domains/{id}/wordpress/jobs:
+    $ref: './modules/sites/wordpress.yaml#/~1sites~1web-domains~1{id}~1wordpress~1jobs'
+  /sites/web-domains/{id}/wordpress/jobs/{job}:
+    $ref: './modules/sites/wordpress.yaml#/~1sites~1web-domains~1{id}~1wordpress~1jobs~1{job}'
   /sites/web-domains/{id}/waf:
     $ref: './modules/sites/web-waf.yaml#/~1sites~1web-domains~1{id}~1waf'
   /sites/web-domains/{id}/waf/events:

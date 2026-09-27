@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\WebFolderController;
 use App\Http\Controllers\Api\V1\WebFolderUserController;
 use App\Http\Controllers\Api\V1\WebLogController;
 use App\Http\Controllers\Api\V1\WebWafController;
+use App\Http\Controllers\Api\V1\WordPressController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -62,6 +63,9 @@ Route::post('sites/web-domains/{webDomain}/ssl', [WebDomainSslController::class,
 Route::delete('sites/web-domains/{webDomain}/ssl', [WebDomainSslController::class, 'destroy'])->whereNumber('webDomain');
 
 // Website WAF — authenticated, scoped subresources.
+Route::get('sites/web-domains/{webDomain}/wordpress', [WordPressController::class, 'show'])->whereNumber('webDomain');
+Route::post('sites/web-domains/{webDomain}/wordpress/jobs', [WordPressController::class, 'store'])->whereNumber('webDomain');
+Route::get('sites/web-domains/{webDomain}/wordpress/jobs/{job}', [WordPressController::class, 'job'])->whereNumber('webDomain')->whereUuid('job');
 Route::get('sites/web-domains/{webDomain}/waf/events', [WebWafController::class, 'index'])->whereNumber('webDomain');
 Route::get('sites/web-domains/{webDomain}/waf', [WebWafController::class, 'show'])->whereNumber('webDomain');
 Route::put('sites/web-domains/{webDomain}/waf', [WebWafController::class, 'update'])->whereNumber('webDomain');

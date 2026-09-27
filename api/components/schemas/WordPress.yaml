@@ -1,0 +1,32 @@
+type: object
+required: [available, installations, measures]
+properties:
+  available: {type: boolean}
+  reason: {type: [string, 'null']}
+  scanned_at: {type: [string, 'null'], format: date-time}
+  scan_incomplete: {type: boolean}
+  installations:
+    type: array
+    items:
+      type: object
+      required: [id, path, url, version, title]
+      properties:
+        id: {type: string}
+        path: {type: string}
+        url: {type: string}
+        version: {type: string}
+        title: {type: string}
+        admin_url: {type: string}
+        checked_at: {type: [string, 'null'], format: date-time}
+        security: {type: object, additionalProperties: {type: object}}
+  measures:
+    type: array
+    items:
+      type: object
+      required: [id, reversible, available]
+      properties:
+        id: {type: string}
+        reversible: {type: boolean}
+        available: {type: boolean}
+        reason: {type: [string, 'null']}
+  job: {$ref: 'WordPressJob.yaml'}
