@@ -39,7 +39,7 @@ final class WordPressService
     public function summary(WebDomain $site): array
     {
         $worker = $this->worker($site);
-        $snapshot = $worker ? $this->snapshot($site) : null;
+        $snapshot = Schema::hasTable('api_wordpress_sites') ? $this->snapshot($site) : null;
 
         return ['available' => (bool) ($worker->available ?? false), 'count' => count(json_decode($snapshot->installations ?? '[]', true) ?: [])];
     }
@@ -72,6 +72,7 @@ final class WordPressService
             DB::table('api_wordpress_workers')->where('server_id', $site->server_id)->lockForUpdate()->first();
             $site = WebDomain::query()->readable()->whereKey($site->getKey())->lockForUpdate()->firstOrFail();
             abort_unless(app(IspContext::class)->authScope()->allows($site->getAttributes(), 'u'), 403);
+            abort_unless($site->active && in_array($site->type, ['vhost', 'vhostsubdomain', 'vhostalias'], true), 409, 'WordPress requires an active vhost.');
             app(LockedClientGuard::class)->checkBackupWrite($site);
             abort_if(DB::table('api_wordpress_jobs')->where('website_id', $site->getKey())->whereIn('status', ['queued', 'running', 'recovery_required'])->exists(), 409, 'A WordPress operation is pending or needs recovery.');
             $installation = null;
@@ -145,9 +146,45 @@ final class WordPressService
         return $this->present($job);
     }
 
+    public function guardSite(int $siteId): void
+    {
+        $busy = Schema::hasTable('api_wordpress_jobs') && DB::table('api_wordpress_jobs')->where('website_id', $siteId)
+            ->whereIn('status', ['queued', 'running', 'recovery_required'])->exists();
+        abort_if($busy, 409, 'A WordPress operation is pending or needs recovery.');
+    }
+
+    public function guardDatabaseUser(int $userId): void
+    {
+        $this->lockWorkers(DB::table('web_database')->where('database_user_id', $userId)->pluck('server_id')->all());
+        foreach (DB::table('web_database')->where('database_user_id', $userId)->pluck('database_id') as $id) {
+            $this->guardDatabase((int) $id);
+        }
+    }
+
+    public function guardDatabase(int $databaseId): void
+    {
+        $this->lockWorkers([(int) DB::table('web_database')->where('database_id', $databaseId)->value('server_id')]);
+        $busy = Schema::hasTable('api_wordpress_jobs') && DB::table('api_wordpress_jobs as wp')
+            ->join('api_database_operations as backup', 'backup.id', '=', 'wp.backup_id')
+            ->where('backup.database_id', $databaseId)->whereIn('wp.status', ['queued', 'running', 'recovery_required'])->exists();
+        abort_if($busy, 409, 'A WordPress operation is pending or needs recovery.');
+    }
+
+    private function lockWorkers(array $servers): void
+    {
+        if (DB::transactionLevel() > 0 && Schema::hasTable('api_wordpress_workers')) {
+            DB::table('api_wordpress_workers')->whereIn('server_id', $servers)->orderBy('server_id')->lockForUpdate()->get();
+        }
+    }
+
     public function present(object $row): array
     {
-        return ['id' => $row->id, 'action' => $row->action, 'status' => $row->status, 'created_at' => gmdate('c', $row->created_at),
+        $backupDatabase = $row->backup_id ? DB::table('api_database_operations')->where('id', $row->backup_id)->where('expires_at', '>', time())->value('database_id') : null;
+        if ($backupDatabase && ! WebDatabase::query()->readable()->whereKey($backupDatabase)->exists()) {
+            $backupDatabase = null;
+        }
+
+        return ['backup_database_id' => $backupDatabase ? (int) $backupDatabase : null, 'id' => $row->id, 'action' => $row->action, 'status' => $row->status, 'created_at' => gmdate('c', $row->created_at),
             'finished_at' => $row->finished_at ? gmdate('c', $row->finished_at) : null, 'error' => $row->error, 'backup_id' => $row->backup_id];
     }
 }

@@ -11,6 +11,7 @@ use App\Http\Requests\UpdateWebDatabaseUserRequest;
 use App\Models\WebDatabaseUser;
 use App\Services\SitesConfigService;
 use App\Services\WebDatabaseUserUsageService;
+use App\Services\WordPressService;
 use App\Support\IspContext;
 use App\Support\LegacyCrypt;
 use App\Support\ProblemType;
@@ -137,6 +138,7 @@ class WebDatabaseUserController extends Controller
      */
     public function update(UpdateWebDatabaseUserRequest $request, WebDatabaseUser $webDatabaseUser): JsonResponse
     {
+        app(WordPressService::class)->guardDatabaseUser((int) $webDatabaseUser->getKey());
         $payload = $request->payload();
         $attributes = $webDatabaseUser->getAttributes();
 
@@ -154,6 +156,7 @@ class WebDatabaseUserController extends Controller
         }
 
         DB::transaction(function () use ($webDatabaseUser): void {
+            app(WordPressService::class)->guardDatabaseUser((int) $webDatabaseUser->getKey());
             $webDatabaseUser->save();
         });
 

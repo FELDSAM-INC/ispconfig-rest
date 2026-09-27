@@ -34,8 +34,13 @@ final class WordPressWorker
 
             return;
         }
+        if (! $this->runtimeReady()) {
+            $this->heartbeat(false, 'sandbox_unavailable');
+
+            return;
+        }
         $this->heartbeat();
-        $this->write("DELETE FROM api_wordpress_jobs WHERE server_id = ? AND status IN ('completed','failed') AND created_at < ?", [$this->server, time() - 86400 * 7]);
+        $this->cleanup();
         $this->queueScan();
         $started = time();
         while (time() - $started < 45) {
@@ -43,7 +48,7 @@ final class WordPressWorker
             if (! $job) {
                 break;
             }
-            if ($job['backup_id']) {
+            if ($job['backup_id'] && $job['status'] !== 'running') {
                 $backup = $this->one('SELECT * FROM api_database_operations WHERE id = ?', [$job['backup_id']]);
                 if ($backup && in_array($backup['status'], ['queued', 'running'], true)) {
                     break;
@@ -57,10 +62,41 @@ final class WordPressWorker
             try {
                 $this->process($job);
             } catch (Throwable $e) {
-                $this->finish($job, 'failed', $e instanceof RuntimeException && preg_match('/\A[a-z_]{1,64}\z/D', $e->getMessage()) ? $e->getMessage() : 'worker_failed');
+                $status = $job['backup_id'] && $job['status'] === 'running' ? 'recovery_required' : 'failed';
+                $this->finish($job, $status, $e instanceof RuntimeException && preg_match('/\A[a-z_]{1,64}\z/D', $e->getMessage()) ? $e->getMessage() : 'worker_failed');
             }
             $this->heartbeat();
         }
+    }
+
+    private function cleanup(): void
+    {
+        $query = $this->db->prepare("SELECT id FROM api_wordpress_jobs WHERE server_id = ? AND status IN ('completed','failed') AND finished_at < ? LIMIT 50");
+        $query->execute([$this->server, time() - 86400 * 7]);
+        foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $process = proc_open(['/usr/bin/python3', '-I', __DIR__.'/wordpress-sandbox.py'], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, '/', ['PATH' => '/usr/bin:/bin']);
+            if (! is_resource($process)) {
+                continue;
+            }
+            fwrite($pipes[0], json_encode(['cleanup' => [$id]], JSON_THROW_ON_ERROR));
+            fclose($pipes[0]);
+            $result = json_decode(stream_get_contents($pipes[1], 4096), true);
+            fclose($pipes[1]);
+            if (proc_close($process) === 0 && ($result['cleaned'] ?? false) === true) {
+                $this->write("DELETE FROM api_wordpress_jobs WHERE id = ? AND server_id = ? AND status IN ('completed','failed')", [$id, $this->server]);
+            }
+        }
+    }
+
+    private function runtimeReady(): bool
+    {
+        // Prove unprivileged namespaces work; never advertise a fallback to host PHP.
+        $command = ['/usr/sbin/runuser', '-u', 'nobody', '--', '/usr/bin/bwrap', '--unshare-all', '--unshare-user', '--share-net',
+            '--disable-userns', '--die-with-parent', '--new-session', '--ro-bind', '/usr', '/usr', '--symlink', 'usr/bin', '/bin',
+            '--symlink', 'usr/lib', '/lib', '--symlink', 'usr/lib64', '/lib64', '--', '/usr/bin/true'];
+        $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, '/', ['PATH' => '/usr/bin:/bin']);
+
+        return is_resource($process) && proc_close($process) === 0;
     }
 
     private function queueScan(): void
@@ -160,7 +196,7 @@ final class WordPressWorker
         $request['permissions_available'] = $site['php'] === 'php-fpm' || ($site['php'] === 'fast-cgi' && $site['suexec'] === 'y');
         $request['server_security'] = $this->serverSecurity($site, $engine, $request['path'] ?? '');
         $request['database_available'] = ! empty($previous['database_id']) && (bool) $this->one('SELECT server_id FROM api_database_workers WHERE server_id = ? AND heartbeat >= ?', [$this->server, time() - 180]);
-        if ($job['backup_id']) {
+        if ($job['backup_id'] && $job['status'] !== 'running') {
             $backup = $this->one('SELECT * FROM api_database_operations WHERE id = ?', [$job['backup_id']]);
             if ((int) $backup['database_id'] !== (int) ($previous['database_id'] ?? 0) || (int) $backup['sys_groupid'] !== (int) $site['sys_groupid'] || (int) $backup['server_id'] !== $this->server) {
                 throw new RuntimeException('backup_failed');
@@ -238,7 +274,7 @@ final class WordPressWorker
         if (! is_resource($process)) {
             throw new RuntimeException('sandbox_failed');
         }
-        fwrite($pipes[0], json_encode(['site' => $minimal, 'request' => $request, 'job' => $job['id'], 'backup_id' => $job['backup_id']], JSON_THROW_ON_ERROR));
+        fwrite($pipes[0], json_encode(['site' => $minimal, 'request' => $request, 'job' => $job['id'], 'backup_id' => $job['backup_id'], 'resuming' => $job['status'] === 'running'], JSON_THROW_ON_ERROR));
         fclose($pipes[0]);
         stream_set_blocking($pipes[1], false);
         $output = '';

@@ -12,6 +12,7 @@ use App\Services\AliasServicesService;
 use App\Services\WebDomainService;
 use App\Services\WebPhpSettingsService;
 use App\Services\WebRuntimeService;
+use App\Services\WordPressService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -101,10 +102,12 @@ class WebDomainController extends Controller
      */
     public function update(UpdateWebDomainRequest $request, WebDomain $webDomain): JsonResponse
     {
+        app(WordPressService::class)->guardSite((int) $webDomain->getKey());
         $checkedIdentity = $webDomain->only(['server_id', 'sys_groupid', 'document_root', 'web_folder', 'type', 'domain']);
         app(WebRuntimeService::class)->preflight($webDomain, $request->payload());
         $domain = DB::transaction(function () use ($request, $webDomain, $checkedIdentity): WebDomain {
             $webDomain = WebDomain::query()->readable()->whereKey($webDomain->getKey())->lockForUpdate()->firstOrFail();
+            app(WordPressService::class)->guardSite((int) $webDomain->getKey());
             if ($request->has('runtime_settings') && $webDomain->only(array_keys($checkedIdentity)) !== $checkedIdentity) {
                 throw new ConflictHttpException('The website changed during the directory check. Reload and try again.');
             }
@@ -123,7 +126,10 @@ class WebDomainController extends Controller
      */
     public function destroy(WebDomain $webDomain): Response
     {
+        app(WordPressService::class)->guardSite((int) $webDomain->getKey());
         DB::transaction(function () use ($webDomain): void {
+            $webDomain = WebDomain::query()->readable()->whereKey($webDomain->getKey())->lockForUpdate()->firstOrFail();
+            app(WordPressService::class)->guardSite((int) $webDomain->getKey());
             $this->service->deleteWithCascade($webDomain);
         });
 

@@ -6,6 +6,7 @@ use App\Models\WebDomain;
 use App\Services\WordPressService;
 use App\Support\WordPressPolicy;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Support\SitesApiTestCase;
 use Tests\Support\TenantFixtures;
 use Tests\Support\TenantSchema;
@@ -102,5 +103,34 @@ final class WordPressApiTest extends SitesApiTestCase
         }
         $this->expectException(\InvalidArgumentException::class);
         WordPressPolicy::blocks(str_replace('Require all denied', 'Require all granted', $raw));
+    }
+
+    public function test_vhost_children_have_independent_inventory_and_offline_cache(): void
+    {
+        $parent = $this->seedVhost();
+        foreach (['vhostsubdomain', 'vhostalias'] as $type) {
+            [$id, $url] = $this->prepareSite(['type' => $type, 'parent_domain_id' => $parent, 'web_folder' => $type, 'domain' => $type.'.example.test']);
+            $this->getJson($url, $this->authHeaders())->assertOk()->assertJsonCount(1, 'installations');
+            DB::table('api_wordpress_workers')->update(['heartbeat' => time() - 200]);
+            $this->getJson('/api/v1/sites/web-domains/'.$id, $this->authHeaders())->assertJsonPath('wordpress.count', 1)->assertJsonPath('wordpress.available', false);
+            $this->getJson('/api/v1/sites/web-domains/'.$parent.'/wordpress', $this->authHeaders())->assertJsonCount(0, 'installations');
+            DB::table('api_wordpress_workers')->update(['heartbeat' => time()]);
+        }
+    }
+
+    public function test_pending_jobs_block_site_changes_and_recovery_blocks_database_credentials(): void
+    {
+        [$id, $url] = $this->prepareSite();
+        $job = $this->postJson($url.'/jobs', ['action' => 'rescan'], $this->authHeaders())->assertCreated()->json('id');
+        $this->putJson('/api/v1/sites/web-domains/'.$id, ['active' => false], $this->authHeaders())->assertConflict();
+        $this->deleteJson('/api/v1/sites/web-domains/'.$id, [], $this->authHeaders())->assertConflict();
+        $user = DB::table('web_database_user')->insertGetId(['database_user' => 'c3test', 'server_id' => 0, 'sys_userid' => 1, 'sys_groupid' => 5, 'sys_perm_user' => 'riud', 'sys_perm_group' => 'riud'], 'database_user_id');
+        $database = DB::table('web_database')->insertGetId(['database_name' => 'c3test', 'server_id' => 1, 'parent_domain_id' => $id, 'database_user_id' => $user, 'sys_userid' => 1, 'sys_groupid' => 5, 'sys_perm_user' => 'riud', 'sys_perm_group' => 'riud'], 'database_id');
+        $backup = (string) Str::uuid();
+        DB::table('api_database_operations')->insert(['id' => $backup, 'database_id' => $database, 'sys_groupid' => 5, 'server_id' => 1, 'database_name' => 'c3test', 'action' => 'export', 'status' => 'complete', 'created_at' => time(), 'updated_at' => time(), 'expires_at' => time() + 3600]);
+        DB::table('api_wordpress_jobs')->where('id', $job)->update(['backup_id' => $backup, 'status' => 'recovery_required']);
+        $this->putJson('/api/v1/sites/database-users/'.$user, ['database_password' => 'new-secret-password'], $this->authHeaders())->assertConflict();
+        $this->deleteJson('/api/v1/sites/databases/'.$database, [], $this->authHeaders())->assertConflict();
+        $this->getJson($url.'/jobs/'.$job, $this->authHeaders())->assertOk()->assertJsonPath('backup_database_id', $database);
     }
 }

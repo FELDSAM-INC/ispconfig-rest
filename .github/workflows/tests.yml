@@ -14,7 +14,8 @@ jobs:
         run: |
           python3 -m unittest discover -s tests/Integration/server-tools -p 'test_*.py'
           bash -n bin/ispconfig-rest install.sh
-          sh -n worker/install.sh file-manager-worker/install.sh
+          sh -n worker/install.sh file-manager-worker/install.sh file-manager-worker/wordpress-install.sh
+          python3 -m unittest discover -s tests/WordPress -p 'test_*.py'
 
   phpunit:
     runs-on: ubuntu-latest

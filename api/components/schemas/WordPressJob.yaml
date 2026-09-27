@@ -8,3 +8,4 @@ properties:
   finished_at: {type: [string, 'null'], format: date-time}
   error: {type: [string, 'null'], description: Safe error code; command output and credentials are never exposed.}
   backup_id: {type: [string, 'null'], format: uuid}
+  backup_database_id: {type: [integer, 'null'], minimum: 1, description: Owned database whose existing export operation provides the backup, while it remains available.}

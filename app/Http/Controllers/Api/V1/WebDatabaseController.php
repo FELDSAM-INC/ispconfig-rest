@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateWebDatabaseRequest;
 use App\Models\WebDatabase;
 use App\Services\DatabaseProvisioningService;
 use App\Services\SitesService;
+use App\Services\WordPressService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -79,6 +80,7 @@ class WebDatabaseController extends Controller
      */
     public function update(UpdateWebDatabaseRequest $request, WebDatabase $webDatabase): JsonResponse
     {
+        app(WordPressService::class)->guardDatabase((int) $webDatabase->getKey());
         $payload = $request->payload();
         $attributes = $webDatabase->getAttributes();
 
@@ -113,6 +115,7 @@ class WebDatabaseController extends Controller
         ]);
 
         DB::transaction(function () use ($webDatabase, $linkage, $serverId): void {
+            app(WordPressService::class)->guardDatabase((int) $webDatabase->getKey());
             $webDatabase->save();
             $this->service->touchLinkedDatabaseUser($linkage['database_user_id'], $serverId);
             $this->service->touchLinkedDatabaseUser($linkage['database_ro_user_id'], $serverId);
@@ -127,7 +130,9 @@ class WebDatabaseController extends Controller
      */
     public function destroy(WebDatabase $webDatabase): Response
     {
+        app(WordPressService::class)->guardDatabase((int) $webDatabase->getKey());
         DB::transaction(function () use ($webDatabase): void {
+            app(WordPressService::class)->guardDatabase((int) $webDatabase->getKey());
             $webDatabase->delete();
         });
 

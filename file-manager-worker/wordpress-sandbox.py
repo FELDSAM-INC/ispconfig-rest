@@ -48,16 +48,20 @@ def identity(site, root):
 
 def runtime(php):
     php = trusted(php, True)
+    with open(php, 'rb') as executable:
+        if executable.read(4) != b'\x7fELF':
+            raise Unavailable('unsupported_php_layout')
     trusted('/usr/bin/bwrap', True)
     trusted(RUNTIME / 'wp-cli.phar')
     trusted(RUNTIME / 'wordpress-tools.py')
     # Read CLI-only extension configuration; never expose FPM pool files to a site.
-    info = subprocess.run([php, '-n', '-r', 'echo json_encode([PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION,ini_get("extension_dir")]);'], env={'PATH': '/usr/bin:/bin'}, capture_output=True, timeout=10, check=True)
+    nobody = pwd.getpwnam('nobody')
+    info = subprocess.run([php, '-n', '-r', 'echo json_encode([PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION,ini_get("extension_dir")]);'], user=nobody.pw_uid, group=nobody.pw_gid, extra_groups=[], env={'PATH': '/usr/bin:/bin'}, capture_output=True, timeout=10, check=True)
     version, extension_dir = json.loads(info.stdout)
     if not re.fullmatch(r'[0-9]+\.[0-9]+', version) or not re.fullmatch(r'/usr/lib/php/[0-9]+', extension_dir):
         raise Unavailable('unsupported_php_layout')
-    args = [php, '-n', '-d', 'memory_limit=256M', '-d', 'max_execution_time=300', '-d', 'date.timezone=UTC']
-    for name in ('mysqlnd', 'mysqli', 'mbstring', 'phar', 'iconv', 'curl', 'dom', 'xml', 'simplexml', 'xmlreader', 'xmlwriter', 'zip', 'intl'):
+    args = [php, '-n', '-d', 'memory_limit=256M', '-d', 'max_execution_time=300', '-d', 'date.timezone=UTC', '-d', 'error_reporting=22527', '-d', 'display_errors=stderr']
+    for name in ('mysqlnd', 'mysqli', 'mbstring', 'tokenizer', 'ctype', 'phar', 'iconv', 'curl', 'dom', 'xml', 'simplexml', 'xmlreader', 'xmlwriter', 'zip', 'intl'):
         so = pathlib.Path(extension_dir, name + '.so')
         if so.exists():
             trusted(so)
@@ -235,16 +239,24 @@ def one_way(site, request, work, data):
     if info.st_uid != 0 or info.st_mode & 0o077 or not stat.S_ISDIR(info.st_mode):
         raise Unavailable('unsafe_workspace')
     state_path = recovery / 'state.json'
+    if data.get('resuming') and not state_path.exists():
+        execute(site, dict(request, action='maintenance_cleanup'), work)
+        return {'error': 'interrupted_check_required'}
     if state_path.exists():
         state = json.loads(state_path.read_text())
         if state['identity'] != identity(site, request['public_root']):
             raise Unavailable('site_changed')
+        if state['phase'] == 'abandoned':
+            return {'error': 'configuration_changed'}
+        if state['phase'] == 'restored':
+            return {'error': 'interrupted_restored'}
         if state['phase'] == 'completed':
             return execute(site, dict(request, action='check'), work)
         # A killed process may have committed an SQL rename before writing its result.
         # Always restore the protected snapshot; never repeat an uncertain mutation.
         prepared = state['prepared']
         failure = 'interrupted_restored'
+        cause = 'interrupted'
     else:
         # No mutation is attempted until both existing DB export and protected rollback files exist.
         try:
@@ -264,8 +276,14 @@ def one_way(site, request, work, data):
             if 'error' not in result:
                 checkpoint(state_path, dict(state, phase='completed'))
                 return result
+            if result.get('not_applied') is True:
+                checkpoint(state_path, dict(state, phase='abandoned'))
+                execute(site, dict(request, action='maintenance_cleanup'), work)
+                return {'error': result['error']}
+            cause = result.get('error', 'worker_failed')
             failure = 'verification_failed_restored'
         except Exception:
+            cause = 'worker_failed'
             failure = 'verification_failed_restored'
     try:
         config = base64.b64encode((recovery / 'wp-config.php').read_bytes()).decode()
@@ -273,16 +291,36 @@ def one_way(site, request, work, data):
             restored = execute(site, dict(request, action='restore', prepared=prepared, original_config=config), work, timeout=1000, input_stream=sql)
         if restored.get('restored') is not True:
             return {'error': 'recovery_required', 'recovery_required': True}
-        checkpoint(state_path, dict(state, phase='restored'))
+        checkpoint(state_path, dict(state, phase='restored', cause=cause))
         return {'error': failure}
     except Exception:
         return {'error': 'recovery_required', 'recovery_required': True}
+
+
+def cleanup(jobs):
+    # IDs come from terminal database rows, never from site-controlled paths.
+    # shutil.rmtree on this platform pins descriptors and does not follow symlinks.
+    if not shutil.rmtree.avoids_symlink_attacks:
+        raise Unavailable('unsafe_runtime')
+    for job in jobs:
+        if not re.fullmatch(r'[a-f0-9-]{36}', job):
+            raise Unavailable('invalid_job')
+        for suffix in ('', '.recovery'):
+            path = STATE / (job + suffix)
+            if path.is_symlink():
+                path.unlink()
+            elif path.exists():
+                shutil.rmtree(path)
+    return {'cleaned': True}
 
 
 def main():
     if os.geteuid() != 0:
         raise SystemExit(1)
     data = json.load(__import__('sys').stdin)
+    if 'cleanup' in data:
+        print(json.dumps(cleanup(data['cleanup'])))
+        return
     site, request = data['site'], data['request']
     request['job'] = data['job']
     STATE.mkdir(mode=0o711, parents=True, exist_ok=True)

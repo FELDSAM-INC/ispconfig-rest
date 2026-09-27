@@ -54,13 +54,20 @@ final class WordPressPolicy
             'config' => 'wp-config\.php(?:/|$)',
             'htfiles' => '(?:[^/]+/)*\.ht(?:access|passwd)(?:/|$)',
             'sensitive' => '(?:wp-config(?:-sample)?\.php|wp-admin/(?:install|setup-config)\.php)(?:/|$)',
-            'potential' => '(?:.*(?:\.(?:sql|bak|old|orig|log|swp|dump|ini|env)(?:\.(?:gz|zip|bz2))?|~)|(?:[^/]+/)*(?:\.git|\.svn|\.env|readme\.html|license\.txt))(?:/|$)',
+            'potential' => '(?:.*(?:\.(?:sql|bak|old|orig|log|swp|dump|ini|env|zip|tar|tgz|gz|bz2|7z)(?:\.(?:gz|zip|bz2))?|~)|(?:[^/]+/)*(?:\.git|\.svn|\.env|readme\.html|license\.txt))(?:/|$)',
             'includes_php' => 'wp-includes/.*\.(?:php[0-9]?|phtml|phar)(?:/|$)',
             'uploads_php' => 'wp-content/uploads/.*\.(?:php[0-9]?|phtml|phar)(?:/|$)',
             'cache_php' => '(?:wp-content/(?:cache|w3tc-config)|cache)/.*\.(?:php[0-9]?|phtml|phar)(?:/|$)',
         ];
         foreach ($measures as $measure) {
             $lines[] = '# ISPCP WP '.$id.' '.$measure;
+            $staticFolder = ['includes_php' => 'wp-includes/', 'uploads_php' => 'wp-content/uploads/', 'cache_php' => '(?:wp-content/(?:cache|w3tc-config)|cache)/'][$measure] ?? null;
+            if ($staticFolder !== null) {
+                $lines[] = '<LocationMatch "(?i)^'.$prefix.$staticFolder.'">';
+                $lines[] = '  SetHandler default-handler';
+                $lines[] = '  Options -ExecCGI';
+                $lines[] = '</LocationMatch>';
+            }
             if (isset($patterns[$measure])) {
                 $lines[] = '<LocationMatch "(?i)^'.$prefix.$patterns[$measure].'">';
                 $lines[] = '  Require all denied';
@@ -72,7 +79,7 @@ final class WordPressPolicy
             } else {
                 $lines[] = '<LocationMatch "^'.$prefix.'">';
                 $condition = $measure === 'author'
-                    ? '%{QUERY_STRING} =~ m#(?:^|&)author=[0-9]+(?:&|$)#'
+                    ? 'unescape(%{QUERY_STRING}) =~ m#(?:^|[&;])author=[+ ]*[0-9]+(?:[&;]|$)#'
                     : '%{HTTP_USER_AGENT} =~ m#(?i)(?:sqlmap|nikto|masscan|wpscan)#';
                 $lines[] = '  <If "'.$condition.'">';
                 $lines[] = '    Require all denied';

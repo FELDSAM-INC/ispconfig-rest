@@ -99,5 +99,61 @@ class WordPressWorkerTest(unittest.TestCase):
                 self.assertIsNotNone(run.call_args.kwargs['input_stream'])
                 self.assertEqual('restored', save.call_args.args[1]['phase'])
 
+    def test_http_verification_waits_for_fpm_cache_but_still_fails_closed(self):
+        toolkit = tools.Toolkit({'path': '', 'php': []})
+        with tempfile.TemporaryDirectory() as temp, patch.object(toolkit, 'config_values', return_value={'table_prefix': 'wp_'}):
+            toolkit.root = Path(temp)
+            with patch.object(toolkit, 'http_verify_once', side_effect=[tools.Failure('http_verification_failed'), None, None]) as request, patch.object(tools.time, 'sleep'):
+                toolkit.http_verify('http://test.invalid')
+                self.assertEqual(3, request.call_count)
+                self.assertEqual('wp_', request.call_args_list[1].args[3]['prefix'])
+            with patch.object(toolkit, 'http_verify_once', side_effect=tools.Failure('http_verification_failed')) as request, patch.object(tools.time, 'sleep'):
+                with self.assertRaisesRegex(tools.Failure, 'http_verification_failed'):
+                    toolkit.http_verify('http://test.invalid')
+                self.assertEqual(10, request.call_count)
+            self.assertEqual([], list(toolkit.root.iterdir()))
+
+    def test_configuration_change_prevents_any_database_mutation(self):
+        toolkit = tools.Toolkit({'path': '', 'php': [], 'prepared': {'prefix': 'wp_', 'new_prefix': 'new_', 'config_hash': 'old'}})
+        with patch.object(tools, 'safe_file', return_value=(b'changed', None)), patch.object(toolkit, 'query') as query:
+            self.assertEqual({'error': 'configuration_changed', 'not_applied': True}, toolkit.apply_one_way())
+            query.assert_not_called()
+
+    def test_http_200_with_stale_wordpress_configuration_is_rejected(self):
+        toolkit = tools.Toolkit({'path': '', 'php': [], 'domain': 'example.test'})
+        expected = {'token': 'nonce', 'prefix': 'new_', 'url': 'http://example.test'}
+        with patch.object(tools.http.client, 'HTTPConnection') as connection:
+            response = connection.return_value.getresponse.return_value
+            response.status = 200
+            response.read.return_value = json.dumps(dict(expected, prefix='wp_')).encode()
+            with self.assertRaisesRegex(tools.Failure, 'http_verification_failed'):
+                toolkit.http_verify_once('http://example.test', 'probe.php', 'nonce', expected)
+            response.read.return_value = json.dumps(expected).encode()
+            toolkit.http_verify_once('http://example.test', 'probe.php', 'nonce', expected)
+
+    def test_terminal_recovery_is_not_applied_a_second_time(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(sandbox, 'STATE', Path(temp)), patch.object(sandbox, 'account', return_value=(os.geteuid(), os.getegid())), patch.object(sandbox, 'identity', return_value='site'):
+            recovery = Path(temp, 'test.recovery');recovery.mkdir(mode=0o700)
+            original = Path.lstat
+            def root_state(path):
+                values = list(original(path));values[4] = 0
+                return os.stat_result(values)
+            for phase, error in [('restored', 'interrupted_restored'), ('abandoned', 'configuration_changed')]:
+                (recovery / 'state.json').write_text(json.dumps({'phase': phase, 'identity': 'site'}))
+                with patch.object(Path, 'lstat', root_state), patch.object(sandbox, 'execute') as run:
+                    self.assertEqual({'error': error}, sandbox.one_way({}, {'public_root': '/site'}, Path(temp), {'job': 'test', 'resuming': True}))
+                    run.assert_not_called()
+
+    def test_cleanup_does_not_follow_symlinks_or_accept_paths(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(sandbox, 'STATE', Path(temp)):
+            protected = Path(temp, 'keep');protected.mkdir();(protected / 'file').write_text('keep')
+            job = '00000000-0000-4000-8000-000000000001'
+            (Path(temp) / job).symlink_to(protected)
+            recovery = Path(temp, job + '.recovery');recovery.mkdir();(recovery / 'outside').symlink_to(protected)
+            self.assertEqual({'cleaned': True}, sandbox.cleanup([job]))
+            self.assertEqual('keep', (protected / 'file').read_text())
+            with self.assertRaises(sandbox.Unavailable):
+                sandbox.cleanup(['../keep'])
+
 if __name__ == '__main__':
     unittest.main()

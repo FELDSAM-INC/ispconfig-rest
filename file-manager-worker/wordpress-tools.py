@@ -50,7 +50,8 @@ def run(args, *, data=None, limit=262144, timeout=90, accepted=(0,)):
                     raise Failure('command_output_limit')
         process.wait(timeout=5)
         if process.returncode not in accepted:
-            raise Failure('wp_cli_failed')
+            operation = next((name for name in ('config', 'db', 'eval', 'user', 'option') if name in args), 'command')
+            raise Failure('wp_' + operation + '_failed')
         return output['out'].decode('utf-8', errors='replace').strip(), process.returncode
     finally:
         if process.poll() is None:
@@ -139,7 +140,11 @@ class Toolkit:
     def config_values(self):
         rows = json.loads(self.value('config', 'list', '--format=json'))
         allowed = {'DISALLOW_FILE_EDIT', 'CONCATENATE_SCRIPTS', 'table_prefix', 'DB_NAME', 'DB_HOST', 'MULTISITE', 'CUSTOM_USER_TABLE', 'CUSTOM_USER_META_TABLE'}
-        return {row['name']: row['value'] for row in rows if row.get('name') in allowed}
+        result = {row['name']: row['value'] for row in rows if row.get('name') in allowed}
+        names = {'AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY', 'AUTH_SALT', 'SECURE_AUTH_SALT', 'LOGGED_IN_SALT', 'NONCE_SALT'}
+        salts = [row['value'] for row in rows if row.get('name') in names]
+        result['_salts_ok'] = len(salts) == 8 and all(isinstance(value, str) and len(value) >= 32 and len(set(value)) >= 10 and 'put your unique phrase here' not in value.lower() for value in salts) and len(set(salts)) == 8
+        return result
 
     def config_change(self, name, value=None, *, variable=False, salts=False):
         original, info = safe_file(self.config)
@@ -199,8 +204,13 @@ class Toolkit:
                 security[measure] = {'status': 'unavailable', 'reason': 'unsupported_constant'}
             else:
                 security[measure] = status(str(value).lower() in (('true', '1') if desired == 'true' else ('false', '0')), can_revert=measure in self.undo)
-        security['salts'] = status(bool(self.request.get('salts_changed')))
-        security['permissions'] = {'status': 'warning'} if self.request.get('permissions_available') else {'status': 'unavailable', 'reason': 'site_php_user_required'}
+        security['salts'] = status(config['_salts_ok'])
+        try:
+            if not self.request.get('permissions_available'):
+                raise Failure('site_php_user_required')
+            security['permissions'] = status(self.permissions())
+        except Failure as error:
+            security['permissions'] = {'status': 'unavailable', 'reason': str(error)}
         security['languages'] = status(not any(self.request.get('languages', {}).values()))
         pingbacks = self.value('option', 'get', 'default_ping_status')
         security['pingbacks'] = status(pingbacks == 'closed', can_revert='pingbacks' in self.undo)
@@ -225,6 +235,13 @@ class Toolkit:
         count = 0
         correct = True
         for base, directories, files, directory_fd in os.fwalk(self.root, follow_symlinks=False):
+            current = os.fstat(directory_fd)
+            if current.st_uid != os.geteuid():
+                raise Failure('unsafe_wordpress_files')
+            if stat.S_IMODE(current.st_mode) != 0o755:
+                correct = False
+                if apply:
+                    os.fchmod(directory_fd, 0o755)
             for name in files + directories:
                 count += 1
                 if count > 200000:
@@ -232,6 +249,9 @@ class Toolkit:
                 info = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
                 if stat.S_ISLNK(info.st_mode):
                     raise Failure('symlinked_files')
+                # ISPConfig's protected statistics launcher is not a WordPress file.
+                if self.path == '' and pathlib.Path(base, name) == self.root / 'stats/index.php' and info.st_uid != os.geteuid() and stat.S_ISREG(info.st_mode):
+                    continue
                 is_dir = stat.S_ISDIR(info.st_mode)
                 if (not is_dir and not stat.S_ISREG(info.st_mode)) or (not is_dir and info.st_nlink != 1) or info.st_uid != os.geteuid():
                     raise Failure('unsafe_wordpress_files')
@@ -292,20 +312,50 @@ class Toolkit:
 
 
     def http_verify(self, url):
+        # A plain 200 can be an old page while FPM still caches wp-config.php.
+        # A unique, expiring probe must bootstrap WordPress and report its actual prefix.
+        token = secrets.token_hex(24)
+        name = '.ispcp-wp-probe-' + token + '.php'
+        path = self.root / name
+        expected = {'token': token, 'prefix': self.config_values()['table_prefix'], 'url': url}
+        script = "<?php if (time() > " + str(int(time.time()) + 600) + " || !hash_equals('" + token + "', $_SERVER['HTTP_X_ISPCP_WP_PROBE'] ?? '')) {http_response_code(404);exit;} ob_start(); require __DIR__ . '/wp-load.php'; ob_end_clean(); header('Cache-Control: no-store'); header('Content-Type: application/json'); echo json_encode(['token'=>'" + token + "','prefix'=>$GLOBALS['table_prefix'],'url'=>get_option('siteurl')]);"
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+        with os.fdopen(fd, 'w') as output:
+            output.write(script)
+        try:
+            for attempt in range(10):
+                try:
+                    self.http_verify_once(url, name, token, expected)
+                    return self.http_verify_once(url)
+                except Failure as error:
+                    if str(error) != 'http_verification_failed' or attempt == 9:
+                        raise
+                    time.sleep(2)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def http_verify_once(self, url, probe=None, token=None, expected=None):
         parsed = urllib.parse.urlsplit(url)
         if parsed.scheme not in ('http', 'https') or parsed.hostname not in (self.request['domain'], 'www.' + self.request['domain']) or parsed.username or parsed.password or parsed.port not in (None, 80, 443):
             raise Failure('http_verification_unavailable')
-        path = (parsed.path.rstrip('/') or '') + '/'
+        path = (parsed.path.rstrip('/') or '') + '/' + (probe or '')
         for _ in range(4):
             if parsed.scheme == 'https':
                 connection = http.client.HTTPSConnection('127.0.0.1', 443, timeout=20, context=ssl._create_unverified_context())
             else:
                 connection = http.client.HTTPConnection('127.0.0.1', 80, timeout=20)
             try:
-                connection.request('GET', path, headers={'Host': parsed.hostname, 'User-Agent': 'ISPCP-WordPress-Verification/1', 'Cache-Control': 'no-cache'})
+                connection.request('GET', path, headers={'Host': parsed.hostname, 'User-Agent': 'ISPCP-WordPress-Verification/1', 'Cache-Control': 'no-cache', 'X-ISPCP-WP-Probe': token or ''})
                 response = connection.getresponse()
                 body = response.read(65536)
                 if response.status == 200 and body:
+                    if expected is not None:
+                        try:
+                            valid = json.loads(body) == expected
+                        except (ValueError, UnicodeError):
+                            valid = False
+                        if not valid:
+                            raise Failure('http_verification_failed')
                     return
                 location = response.getheader('Location')
                 if response.status not in (301, 302, 307, 308) or not location:
@@ -354,7 +404,7 @@ class Toolkit:
             if existing:
                 raise Failure('admin_login_exists')
         before = {'prefix': prefix, 'tables': tables, 'url': metadata['url'], 'admin': old_admin,
-                  'new_prefix': 'wp_' + secrets.token_hex(6) + '_' if 'prefix' in self.request['measures'] and prefix == 'wp_' else prefix}
+                  'config_hash': metadata['config_hash'], 'new_prefix': 'wp_' + secrets.token_hex(6) + '_' if 'prefix' in self.request['measures'] and prefix == 'wp_' else prefix}
         self.maintenance(True)
         try:
             original, info = safe_file(self.config)
@@ -374,9 +424,11 @@ class Toolkit:
         prefix = before['prefix']
         new = before['new_prefix']
         # Configuration or DB changes while waiting for the protected backup invalidate the operation.
+        if hashlib.sha256(safe_file(self.config)[0]).hexdigest() != before['config_hash']:
+            return {'error': 'configuration_changed', 'not_applied': True}
         current_prefix, current_tables = self.database(self.config_values())
         if current_prefix != prefix or sorted(current_tables) != sorted(before['tables']):
-            raise Failure('database_changed')
+            return {'error': 'database_changed', 'not_applied': True}
         if new != prefix:
             mapping = [(name, new + name[len(prefix):]) for name in before['tables']]
             self.query('RENAME TABLE ' + ', '.join(identifier(old) + ' TO ' + identifier(target) for old, target in mapping))
@@ -499,12 +551,6 @@ def main(request):
         return {'cleaned': True}
     if request['action'] == 'check':
         result = toolkit.check()
-        try:
-            if not request.get('permissions_available'):
-                raise Failure('site_php_user_required')
-            result['security']['permissions'] = {'status': 'ok' if toolkit.permissions() else 'warning'}
-        except Failure as error:
-            result['security']['permissions'] = {'status': 'unavailable', 'reason': str(error)}
         return {'installation': result}
     if request['action'] in ('secure', 'revert'):
         return {'installation': toolkit.secure(request['action'] == 'revert')}

@@ -115,7 +115,7 @@ final class ServerToolsRemote
             $requirements[] = '64-bit PHP CLI 8.3+';
         }
         $extensions = ['pdo_mysql', 'posix'];
-        if (array_intersect($components, ['waf', 'web-logs']) !== []) {
+        if (array_intersect($components, ['waf', 'web-logs', 'file-manager']) !== []) {
             $extensions[] = 'mbstring';
         }
         if (array_intersect($components, ['database', 'web-logs']) !== []) {
