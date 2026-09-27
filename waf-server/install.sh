@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 [[ $(id -u) = 0 ]] || { echo 'Run as root from a root-owned checkout.' >&2; exit 1; }
-[[ -f /usr/local/ispconfig/server/lib/config.inc.php ]] || { echo 'Install on an ISPConfig web server.' >&2; exit 1; }
+[[ $# = 0 || ( $# = 1 && $1 = --ispconfig-security-only ) ]] || { echo 'Usage: install.sh [--ispconfig-security-only]' >&2; exit 1; }
 source_dir=$(cd -- "$(dirname -- "$0")" && pwd)
 # Refuse root execution of code from a web-writable checkout, including writable ancestors.
 for waf_source in "$source_dir" "$source_dir/../app/Support"; do
@@ -11,9 +11,14 @@ for waf_source in "$source_dir" "$source_dir/../app/Support"; do
         waf_source=$(dirname "$waf_source")
     done
 done
-for waf_file in "$source_dir"/{install.sh,run.php,configure.php,ispconfig-waf} "$source_dir/../app/Support"/{WebWafPolicy.php,WebWafAudit.php,WebWafProfiles.php}; do
-    [[ ! -L "$waf_file" && $(stat -c %u "$waf_file") = 0 ]] && [[ $(( 8#$(stat -c %a "$waf_file") & 0022 )) = 0 ]] || { echo 'Installer files must be regular root-owned files without group/other write access.' >&2; exit 1; }
+for waf_file in "$source_dir"/{install.sh,run.php,configure.php,ispconfig-security.php,ispconfig-waf} "$source_dir/../app/Support"/{WebWafPolicy.php,WebWafAudit.php,WebWafProfiles.php,WebWafIspconfigSecurity.php}; do
+    [[ -f "$waf_file" && ! -L "$waf_file" && $(stat -c %u "$waf_file") = 0 ]] && [[ $(( 8#$(stat -c %a "$waf_file") & 0022 )) = 0 ]] || { echo 'Installer files must be regular root-owned files without group/other write access.' >&2; exit 1; }
 done
+if [[ ${1:-} = --ispconfig-security-only ]]; then
+    php "$source_dir/ispconfig-security.php"
+    exit
+fi
+[[ -f /usr/local/ispconfig/server/lib/config.inc.php ]] || { echo 'Install on an ISPConfig web server.' >&2; exit 1; }
 php -r 'exit(PHP_VERSION_ID >= 80300 && extension_loaded("pdo_mysql") && extension_loaded("mbstring") ? 0 : 1);'
 . /etc/os-release
 [[ "$ID" = debian || "$ID" = ubuntu ]] || { echo 'Supported package installations: Debian and Ubuntu.' >&2; exit 1; }
@@ -79,5 +84,10 @@ cat > /etc/logrotate.d/ispconfig-rest-waf <<'ROTATE'
 }
 ROTATE
 chmod 0644 /etc/logrotate.d/ispconfig-rest-waf
+if [[ -f /usr/local/ispconfig/security/apache_directives.blacklist ]]; then
+    php "$source_dir/ispconfig-security.php"
+else
+    echo 'ISPConfig panel security files are not on this host. Run install.sh --ispconfig-security-only from this release on the ISPConfig panel/master host.'
+fi
 echo 'WAF installed. Enable detection/enforcing mode per website in WHMCS.'
 echo 'Optional Atomicorp license: sudo ispconfig-waf atomic-key'

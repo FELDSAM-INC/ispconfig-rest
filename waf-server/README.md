@@ -18,6 +18,26 @@ ispconfig-waf atomic-key
 
 The installer detects the enabled ISPConfig Apache/nginx plugin, refuses to take over an unmanaged active WAF, installs packages, validates configuration before reloading, and installs a root cron worker and log rotation. It preserves unrelated vhost directives. A failed configuration test restores managed configuration files; package installation itself is not rolled back. Package upgrades continue through the administrator's normal OS update policy. Re-running the installer rebuilds its generated configuration; do not edit these generated files locally.
 
+### ISPConfig directive validation
+
+The installer also configures ISPConfig's supported `security/apache_directives.blacklist.custom` override to permit **only** these exact generated lines:
+
+```apache
+Include /etc/ispconfig-waf/base.conf
+Include /etc/ispconfig-waf/owasp.conf
+Include /etc/ispconfig-waf/atomic.conf
+```
+
+`apache_directives_scan_enabled` stays unchanged. Arbitrary includes, IncludeOptional, wildcards, additional arguments, module loading and the remaining vendor/administrator restrictions stay blocked. An existing custom blacklist is merged with current vendor rules; repeated installation is idempotent and picks up new upstream restrictions. The first original effective blacklist is saved as `apache_directives.blacklist.custom.before-ispcp-waf` (root-only). The new override remains root-owned and readable by the vendor file's group, mode 0640. Unsafe filesystem paths or unsupported custom regular expressions fail without replacing the existing blacklist. ISPConfig's own PHP files are not patched.
+
+Validation runs on the **ISPConfig panel/interface host**, which may differ from the webserver or REST host. On a separate panel/master, stage the same reviewed root-owned release and run:
+
+```sh
+bash /root/ispconfig-rest-release/waf-server/install.sh --ispconfig-security-only
+```
+
+This option installs only the security override, without webserver packages, workers or reloads. No WAF files need to exist on the panel-only host; the permitted paths refer to root-owned configuration on the target webservers. Re-run after ISPConfig security blacklist updates to merge new vendor restrictions.
+
 Websites remain **disabled** until explicitly enabled in WHMCS. The initial selected mode is **detection**. Review real traffic and exceptions before selecting enforcing. Native ISPConfig datalog regeneration and configuration validation apply changes asynchronously. Saving desired settings is not proof that the server accepted them; use the existing changes/status view and server logs to investigate failed regeneration.
 
 The worker uses the existing ISPConfig server credentials to access the master database, as the other server workers do. Grant that account SELECT on `web_domain`, SELECT/INSERT/UPDATE on `api_web_waf_workers`, and SELECT/INSERT/DELETE on `api_web_waf_events` **on the master**. Retain any existing grants. The worker never writes native ISPConfig tables and never needs a REST administrator API key. Missing grants are reported in the server's root cron/system log. The capability appears after the next worker run (within a minute); its heartbeat expires after 150 seconds. An already configured website retains its tile during an outage so WAF can still be disabled.
