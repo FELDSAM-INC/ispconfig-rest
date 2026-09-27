@@ -125,7 +125,7 @@ final class WebWafPolicy
         if (! str_contains($text, self::BEGIN)) {
             return null;
         }
-        if (! preg_match('/^'.preg_quote(self::BEGIN, '/').' ([A-Za-z0-9+\/=]+)$/m', $text, $match)) {
+        if (! preg_match('/^'.preg_quote(self::BEGIN, '/').' ([A-Za-z0-9+\/=]+)\r?$/m', $text, $match)) {
             throw new InvalidArgumentException('The managed WAF configuration was changed externally.');
         }
         $data = json_decode((string) base64_decode($match[1], true), true);

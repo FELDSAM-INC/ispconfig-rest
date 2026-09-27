@@ -75,6 +75,29 @@ final class WebRuntimeApiTest extends SitesApiTestCase
         $this->assertSame("add_header X-Example yes;\n", $raw->nginx_directives);
     }
 
+    public function test_ispconfig_crlf_settings_can_be_read_updated_and_removed_on_both_engines(): void
+    {
+        $this->worker(2);
+        foreach ([1 => 'apache', 2 => 'nginx'] as $server => $engine) {
+            $id = $this->seedVhost(['server_id' => $server, 'apache_directives' => "Header set X-Test yes\n", 'nginx_directives' => "add_header X-Test yes;\n"]);
+            $url = '/api/v1/sites/web-domains/'.$id;
+            $this->putJson($url, $this->body('', ['APP_ENV' => 'production']), $this->authHeaders())->assertOk();
+            $raw = DB::table('web_domain')->where('domain_id', $id)->first();
+            $changes = [];
+            foreach (['apache_directives', 'nginx_directives'] as $field) {
+                $changes[$field] = str_replace("\n", "\r\n", $raw->$field);
+            }
+            DB::table('web_domain')->where('domain_id', $id)->update($changes);
+            $this->getJson($url, $this->authHeaders())->assertOk()->assertJsonPath('runtime_settings.environment', ['APP_ENV' => 'production']);
+            $this->putJson($url, $this->body('', ['APP_ENV' => 'staging']), $this->authHeaders())->assertOk();
+            $this->getJson($url, $this->authHeaders())->assertOk()->assertJsonPath('runtime_settings.environment', ['APP_ENV' => 'staging']);
+            $this->putJson($url, $this->body(), $this->authHeaders())->assertOk();
+            $after = DB::table('web_domain')->where('domain_id', $id)->first();
+            $this->assertSame("Header set X-Test yes\r\n", $after->apache_directives);
+            $this->assertSame("add_header X-Test yes;\r\n", $after->nginx_directives);
+        }
+    }
+
     public function test_directory_preflight_runs_before_write_transaction_and_base_path_never_changes(): void
     {
         $this->worker();

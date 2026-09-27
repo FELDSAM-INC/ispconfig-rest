@@ -228,6 +228,25 @@ final class WebWafApiTest extends SitesApiTestCase
         $this->putJson($url, ['enabled' => true], $this->authHeaders())->assertOk();
     }
 
+    public function test_ispconfig_crlf_save_preserves_waf_settings_and_can_be_updated(): void
+    {
+        $this->worker();
+        $id = $this->seedVhost(['apache_directives' => "Header set X-Test value\n"]);
+        $url = '/api/v1/sites/web-domains/'.$id.'/waf';
+        $settings = ['enabled' => true, 'application_profile' => 'wordpress', 'exclusions' => [['rule_id' => 942100, 'path' => '/search', 'parameter' => 'q']]];
+        $this->putJson($url, $settings, $this->authHeaders())->assertOk();
+        $raw = DB::table('web_domain')->where('domain_id', $id)->value('apache_directives');
+        // Browser textarea submission through ISPConfig changes LF into CRLF.
+        DB::table('web_domain')->where('domain_id', $id)->update(['apache_directives' => str_replace("\n", "\r\n", $raw)]);
+        $this->getJson($url, $this->authHeaders())->assertOk()->assertJsonPath('settings.application_profile', 'wordpress')
+            ->assertJsonPath('settings.exclusions.0.rule_id', 942100);
+        $this->putJson($url, ['mode' => 'enforcing'], $this->authHeaders())->assertOk()->assertJsonPath('settings.application_profile', 'wordpress');
+        $after = DB::table('web_domain')->where('domain_id', $id)->value('apache_directives');
+        $this->assertStringContainsString("Header set X-Test value\r\n", $after);
+        $this->assertSame(1, substr_count($after, WebWafPolicy::BEGIN));
+        $this->assertCount(2, $this->datalogRows('web_domain'));
+    }
+
     public function test_old_placeholder_messages_get_a_fallback_without_losing_new_numeric_scores(): void
     {
         $id = $this->seedVhost();

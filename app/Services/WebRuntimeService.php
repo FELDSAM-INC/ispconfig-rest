@@ -114,7 +114,7 @@ class WebRuntimeService
         if (! str_contains($text, self::BEGIN)) {
             return ['document_root_subdir' => '', 'environment' => []];
         }
-        if (! preg_match('/^'.preg_quote(self::BEGIN, '/').' ([A-Za-z0-9+\/=]+)$/m', $text, $match)) {
+        if (! preg_match('/^'.preg_quote(self::BEGIN, '/').' ([A-Za-z0-9+\/=]+)\r?$/m', $text, $match)) {
             throw new ConflictHttpException('The managed hosting settings were changed outside the API.');
         }
         $settings = json_decode((string) base64_decode($match[1], true), true);
