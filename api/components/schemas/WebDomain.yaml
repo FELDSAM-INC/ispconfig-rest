@@ -36,6 +36,8 @@ properties:
     description: Serving directory including the managed child subfolder. Does not change the base document_root.
   runtime_settings:
     $ref: './WebRuntimeSettings.yaml'
+  php_settings:
+    $ref: './WebPhpSettings.yaml'
   runtime_capabilities:
     type: object
     readOnly: true

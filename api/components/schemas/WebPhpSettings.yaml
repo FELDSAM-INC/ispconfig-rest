@@ -1,0 +1,42 @@
+type: object
+additionalProperties: false
+description: |
+  Structured PHP settings for GET/PUT /sites/web-domains/{id}, including vhost children.
+  PUT accepts only the eight editable properties below; omitted properties are preserved.
+  Limits and the disabled-function list cannot be submitted. Raw custom_php_ini remains
+  administrator-only and cannot be combined with php_settings in one update.
+  Values on GET describe configured PHP settings, before application/.user.ini overrides.
+  Inherited values come from the selected PHP version's root-owned INI files, collected
+  by the upgraded web log worker. Missing or stale data is never replaced by sample limits.
+properties:
+  values:
+    type: object
+    readOnly: true
+    additionalProperties:
+      type: string
+      nullable: true
+    description: The thirteen INI settings plus opcache_get_status; null means unavailable. Boolean values are on/off.
+  editable:
+    type: array
+    readOnly: true
+    items: {type: string}
+    description: Settings this website can currently change. Snippet-enforced settings remain read-only.
+  available:
+    type: boolean
+    readOnly: true
+  opcache_get_status_locked:
+    type: boolean
+    readOnly: true
+    description: PHP-FPM or a later INI file blocks this function globally; a website cannot enable it.
+  opcache.enable: {type: boolean}
+  opcache_get_status:
+    type: boolean
+    description: Allows/blocks only this function in disable_functions; all other entries are preserved.
+  error_reporting:
+    type: string
+    enum: ['0', 'E_ALL', 'E_ALL & ~E_DEPRECATED & ~E_STRICT', 'E_ALL & ~E_NOTICE & ~E_STRICT & ~E_DEPRECATED', 'E_ERROR | E_WARNING | E_PARSE']
+  display_errors: {type: boolean}
+  log_errors: {type: boolean}
+  allow_url_fopen: {type: boolean}
+  file_uploads: {type: boolean}
+  short_open_tag: {type: boolean}

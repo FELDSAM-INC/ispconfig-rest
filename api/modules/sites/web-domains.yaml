@@ -155,7 +155,7 @@
     tags:
       - Web Domains
     summary: Get web domain by ID
-    description: Returns a single web domain by its ID, including runtime_settings and its feature availability. This response is private and not cacheable.
+    description: Returns a single web domain by its ID, including runtime_settings and php_settings with their feature availability. PHP limits reflect the selected server/version configuration. This response is private and not cacheable.
     parameters:
       - name: id
         in: path
@@ -185,6 +185,13 @@
       - Web Domains
     summary: Update web domain
     description: |
+      `php_settings` allows only the eight editable properties in WebPhpSettings. Limits and
+      disable_functions are read-only; opcache_get_status changes only that function's entry.
+      The selected server/version must have a recent worker snapshot. Required snippets and
+      later CGI INI files remain authoritative; PHP-FPM cannot enable a globally disabled function.
+      Other custom INI entries are preserved. The structured object cannot be combined with
+      raw custom_php_ini. Malformed or forbidden settings return 422 without any datalog write.
+
       Alias DNS/mail coordination is available through `dns_sync` and `mail_service`
       (spec 045). Sending either creates/reuses a DNS zone atomically with the alias.
       Managed aliases cannot be renamed, reparented or assigned to another owner (409).

@@ -13,7 +13,8 @@ on **each web server**, independently of the database operations worker:
 sudo sh web-log-worker/install.sh
 ```
 
-Copy this directory and `app/Support/WebLogReader.php` preserving their relative
+Copy this directory and `app/Support/WebLogReader.php`, `WebRuntimeDirectory.php`
+and `WebPhpDefaults.php` preserving their relative
 layout, or run the installer from a trusted API checkout. It installs root-owned
 copies and a cron entry. Re-run to upgrade; never execute a web-writable checkout
 as root from cron. Requires PHP 8.3 CLI with pdo_mysql, mbstring, zlib and posix.
@@ -21,7 +22,9 @@ as root from cron. Requires PHP 8.3 CLI with pdo_mysql, mbstring, zlib and posix
 Like ISPConfig itself, the worker uses local `server/lib/config.inc.php` to connect
 to the master database. Its existing master SQL account needs SELECT on
 `web_domain`, SELECT/INSERT/UPDATE on `api_web_log_workers` and SELECT/UPDATE/DELETE
-on `api_web_log_reads`. Grant only these tables, not global database privileges.
+on `api_web_log_reads`. PHP configuration snapshots also need SELECT on `server`
+and `server_php`, plus SELECT/INSERT/UPDATE on `api_web_php_defaults`.
+Grant only these tables, not global database privileges.
 There is no new HTTP listener, SSH credential or public log URL.
 
 A current heartbeat enables the tile for websites on that server. API queries
@@ -83,3 +86,10 @@ must redact the runtime object and native directives from diagnostic logs.
 Verified against ISPConfig 3.3.1p1 sources and real Apache 2.4/nginx PHP-FPM requests.
 Apache expression reference: https://httpd.apache.org/docs/2.4/expr.html
 nginx FastCGI reference: https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html
+
+## Website PHP configuration
+
+The current worker also reports allowlisted PHP configuration values for each
+server PHP version. Upgrade the API and run its migrations before reinstalling
+this worker on each web server. See [PHP settings](../docs/website-php-settings.md)
+for supported handlers, snapshot freshness and inherited restrictions.

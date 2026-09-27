@@ -10,6 +10,7 @@ use App\Models\WebDomain;
 use App\Services\AliasClientDomainService;
 use App\Services\AliasServicesService;
 use App\Services\WebDomainService;
+use App\Services\WebPhpSettingsService;
 use App\Services\WebRuntimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -69,7 +70,10 @@ class WebDomainController extends Controller
      */
     public function show(WebDomain $webDomain): JsonResponse
     {
-        return response()->json($webDomain->toArray() + ['runtime_settings' => app(WebRuntimeService::class)->view($webDomain)], 200, ['Cache-Control' => 'private, no-store']);
+        return response()->json($webDomain->toArray() + [
+            'runtime_settings' => app(WebRuntimeService::class)->view($webDomain),
+            'php_settings' => app(WebPhpSettingsService::class)->view($webDomain),
+        ], 200, ['Cache-Control' => 'private, no-store']);
     }
 
     /**

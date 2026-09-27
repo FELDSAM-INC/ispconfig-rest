@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Http\Requests\Concerns\EnforcesWebPermissions;
 use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\WebDomain;
+use App\Services\WebPhpSettingsService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -32,6 +33,11 @@ class UpdateWebDomainRequest extends WebDomainRequest
         );
 
         return array_merge($this->commonRules(), [
+            'php_settings' => ['sometimes', 'array', 'prohibits:custom_php_ini', function ($attribute, $value, $fail): void {
+                if (! WebPhpSettingsService::valid($value)) {
+                    $fail('Only the supported editable PHP settings and values may be submitted.');
+                }
+            }],
             'runtime_settings' => ['sometimes', 'array:document_root_subdir,environment'],
             'runtime_settings.document_root_subdir' => ['present_with:runtime_settings', 'nullable', 'string', 'max:200'],
             'runtime_settings.environment' => ['present_with:runtime_settings', 'array', 'max:100'],

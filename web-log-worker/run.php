@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Support\WebLogReader;
+use App\Support\WebPhpDefaults;
 use App\Support\WebRuntimeDirectory;
 
 if (PHP_SAPI !== 'cli' || ! function_exists('posix_geteuid') || posix_geteuid() !== 0) {
@@ -18,6 +19,7 @@ define('SCRIPT_PATH', '/usr/local/ispconfig/server');
 require SCRIPT_PATH.'/lib/config.inc.php';
 require __DIR__.'/WebLogReader.php';
 require __DIR__.'/WebRuntimeDirectory.php';
+require __DIR__.'/WebPhpDefaults.php';
 $prefix = ! empty($conf['dbmaster_host']) && ($conf['dbmaster_host'] !== $conf['db_host'] || $conf['dbmaster_database'] !== $conf['db_database'] || (int) $conf['dbmaster_port'] !== (int) $conf['db_port']) ? 'dbmaster_' : 'db_';
 try {
     $db = new PDO('mysql:host='.$conf[$prefix.'host'].';port='.($conf[$prefix.'port'] ?? 3306).';dbname='.$conf[$prefix.'database'].';charset=utf8mb4', $conf[$prefix.'user'], $conf[$prefix.'password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false]);
@@ -25,6 +27,15 @@ try {
     $reader = new WebLogReader;
     $started = microtime(true);
     $heartbeat = 0;
+    // Only API-owned snapshots are written; website changes still use the REST datalog path.
+    try {
+        if ($db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'api_web_php_defaults'")->fetchColumn()) {
+            WebPhpDefaults::refresh($db, $server);
+        }
+    } catch (Throwable $e) {
+        // A missing snapshot grant must not interrupt existing log/directory requests.
+        error_log('ISPConfig PHP configuration snapshot failed ('.get_class($e).'). Check worker database grants.');
+    }
     while (microtime(true) - $started < 50) {
         if (time() - $heartbeat >= 5) {
             $runtimeVersion = is_file(__DIR__.'/runtime-ready') && (is_link(SCRIPT_PATH.'/plugins-enabled/apache2_plugin.inc.php')

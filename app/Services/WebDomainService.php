@@ -254,7 +254,8 @@ class WebDomainService
         // onSubmit restores it from the DB).
         unset($payload['web_folder']);
         $runtime = $payload['runtime_settings'] ?? null;
-        unset($payload['runtime_settings']);
+        $phpSettings = $payload['php_settings'] ?? null;
+        unset($payload['runtime_settings'], $payload['php_settings']);
 
         if (isset($payload['stats_password']) && $payload['stats_password'] !== '') {
             $payload['stats_password'] = LegacyCrypt::hash($payload['stats_password']);
@@ -295,6 +296,7 @@ class WebDomainService
         }
 
         app(WebRuntimeService::class)->apply($domain, $runtime);
+        app(WebPhpSettingsService::class)->apply($domain, $phpSettings);
         $domain->save();
 
         return $domain->refresh();
