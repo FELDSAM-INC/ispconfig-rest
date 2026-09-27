@@ -48,3 +48,13 @@ verify intervention evidence, cross-vhost isolation, narrow exceptions, log-file
 safety, preserving original nginx logs, and rollback of invalid configuration.
 Both public installers pass from a root-owned staged release. Desktop/mobile WAF
 renders and existing website tab/anchor tests pass with real theme CSS.
+
+Development deployment: installed the root tool on `isp-test` (Apache,
+OWASP CRS 3.3.5-2), ran the API migration and verified the three customer sites
+advertise WAF. A customer-key write enabled detection temporarily on website 19;
+ISPConfig regenerated the real vhost, a localhost request to a nonexistent probe
+path produced rule 942100, and the worker/customer API returned a sanitized
+`detected` event. Original disabled settings were restored and the native vhost
+and Apache configuration validated afterward. No licensed Atomicorp key was
+provided or installed. WHMCS CI deployment matched all 18 changed module files,
+including its expected licensing transformation.

@@ -9,6 +9,7 @@ Install this optional tool on **each ISPConfig webserver**, including slave serv
 3. As root on each webserver:
 
 ```sh
+chmod -R go-w /root/ispconfig-rest-release
 bash /root/ispconfig-rest-release/waf-server/install.sh
 ispconfig-waf status
 # Optional: securely prompted server license, never a command-line argument:

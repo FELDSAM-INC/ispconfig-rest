@@ -157,4 +157,18 @@ final class WebWafApiTest extends SitesApiTestCase
         $this->putJson($url, ['enabled' => true], $this->authHeaders())->assertConflict();
         $this->assertCount(0, $this->datalogRows('web_domain'));
     }
+
+    public function test_account_transfer_discards_previous_owner_exceptions(): void
+    {
+        TenantSchema::create();
+        $this->seedTenants();
+        $this->worker();
+        $id = $this->seedVhost($this->ownedBy('clientA'));
+        $url = '/api/v1/sites/web-domains/'.$id;
+        $this->putJson($url.'/waf', ['enabled' => true, 'exclusions' => [['rule_id' => 942100]], 'ip_allowlist' => ['192.0.2.1']], $this->authHeaders())->assertOk();
+        $newOwner = $this->ownedBy('clientB');
+        $this->putJson($url, ['sys_groupid' => $newOwner['sys_groupid']], $this->authHeaders())->assertOk();
+        $this->getJson($url.'/waf', $this->tenantHeaders('clientB'))->assertOk()->assertJsonPath('settings.enabled', false)->assertJsonPath('settings.exclusions', [])->assertJsonPath('settings.ip_allowlist', []);
+
+    }
 }
