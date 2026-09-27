@@ -1,9 +1,12 @@
 <?php
 
+use App\Support\WebWafProfiles;
+
 // Administrative tool. License data is accepted only on stdin and stored root-only.
 if (PHP_SAPI !== 'cli' || posix_geteuid() !== 0) {
     exit(1);
 }
+require is_file(__DIR__.'/WebWafProfiles.php') ? __DIR__.'/WebWafProfiles.php' : __DIR__.'/../app/Support/WebWafProfiles.php';
 umask(0077);
 function command(array $argv): void
 {
@@ -125,7 +128,7 @@ try {
         }
         put('/etc/ispconfig-waf/base.conf', $base, 0644);
         put('/etc/ispconfig-waf/unicode.mapping', file_get_contents($source.'/unicode.mapping'), 0644);
-        put('/etc/ispconfig-waf/owasp.conf', "Include /etc/modsecurity/crs/crs-setup.conf\nInclude /usr/share/modsecurity-crs/rules/*.conf\n", 0644);
+        put('/etc/ispconfig-waf/owasp.conf', WebWafProfiles::configuration(), 0644);
         if ($engine === 'apache') {
             // Unmanaged websites stay off; the native website block enables its own isolated rules.
             put('/etc/apache2/conf-available/ispconfig-waf.conf', "<IfModule security2_module>\nSecRuleEngine Off\n".$global."</IfModule>\n", 0644);

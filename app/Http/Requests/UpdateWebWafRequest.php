@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\WebDomain;
 use App\Support\IspContext;
 use App\Support\WebWafPolicy;
+use App\Support\WebWafProfiles;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 use InvalidArgumentException;
@@ -21,6 +22,7 @@ final class UpdateWebWafRequest extends SitesRequest
     public function rules(): array
     {
         return ['expected_revision' => ['sometimes', 'string', 'regex:/\A[a-f0-9]{64}\z/D'], 'enabled' => ['sometimes', 'boolean'], 'atomic' => ['sometimes', 'boolean'], 'mode' => ['sometimes', Rule::in(['detection', 'enforcing'])],
+            'application_profile' => ['sometimes', 'string', Rule::in(['none', ...array_keys(WebWafProfiles::FILES)])],
             'exclusions' => ['sometimes', 'array', 'max:100'], 'ip_allowlist' => ['sometimes', 'array', 'max:100']];
     }
 

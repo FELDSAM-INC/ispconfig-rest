@@ -7,7 +7,7 @@ printf '<?php\n' > /usr/local/ispconfig/server/lib/config.inc.php
 ln -s /tmp/plugin.php "/usr/local/ispconfig/server/plugins-enabled/${engine/apache/apache2}_plugin.inc.php"
 a2dismod security2
 cp -R /app/waf-server /opt/waf-release/
-cp /app/app/Support/WebWaf{Policy,Audit}.php /opt/waf-release/app/Support/
+cp /app/app/Support/WebWaf{Policy,Audit,Profiles}.php /opt/waf-release/app/Support/
 chown -R root:root /opt/waf-release
 chmod -R go-w /opt/waf-release
 printf '#!/bin/sh\nexit 0\n' > /usr/bin/systemctl

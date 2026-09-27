@@ -15,7 +15,7 @@ final class WebWafApiTest extends SitesApiTestCase
 
     private function worker(int $server = 1, bool $atomic = false): void
     {
-        DB::table('api_web_waf_workers')->insert(['server_id' => $server, 'heartbeat' => time(), 'engine' => $server === 1 ? 'apache' : 'nginx', 'rules_version' => '3.3.7', 'atomic_available' => $atomic]);
+        DB::table('api_web_waf_workers')->insert(['server_id' => $server, 'heartbeat' => time(), 'engine' => $server === 1 ? 'apache' : 'nginx', 'rules_version' => '3.3.7', 'atomic_available' => $atomic, 'application_profiles' => json_encode(['wordpress'])]);
     }
 
     public function test_client_settings_are_scoped_datalogged_and_preserve_unrelated_directives(): void
@@ -79,6 +79,7 @@ final class WebWafApiTest extends SitesApiTestCase
     public static function invalid(): array
     {
         return array_map(fn ($body) => [$body], [['mode' => 'Off'], ['enabled' => 'yes'], ['enabled' => null], ['license_key' => 'secret'], ['raw' => 'SecRuleEngine Off'],
+            ['application_profile' => 'wordpress,ctl:ruleEngine=Off'], ['application_profile' => ['wordpress']], ['application_profile' => null], ['application_profile' => 'joomla'],
             ['exclusions' => [['rule_id' => 1, 'path' => "/x\nSecRuleEngine Off"]]], ['exclusions' => [['rule_id' => 1, 'path' => "/x' ; }"]]],
             ['exclusions' => [['rule_id' => 1, 'parameter' => 'q;ctl:ruleEngine=Off']]], ['exclusions' => [['rule_id' => '1-999999']]],
             ['exclusions' => [['rule_id' => 0]]], ['exclusions' => [['rule_id' => 1, 'unexpected' => 'x']]],
@@ -165,11 +166,66 @@ final class WebWafApiTest extends SitesApiTestCase
         $this->worker();
         $id = $this->seedVhost($this->ownedBy('clientA'));
         $url = '/api/v1/sites/web-domains/'.$id;
-        $this->putJson($url.'/waf', ['enabled' => true, 'exclusions' => [['rule_id' => 942100]], 'ip_allowlist' => ['192.0.2.1']], $this->authHeaders())->assertOk();
+        $this->putJson($url.'/waf', ['enabled' => true, 'application_profile' => 'wordpress', 'exclusions' => [['rule_id' => 942100]], 'ip_allowlist' => ['192.0.2.1']], $this->authHeaders())->assertOk();
         $newOwner = $this->ownedBy('clientB');
         $this->putJson($url, ['sys_groupid' => $newOwner['sys_groupid']], $this->authHeaders())->assertOk();
-        $this->getJson($url.'/waf', $this->tenantHeaders('clientB'))->assertOk()->assertJsonPath('settings.enabled', false)->assertJsonPath('settings.exclusions', [])->assertJsonPath('settings.ip_allowlist', []);
+        $this->getJson($url.'/waf', $this->tenantHeaders('clientB'))->assertOk()->assertJsonPath('settings.enabled', false)->assertJsonPath('settings.exclusions', [])->assertJsonPath('settings.ip_allowlist', [])->assertJsonPath('settings.application_profile', 'none');
 
+    }
+
+    public function test_profile_is_server_scoped_and_partial_updates_preserve_exceptions(): void
+    {
+        $this->worker();
+        $this->worker(2);
+        DB::table('api_web_waf_workers')->where('server_id', 2)->update(['application_profiles' => '["nextcloud","unknown","nextcloud"]']);
+        $id = $this->seedVhost();
+        $other = $this->seedVhost(['server_id' => 2]);
+        $url = '/api/v1/sites/web-domains/'.$id.'/waf';
+        $otherUrl = '/api/v1/sites/web-domains/'.$other.'/waf';
+        $headers = $this->authHeaders();
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('application_profiles', ['none', 'wordpress'])->assertJsonPath('settings.application_profile', 'none');
+        $this->getJson($otherUrl, $headers)->assertOk()->assertJsonPath('application_profiles', ['none', 'nextcloud']);
+        $this->putJson($otherUrl, ['application_profile' => 'wordpress'], $headers)->assertUnprocessable();
+        $this->putJson($url, ['application_profile' => 'wordpress', 'enabled' => true, 'exclusions' => [['rule_id' => 942100, 'path' => '/search', 'parameter' => 'q']]], $headers)
+            ->assertOk()->assertJsonPath('settings.application_profile', 'wordpress');
+        $raw = DB::table('web_domain')->where('domain_id', $id)->value('apache_directives');
+        $this->assertStringContainsString('setvar:tx.ispcp_application_profile=wordpress', $raw);
+        $this->putJson($url, ['mode' => 'enforcing'], $headers)->assertOk()->assertJsonPath('settings.application_profile', 'wordpress');
+        $this->putJson($url, ['application_profile' => 'none'], $headers)->assertOk()->assertJsonPath('settings.exclusions.0.rule_id', 942100);
+        $this->getJson($otherUrl, $headers)->assertJsonPath('settings.enabled', false)->assertJsonPath('settings.application_profile', 'none');
+    }
+
+    public function test_removed_profile_cannot_be_enabled_but_can_be_retained_when_disabling(): void
+    {
+        $this->worker();
+        $id = $this->seedVhost();
+        $url = '/api/v1/sites/web-domains/'.$id.'/waf';
+        $headers = $this->authHeaders();
+        $this->putJson($url, ['application_profile' => 'wordpress', 'enabled' => true], $headers)->assertOk();
+        DB::table('api_web_waf_workers')->update(['application_profiles' => '[]']);
+        $this->putJson($url, ['mode' => 'enforcing'], $headers)->assertUnprocessable();
+        $this->assertCount(1, $this->datalogRows('web_domain'));
+        $this->putJson($url, ['enabled' => false], $headers)->assertOk()->assertJsonPath('settings.application_profile', 'wordpress');
+        $this->putJson($url, ['enabled' => true, 'application_profile' => 'none'], $headers)->assertOk();
+        DB::table('api_web_waf_workers')->update(['heartbeat' => time() - 200]);
+        $this->putJson($url, ['enabled' => false], $headers)->assertOk();
+        $this->getJson($url, $headers)->assertJsonPath('application_profiles', ['none']);
+    }
+
+    public function test_old_workers_and_pre_profile_configuration_remain_compatible(): void
+    {
+        $this->worker();
+        DB::table('api_web_waf_workers')->update(['application_profiles' => null]);
+        $id = $this->seedVhost();
+        $site = (array) DB::table('web_domain')->where('domain_id', $id)->first();
+        $oldSettings = WebWafPolicy::DEFAULTS;
+        unset($oldSettings['application_profile']);
+        $marker = WebWafPolicy::BEGIN.' '.base64_encode(json_encode(['identity' => WebWafPolicy::identity($site), 'settings' => $oldSettings]))."\n".WebWafPolicy::END."\n";
+        DB::table('web_domain')->where('domain_id', $id)->update(['apache_directives' => $marker]);
+        $url = '/api/v1/sites/web-domains/'.$id.'/waf';
+        $this->getJson($url, $this->authHeaders())->assertOk()->assertJsonPath('application_profiles', ['none'])->assertJsonPath('settings.application_profile', 'none');
+        $this->putJson($url, ['application_profile' => 'wordpress'], $this->authHeaders())->assertUnprocessable();
+        $this->putJson($url, ['enabled' => true], $this->authHeaders())->assertOk();
     }
 
     public function test_old_placeholder_messages_get_a_fallback_without_losing_new_numeric_scores(): void

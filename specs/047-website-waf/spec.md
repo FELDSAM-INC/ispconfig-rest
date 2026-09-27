@@ -58,3 +58,11 @@ path produced rule 942100, and the worker/customer API returned a sanitized
 and Apache configuration validated afterward. No licensed Atomicorp key was
 provided or installed. WHMCS CI deployment matched all 18 changed module files,
 including its expected licensing transformation.
+
+## Application profiles (2026-09-27)
+
+Owner requested a per-website application selector after reviewing public CRS exclusions. On development (`isp-test`, CRS 3.3.5-2) verified the six distribution `REQUEST-903.*-EXCLUSION-RULES.conf` files and their `tx.crs_exclusions_*` guards. Implement None plus available WordPress, Drupal, Nextcloud, DokuWiki, cPanel and XenForo profiles; discover on each root webserver worker, never on the API master. Do not offer unverified Joomla/PrestaShop options or assume CRS 4 plugins are loaded. Source and upgrade details are in `waf-server/README.md`.
+
+API-owned worker capability column only; no native schema change. Strict profile enum, normal tenant authorization, datalog/CAS writes, backwards-compatible markers, preserved manual exceptions, safe disabling during worker/profile loss. Root configuration resets application flags after CRS setup so a selection does not affect another website. Native Apache/nginx tests cover actual Gutenberg exemptions and continued blocking on other paths, parameters and another vhost, including None after WordPress and global setup overrides.
+
+Validation: REST suite 1,521 tests / 11,672 assertions (one existing skip); module suite 3,483 tests / 100,962 assertions (four existing skips) on PHP 7.4 and 8.3. Both native engines and public installers passed. Browser renders passed at 1440px and 390px in default and Lagom2 themes with `vars/minified.css` loaded.

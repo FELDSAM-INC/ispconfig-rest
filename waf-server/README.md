@@ -4,7 +4,7 @@ Install this optional tool on **each ISPConfig webserver**, including slave serv
 
 ## Install
 
-1. Update the master REST API and run its migrations, including `2026_09_27_000002_create_web_waf_tables.php`, with a database administrator. The runtime API user does not need CREATE privileges.
+1. Update the master REST API and run its migrations, including `2026_09_27_000002_create_web_waf_tables.php` and `2026_09_27_000003_add_web_waf_application_profiles.php`, with a database administrator. The runtime API user does not need CREATE/ALTER privileges.
 2. Stage a reviewed release in a **root-owned directory with no group/other-writable ancestors**, for example `/root/ispconfig-rest-release`. Do not execute a web-writable REST checkout as root. Keep the `waf-server` and `app/Support` directories from the same release.
 3. As root on each webserver:
 
@@ -21,6 +21,16 @@ The installer detects the enabled ISPConfig Apache/nginx plugin, refuses to take
 Websites remain **disabled** until explicitly enabled in WHMCS. The initial selected mode is **detection**. Review real traffic and exceptions before selecting enforcing. Native ISPConfig datalog regeneration and configuration validation apply changes asynchronously. Saving desired settings is not proof that the server accepted them; use the existing changes/status view and server logs to investigate failed regeneration.
 
 The worker uses the existing ISPConfig server credentials to access the master database, as the other server workers do. Grant that account SELECT on `web_domain`, SELECT/INSERT/UPDATE on `api_web_waf_workers`, and SELECT/INSERT/DELETE on `api_web_waf_events` **on the master**. Retain any existing grants. The worker never writes native ISPConfig tables and never needs a REST administrator API key. Missing grants are reported in the server's root cron/system log. The capability appears after the next worker run (within a minute); its heartbeat expires after 150 seconds. An already configured website retains its tile during an outage so WAF can still be disabled.
+
+## Application profiles
+
+WHMCS offers **None**, plus the official CRS 3 application exclusions actually installed on that website's server: WordPress, Drupal, Nextcloud, DokuWiki, cPanel and XenForo. The root worker verifies the package files, version, ownership and generated include configuration before reporting profile IDs. The API never infers capabilities from the master server's filesystem. Older workers advertise no profiles until upgraded; rerun this release's installer on each webserver after the master migration.
+
+The selected profile is stored in the website's managed WAF block and applied through a transaction variable. The generated `owasp.conf` loads CRS setup, resets the six application flags, enables only the website's selected profile, then loads CRS rules. This deliberately prevents a global `900130` setting from enabling an application profile on other managed websites. **None** restores standard protection, retaining manually configured rule/IP exceptions. The WAF mode and Atomicorp choice are independent; these profiles target OWASP CRS, not the Atomicorp feed.
+
+Existing website markers default to None. Unknown profiles and unavailable selections are rejected. A disappeared profile cannot be enabled, but its saved selection can be retained when disabling WAF during an outage. Account/server transfers reset the profile with the rest of the WAF configuration. Profile changes use ISPConfig's normal asynchronous datalog processing.
+
+These are upstream exclusions for the base application; themes, builders and plugins may still need narrow manual exceptions. No supported official Joomla or PrestaShop profile was verified. CRS 4 moved application exclusions into separate plugins; this release does **not** install or advertise those plugins. On CRS 4 the selector therefore offers None until a tested plugin loader is implemented. See the [official plugin registry](https://github.com/coreruleset/plugin-registry), [WordPress plugin](https://github.com/coreruleset/wordpress-rule-exclusions-plugin) and [CRS 3 WordPress rules](https://github.com/coreruleset/coreruleset/blob/v3.3.5/rules/REQUEST-903.9002-WORDPRESS-EXCLUSION-RULES.conf).
 
 ## Atomicorp (additional licensed rules)
 
@@ -51,4 +61,4 @@ docker run --rm -v "$PWD:/app:ro" -w /app ispcp-waf-test bash tests/Integration/
 php vendor/bin/phpunit --filter WebWaf
 ```
 
-The native-engine checks run **only inside disposable containers** (they stub systemctl). They exercise detection/enforcing, scoped path/argument exceptions, IP bypass, disabled mode, audit normalization and cursor privacy. These checks use distribution OWASP CRS, not a paid Atomicorp feed.
+The native-engine checks run **only inside disposable containers** (they stub systemctl). They exercise detection/enforcing, scoped path/argument exceptions, IP bypass, disabled mode, audit normalization and cursor privacy. They also verify profile discovery and reject writable, foreign-owned, symlinked or incompatible rule files. WordPress Gutenberg content passes only with its profile, while other paths, arguments and another website remain protected, even if a global CRS setup flag tries to enable WordPress everywhere. All six profile configurations and switching back to None are tested on Apache and nginx. These checks use distribution OWASP CRS, not a paid Atomicorp feed.

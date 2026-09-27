@@ -4,6 +4,11 @@ properties:
   expected_revision: {type: string, writeOnly: true, pattern: '^[a-f0-9]{64}$'}
   enabled: {type: boolean, default: false}
   mode: {type: string, enum: [detection, enforcing], default: detection}
+  application_profile:
+    type: string
+    enum: [none, wordpress, drupal, nextcloud, dokuwiki, cpanel, xenforo]
+    default: none
+    description: Official CRS application exclusions for this website only. Select from application_profiles advertised by its server; unavailable profiles cannot be enabled. Existing manual exceptions are preserved.
   atomic: {type: boolean, default: false, description: Add the server's licensed Atomicorp feed to OWASP CRS.}
   exclusions:
     type: array

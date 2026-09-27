@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\WebDomain;
 use App\Support\WebWafAudit;
 use App\Support\WebWafPolicy;
+use App\Support\WebWafProfiles;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -50,8 +51,15 @@ final class WebWafService
         $worker = $this->worker($site);
         $settings = $this->settings($site);
 
-        return ['revision' => $this->revision($site), 'available' => $worker !== null, 'atomic_available' => (bool) ($worker->atomic_available ?? false), 'engine' => $worker->engine ?? null,
+        return ['revision' => $this->revision($site), 'available' => $worker !== null, 'application_profiles' => $this->profiles($worker), 'atomic_available' => (bool) ($worker->atomic_available ?? false), 'engine' => $worker->engine ?? null,
             'rules_version' => $worker->rules_version ?? null, 'configured' => $settings !== null, 'settings' => $settings ?? WebWafPolicy::DEFAULTS];
+    }
+
+    private function profiles(?object $worker): array
+    {
+        $reported = json_decode($worker->application_profiles ?? 'null', true);
+
+        return ['none', ...array_values(array_filter(array_keys(WebWafProfiles::FILES), static fn ($profile) => is_array($reported) && in_array($profile, $reported, true)))];
     }
 
     public function revision(WebDomain $site): string
@@ -66,13 +74,18 @@ final class WebWafService
         }
         unset($changes['expected_revision']);
         $worker = $this->worker($site);
+        $previous = $this->settings($site) ?? WebWafPolicy::DEFAULTS;
         try {
-            $settings = WebWafPolicy::normalize(array_replace($this->settings($site) ?? WebWafPolicy::DEFAULTS, $changes));
+            $settings = WebWafPolicy::normalize(array_replace($previous, $changes));
         } catch (InvalidArgumentException $e) {
             throw ValidationException::withMessages(['waf' => $e->getMessage()]);
         }
         if ($settings['enabled'] && ! $worker) {
             throw ValidationException::withMessages(['waf' => 'The WAF server tool is unavailable.']);
+        }
+        if (! in_array($settings['application_profile'], $this->profiles($worker), true)
+            && ($settings['enabled'] || $settings['application_profile'] !== $previous['application_profile'])) {
+            throw ValidationException::withMessages(['application_profile' => 'This application profile is not available on the website server.']);
         }
         if ($settings['enabled'] && $settings['atomic'] && ! $worker->atomic_available) {
             throw ValidationException::withMessages(['atomic' => 'Atomicorp rules are not configured on this server.']);

@@ -7,7 +7,7 @@ use InvalidArgumentException;
 /** Pure, deliberately small rule compiler shared by the API and server acceptance tests. */
 final class WebWafPolicy
 {
-    public const DEFAULTS = ['enabled' => false, 'mode' => 'detection', 'atomic' => false, 'exclusions' => [], 'ip_allowlist' => []];
+    public const DEFAULTS = ['enabled' => false, 'mode' => 'detection', 'application_profile' => 'none', 'atomic' => false, 'exclusions' => [], 'ip_allowlist' => []];
 
     public const BEGIN = '# BEGIN ISPCP WAF';
 
@@ -19,6 +19,9 @@ final class WebWafPolicy
             throw new InvalidArgumentException('Unsupported WAF setting.');
         }
         $input += self::DEFAULTS;
+        if (! is_string($input['application_profile']) || ! in_array($input['application_profile'], ['none', ...array_keys(WebWafProfiles::FILES)], true)) {
+            throw new InvalidArgumentException('Select a supported application profile.');
+        }
         if (! is_bool($input['enabled']) || ! is_bool($input['atomic']) || ! in_array($input['mode'], ['detection', 'enforcing'], true)) {
             throw new InvalidArgumentException('Select a valid WAF mode.');
         }
@@ -74,6 +77,7 @@ final class WebWafPolicy
             throw new InvalidArgumentException('Invalid website identity.');
         }
         $lines = ['Include /etc/ispconfig-waf/base.conf'];
+        $lines[] = 'SecAction "id:19998,phase:1,pass,t:none,nolog,setvar:tx.ispcp_application_profile='.$settings['application_profile'].'"';
         if ($settings['ip_allowlist']) {
             $lines[] = 'SecRule REMOTE_ADDR "@ipMatch '.implode(',', $settings['ip_allowlist']).'" "id:19999,phase:1,pass,nolog,ctl:ruleEngine=Off"';
         }
@@ -99,6 +103,7 @@ final class WebWafPolicy
 
     public static function compile(array $site, string $engine, array $settings): string
     {
+        $settings = self::normalize($settings);
         $identity = self::identity($site);
         $rules = self::rules($settings, $identity);
         $marker = self::BEGIN.' '.base64_encode(json_encode(['identity' => $identity, 'settings' => $settings], JSON_THROW_ON_ERROR));

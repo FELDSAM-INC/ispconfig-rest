@@ -11,7 +11,7 @@ for waf_source in "$source_dir" "$source_dir/../app/Support"; do
         waf_source=$(dirname "$waf_source")
     done
 done
-for waf_file in "$source_dir"/{install.sh,run.php,configure.php,ispconfig-waf} "$source_dir/../app/Support"/{WebWafPolicy.php,WebWafAudit.php}; do
+for waf_file in "$source_dir"/{install.sh,run.php,configure.php,ispconfig-waf} "$source_dir/../app/Support"/{WebWafPolicy.php,WebWafAudit.php,WebWafProfiles.php}; do
     [[ ! -L "$waf_file" && $(stat -c %u "$waf_file") = 0 ]] && [[ $(( 8#$(stat -c %a "$waf_file") & 0022 )) = 0 ]] || { echo 'Installer files must be regular root-owned files without group/other write access.' >&2; exit 1; }
 done
 php -r 'exit(PHP_VERSION_ID >= 80300 && extension_loaded("pdo_mysql") && extension_loaded("mbstring") ? 0 : 1);'
@@ -45,7 +45,7 @@ install -d -o root -g root -m 0755 /etc/ispconfig-waf
 install -d -o root -g root -m 0700 /var/log/ispconfig-waf
 install -d -o www-data -g www-data -m 0700 /var/lib/ispconfig-rest-waf-tmp /var/lib/ispconfig-rest-waf-data
 for file in run.php configure.php; do install -o root -g root -m 0600 "$source_dir/$file" /usr/local/lib/ispconfig-rest-waf/; done
-for file in WebWafPolicy.php WebWafAudit.php; do install -o root -g root -m 0600 "$source_dir/../app/Support/$file" /usr/local/lib/ispconfig-rest-waf/; done
+for file in WebWafPolicy.php WebWafAudit.php WebWafProfiles.php; do install -o root -g root -m 0600 "$source_dir/../app/Support/$file" /usr/local/lib/ispconfig-rest-waf/; done
 # nginx packages do not ship the engine's reference configuration/unicode map.
 # Extract those data files from the signed distro package without installing Apache.
 if [[ ! -f /etc/modsecurity/modsecurity.conf-recommended || ! -f /etc/modsecurity/unicode.mapping ]]; then

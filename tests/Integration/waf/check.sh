@@ -11,6 +11,7 @@ cp /tmp/waf-www/index.html /tmp/waf-www/other
 printf '#!/bin/sh\nexit 0\n' > /usr/bin/systemctl
 chmod 755 /usr/bin/systemctl
 php /app/waf-server/configure.php install "$engine" /etc/modsecurity
+php /app/tests/Integration/waf/check-profiles.php
 # Even with no opted-in websites, a malformed new base must fail and restore the prior files.
 cp /etc/ispconfig-waf/base.conf /tmp/waf-base-before
 mkdir /tmp/waf-invalid-source
@@ -44,3 +45,23 @@ sleep .2
 php /app/tests/Integration/waf/check-audit.php "$engine"
 
 if [[ "$engine" = nginx ]]; then [[ -s /tmp/waf-original-error.log ]]; echo 'PASS nginx preserves original website error log'; fi
+
+# Official WordPress Gutenberg exemption must affect only content at its known path.
+mkdir -p /tmp/waf-www/wp-json/wp/v2
+cp /tmp/waf-www/index.html /tmp/waf-www/wp-json/wp/v2/posts
+# Even an administrator's global WordPress default must not override a site's None.
+printf '\nSecAction "id:900130,phase:1,pass,nolog,setvar:tx.crs_exclusions_wordpress=1"\n' >> /etc/modsecurity/crs/crs-setup.conf
+for profile in wordpress drupal nextcloud dokuwiki cpanel xenforo none; do
+    php /app/tests/Integration/waf/probe.php "$profile"
+    if [[ "$engine" = apache ]]; then apache2ctl -t; apache2ctl graceful; else nginx -t; nginx -s reload; fi
+    sleep .5
+    payload='content=%3Cscript%3Ealert(1)%3C%2Fscript%3E'
+    expected=403
+    [[ "$profile" != wordpress ]] || expected=200
+    actual=$(request "/wp-json/wp/v2/posts?$payload")
+    [[ "$actual" = "$expected" ]] || { echo "$engine $profile profile expected $expected got $actual"; exit 1; }
+    [[ $(request "/other?$payload") = 403 ]]
+    [[ $(request '/wp-json/wp/v2/posts?other=%3Cscript%3Ealert(1)%3C%2Fscript%3E') = 403 ]]
+    [[ $(curl -s -o /dev/null -w '%{http_code}' -H 'Host: other.test' "http://127.0.0.1:$port/wp-json/wp/v2/posts?$payload") = 403 ]]
+    echo "PASS $engine application profile $profile: scoped path/argument, other website protected"
+done

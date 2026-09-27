@@ -3,6 +3,7 @@
 declare(strict_types=1);
 use App\Support\WebWafAudit;
 use App\Support\WebWafPolicy;
+use App\Support\WebWafProfiles;
 
 if (PHP_SAPI !== 'cli' || ! function_exists('posix_geteuid') || posix_geteuid() !== 0) {
     exit(1);
@@ -18,6 +19,7 @@ $lock = fopen('/var/lib/ispconfig-rest-waf/worker.lock', 'c');
 if (! $lock || ! flock($lock, LOCK_EX | LOCK_NB)) {
     exit(0);
 }
+require __DIR__.'/WebWafProfiles.php';
 require __DIR__.'/WebWafPolicy.php';
 require __DIR__.'/WebWafAudit.php';
 define('SCRIPT_PATH', '/usr/local/ispconfig/server');
@@ -36,12 +38,13 @@ try {
         throw new RuntimeException;
     }
     $state['atomic_available'] = ! empty($state['atomic_available']) && is_file('/etc/ispconfig-waf/atomic.conf');
+    $profiles = json_encode(WebWafProfiles::installed(), JSON_THROW_ON_ERROR);
     $positionFile = '/var/lib/ispconfig-rest-waf/positions.json';
     $positions = is_file($positionFile) ? (json_decode(file_get_contents($positionFile), true) ?: []) : [];
     $catalog = WebWafAudit::catalog();
     $start = microtime(true);
     do {
-        $db->prepare('INSERT INTO api_web_waf_workers (server_id,heartbeat,engine,rules_version,atomic_available) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE heartbeat=VALUES(heartbeat),engine=VALUES(engine),rules_version=VALUES(rules_version),atomic_available=VALUES(atomic_available)')->execute([$server, time(), $state['engine'], $state['rules_version'], ! empty($state['atomic_available']) ? 1 : 0]);
+        $db->prepare('INSERT INTO api_web_waf_workers (server_id,heartbeat,engine,rules_version,atomic_available,application_profiles) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE heartbeat=VALUES(heartbeat),engine=VALUES(engine),rules_version=VALUES(rules_version),atomic_available=VALUES(atomic_available),application_profiles=VALUES(application_profiles)')->execute([$server, time(), $state['engine'], $state['rules_version'], ! empty($state['atomic_available']) ? 1 : 0, $profiles]);
         $sites = $db->prepare("SELECT domain_id,server_id,sys_groupid,domain,apache_directives,nginx_directives FROM web_domain WHERE server_id=? AND type IN ('vhost','vhostsubdomain','vhostalias')");
         $sites->execute([$server]);
         $active = [];

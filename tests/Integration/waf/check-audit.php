@@ -1,5 +1,6 @@
 <?php
 
+require '/app/app/Support/WebWafProfiles.php';
 require '/app/app/Support/WebWafPolicy.php';
 require '/app/app/Support/WebWafAudit.php';
 use App\Support\WebWafAudit;

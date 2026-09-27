@@ -1,13 +1,18 @@
 <?php
 
+require '/app/app/Support/WebWafProfiles.php';
 require '/app/app/Support/WebWafPolicy.php';
 use App\Support\WebWafPolicy;
+use App\Support\WebWafProfiles;
 
 $mode = $argv[1] ?? 'detection';
 $site = ['domain_id' => 1, 'server_id' => 1, 'sys_groupid' => 5, 'domain' => 'waf.test'];
 $settings = WebWafPolicy::DEFAULTS;
 $settings['enabled'] = true;
 $settings['mode'] = $mode === 'detection' ? 'detection' : 'enforcing';
+if (isset(WebWafProfiles::FILES[$mode])) {
+    $settings['application_profile'] = $mode;
+}
 if ($mode === 'exclude') {
     $settings['exclusions'] = [['rule_id' => 942100, 'path' => '/allowed', 'parameter' => 'q']];
 }

@@ -1,9 +1,14 @@
 type: object
-required: [available, atomic_available, settings]
+required: [available, atomic_available, application_profiles, settings]
 properties:
   revision: {type: string, pattern: '^[a-f0-9]{64}$', description: Pass as expected_revision to prevent concurrent configuration replacement.}
   available: {type: boolean}
   atomic_available: {type: boolean}
+  application_profiles:
+    type: array
+    uniqueItems: true
+    description: Profiles verified by the current webserver worker against its installed CRS 3 rules and managed configuration. Always includes none. Older or unavailable workers expose only none; CRS 4 plugins are not yet supported.
+    items: {type: string, enum: [none, wordpress, drupal, nextcloud, dokuwiki, cpanel, xenforo]}
   engine: {type: string, nullable: true, enum: [apache, nginx]}
   rules_version: {type: string, nullable: true}
   settings: {$ref: './WebWafSettings.yaml'}
