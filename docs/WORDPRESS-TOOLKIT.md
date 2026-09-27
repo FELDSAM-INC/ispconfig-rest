@@ -84,3 +84,9 @@ worker Python 13 tests, server-tools Python 17 tests; real Apache nine HTTP
 assertions including encoded queries and `.htaccess` overrides. Module 3,489
 PHP tests / 103,465 assertions (four existing skips); browser renders for default
 and Lagom2 at 1440, 960 and 390px, with `vars/minified.css` loaded.
+
+Final deployed-worker check returned OK for all 19 measures. Live Apache returned
+200 for the homepage and 403 for XML-RPC and percent-encoded author scans.
+The disposable website, client-domain registration, database/user, exported dumps,
+WordPress job/cache rows, recovery snapshots, sandbox account and test SFTP bind
+mounts/helper were removed. Existing development websites were not modified.
