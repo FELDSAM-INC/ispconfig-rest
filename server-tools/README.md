@@ -116,8 +116,11 @@ apply the displayed table grants there and rerun. `--no-grants` requires permiss
 to be configured beforehand. Worker credentials remain on their existing hosts;
 only the SQL account identity and missing table rights cross the SSH connection.
 
-The database worker starts through its normal cron after installation, so the CLI
-does not wait for or interrupt large import/export jobs. Installed cron entries
+Database jobs and file-manager jail reconciliation run through their normal cron
+after installation. The CLI does not wait for large database jobs, and an unrelated
+website with an unsafe jail cannot prevent installation of other components. Jail
+safety checks stay enforced; per-site failures remain visible in the worker's
+syslog. See `journalctl -t ispconfig-rest-file-manager-worker`. Installed cron entries
 are checked after copying; heartbeat/capability availability follows the next
 minute's worker run. `status` checks installation and permissions, not heartbeat
 freshness or customer traffic.

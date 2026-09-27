@@ -1,7 +1,9 @@
 #!/bin/sh
 set -eu
 [ "$(id -u)" = 0 ] || { echo 'Run as root.' >&2; exit 1; }
-[ "$#" = 2 ] || { echo 'Usage: install.sh /path/to/whmcs-file-manager.pub WHMCS_EGRESS_IP' >&2; exit 1; }
+defer_reconcile=0
+if [ "${1:-}" = --no-run ]; then defer_reconcile=1; shift; fi
+[ "$#" = 2 ] || { echo 'Usage: install.sh [--no-run] /path/to/whmcs-file-manager.pub WHMCS_EGRESS_IP' >&2; exit 1; }
 [ -f /usr/local/ispconfig/server/lib/config.inc.php ] || { echo 'Install on an ISPConfig webserver.' >&2; exit 1; }
 worker_source=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 python3 -c 'import ipaddress,sys; ipaddress.ip_address(sys.argv[1])' "$2"
@@ -55,5 +57,7 @@ if [ -f /etc/cron.d/ispcp-files ]; then
         echo 'Unrecognized legacy cron left unchanged: /etc/cron.d/ispcp-files' >&2
     fi
 fi
-/usr/bin/python3 /usr/local/lib/ispconfig-rest-file-manager-worker/reconcile.py
+if [ "$defer_reconcile" = 0 ]; then
+    /usr/bin/python3 /usr/local/lib/ispconfig-rest-file-manager-worker/reconcile.py
+fi
 echo 'Installed. New active websites are provisioned every minute; removed or inactive website keys are revoked.'

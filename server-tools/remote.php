@@ -229,20 +229,29 @@ final class ServerToolsRemote
 
     public static function install(string $root, array $components): void
     {
+        $failed = [];
         foreach ($components as $component) {
-            $command = match ($component) {
-                'database' => ['sh', $root.'/worker/install.sh', '--no-run'],
-                'web-logs' => ['sh', $root.'/web-log-worker/install.sh'],
-                'waf' => ['bash', $root.'/waf-server/install.sh'],
-                'file-manager' => self::fileManagerCommand($root),
-                'panel-security' => ['bash', $root.'/waf-server/install.sh', '--ispconfig-security-only'],
-                default => throw new RuntimeException('Unknown installer.'),
-            };
             echo 'Installing '.$component."\n";
-            $process = proc_open($command, [STDIN, STDOUT, STDERR], $pipes);
-            if (! is_resource($process) || proc_close($process) !== 0) {
-                throw new RuntimeException('Installer failed: '.$component.'. Earlier components may already be updated; correct the error and rerun.');
+            try {
+                $command = match ($component) {
+                    'database' => ['sh', $root.'/worker/install.sh', '--no-run'],
+                    'web-logs' => ['sh', $root.'/web-log-worker/install.sh'],
+                    'waf' => ['bash', $root.'/waf-server/install.sh'],
+                    'file-manager' => self::fileManagerCommand($root),
+                    'panel-security' => ['bash', $root.'/waf-server/install.sh', '--ispconfig-security-only'],
+                    default => throw new RuntimeException('Unknown installer.'),
+                };
+                $process = proc_open($command, [STDIN, STDOUT, STDERR], $pipes);
+                if (! is_resource($process) || proc_close($process) !== 0) {
+                    throw new RuntimeException('The installer returned a failure.');
+                }
+            } catch (Throwable $e) {
+                $failed[] = $component;
+                fwrite(STDERR, 'Installer failed: '.$component.' ('.$e->getMessage()."); continuing with the remaining components.\n");
             }
+        }
+        if ($failed !== []) {
+            throw new RuntimeException('Installer failed: '.implode(', ', $failed).'. Successful components are retained; correct the error and rerun.');
         }
     }
 
@@ -261,7 +270,7 @@ final class ServerToolsRemote
             throw new RuntimeException('A valid WHMCS egress IP is required for the file manager.');
         }
 
-        return ['sh', $root.'/file-manager-worker/install.sh', $key, $ip];
+        return ['sh', $root.'/file-manager-worker/install.sh', '--no-run', $key, $ip];
     }
 }
 

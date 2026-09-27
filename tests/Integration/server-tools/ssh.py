@@ -92,6 +92,18 @@ with tempfile.TemporaryDirectory(dir="/root") as directory:
     assert not Path("/root/payload-must-not-run").exists()
     assert not list(Path("/root").glob("ispconfig-rest-tools.*")), "Failed stage leaked"
 
+    # Failure of one component is reported but does not prevent the next installer.
+    (source / "worker/install.sh").write_text("#!/bin/sh\nexit 1\n")
+    (source / "web-log-worker/install.sh").write_text("#!/bin/sh\ntouch /root/remaining-installer-ran\n")
+    with tempfile.TemporaryDirectory(dir="/root") as failed_directory:
+        archive = manager.package_release(args, Path(failed_directory), [])
+        try:
+            target.install(archive, ["database", "web-logs"])
+            raise AssertionError("Installer failure returned success")
+        except manager.Failure:
+            pass
+    assert Path("/root/remaining-installer-ran").exists()
+
 # Unknown/mismatched host keys and unconfigured login keys must be refused.
 cmd("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", "/root/.ssh/wrong")
 args.identity = Path("/root/.ssh/wrong")
