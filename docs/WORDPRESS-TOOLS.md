@@ -298,3 +298,10 @@ in one Revert. A subsequent full Secure/Revert cycle passed too. Independent
 site-user checks confirmed the original prefix/login, administrator ID/role and
 newer post/option remained intact. Full REST suite: 1,553 tests / 12,124 assertions,
 one existing skip; WordPress sandbox: 26 tests; server-tools: 17 tests.
+
+After deployment, the originally failed selection on development website 19 was
+retried through its WHMCS service API. All 16 selected measures completed: 1 second
+queued, 16 seconds running, no error or pending native configuration. The final
+inventory reports all selected protections as unapplied with no remaining undo;
+the three one-way measures remain outside Revert. Website 57, its database/user,
+worker workspaces, SFTP jail and diagnostic helper/credential files were cleaned up.
