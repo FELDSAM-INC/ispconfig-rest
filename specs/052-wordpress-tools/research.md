@@ -1,4 +1,4 @@
-# WordPress Toolkit Lite: capability audit and first milestone
+# WordPress Tools: capability audit and first milestone
 
 The existing file-manager worker provisions jailed SFTP but has no PHP runtime.
 WordPress commands must run in a separate, fail-closed bubblewrap sandbox as the

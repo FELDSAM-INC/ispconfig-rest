@@ -101,9 +101,9 @@ The disposable OpenSSH fixture lives in `tests/Integration/file-manager-worker`.
 The WHMCS repository's `tests/Integration/file-manager/sftp.php` exercises it on
 PHP 7.4/8.3, including raw SFTP escape attempts and forced-command enforcement.
 
-## WordPress Toolkit Lite
+## WordPress Tools
 
 The worker now includes a separate sandboxed WordPress queue. See
-[capabilities, requirements and recovery](../docs/WORDPRESS-TOOLKIT.md) before
+[capabilities, requirements and recovery](../docs/WORDPRESS-TOOLS.md) before
 upgrading. Apply the API migration first, then use the server-tools CLI to update
 this worker and its grants. WordPress/PHP commands never run as root.

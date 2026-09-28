@@ -1,4 +1,4 @@
-# WordPress Toolkit Lite
+# WordPress Tools
 
 Implemented: per-public-root cached inventory and on-demand rescan; Check, Secure
 and Revert for the approved security measures; read-only core checksum verification;
@@ -68,7 +68,7 @@ User-facing errors contain safe codes, never SQL, configuration or credentials.
 
 ## Development verification (2026-09-27)
 
-Disposable `wp-toolkit-lite.dot.com`, website 52, WordPress 6.8.3 on the site's
+Disposable website 52, WordPress 6.8.3 on the site's
 PHP 8.5 runtime: rescan/check; all eleven Apache measures; constants/pingbacks
 Secure and Revert; permissions, salts and languages; administrator rename and
 randomized prefix. Independent checks retained administrator ID 1, administrator

@@ -14,4 +14,4 @@ docker run --rm -v "$PWD:/app:ro" ispcp-waf-test php /app/tests/WordPress/apache
 It checks the generated managed block, encoded author enumeration, sensitive files,
 directory browsing and handler overrides from `.htaccess`, while ordinary assets
 remain readable. Worker tests additionally cover UID isolation and pinned mounts;
-live development verification is recorded in `docs/WORDPRESS-TOOLKIT.md`.
+live development verification is recorded in `docs/WORDPRESS-TOOLS.md`.
