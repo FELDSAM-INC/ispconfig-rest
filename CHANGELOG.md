@@ -3,33 +3,131 @@
 Release notes for ISPConfig REST API. Versions refer to the application release;
 the HTTP API remains under `/api/v1`.
 
-## Unreleased
+## [1.0.1] - 2026-09-28
 
-- Add `ispconfig-rest server-tools install|update|status` to discover ISPConfig
-  servers and deploy the database, web-log/runtime and file-manager workers plus
-  WAF through verified, passwordless SSH. Supports dry runs, server/component
-  selection, restricted table grants, trusted release staging and preserved
-  server configuration. See the [CLI guide](server-tools/README.md).
+This release adds WordPress Tools, per-website WAF controls, configured PHP settings
+and jailed file-manager access, with a CLI to install and update server components
+from the ISPConfig master. Requires PHP 8.3 or newer and ISPConfig 3.3; the HTTP API
+continues to use `/api/v1`. New features require their migrations and matching workers.
 
-- Show validated numeric anomaly scores in WAF summary events instead of `[value]`
-  placeholders. Unknown formats and historical summary entries use concise text;
-  request values remain excluded from event descriptions.
+### Added
 
-- Add website-scoped WAF settings and sanitized security events at
-  `/sites/web-domains/{id}/waf` and `/waf/events`, plus a [server installer](waf-server/README.md)
-  for Apache/nginx ModSecurity and OWASP CRS. Supports detection/enforcing mode,
-  rule/path/argument exceptions, IP allowlists and optional server-local Atomicorp
-  licensing. Requires the new WAF migration and installation on each webserver.
-  Websites opt in; existing traffic is not automatically switched to enforcing.
+- **Server-tools installer:** `ispconfig-rest server-tools install|update|status`
+  discovers ISPConfig servers and deploys database, web-log/runtime, file-manager
+  and WAF components through verified, passwordless SSH. Supports dry runs, selected
+  servers/components, required table grants and trusted release staging. Updates
+  preserve server configuration and only update components already installed.
+  See the [CLI guide](server-tools/README.md).
+- **WordPress discovery and security:** scoped inventory, cached public site
+  name/URLs, rescan and asynchronous Check/Secure/Revert jobs for primary websites
+  and independent vhosts. Server protections use managed Apache directive blocks;
+  applicable configuration measures remain available on nginx. WP-CLI/PHP commands
+  run as the website user in a namespace sandbox, through the file-manager worker.
+  Supported measures include configuration constants, pingbacks, permissions,
+  scripting-language restrictions and reversible database-prefix/admin-name changes
+  for eligible installations. Protected journals and CLI/HTTP verification support
+  recovery without requiring full database exports.
+- **WordPress integrity:** read-only core verification against official checksums
+  for the installed version and locale. Changed, missing and unexpected files are
+  reported separately. Verified CRLF/LF-only differences are informational; the
+  worker validates comparison files against official checksums and never rewrites
+  website files during a check.
+- **Managed WordPress cron:** take over `wp-cron.php` using a native ISPConfig cron
+  reservation that respects account limits, allowed task types and minimum frequency.
+  Due events run under the site's PHP/user sandbox. Browser-triggered cron is disabled
+  only after native configuration is applied; stopping takeover restores the recorded
+  previous setting. See [WordPress Tools](docs/WORDPRESS-TOOLS.md).
+- **Web Application Firewall:** website-scoped settings and sanitized recent events
+  at `/sites/web-domains/{id}/waf` and `/waf/events`, plus an Apache/nginx ModSecurity
+  and OWASP CRS installer. Includes detection/enforcing mode, rule/path/argument
+  exceptions, IP allowlists and optional server-local Atomicorp licensing. Supported
+  CRS 3 application profiles are advertised only when their installed files are
+  verified. Existing websites remain opted out. See the [WAF guide](waf-server/README.md).
+- **Configured PHP settings:** structured `php_settings` reads and restricted
+  updates for websites/vhost children. The web-log worker reports the selected PHP
+  runtime's configured limits and capabilities; editable options cover OPcache,
+  function access, error reporting and common PHP switches. Administrator/global
+  restrictions remain authoritative. See [PHP settings](docs/website-php-settings.md).
+- **Jailed file access:** an optional [file-manager worker](file-manager-worker/README.md)
+  provisions restricted SFTP identities, per-vhost jails and private trash mounts for
+  the WHMCS file manager. Website UID/GID and quotas are retained. Unsafe paths fail
+  closed; inactive/deleted websites lose access. Existing helper keys, users and
+  website mounts are preserved during upgrades.
+- **Native panel URL:** `GET /me` includes `panel_url`, discovered from the master's
+  active Apache/nginx interface vhost. `ISPCONFIG_PANEL_URL` supports an administrator
+  override for reverse proxies.
 
-- Add an optional [file manager worker](file-manager-worker/README.md) for automatic
-  jailed SFTP access from the WHMCS FileGator integration. Install on each webserver;
-  it provisions root-owned jails and restricted SFTP identities from local ISPConfig
-  website records. Upgrades the earlier WHMCS-distributed helper without replacing
-  keys, users or website mounts. No API endpoint or database migration is needed.
-- Expose the discovered public ISPConfig login URL as `panel_url` in `GET /me`.
-  Reads the master's active Apache/nginx interface vhost; supports an API-side
-  `ISPCONFIG_PANEL_URL` override for reverse proxies. No database migration is required.
+### Changed and fixed
+
+- Start WordPress work promptly through a persistent queue service and reconcile
+  pending native changes without requiring repeated manual security checks.
+- Make prefix/admin changes and full security reverts reliable: retain literal
+  option names, reconnect idle database sessions, use ISPConfig's configured preview
+  hostname and tolerate native webserver reloads during HTTP verification. Safe
+  exception locations aid diagnostics without logging command output or credentials.
+- Preserve native statistics permissions and apply Apache security protections after
+  directory conditions. Existing WAF and other managed directives are retained.
+- Accept ISPConfig textarea CRLF endings in managed settings and detect PHP 8.5's
+  built-in OPcache when advertising PHP controls.
+- Permit only the exact generated WAF include lines through ISPConfig's custom
+  directive security override; retain arbitrary-include restrictions and other
+  vendor/administrator rules. Show validated numeric WAF anomaly scores instead of
+  placeholder values while keeping request data out of event descriptions.
+- Keep ISPConfig website parents immutable while provisioning private trash. An
+  individual unsafe website no longer prevents unrelated server-tool updates.
+
+### Upgrade from 1.0.0
+
+1. **Back up and apply migrations first.** Five new migrations create API-owned PHP
+   snapshot, WAF/profile and WordPress/cron tables; native ISPConfig tables are not
+   migrated. Run `sudo ispconfig-rest update`. If the runtime database account lacks
+   DDL rights, complete `php artisan migrate --force` using an administrative migration
+   connection before enabling workers. Clear cached configuration before temporary
+   credential overrides, then rebuild it with normal runtime settings. Do not leave
+   database-administrator credentials in the API runtime configuration.
+2. **Refresh installed components:** `sudo ispconfig-rest server-tools update`.
+   The new CLI is installed/refreshed with the API; older manager invocations bootstrap
+   its root-owned helpers on first use. Review `server-tools status` and the displayed
+   grants. On remote servers, configure administrator SSH keys and verify host keys
+   before retrying a failed preflight. Updates do not install absent components.
+3. **Add optional components deliberately.** For example,
+   `sudo ispconfig-rest server-tools install --components database,web-logs,waf --dry-run`,
+   then repeat without `--dry-run`. Without a component selection all four are selected.
+   First-time `file-manager` installation also needs `--file-manager-key` containing
+   only the WHMCS public key, and `--whmcs-ip` with its outgoing IP. Configure WHMCS's
+   private SFTP mapping separately; never copy its private key to workers.
+4. **Check WordPress prerequisites before adding/updating file-manager.** The bundled
+   WordPress runtime requires compatible bubblewrap with unprivileged user namespaces,
+   matching website PHP CLI binaries and extensions, MySQL client tools and the pinned
+   WP-CLI runtime. There is no unjailed fallback. The worker bridge requires PHP 8.3+
+   with `pdo_mysql`, `posix`, `pcntl` and `mbstring`. The installer stops existing work
+   gracefully before replacing its runtime. Keep API and workers on the same release.
+5. **Enable WAF per website after installation.** Start with detection and review
+   traffic before enforcing. Enter optional Atomicorp keys through
+   `ispconfig-waf atomic-key` on each licensed server. For an ISPConfig interface hosted outside the
+   managed targets, apply the WAF guide's security-only installation there too.
+6. **Verify capabilities.** PHP snapshots and optional feature availability follow
+   the workers' first successful runs. Retain the API scheduler and existing worker
+   jobs. Update the consuming WHMCS module after API migrations and worker updates.
+
+### Availability limits
+
+- WordPress server-rule protections require Apache 2.4. nginx supports applicable
+  WordPress/configuration measures. Core installation, updates, reinstallation and
+  automatic WordPress login are not exposed; checksum verification is not a malware scan.
+- Prefix/admin changes require an eligible local, dedicated customer database and
+  working local HTTP verification. Multisite, shared/external databases and custom
+  user tables are excluded. Revert needs recorded prior state and refuses conflicts.
+- WordPress cron takeover requires command or supported Jailkit/chrooted cron and
+  an available plan slot; URL-only cron plans cannot use it.
+- WAF installation targets supported Debian/Ubuntu packages. Application profiles
+  use supported installed CRS 3 exclusions; CRS 4 plugins are not installed or
+  advertised. Atomicorp needs a separately licensed, verified feed; a feed outage
+  can prevent a subsequent configuration reload. Events are a bounded recent view.
+- File-manager trash still consumes website quota. The SFTP worker does not change
+  unsafe ownership/permissions to bypass jail checks. PHP snapshots describe configured
+  values before application or `.user.ini` overrides; global restrictions cannot be
+  relaxed through a website's settings.
 
 ## [1.0.0] - 2026-09-26
 
@@ -176,6 +274,7 @@ Requires PHP 8.3 or newer and ISPConfig 3.3.
 
 - Initial release candidate.
 
+[1.0.1]: https://github.com/FELDSAM-INC/ispconfig-rest/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/FELDSAM-INC/ispconfig-rest/compare/v1.0.0-rc.3...v1.0.0
 [1.0.0-rc.3]: https://github.com/FELDSAM-INC/ispconfig-rest/compare/v1.0.0-rc.2...v1.0.0-rc.3
 [1.0.0-rc.2]: https://github.com/FELDSAM-INC/ispconfig-rest/compare/v1.0.0-rc.1...v1.0.0-rc.2
