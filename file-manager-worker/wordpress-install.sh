@@ -67,7 +67,7 @@ UNIT
 cat > /etc/systemd/system/ispconfig-rest-wordpress-apply.service <<'UNIT'
 [Unit]
 Description=Apply pending ISPConfig configuration for WordPress
-ConditionPathIsExecutable=/usr/local/ispconfig/server/server.sh
+ConditionPathExists=/usr/local/ispconfig/server/server.sh
 
 [Service]
 Type=oneshot
