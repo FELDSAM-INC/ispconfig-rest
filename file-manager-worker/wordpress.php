@@ -14,6 +14,7 @@ if (! $lock || ! flock($lock, LOCK_EX | LOCK_NB)) {
 define('SCRIPT_PATH', '/usr/local/ispconfig/server');
 require SCRIPT_PATH.'/lib/config.inc.php';
 require __DIR__.'/WordPressPolicy.php';
+require __DIR__.'/WebDomainAutoalias.php';
 require __DIR__.'/WordPressWorker.php';
 $prefix = ! empty($conf['dbmaster_host']) && ($conf['dbmaster_host'] !== $conf['db_host'] || $conf['dbmaster_database'] !== $conf['db_database'] || (int) $conf['dbmaster_port'] !== (int) $conf['db_port']) ? 'dbmaster_' : 'db_';
 $options = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false];

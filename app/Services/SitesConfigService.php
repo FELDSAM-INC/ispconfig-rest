@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\WebDomainAutoalias;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -72,13 +73,8 @@ class SitesConfigService
         if (str_contains($pattern, '[client_username]')) {
             $username = (string) DB::table('client')->where('client_id', $clientId)->value('username');
         }
-        $alias = str_replace(
-            ['[client_id]', '[website_id]', '[client_username]', '[website_domain]'],
-            [(string) $clientId, (string) ($record['domain_id'] ?? ''), $username, (string) ($record['domain'] ?? '')],
-            $pattern
-        );
 
-        return $alias !== '' && filter_var($alias, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false ? $alias : null;
+        return WebDomainAutoalias::resolve($pattern, $record, $clientId, $username);
     }
 
     /**

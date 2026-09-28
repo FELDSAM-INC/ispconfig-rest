@@ -95,6 +95,40 @@ class WordPressWorkerTest(unittest.TestCase):
         with patch.object(toolkit, 'validate'), patch.object(toolkit, 'config_values', return_value={'DB_NAME': 'owned'}), patch.object(toolkit, 'owned_database', return_value=('custom_', ['custom_options'])), patch.object(toolkit, 'database_engines'), patch.object(toolkit, 'metadata', return_value={'multisite': False}):
             with self.assertRaisesRegex(tools.Failure, 'no_previous_value'): toolkit.database_plan()
 
+    def test_preview_hostname_is_explicitly_allowed_but_connection_stays_local(self):
+        toolkit = tools.Toolkit({'path': '', 'php': [], 'domain': 'example.test', 'verification_hosts': ['example.test.preview.test']})
+        with patch.object(tools.http.client, 'HTTPConnection') as connection:
+            response = connection.return_value.getresponse.return_value
+            response.status = 200
+            response.read.return_value = b'homepage'
+            toolkit.http_verify_once('http://example.test.preview.test/blog')
+            connection.assert_called_once_with('127.0.0.1', 80, timeout=20)
+            self.assertEqual('/blog/', connection.return_value.request.call_args.args[1])
+            self.assertEqual('example.test.preview.test', connection.return_value.request.call_args.kwargs['headers']['Host'])
+        for url in ('http://other.preview.test', 'http://example.test.preview.test.evil.test', 'http://example.test.preview.test:8090', 'http://user@example.test.preview.test', 'http://127.0.0.1', 'http://example.test.preview.test:invalid', 'http://example.test.preview.test\\evil', 'http://example.test.preview.test\r\nX-Test: foo'):
+            with patch.object(tools.http.client, 'HTTPConnection') as connection:
+                with self.assertRaisesRegex(tools.Failure, 'http_verification_unavailable'): toolkit.http_verify_once(url)
+                connection.assert_not_called()
+
+    def test_redirects_must_stay_within_the_website_and_configured_preview_host(self):
+        toolkit = tools.Toolkit({'path': '', 'php': [], 'domain': 'example.test', 'verification_hosts': ['example.test.preview.test']})
+        from unittest.mock import MagicMock
+        for destination, allowed in [('http://example.test.preview.test/next', True), ('http://www.example.test/next', True), ('http://unrelated.test/next', False), ('http://example.test.preview.test:8090/next', False)]:
+            first, second = MagicMock(), MagicMock()
+            first.getresponse.return_value.status = 302
+            first.getresponse.return_value.read.return_value = b''
+            first.getresponse.return_value.getheader.return_value = destination
+            second.getresponse.return_value.status = 200
+            second.getresponse.return_value.read.return_value = b'page'
+            with patch.object(tools.http.client, 'HTTPConnection', side_effect=[first, second]) as connection:
+                if allowed:
+                    toolkit.http_verify_once('http://example.test/')
+                    self.assertEqual(2, connection.call_count)
+                    self.assertEqual('/next', second.request.call_args.args[1])
+                else:
+                    with self.assertRaisesRegex(tools.Failure, 'http_verification_failed'): toolkit.http_verify_once('http://example.test/')
+                    self.assertEqual(1, connection.call_count)
+
     def test_integrity_uses_installed_version_and_never_executes_version_php(self):
         toolkit = tools.Toolkit({'path': '', 'php': []})
         version = b"<?php $wp_version = '6.8.3'; $wp_local_package = 'cs_CZ'; die('must not execute');"

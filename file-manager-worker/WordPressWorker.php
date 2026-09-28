@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Support\WebDomainAutoalias;
 use App\Support\WordPressPolicy;
 
 /** Root-owned bridge. All WordPress code runs in the separate UID sandbox. */
@@ -335,6 +336,7 @@ final class WordPressWorker
         $config = parse_ini_string($server['config'], true, INI_SCANNER_RAW);
         $engine = $config['web']['server_type'] ?? '';
         $root = $this->publicRoot($site, $engine);
+        $site['verification_hosts'] = $this->verificationHosts($site, $config['web']['website_autoalias'] ?? '');
         $identity = WordPressPolicy::identity($site, $root);
         if (! hash_equals($identity, $job['identity']) || $request['public_root'] !== $root) {
             throw new RuntimeException('site_changed');
@@ -459,9 +461,24 @@ final class WordPressWorker
         return null;
     }
 
+    private function verificationHosts(array $site, string $pattern): array
+    {
+        $hosts = [$site['domain'], 'www.'.$site['domain']];
+        $client = [];
+        if (str_contains($pattern, '[client_id]') || str_contains($pattern, '[client_username]')) {
+            $client = $this->one('SELECT c.client_id,c.username FROM sys_group g JOIN client c ON c.client_id=g.client_id WHERE g.groupid=?', [$site['sys_groupid']]) ?? [];
+        }
+        $alias = WebDomainAutoalias::resolve($pattern, $site, (int) ($client['client_id'] ?? 0), (string) ($client['username'] ?? ''));
+        if ($alias !== null) {
+            $hosts[] = $alias;
+        }
+
+        return array_values(array_unique(array_map('strtolower', $hosts)));
+    }
+
     private function sandbox(array $site, array $request, array $job): array
     {
-        $minimal = array_intersect_key($site, array_flip(['domain_id', 'server_id', 'sys_groupid', 'domain', 'type', 'document_root', 'web_folder', 'system_user', 'system_group', 'php_cli']));
+        $minimal = array_intersect_key($site, array_flip(['domain_id', 'server_id', 'sys_groupid', 'domain', 'type', 'document_root', 'web_folder', 'system_user', 'system_group', 'php_cli', 'verification_hosts']));
         $process = proc_open(['/usr/bin/python3', __DIR__.'/wordpress-sandbox.py'], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, '/', ['PATH' => '/usr/bin:/bin']);
         if (! is_resource($process)) {
             throw new RuntimeException('sandbox_failed');

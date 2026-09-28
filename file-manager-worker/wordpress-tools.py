@@ -406,10 +406,23 @@ class Toolkit:
         finally:
             path.unlink(missing_ok=True)
 
+    def verification_url(self, url, error='http_verification_unavailable'):
+        # The bridge derives these hosts from the native website/server configuration,
+        # never from WordPress or request input. Connections still target loopback only.
+        hosts = {self.request['domain'].lower(), 'www.' + self.request['domain'].lower()}
+        hosts.update(host.lower() for host in self.request.get('verification_hosts', []))
+        try:
+            if re.search(r'[\x00-\x20\x7f\\]', url):
+                raise ValueError('invalid URL')
+            parsed = urllib.parse.urlsplit(url)
+            if parsed.scheme not in ('http', 'https') or parsed.hostname not in hosts or parsed.username or parsed.password or parsed.port not in (None, 80, 443):
+                raise ValueError('unapproved host')
+        except ValueError:
+            raise Failure(error) from None
+        return parsed
+
     def http_verify_once(self, url, probe=None, token=None, expected=None):
-        parsed = urllib.parse.urlsplit(url)
-        if parsed.scheme not in ('http', 'https') or parsed.hostname not in (self.request['domain'], 'www.' + self.request['domain']) or parsed.username or parsed.password or parsed.port not in (None, 80, 443):
-            raise Failure('http_verification_unavailable')
+        parsed = self.verification_url(url)
         path = (parsed.path.rstrip('/') or '') + '/' + (probe or '')
         for _ in range(4):
             if parsed.scheme == 'https':
@@ -432,9 +445,7 @@ class Toolkit:
                 location = response.getheader('Location')
                 if response.status not in (301, 302, 307, 308) or not location:
                     raise Failure('http_verification_failed')
-                next_url = urllib.parse.urlsplit(urllib.parse.urljoin(parsed.geturl(), location))
-                if next_url.scheme not in ('http', 'https') or next_url.hostname not in (self.request['domain'], 'www.' + self.request['domain']) or next_url.username or next_url.password or next_url.port not in (None, 80, 443):
-                    raise Failure('http_verification_failed')
+                next_url = self.verification_url(urllib.parse.urljoin(parsed.geturl(), location), 'http_verification_failed')
                 parsed = next_url
                 path = parsed.path + ('?' + parsed.query if parsed.query else '')
             finally:

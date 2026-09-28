@@ -66,7 +66,7 @@ final class WordPressApiTest extends SitesApiTestCase
     public function test_arbitrary_commands_paths_and_unconfirmed_irreversible_actions_are_rejected(): void
     {
         [$id, $url, $installation] = $this->prepareSite();
-        foreach ([['command' => 'id'], ['path' => '../../'], ['measures' => ['unknown']], ['measures' => ['salts']], ['database_change' => true], ['measures' => ['admin_login'], 'confirmed' => true, 'backup' => true], ['measures' => ['permissions'], 'action' => 'revert']] as $override) {
+        foreach ([['command' => 'id'], ['verification_hosts' => ['other.test']], ['path' => '../../'], ['measures' => ['unknown']], ['measures' => ['salts']], ['database_change' => true], ['measures' => ['admin_login'], 'confirmed' => true, 'backup' => true], ['measures' => ['permissions'], 'action' => 'revert']] as $override) {
             $this->postJson($url.'/jobs', array_replace(['action' => 'secure', 'installation' => $installation, 'measures' => ['xmlrpc']], $override), $this->authHeaders())->assertUnprocessable();
         }
         $this->assertCount(0, $this->datalogRows('web_domain'));

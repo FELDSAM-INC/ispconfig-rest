@@ -24,7 +24,7 @@ FILES = (
     "app/Support/WebLogReader.php", "app/Support/WebRuntimeDirectory.php", "app/Support/WebPhpDefaults.php",
     "file-manager-worker/install.sh", "file-manager-worker/reconcile.py", "file-manager-worker/sites.php",
     "file-manager-worker/wordpress-install.sh", "file-manager-worker/wordpress.php", "file-manager-worker/WordPressWorker.php",
-    "file-manager-worker/wordpress-sandbox.py", "file-manager-worker/wordpress-tools.py", "app/Support/WordPressPolicy.php",
+    "file-manager-worker/wordpress-sandbox.py", "file-manager-worker/wordpress-tools.py", "app/Support/WordPressPolicy.php", "app/Support/WebDomainAutoalias.php",
     "file-manager-worker/sshd.conf", "waf-server/install.sh", "waf-server/run.php",
     "waf-server/configure.php", "waf-server/ispconfig-security.php", "waf-server/ispconfig-waf",
     "app/Support/WebWafPolicy.php", "app/Support/WebWafAudit.php", "app/Support/WebWafProfiles.php",

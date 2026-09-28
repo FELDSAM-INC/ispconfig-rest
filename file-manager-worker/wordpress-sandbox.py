@@ -134,7 +134,7 @@ def execute(site, request, workspace, *, backup=None, timeout=360, input_stream=
         workfd = open_directory(str(workspace))
         stack.callback(os.close, workfd)
         php = runtime(site['php_cli'])
-        request = dict(request, php=php, domain=site['domain'], uid=uid, gid=gid)
+        request = dict(request, php=php, domain=site['domain'], verification_hosts=site.get('verification_hosts', []), uid=uid, gid=gid)
         args = command(uid, gid, rootfd, workfd, php, request['action'] in ('rescan', 'check', 'prepare_security', 'verify_integrity', 'prepare_cron', 'cron_poll'), backup)
         descriptors = (rootfd, workfd) + (() if backup is None else (backup,))
         if request['action'] == 'cron_poll':

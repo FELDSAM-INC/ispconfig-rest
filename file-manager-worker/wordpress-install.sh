@@ -14,7 +14,7 @@ install -d -m 0755 -o root -g root /usr/local/share/ispconfig-rest-wordpress
 install -d -m 0711 -o root -g root /var/lib/ispcp-files/wordpress
 install -m 0644 -o root -g root "$worker_source/wordpress-tools.py" /usr/local/share/ispconfig-rest-wordpress/
 install -m 0600 -o root -g root "$worker_source/wordpress-sandbox.py" "$worker_source/wordpress.php" "$worker_source/WordPressWorker.php" /usr/local/lib/ispconfig-rest-file-manager-worker/
-install -m 0600 -o root -g root "$worker_source/../app/Support/WordPressPolicy.php" /usr/local/lib/ispconfig-rest-file-manager-worker/
+install -m 0600 -o root -g root "$worker_source/../app/Support/WordPressPolicy.php" "$worker_source/../app/Support/WebDomainAutoalias.php" /usr/local/lib/ispconfig-rest-file-manager-worker/
 # Supply a root-owned empty WP-CLI configuration. Workdir is /tool, never the site.
 printf '{}\n' > /usr/local/share/ispconfig-rest-wordpress/empty.yml
 chmod 0644 /usr/local/share/ispconfig-rest-wordpress/empty.yml
