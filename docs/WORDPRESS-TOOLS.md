@@ -184,6 +184,14 @@ reported these as changed. The subsequent line-ending comparison described above
 allows these verified differences to pass while retaining informational rows.
 The user's website is read only; binary-mode transfer preserves original bytes.
 
+Live verification after the fix: dot.com (website 19, WordPress 7.1.2 cs_CZ), job
+`9ee748a5-ec9b-4a9e-a2dc-e9d6a94af976`, completed in five seconds including queueing.
+Overall status `clean`, all four files above reported as `line_endings`, no error
+or pending configuration. SHA-256 before/after confirmed all four files unchanged.
+REST suite: 1,555 tests / 12,133 assertions (one existing skip); Python worker
+suite: 33 tests covering normalization, mixed upstream endings, genuine changes,
+invalid references, path/link rejection, display truncation and download bounds.
+
 ### Development verification, 2026-09-28 (reversible database measures)
 
 - REST: 1,546 tests / 12,071 assertions, one existing skip. Worker Python: 23;
