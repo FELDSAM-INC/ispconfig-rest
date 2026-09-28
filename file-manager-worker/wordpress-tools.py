@@ -286,7 +286,11 @@ class Toolkit:
         previous = self.request.get('previous_value')
         if not enable and value not in (previous, 'true', '1'):
             raise Failure('configuration_changed')
-        self.config_change('DISABLE_WP_CRON', 'true' if enable else previous)
+        desired = 'true' if enable else previous
+        # A crash may happen after the atomic config replacement but before the job checkpoint.
+        # In particular, deleting an already-absent constant must not fail on resume.
+        if value != desired:
+            self.config_change('DISABLE_WP_CRON', desired)
         after = self.config_values().get('DISABLE_WP_CRON')
         if after != ('true' if enable else previous):
             raise Failure('configuration_changed')

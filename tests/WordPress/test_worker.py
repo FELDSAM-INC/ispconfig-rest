@@ -50,9 +50,16 @@ class WordPressWorkerTest(unittest.TestCase):
             toolkit = tools.Toolkit({'path': '', 'php': [], 'action': 'cron_disable', 'previous_value': previous})
             with patch.object(toolkit, 'config_values', side_effect=[{'DISABLE_WP_CRON': 'true'}, {'DISABLE_WP_CRON': previous}]), patch.object(toolkit, 'config_change') as change, patch.object(tools, 'safe_file', return_value=(b'config', None)):
                 self.assertTrue(toolkit.cron_constant(False)['cron_changed'])
-                change.assert_called_once_with('DISABLE_WP_CRON', previous)
+                if previous == 'true': change.assert_not_called()
+                else: change.assert_called_once_with('DISABLE_WP_CRON', previous)
         with patch.object(toolkit, 'config_values', return_value={'DISABLE_WP_CRON': 'getenv("DISABLE_CRON")'}), patch.object(toolkit, 'config_change') as change:
             with self.assertRaises(tools.Failure): toolkit.cron_constant(False)
+            change.assert_not_called()
+
+    def test_interrupted_cron_stop_accepts_an_already_restored_absent_constant(self):
+        toolkit = tools.Toolkit({'path': '', 'php': [], 'action': 'cron_disable', 'previous_value': None})
+        with patch.object(toolkit, 'config_values', return_value={}), patch.object(toolkit, 'config_change') as change, patch.object(tools, 'safe_file', return_value=(b'original', None)):
+            self.assertTrue(toolkit.cron_constant(False)['cron_changed'])
             change.assert_not_called()
 
     def test_sql_identifiers_and_literals_are_not_shell_or_sql_fragments(self):

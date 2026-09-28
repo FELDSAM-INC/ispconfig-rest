@@ -128,7 +128,7 @@ allow retry/stop; unexpected external config edits are never overwritten on stop
 
 ### Development verification, 2026-09-28 (cron/integrity)
 
-- REST: 1,545 tests, 12,060 assertions, one existing skip. Worker Python: 16 tests;
+- REST: 1,545 tests, 12,060 assertions, one existing skip. Worker Python: 17 tests;
   server-tools: 17 tests. Added plan counts/frequency/type and managed-cron write
   protection tests, checksum output validation and boolean config normalization.
 - A fresh WordPress 6.8.3 installation on disposable website 53 / PHP 8.5 was
