@@ -219,6 +219,11 @@ final class ClientWebPhpPolicyTest extends ClientApiTestCase
         $this->applyPolicy($this->policy())->assertOk();
 
         $this->assertSame($same, DB::table('web_domain')->where('domain_id', $site['id'])->value('server_php_id'), 'not the older first version');
+
+        // Choosing the default again on an older version resolves to the same runtime.
+        DB::table('web_domain')->where('domain_id', $site['id'])->update(['server_php_id' => $old]);
+        $this->putJson('/api/v1/sites/web-domains/'.$site['id'], ['server_php_id' => 0], $this->authHeaders())->assertOk();
+        $this->assertSame($same, DB::table('web_domain')->where('domain_id', $site['id'])->value('server_php_id'));
     }
 
     public function test_missing_migration_is_a_clear_error_and_null_policy_remains_backward_compatible(): void

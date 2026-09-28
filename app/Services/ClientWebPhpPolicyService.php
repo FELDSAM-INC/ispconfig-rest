@@ -197,10 +197,9 @@ final class ClientWebPhpPolicyService
                 if ($usable->isEmpty()) {
                     throw ValidationException::withMessages(['web_php_policy' => 'No usable PHP-FPM version is available for this website.']);
                 }
-                // An existing website on the hidden default keeps its PHP: use the additional version running the
-                // default runtime instead of the first one by sort order, which may be an older PHP.
-                $equivalent = $site->getOriginal('php') === 'php-fpm' && (int) $site->getOriginal('server_php_id') === 0
-                    ? $versions->fpmDefaultEquivalent((int) $site->server_id, $usable) : null;
+                // An existing website resolving to the hidden default keeps the default PHP: use the additional version
+                // running the default runtime instead of the first one by sort order, which may be an older PHP.
+                $equivalent = $site->exists ? $versions->fpmDefaultEquivalent((int) $site->server_id, $usable) : null;
                 $site->setAttribute('server_php_id', (int) ($equivalent ?? $usable->first())->server_php_id);
             }
         }
