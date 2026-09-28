@@ -1,0 +1,42 @@
+# PHP-FPM resource limits and usage (read-only, spec 053)
+
+/usage/resources:
+  get:
+    tags:
+      - Usage
+    summary: PHP-FPM resource limits and usage of an account
+    description: |
+      The account's administrator-set cgroup limits (see `web_resource_limits` on clients), whether each
+      webserver applied them, the measured usage of the account slice per server, and the containment state
+      and usage of each website with its own PHP runtime.
+
+      - Client keys get their own client; `client_id` may only be their own client id (any other → 404).
+      - Reseller keys get their own client, or one of their clients by `client_id` (any other → 404).
+      - Admin keys must pass `client_id` (422 when missing, 404 when unknown).
+
+      The php-limits worker samples every 60 seconds. `freshness` follows the usage summary: `measured_at` is
+      the oldest account sample of the account's available servers, and values older than
+      `stale_after_seconds` are reported as null with their `measured_at` kept.
+    parameters:
+      - name: client_id
+        in: query
+        required: false
+        description: Target client (required for admin keys).
+        schema:
+          type: integer
+          minimum: 1
+    responses:
+      '200':
+        description: Resource limits and usage
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/ResourceUsage.yaml'
+      '400':
+        $ref: '../../components/responses/BadRequest.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'

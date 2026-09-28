@@ -20,6 +20,9 @@ final class ServerToolsRemote
         'waf' => [
             'web_domain' => 'SELECT', 'api_web_waf_workers' => 'SELECT,INSERT,UPDATE', 'api_web_waf_events' => 'SELECT,INSERT,UPDATE,DELETE',
         ],
+        'php-limits' => [
+            'api_client_resource_limits' => 'SELECT', 'api_php_limits_workers' => 'SELECT,INSERT,UPDATE', 'api_php_limits_usage' => 'SELECT,INSERT,UPDATE,DELETE',
+        ],
         'file-manager' => [
             'web_domain' => 'SELECT', 'server' => 'SELECT', 'server_php' => 'SELECT', 'sys_group' => 'SELECT', 'client' => 'SELECT', 'web_database' => 'SELECT', 'cron' => 'SELECT',
             'api_wordpress_cron' => 'SELECT,UPDATE',
@@ -140,6 +143,13 @@ final class ServerToolsRemote
         if (in_array('waf', $components, true)) {
             $programs[] = 'apt-get';
         }
+        if (in_array('php-limits', $components, true)) {
+            $programs = array_merge($programs, ['systemctl', 'timeout']);
+            $controllers = is_file('/sys/fs/cgroup/cgroup.controllers') ? preg_split('/\s+/', trim((string) file_get_contents('/sys/fs/cgroup/cgroup.controllers'))) : [];
+            if (array_diff(['cpu', 'memory', 'pids'], $controllers) !== []) {
+                $requirements[] = 'cgroup v2 with cpu, memory and pids controllers';
+            }
+        }
         foreach ($programs as $program) {
             $process = proc_open(['sh', '-c', 'command -v "$1" >/dev/null', 'check', $program], [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
             if (! is_resource($process) || proc_close($process) !== 0) {
@@ -158,6 +168,7 @@ final class ServerToolsRemote
             'web-logs' => '/etc/cron.d/ispconfig-rest-web-log-worker',
             'file-manager' => '/etc/cron.d/ispconfig-rest-file-manager-worker',
             'waf' => '/etc/cron.d/ispconfig-rest-waf',
+            'php-limits' => '/etc/cron.d/ispconfig-rest-php-limits',
         ];
         $installed = array_keys(array_filter($paths, 'is_file'));
         if (is_file('/etc/cron.d/ispcp-files')) {
@@ -176,7 +187,8 @@ final class ServerToolsRemote
             self::connection($conf, true)->query('SELECT domain_id FROM web_domain WHERE 1=0');
         }
         // Verify the migrations that added fields used by current worker releases.
-        foreach (['web-logs' => 'SELECT runtime_version FROM api_web_log_workers WHERE 1=0', 'waf' => 'SELECT application_profiles FROM api_web_waf_workers WHERE 1=0'] as $component => $sql) {
+        foreach (['web-logs' => 'SELECT runtime_version FROM api_web_log_workers WHERE 1=0', 'waf' => 'SELECT application_profiles FROM api_web_waf_workers WHERE 1=0',
+            'php-limits' => 'SELECT revision FROM api_client_resource_limits WHERE 1=0'] as $component => $sql) {
             if (in_array($component, $components, true) && $result['grants']['missing'] === []) {
                 $db->query($sql);
             }
@@ -242,6 +254,7 @@ final class ServerToolsRemote
                     'database' => ['sh', $root.'/worker/install.sh', '--no-run'],
                     'web-logs' => ['sh', $root.'/web-log-worker/install.sh'],
                     'waf' => ['bash', $root.'/waf-server/install.sh'],
+                    'php-limits' => ['bash', $root.'/php-limits/install.sh'],
                     'file-manager' => self::fileManagerCommand($root),
                     'panel-security' => ['bash', $root.'/waf-server/install.sh', '--ispconfig-security-only'],
                     default => throw new RuntimeException('Unknown installer.'),

@@ -22,6 +22,7 @@ Optional components run on the servers that own the data:
 - [Web log worker](web-log-worker/README.md) for remote website logs and runtime settings.
 - [File manager worker](file-manager-worker/README.md) for jailed SFTP accounts used by the WHMCS file manager.
 - [WAF installer](waf-server/README.md) for Apache/nginx ModSecurity and OWASP CRS.
+- [PHP-FPM resource limits](php-limits/README.md) for per-account and per-website cgroup limits.
 
 Install or update these from the REST host with
 `sudo ispconfig-rest server-tools install` / `server-tools update`.

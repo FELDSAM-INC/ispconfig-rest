@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/bin/php /usr/local/lib/ispconfig-rest-php-limits/run.php "$@"

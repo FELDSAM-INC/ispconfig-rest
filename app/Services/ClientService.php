@@ -90,7 +90,9 @@ class ClientService
     {
         $phpPolicySent = array_key_exists('web_php_policy', $payload);
         $phpPolicy = $payload['web_php_policy'] ?? null;
-        unset($payload['web_php_policy']);
+        $limitsSent = array_key_exists('web_resource_limits', $payload);
+        $limits = $payload['web_resource_limits'] ?? null;
+        unset($payload['web_php_policy'], $payload['web_resource_limits']);
         $plainPassword = (string) $payload['password'];
         $payload['password'] = LegacyCrypt::hash($plainPassword);
         unset($plainPassword);
@@ -148,6 +150,7 @@ class ClientService
         if ($phpPolicySent) {
             $policy->store($client, $phpPolicy);
         }
+        $this->storeResourceLimits($clientId, $limitsSent, $limits, $phpPolicySent);
         $this->templates->applyClientTemplates($clientId);
         $client->refresh()->forceFill($policy->clientAttributes($clientId, []))->save();
 
@@ -164,7 +167,9 @@ class ClientService
     {
         $phpPolicySent = array_key_exists('web_php_policy', $payload);
         $phpPolicy = $payload['web_php_policy'] ?? null;
-        unset($payload['web_php_policy']);
+        $limitsSent = array_key_exists('web_resource_limits', $payload);
+        $limits = $payload['web_resource_limits'] ?? null;
+        unset($payload['web_php_policy'], $payload['web_resource_limits']);
         $old = $client->getRawOriginal();
         $clientId = (int) $client->getKey();
 
@@ -243,6 +248,7 @@ class ClientService
         if ($phpPolicySent) {
             $policy->store($client, $phpPolicy);
         }
+        $this->storeResourceLimits($clientId, $limitsSent, $limits, $phpPolicySent);
         $this->templates->applyClientTemplates($clientId);
         $client->refresh()->forceFill($policy->clientAttributes($clientId, []))->save();
         if ($phpPolicySent) {
@@ -250,6 +256,21 @@ class ClientService
         }
 
         return $client->refresh();
+    }
+
+    /**
+     * Administrator cgroup limits (spec 053), checked against the effective PHP
+     * policy so a pool can always start pm_max_children workers.
+     */
+    private function storeResourceLimits(int $clientId, bool $sent, ?array $limits, bool $phpPolicySent): void
+    {
+        $service = app(ClientResourceLimitsService::class);
+        $phpPolicy = app(ClientWebPhpPolicyService::class)->policy($clientId);
+        if ($sent) {
+            $service->store($clientId, $limits, $phpPolicy);
+        } elseif ($phpPolicySent) {
+            $service->assertCompatible($clientId, $phpPolicy);
+        }
     }
 
     /**
@@ -357,6 +378,7 @@ class ClientService
 
         // 4. The client row itself (datalog 'd').
         app(ClientWebPhpPolicyService::class)->forgetClient($clientId);
+        app(ClientResourceLimitsService::class)->forgetClient($clientId);
         $client->delete();
     }
 

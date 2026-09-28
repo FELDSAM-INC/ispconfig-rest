@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Client;
+use App\Services\ClientResourceLimitsService;
 use App\Services\ClientWebPhpPolicyService;
 use App\Support\IspContext;
 use Closure;
@@ -62,7 +63,8 @@ abstract class ClientRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return ! $this->exists('web_php_policy') || app(IspContext::class)->authScope()->isAdmin;
+        return (! $this->exists('web_php_policy') && ! $this->exists('web_resource_limits'))
+            || app(IspContext::class)->authScope()->isAdmin;
     }
 
     /**
@@ -109,6 +111,10 @@ abstract class ClientRequest extends FormRequest
         if (isset($payload['web_php_policy'])) {
             $payload['web_php_policy'] = ClientWebPhpPolicyService::validate($payload['web_php_policy']);
         }
+        if (isset($payload['web_resource_limits'])) {
+            // Shape only; the PHP policy cross-check runs with the stored policy in ClientService.
+            $payload['web_resource_limits'] = ClientResourceLimitsService::validate($payload['web_resource_limits']);
+        }
 
         // Legacy stores an empty company name, never NULL (empty strings
         // arrive here as null through ConvertEmptyStringsToNull).
@@ -129,6 +135,7 @@ abstract class ClientRequest extends FormRequest
     {
         $rules = [
             'web_php_policy' => ['sometimes', 'nullable', 'array'],
+            'web_resource_limits' => ['sometimes', 'nullable', 'array'],
             'parent_client_id' => ['sometimes', 'integer', 'min:0'],
             // Contact (lengths per ispconfig3.sql)
             'contact_name' => ['sometimes', 'string', 'max:64'],

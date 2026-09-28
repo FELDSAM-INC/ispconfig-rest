@@ -13,7 +13,7 @@ class ServerToolsRemoteTest extends TestCase
 {
     public function test_native_tables_are_read_only_and_no_global_grants_exist(): void
     {
-        $tables = \ServerToolsRemote::permissions(['database', 'web-logs', 'file-manager', 'waf']);
+        $tables = \ServerToolsRemote::permissions(['database', 'web-logs', 'file-manager', 'waf', 'php-limits']);
         foreach ($tables as $table => $rights) {
             $this->assertMatchesRegularExpression('/^[a-z_]+$/D', $table);
             if (! str_starts_with($table, 'api_')) {
@@ -23,6 +23,8 @@ class ServerToolsRemoteTest extends TestCase
         }
         $this->assertSame(['SELECT', 'INSERT', 'UPDATE'], $tables['api_web_log_workers']);
         $this->assertSame(['SELECT', 'INSERT', 'UPDATE', 'DELETE'], $tables['api_web_waf_events']);
+        $this->assertSame(['SELECT'], $tables['api_client_resource_limits']);
+        $this->assertSame(['SELECT', 'INSERT', 'UPDATE', 'DELETE'], $tables['api_php_limits_usage']);
     }
 
     public function test_unrecognized_component_is_rejected(): void

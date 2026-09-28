@@ -487,6 +487,8 @@ paths:
   # Usage module paths (spec 017, read-only)
   /usage/summary:
     $ref: './modules/usage/summary.yaml#/~1usage~1summary'
+  /usage/resources:
+    $ref: './modules/usage/resources.yaml#/~1usage~1resources'
   /usage/web-domains:
     $ref: './modules/usage/web-domains.yaml#/~1usage~1web-domains'
   /usage/web-domains/{id}:

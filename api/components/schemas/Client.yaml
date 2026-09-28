@@ -10,6 +10,17 @@ required:
   - username
   - password
 properties:
+  web_resource_limits:
+    nullable: true
+    description: >-
+      Administrator-only PHP-FPM cgroup limits of the account (spec 053). Omit to leave
+      unchanged; null removes them and returns the account's pools to the shared PHP-FPM
+      masters. Returned on detail, create and update, not list responses. The php-limits
+      worker on each webserver applies them within a minute; `GET /usage/resources` reports
+      progress and usage. Requires the PHP resource limits migration. Clients/resellers
+      cannot set or clear these limits.
+    allOf:
+      - $ref: './ResourceLimits.yaml'
   web_php_policy:
     type: object
     nullable: true

@@ -1,0 +1,86 @@
+# PHP-FPM resource limits and usage of one account (spec 053).
+type: object
+additionalProperties: false
+required: [client_id, limits, revision, available, servers, websites, freshness]
+properties:
+  client_id:
+    type: integer
+  limits:
+    nullable: true
+    description: The account's limits; null when its PHP-FPM websites are not isolated.
+    allOf:
+      - $ref: './ResourceLimits.yaml'
+  revision:
+    type: integer
+    nullable: true
+    description: Revision of the stored limits; a server reports `applied` once its worker applied it.
+  available:
+    type: boolean
+    description: At least one of the account's webservers runs a current php-limits worker.
+  servers:
+    type: array
+    description: Webservers assigned to the account or hosting its websites.
+    items:
+      type: object
+      additionalProperties: false
+      required: [server_id, available, applied, usage]
+      properties:
+        server_id:
+          type: integer
+        available:
+          type: boolean
+          description: The server's php-limits worker reported within the last 150 seconds and is ready.
+        applied:
+          type: boolean
+          description: >-
+            The worker applied the current revision (always true without limits or when the account
+            has no website on this server).
+        usage:
+          nullable: true
+          description: The account's slice on this server; null before the first sample.
+          allOf:
+            - $ref: './ResourceMetrics.yaml'
+  websites:
+    type: array
+    description: The account's websites with their own PHP runtime (vhost, vhostsubdomain, vhostalias).
+    items:
+      type: object
+      additionalProperties: false
+      required: [domain_id, domain, type, parent_domain_id, server_id, state, reason, usage]
+      properties:
+        domain_id:
+          type: integer
+        domain:
+          type: string
+        type:
+          type: string
+          enum: [vhost, vhostsubdomain, vhostalias]
+        parent_domain_id:
+          type: integer
+        server_id:
+          type: integer
+        state:
+          type: string
+          enum: [unlimited, isolated, pending, not_fpm, inactive, unavailable, fallback, failed, waiting]
+          description: |
+            - `unlimited`: the account has no limits.
+            - `isolated`: the website's PHP-FPM pool runs in its own service inside the account slice.
+            - `pending`: limits changed or the pool is new; the worker has not applied them yet.
+            - `not_fpm`: the website does not use PHP-FPM (`reason` names the PHP mode) and is not contained.
+            - `inactive`: the website is disabled.
+            - `unavailable`: no current php-limits worker on the website's server.
+            - `fallback`: the pool's own service failed although its configuration is valid; it runs in the
+              shared PHP-FPM master without limits until the next successful attempt.
+            - `failed`: the pool's configuration is invalid; it is kept out of the shared master.
+            - `waiting`: the server's PHP-FPM service is not managed yet (see `reason`).
+        reason:
+          type: string
+          nullable: true
+          description: Short administrator-safe code explaining `not_fpm`, `fallback`, `failed` or `waiting`.
+          example: service_restart_required
+        usage:
+          nullable: true
+          allOf:
+            - $ref: './ResourceMetrics.yaml'
+  freshness:
+    $ref: './UsageFreshness.yaml'

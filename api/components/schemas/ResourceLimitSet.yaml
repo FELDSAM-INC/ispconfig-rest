@@ -1,0 +1,28 @@
+# One level of PHP-FPM cgroup limits (spec 053). null = unlimited at this level.
+type: object
+additionalProperties: false
+required: [cpu_percent, memory_mb, tasks]
+properties:
+  cpu_percent:
+    type: integer
+    nullable: true
+    minimum: 1
+    maximum: 100000
+    description: CPU time as percent of one CPU (`CPUQuota`); 200 allows two full CPUs.
+    example: 200
+  memory_mb:
+    type: integer
+    nullable: true
+    minimum: 64
+    maximum: 16777216
+    description: >-
+      Hard memory limit in MiB (`MemoryMax`, swap disabled). Exceeding it ends the largest
+      PHP worker of the group; the pool keeps serving other requests.
+    example: 2048
+  tasks:
+    type: integer
+    nullable: true
+    minimum: 8
+    maximum: 4194304
+    description: Maximum processes and threads (`TasksMax`), including each pool's master.
+    example: 256

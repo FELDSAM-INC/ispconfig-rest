@@ -17,6 +17,7 @@
 #   ispconfig-rest firewall:allow PORT [--proto tcp]  open a port in the ISPConfig firewall
 #   ispconfig-rest server-tools install|update|status [OPTIONS]  workers + WAF on ISPConfig servers
 #   ispconfig-rest server-tools install --help      SSH, server selection and component options
+#   ispconfig-rest php-limits:install|update [OPTIONS]  PHP-FPM cgroup limits (restarts PHP-FPM once)
 #   ispconfig-rest artisan ...            run an artisan command as the run user
 #   ispconfig-rest version                installed version + commit
 #   ispconfig-rest uninstall              remove service + manager (keeps DB data)
@@ -341,9 +342,12 @@ case "${1:-}" in
   firewall:allow) cmd_firewall_allow "$@";;
   server-tools)  cmd_server_tools "$@";;
   server-tools:manager-install) need_root; install_server_tools_manager;;
-  workers:install|workers:update|waf:install|waf:update)
+  workers:install|workers:update|waf:install|waf:update|php-limits:install|php-limits:update)
     tool_action="${1#*:}"; tool_group="${1%%:*}"; shift
-    if [ "$tool_group" = waf ]; then tool_components=waf; else tool_components=database,web-logs,file-manager; fi
+    case "$tool_group" in
+      waf|php-limits) tool_components="$tool_group";;
+      *) tool_components=database,web-logs,file-manager;;
+    esac
     cmd_server_tools server-tools "$tool_action" --components "$tool_components" "$@";;
   artisan)       cmd_artisan "$@";;
   uninstall)     cmd_uninstall;;

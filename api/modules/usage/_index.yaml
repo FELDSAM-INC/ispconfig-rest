@@ -6,6 +6,10 @@
 summary:
   $ref: './summary.yaml'
 
+# PHP-FPM resource limits and cgroup usage (spec 053)
+resources:
+  $ref: './resources.yaml'
+
 # Website disk usage, traffic periods and traffic history
 web-domains:
   $ref: './web-domains.yaml'

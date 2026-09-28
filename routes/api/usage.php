@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Usage\DatabaseUsageController;
 use App\Http\Controllers\Api\V1\Usage\MailUserTrafficController;
 use App\Http\Controllers\Api\V1\Usage\MailUserUsageController;
+use App\Http\Controllers\Api\V1\Usage\ResourceUsageController;
 use App\Http\Controllers\Api\V1\Usage\UsageSummaryController;
 use App\Http\Controllers\Api\V1\Usage\WebDomainTrafficController;
 use App\Http\Controllers\Api\V1\Usage\WebDomainUsageController;
@@ -21,6 +22,9 @@ use Illuminate\Support\Facades\Route;
 
 // Usage summary — api/modules/usage/summary.yaml (literal, before any {id} route)
 Route::get('usage/summary', [UsageSummaryController::class, 'show']);
+
+// PHP-FPM resource limits and cgroup usage — api/modules/usage/resources.yaml (spec 053)
+Route::get('usage/resources', [ResourceUsageController::class, 'show']);
 
 // Website usage — api/modules/usage/web-domains.yaml
 Route::get('usage/web-domains', [WebDomainUsageController::class, 'index']);

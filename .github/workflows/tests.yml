@@ -18,7 +18,8 @@ jobs:
         run: |
           python3 -m unittest discover -s tests/Integration/server-tools -p 'test_*.py'
           python3 -m unittest discover -s tests/Integration/updater -p 'test_*.py'
-          bash -n bin/ispconfig-rest install.sh
+          bash -n bin/ispconfig-rest install.sh php-limits/install.sh
+          sh -n php-limits/ispconfig-php-limits
           sh -n worker/install.sh file-manager-worker/install.sh file-manager-worker/wordpress-install.sh
           python3 -m unittest discover -s tests/WordPress -p 'test_*.py'
 

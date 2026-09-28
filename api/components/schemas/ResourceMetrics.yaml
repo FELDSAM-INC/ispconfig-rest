@@ -1,0 +1,59 @@
+# Measured cgroup usage of an account slice or one isolated pool (spec 053).
+type: object
+additionalProperties: false
+description: >-
+  Values come from the php-limits worker's last sample. When that sample is older than
+  `freshness.stale_after_seconds` every value is null and only `measured_at` remains, so
+  "measured long ago" can be told from "never measured". A null value must be shown as
+  unknown, never as zero. Limit figures are the effective ones on the server.
+required: [memory_bytes, memory_peak_bytes, memory_limit_bytes, memory_limit_hits_24h, cpu_percent, cpu_percent_24h,
+  cpu_limit_percent, cpu_limited_minutes_24h, tasks, tasks_limit, tasks_limit_hits_24h, measured_at]
+properties:
+  memory_bytes:
+    type: integer
+    nullable: true
+    description: Current memory use (`memory.current`), including page cache charged to the group.
+  memory_peak_bytes:
+    type: integer
+    nullable: true
+    description: Highest memory use since the slice or pool service started (`memory.peak`).
+  memory_limit_bytes:
+    type: integer
+    nullable: true
+    description: Effective hard limit; null when unlimited.
+  memory_limit_hits_24h:
+    type: integer
+    nullable: true
+    description: PHP workers ended by the memory limit in the last 24 hours (`oom_kill` events).
+  cpu_percent:
+    type: number
+    nullable: true
+    description: Average CPU use over the last sample interval, in percent of one CPU.
+  cpu_percent_24h:
+    type: number
+    nullable: true
+    description: Average CPU use over the last 24 hours (or since sampling began), in percent of one CPU.
+  cpu_limit_percent:
+    type: integer
+    nullable: true
+    description: Effective CPU quota in percent of one CPU; null when unlimited.
+  cpu_limited_minutes_24h:
+    type: integer
+    nullable: true
+    description: Minutes of the last 24 hours in which the group was throttled by its CPU quota.
+  tasks:
+    type: integer
+    nullable: true
+    description: Current processes and threads (`pids.current`).
+  tasks_limit:
+    type: integer
+    nullable: true
+    description: Effective tasks limit; null when unlimited.
+  tasks_limit_hits_24h:
+    type: integer
+    nullable: true
+    description: Refused process creations because of the tasks limit in the last 24 hours (`pids.events` max).
+  measured_at:
+    type: string
+    format: date-time
+    description: When the worker sampled these values, in the API timezone.

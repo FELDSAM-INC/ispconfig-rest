@@ -24,7 +24,9 @@ class ManagerTests(unittest.TestCase):
 
     def test_role_selection_and_mirrors(self):
         row = self.row()
-        self.assertEqual(["web-logs", "file-manager", "waf"], manager.components_for(row, manager.COMPONENTS))
+        self.assertEqual(["web-logs", "file-manager", "waf", "php-limits"], manager.components_for(row, manager.COMPONENTS))
+        self.assertEqual(["web-logs", "file-manager", "waf"], manager.components_for(row, manager.DEFAULT_COMPONENTS))
+        self.assertEqual("database,web-logs,file-manager,waf", self.args().components)
         row.update(web=False, database=True)
         self.assertEqual(["database"], manager.components_for(row, manager.COMPONENTS))
         row["mirror_of"] = 3

@@ -7,6 +7,17 @@ the HTTP API remains under `/api/v1`.
 
 ### Added
 
+- PHP-FPM resource limits with cgroup v2: administrator-only client
+  `web_resource_limits` (account and per-website CPU percent, memory MiB, tasks) and
+  `GET /usage/resources` with per-server account usage, per-website containment
+  state and 24-hour limit hits. The new `php-limits` server tool runs each limited
+  account as a systemd slice and each of its PHP-FPM pools as its own php-fpm
+  service inside it, without editing distribution or ISPConfig files. Install with
+  `sudo ispconfig-rest php-limits:install` (restarts PHP-FPM once; not part of the
+  default server-tools selection). Requires migration
+  `2026_09_28_000004_create_php_resource_limit_tables.php`. See
+  [PHP-FPM resource limits](php-limits/README.md).
+
 - Administrator-only client `web_php_policy` for product INI limits and native
   PHP-FPM pool settings, socket/chroot and optional FPM-only hosting. Applies to
   current owned vhosts and future REST-created sites, preserves unrelated INI,

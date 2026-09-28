@@ -8,6 +8,7 @@ use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Models\Client;
 use App\Services\ClientService;
+use App\Services\ClientResourceLimitsService;
 use App\Services\ClientWebPhpPolicyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -88,7 +89,10 @@ class ClientController extends Controller
 
     private function withPhpPolicy(Client $client): array
     {
-        return $client->toArray() + ['web_php_policy' => app(ClientWebPhpPolicyService::class)->policy((int) $client->getKey())];
+        return $client->toArray() + [
+            'web_php_policy' => app(ClientWebPhpPolicyService::class)->policy((int) $client->getKey()),
+            'web_resource_limits' => app(ClientResourceLimitsService::class)->limits((int) $client->getKey()),
+        ];
     }
 
     /**

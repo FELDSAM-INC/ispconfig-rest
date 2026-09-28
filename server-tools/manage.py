@@ -16,7 +16,9 @@ import tarfile
 import tempfile
 
 
-COMPONENTS = ("database", "web-logs", "file-manager", "waf")
+COMPONENTS = ("database", "web-logs", "file-manager", "waf", "php-limits")
+# php-limits restarts PHP-FPM once when installed, so it is only installed when selected.
+DEFAULT_COMPONENTS = ("database", "web-logs", "file-manager", "waf")
 REPOSITORY = "https://github.com/FELDSAM-INC/ispconfig-rest.git"
 FILES = (
     "worker/install.sh", "worker/run.php", "worker/DatabaseWorker.php", "worker/SqlDump.php",
@@ -28,7 +30,8 @@ FILES = (
     "file-manager-worker/sshd.conf", "waf-server/install.sh", "waf-server/run.php",
     "waf-server/configure.php", "waf-server/ispconfig-security.php", "waf-server/ispconfig-waf",
     "app/Support/WebWafPolicy.php", "app/Support/WebWafAudit.php", "app/Support/WebWafProfiles.php",
-    "app/Support/WebWafIspconfigSecurity.php", "server-tools/remote.php",
+    "app/Support/WebWafIspconfigSecurity.php", "php-limits/install.sh", "php-limits/run.php",
+    "php-limits/ispconfig-php-limits", "app/Support/PhpLimits.php", "server-tools/remote.php",
 )
 
 
@@ -227,7 +230,7 @@ def package_release(args, directory, run_as):
 def parser():
     result = argparse.ArgumentParser(description="Install/update ISPConfig REST workers and WAF across ISPConfig servers.")
     result.add_argument("action", choices=("install", "update", "status"))
-    result.add_argument("--components", default=",".join(COMPONENTS), help="Comma-separated database,web-logs,file-manager,waf (default: all)")
+    result.add_argument("--components", default=",".join(DEFAULT_COMPONENTS), help="Comma-separated database,web-logs,file-manager,waf,php-limits (default: all except php-limits)")
     result.add_argument("--server", type=int, action="append", default=[], help="Only this server ID (repeatable)")
     result.add_argument("--host", action="append", default=[], metavar="ID=HOST", help="Override SSH address/alias for a server")
     result.add_argument("--ssh-user", default="root", help="SSH user; non-root requires passwordless sudo")
@@ -358,6 +361,8 @@ def main(argv=None):
         print("WAF stays disabled on new sites. Optional per-server Atomicorp key: sudo ispconfig-waf atomic-key")
     if "file-manager" in requested:
         print("Configure the WHMCS file-manager server mapping separately using each server's verified SSH host key.")
+    if "php-limits" in requested:
+        print("PHP resource limits apply to accounts whose limits are set; check with: ispconfig-php-limits status")
     return 0
 
 

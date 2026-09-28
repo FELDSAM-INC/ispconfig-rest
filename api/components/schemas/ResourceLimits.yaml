@@ -1,0 +1,16 @@
+# Administrator-set PHP-FPM cgroup limits of one account (spec 053).
+type: object
+additionalProperties: false
+description: >-
+  `account` limits all PHP-FPM websites of the account together (one systemd slice per
+  webserver); `website` limits each PHP-FPM pool on its own (one service per pool inside
+  that slice). Each value of `website` must not exceed the same `account` value. When the
+  account has a product PHP policy, the lower tasks limit must allow `pm_max_children`
+  workers plus the pool master. An object whose limits are all null still isolates the
+  pools, for accounting.
+required: [account, website]
+properties:
+  account:
+    $ref: './ResourceLimitSet.yaml'
+  website:
+    $ref: './ResourceLimitSet.yaml'
