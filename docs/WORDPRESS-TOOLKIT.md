@@ -42,22 +42,26 @@ must-use plugins remain untrusted code inside that sandbox.
 - Permissions require PHP-FPM or suexec FastCGI. WordPress files become 0644,
   directories 0755 and wp-config.php 0600. ISPConfig's reserved statistics directory
   is excluded. Symlinks, hardlinks and other foreign-owned files prevent this action.
-- Prefix/admin changes require a dedicated, local, customer-owned MySQL database,
-  a live database export worker, a healthy local HTTP response and explicit consent.
-  Multisite, shared databases, custom user tables and external databases are excluded.
-  Only the default `wp_` prefix is randomized. Renaming admin preserves the ID,
-  role and post ownership; it does not create a replacement user.
-- Prefix/admin operations first create a downloadable existing-worker DB export,
-  then a separate SQL/config recovery snapshot protected from the site UID. Apply
-  verifies CLI state and local HTTP (allowing PHP-FPM's cache refresh). Failure
-  restores the snapshot as the site UID. Interrupted operations restore before
-  accepting more work. Failed restoration blocks further operations and requires
-  administrator recovery; the protected snapshot is retained.
-- Terminal job work/recovery directories and rows expire after seven days. Jobs
-  requiring recovery are never automatically removed. Downloadable exports keep
-  the existing database worker's expiration policy.
+- Prefix/admin changes require a dedicated, local, customer-owned MySQL database
+  and healthy local HTTP response. WordPress options, users and usermeta tables
+  must use InnoDB. Multisite, shared databases, custom user tables and external
+  databases are excluded. Only the default `wp_` prefix is randomized.
+- Worker version 3 makes prefix/admin changes reversible without database exports
+  or a backup confirmation checkbox. A protected intent journal records table names,
+  the previous/new prefix and username/ID. Metadata updates and a recovery marker
+  commit together in one InnoDB transaction; multi-table RENAME and wp-config changes
+  are separate journaled steps. CLI and local HTTP verify the result. Failure or
+  interruption applies inverse changes; it never replaces current database contents.
+- Revert restores recorded values and preserves posts, users and other content added
+  after Secure. Conflicting names, external configuration changes and unexpected
+  tables stop the operation. Without reliable previous values, Revert is unavailable.
+  Recent successful version-1/2 protected journals can supply these previous values.
+- Terminal job work/journal directories expire after seven days; normal Revert uses
+  private metadata retained in the installation inventory. Recovery-required jobs
+  are never removed automatically. Old in-flight jobs retain their legacy full-snapshot
+  recovery path. Existing exports retain the database worker's expiration policy.
 
-Backups live in `/var/lib/ispcp-files/wordpress/<job UUID>.recovery/` (root 0700).
+Recovery journals live in `/var/lib/ispcp-files/wordpress/<job UUID>.recovery/` (root 0700).
 Do not remove a recovery directory while its job is running or needs recovery.
 Do not manually mark an uncertain job completed: restore or verify it first.
 User-facing errors contain safe codes, never SQL, configuration or credentials.
@@ -97,7 +101,7 @@ Apply migration `2026_09_28_000002_create_wordpress_cron_table.php` before upgra
 workers. Reinstall the server-tools manager and update `--components file-manager`
 to refresh both worker files and remote master grants (`cron` SELECT and
 `api_wordpress_cron` SELECT/UPDATE). The module offers new actions only when a live
-version-2 worker advertises `tools_available`.
+version-2 or newer worker advertises `tools_available`.
 
 `verify_integrity` reads the installed version and locale as text, then runs
 `wp core verify-checksums --include-root` against official checksums.
@@ -148,3 +152,21 @@ allow retry/stop; unexpected external config edits are never overwritten on stop
 - Live WHMCS service 2 rendered all three tools in both themes from real API data.
   Disposable website 53, database 13, database user 15, cron, worker metadata/job
   directories, SFTP bind mounts/account and temporary helpers were removed.
+
+## Reversible database changes (worker version 3)
+
+No new migration is required. Update the API and file-manager component on each
+webserver; older workers do not advertise prefix/admin actions. The API owns the
+installation/database lookup and prevents concurrent database credential/delete or
+website changes while a job is active. Private undo values never leave the API.
+The database export worker is no longer required for these actions.
+
+### Checksum diagnosis, 2026-09-28
+
+The four reported differences on a fresh Czech WordPress 7.1.2 installation were
+verified against the official `wordpress-7.1.2-cs_CZ.zip`: crystal/license.txt,
+js/codemirror/csslint.js under wp-includes, wp-config-sample.php and license.txt.
+All differences were CRLF-to-LF conversion, with no content changes. csslint.js
+has mixed line endings in the official package. Strict byte checksums correctly
+report these changes; files are not silently ignored or rewritten. Binary-mode
+transfer preserves the original bytes. The user's website was read only.

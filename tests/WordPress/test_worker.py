@@ -21,6 +21,69 @@ sandbox = module('wp_sandbox', 'wordpress-sandbox.py')
 
 class WordPressWorkerTest(unittest.TestCase):
 
+    def test_database_journal_commits_before_best_effort_cleanup_and_never_exports(self):
+        for cleanup in ({'cleaned': True}, RuntimeError('interrupted cleanup')):
+            with tempfile.TemporaryDirectory() as temp, patch.object(sandbox, 'STATE', Path(temp)), patch.object(sandbox, 'identity', return_value='site'):
+                original = Path.lstat
+                def root_state(path):
+                    info = list(original(path)); info[4] = 0
+                    return os.stat_result(info)
+                prepared = {'undo': {'prefix': {'previous': 'wp_', 'applied': 'new_', 'database': 'owned'}}}
+                result = {'installation': {'undo': prepared['undo']}}
+                with patch.object(Path, 'lstat', root_state), patch.object(sandbox, 'execute', side_effect=[{'prepared': prepared}, result, cleanup]) as run:
+                    actual = sandbox.database_change({}, {'action': 'secure', 'public_root': '/site'}, Path(temp), {'job': 'test'})
+                    self.assertEqual(result, actual)
+                    self.assertEqual(['database_plan', 'database_apply', 'database_finalize'], [c.args[1]['action'] for c in run.call_args_list])
+                state = json.loads(Path(temp, 'test.recovery/state.json').read_text())
+                self.assertEqual('completed', state['phase'])
+                self.assertEqual(['state.json'], [p.name for p in Path(temp, 'test.recovery').iterdir()])
+                self.assertEqual(0o600, Path(temp, 'test.recovery/state.json').stat().st_mode & 0o777)
+
+    def test_database_journal_failure_and_resume_reverse_only_the_recorded_change(self):
+        for resuming in (False, True):
+            with tempfile.TemporaryDirectory() as temp, patch.object(sandbox, 'STATE', Path(temp)), patch.object(sandbox, 'identity', return_value='site'):
+                recovery = Path(temp, 'test.recovery'); recovery.mkdir(mode=0o700)
+                prepared = {'prefix': 'wp_', 'new_prefix': 'new_', 'undo': {}}
+                original = Path.lstat
+                def root_state(path):
+                    info = list(original(path)); info[4] = 0
+                    return os.stat_result(info)
+                if resuming:
+                    sandbox.checkpoint(recovery / 'state.json', {'kind': 'database_change', 'identity': 'site', 'phase': 'prepared', 'prepared': prepared})
+                responses = [{'restored': True}] if resuming else [{'prepared': prepared}, {'error': 'http_verification_failed'}, {'restored': True}]
+                with patch.object(Path, 'lstat', root_state), patch.object(sandbox, 'execute', side_effect=responses) as run:
+                    result = sandbox.database_change({}, {'action': 'secure', 'public_root': '/site'}, Path(temp), {'job': 'test', 'resuming': resuming})
+                    self.assertEqual('interrupted_restored' if resuming else 'verification_failed_restored', result['error'])
+                    self.assertEqual('database_restore', run.call_args.args[1]['action'])
+                    self.assertEqual(prepared, run.call_args.args[1]['prepared'])
+                    self.assertNotIn('input_stream', run.call_args.kwargs)
+                self.assertEqual('restored', json.loads((recovery / 'state.json').read_text())['phase'])
+
+    def test_database_revert_rejects_extra_tables_without_deleting_anything(self):
+        before = {'prefix': 'wp_', 'new_prefix': 'new_', 'admin': None, 'database': 'owned', 'tables': ['wp_options', 'wp_users', 'wp_usermeta']}
+        toolkit = tools.Toolkit({'path': '', 'php': [], 'prepared': before})
+        with patch.object(toolkit, 'config_values', return_value={'DB_NAME': 'owned', 'DB_HOST': 'localhost', 'table_prefix': 'new_'}), patch.object(toolkit, 'query', return_value='new_options\nnew_users\nnew_usermeta\nforeign') as query:
+            with self.assertRaisesRegex(tools.Failure, 'recovery_required'): toolkit.database_restore()
+            self.assertEqual([('SHOW TABLES',)], [c.args for c in query.call_args_list])
+
+    def test_database_recovery_uses_marker_for_atomic_inverse_and_keeps_current_rows(self):
+        for committed in (False, True):
+            before = {'prefix': 'wp_', 'new_prefix': 'new_', 'admin': None, 'database': 'owned', 'tables': ['wp_options', 'wp_users', 'wp_usermeta']}
+            toolkit = tools.Toolkit({'path': '', 'php': [], 'prepared': before, 'job': '11111111-1111-1111-1111-111111111111'})
+            with patch.object(toolkit, 'config_values', return_value={'DB_NAME': 'owned', 'DB_HOST': 'localhost', 'table_prefix': 'new_'}), patch.object(toolkit, 'query', side_effect=['new_options\nnew_users\nnew_usermeta', 'applied' if committed else '', '', '']) as query, patch.object(toolkit, 'config_change') as config, patch.object(toolkit, 'wp'), patch.object(toolkit, 'maintenance'), patch.object(toolkit, 'verify_one_way'):
+                self.assertTrue(toolkit.database_restore()['restored'])
+                sql = '\n'.join(c.args[0] for c in query.call_args_list)
+                self.assertNotIn('DROP', sql)
+                self.assertNotIn('INSERT', sql)
+                self.assertEqual(committed, 'START TRANSACTION' in sql)
+                self.assertIn('RENAME TABLE `new_options` TO `wp_options`', sql)
+                config.assert_called_once_with('table_prefix', 'wp_', variable=True)
+
+    def test_database_plan_rejects_unknown_username_or_prefix_history(self):
+        toolkit = tools.Toolkit({'path': '', 'php': [], 'direction': 'revert', 'measures': ['prefix']})
+        with patch.object(toolkit, 'validate'), patch.object(toolkit, 'config_values', return_value={'DB_NAME': 'owned'}), patch.object(toolkit, 'owned_database', return_value=('custom_', ['custom_options'])), patch.object(toolkit, 'database_engines'), patch.object(toolkit, 'metadata', return_value={'multisite': False}):
+            with self.assertRaisesRegex(tools.Failure, 'no_previous_value'): toolkit.database_plan()
+
     def test_integrity_uses_installed_version_and_never_executes_version_php(self):
         toolkit = tools.Toolkit({'path': '', 'php': []})
         version = b"<?php $wp_version = '6.8.3'; $wp_local_package = 'cs_CZ'; die('must not execute');"

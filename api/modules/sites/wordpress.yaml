@@ -11,7 +11,7 @@
       measures. Native configuration changes are asynchronous, and are reported
       pending until the worker observes the regenerated vhost.
     responses:
-      '200': {description: Installations, worker capability and current job, content: {application/json: {schema: {$ref: '../../components/schemas/WordPress.yaml'}}}}
+      '200': {description: 'Installations, worker capability and current job', content: {application/json: {schema: {$ref: '../../components/schemas/WordPress.yaml'}}}}
       '401': {$ref: '../../components/responses/Unauthorized.yaml'}
       '404': {$ref: '../../components/responses/NotFound.yaml'}
 /sites/web-domains/{id}/wordpress/jobs:
@@ -23,8 +23,8 @@
       as the website user in the file-manager worker's command sandbox. Only one
       active job per vhost is accepted. Paths and commands cannot be supplied.
       Irreversible measures require explicit confirmation. Prefix and admin login
-      changes also require a completed existing database export, site verification
-      and automatic rollback on failure. Unsupported database layouts are rejected
+      changes are reversible with worker version 3 and require no database export.
+      A protected journal supports inverse changes and verification on failure. Unsupported database layouts are rejected
       before mutation. Server protections use managed native Apache directives,
       never .htaccess. Jobs and cached installations are invalidated on transfer
       or a change of site identity. Responses are private/no-store.
@@ -46,9 +46,9 @@
                 maxItems: 19
                 uniqueItems: true
                 items: {type: string, enum: [xmlrpc, config, htfiles, sensitive, potential, indexes, includes_php, uploads_php, cache_php, author, bots, file_editor, concatenate, salts, pingbacks, permissions, languages, prefix, admin_login]}
-              interval: {type: integer, enum: [5, 10, 15, 30, 60, 360, 720, 1440], default: 15, description: Cron interval in minutes, restricted by the owning plan.}
+              interval: {type: integer, enum: [5, 10, 15, 30, 60, 360, 720, 1440], default: 15, description: 'Cron interval in minutes, restricted by the owning plan.'}
               confirmed: {type: boolean, default: false}
-              backup: {type: boolean, default: false}
+              backup: {type: boolean, default: false, deprecated: true, description: Legacy compatibility flag; no export is created by worker version 3.}
               admin_login: {type: string, pattern: '^[A-Za-z][A-Za-z0-9_.-]{2,59}$'}
     responses:
       '201': {description: Queued job, headers: {X-Change-Set-Id: {$ref: '../../components/headers/ChangeSetId.yaml'}}, content: {application/json: {schema: {$ref: '../../components/schemas/WordPressJob.yaml'}}}}

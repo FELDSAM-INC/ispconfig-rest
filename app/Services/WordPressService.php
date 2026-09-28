@@ -56,8 +56,8 @@ final class WordPressService
         return ['available' => (bool) ($worker->available ?? false), 'reason' => $worker->reason ?? ($worker ? null : 'worker_unavailable'),
             'scanned_at' => $snapshot ? gmdate('c', $snapshot->scanned_at) : null, 'scan_incomplete' => (bool) ($snapshot->incomplete ?? false), 'installations' => $public,
             'measures' => array_map(fn ($key) => ['id' => $key, 'reversible' => ! in_array($key, WordPressPolicy::ONE_WAY, true),
-                'available' => ! in_array($key, WordPressPolicy::SERVER, true) || $site->web_server_type === 'apache',
-                'reason' => in_array($key, WordPressPolicy::SERVER, true) && $site->web_server_type !== 'apache' ? 'apache_required' : null], [...WordPressPolicy::SERVER, ...WordPressPolicy::LOCAL]),
+                'available' => in_array($key, ['prefix', 'admin_login'], true) ? (int) ($worker->version ?? 0) >= 3 : (! in_array($key, WordPressPolicy::SERVER, true) || $site->web_server_type === 'apache'),
+                'reason' => in_array($key, ['prefix', 'admin_login'], true) && (int) ($worker->version ?? 0) < 3 ? 'worker_update_required' : (in_array($key, WordPressPolicy::SERVER, true) && $site->web_server_type !== 'apache' ? 'apache_required' : null)], [...WordPressPolicy::SERVER, ...WordPressPolicy::LOCAL]),
             'tools_available' => (bool) ($worker->available ?? false) && (int) ($worker->version ?? 0) >= 2,
             'job' => $job ? $this->present($job) : null];
     }
@@ -96,10 +96,16 @@ final class WordPressService
                         abort_if(($installation['security'][$measure]['status'] ?? '') === 'unavailable', 409, 'This security measure is unavailable; run a security check.');
                     }
                 }
-                if ($input['action'] === 'secure' && array_intersect($input['measures'], ['prefix', 'admin_login'])) {
+                if (in_array($input['action'], ['secure', 'revert'], true) && array_intersect($input['measures'], ['prefix', 'admin_login'])) {
+                    abort_unless((int) $this->worker($site)->version >= 3, 409, 'Update the WordPress worker to enable reversible database changes.');
                     $database = WebDatabase::query()->readable()->whereKey($installation['database_id'] ?? 0)->first();
-                    abort_unless($database && $database->sys_groupid == $site->sys_groupid && $database->server_id == $site->server_id, 409, 'A local, owned database and verified backup are required.');
-                    $backup = app(DatabaseOperationService::class)->create($database, ['action' => 'export'])['id'];
+                    abort_unless($database && $database->sys_groupid == $site->sys_groupid && $database->server_id == $site->server_id, 409, 'A local, owned database is required.');
+                    $input['database_change'] = true;
+                    if ($input['action'] === 'revert') {
+                        foreach (array_intersect($input['measures'], ['prefix', 'admin_login']) as $measure) {
+                            abort_unless(($installation['security'][$measure]['can_revert'] ?? false) === true, 409, 'Run a security check; the previous value is unavailable or has changed.');
+                        }
+                    }
                 }
                 if (in_array($input['action'], ['secure', 'revert'], true)) {
                     $this->native($site, $installation['path'], $input['measures'], $input['action'] === 'secure');
@@ -172,8 +178,8 @@ final class WordPressService
     {
         $this->lockWorkers([(int) DB::table('web_database')->where('database_id', $databaseId)->value('server_id')]);
         $busy = Schema::hasTable('api_wordpress_jobs') && DB::table('api_wordpress_jobs as wp')
-            ->join('api_database_operations as backup', 'backup.id', '=', 'wp.backup_id')
-            ->where('backup.database_id', $databaseId)->whereIn('wp.status', ['queued', 'running', 'recovery_required'])->exists();
+            ->leftJoin('api_database_operations as backup', 'backup.id', '=', 'wp.backup_id')
+            ->where(fn ($query) => $query->where('backup.database_id', $databaseId)->orWhere('wp.request->database_id', $databaseId))->whereIn('wp.status', ['queued', 'running', 'recovery_required'])->exists();
         abort_if($busy, 409, 'A WordPress operation is pending or needs recovery.');
     }
 

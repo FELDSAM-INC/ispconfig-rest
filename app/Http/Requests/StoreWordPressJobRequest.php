@@ -49,9 +49,6 @@ final class StoreWordPressJobRequest extends SitesRequest
             if ($oneWay && ! $this->boolean('confirmed')) {
                 $v->errors()->add('confirmed', 'Explicit confirmation is required.');
             }
-            if (array_intersect($oneWay, ['prefix', 'admin_login']) && ! $this->boolean('backup')) {
-                $v->errors()->add('backup', 'A database backup is required.');
-            }
             if (in_array('admin_login', $measures, true) && (! $this->filled('admin_login') || strtolower((string) $this->input('admin_login')) === 'admin')) {
                 $v->errors()->add('admin_login', 'Choose a new administrator login.');
             }

@@ -11,7 +11,7 @@ final class WordPressPolicy
 
     public const LOCAL = ['file_editor', 'concatenate', 'salts', 'pingbacks', 'permissions', 'languages', 'prefix', 'admin_login'];
 
-    public const ONE_WAY = ['salts', 'permissions', 'languages', 'prefix', 'admin_login'];
+    public const ONE_WAY = ['salts', 'permissions', 'languages'];
 
     public const BEGIN = '# BEGIN ISPCP WORDPRESS ';
 

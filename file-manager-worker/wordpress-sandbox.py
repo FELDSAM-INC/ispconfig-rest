@@ -305,6 +305,63 @@ def one_way(site, request, work, data):
         return {'error': 'recovery_required', 'recovery_required': True}
 
 
+def database_change(site, request, work, data):
+    """Small protected intent journal; inverse SQL preserves content added after the change."""
+    recovery = STATE / (data['job'] + '.recovery')
+    recovery.mkdir(mode=0o700, exist_ok=True)
+    info = recovery.lstat()
+    if info.st_uid != 0 or info.st_mode & 0o077 or not stat.S_ISDIR(info.st_mode):
+        raise Unavailable('unsafe_workspace')
+    state_path = recovery / 'state.json'
+    request = dict(request, direction=request['action'])
+    if state_path.exists():
+        state = json.loads(state_path.read_text())
+        if state.get('kind') != 'database_change' or state['identity'] != identity(site, request['public_root']):
+            raise Unavailable('site_changed')
+        if state['phase'] in ('restored', 'abandoned'):
+            return {'error': 'interrupted_restored' if state['phase'] == 'restored' else 'configuration_changed'}
+        prepared = state['prepared']
+        if state['phase'] == 'completed':
+            try:
+                execute(site, dict(request, action='database_finalize'), work)
+            except Exception:
+                pass  # The verified change is committed; marker cleanup may be retried.
+            return execute(site, dict(request, action='check', undo=prepared['undo']), work)
+        failure = 'interrupted_restored'
+    else:
+        if data.get('resuming'):
+            return {'error': 'interrupted_check_required'}
+        result = execute(site, dict(request, action='database_plan'), work)
+        if 'error' in result:
+            return result
+        prepared = result['prepared']
+        state = {'kind': 'database_change', 'phase': 'prepared', 'identity': identity(site, request['public_root']), 'prepared': prepared}
+        checkpoint(state_path, state)  # No database mutation precedes this durable root-owned record.
+        try:
+            result = execute(site, dict(request, action='database_apply', prepared=prepared), work)
+            if 'error' not in result:
+                checkpoint(state_path, dict(state, phase='completed'))
+                try:
+                    execute(site, dict(request, action='database_finalize'), work)
+                except Exception:
+                    pass  # Never roll back a committed change because marker cleanup failed.
+                return result
+            if result.get('not_applied'):
+                checkpoint(state_path, dict(state, phase='abandoned'))
+                return {'error': result['error']}
+        except Exception:
+            pass
+        failure = 'verification_failed_restored'
+    try:
+        restored = execute(site, dict(request, action='database_restore', prepared=prepared), work)
+        if restored.get('restored') is not True:
+            return {'error': 'recovery_required', 'recovery_required': True}
+        checkpoint(state_path, dict(state, phase='restored'))
+        return {'error': failure}
+    except Exception:
+        return {'error': 'recovery_required', 'recovery_required': True}
+
+
 def cleanup(jobs):
     # IDs come from terminal database rows, never from site-controlled paths.
     # shutil.rmtree on this platform pins descriptors and does not follow symlinks.
@@ -343,7 +400,17 @@ def main():
         raise Unavailable('unsafe_workspace')
     os.chown(work, uid, gid)
     irreversible = request['action'] == 'secure' and bool(set(request.get('measures', [])) & {'prefix', 'admin_login'})
-    if irreversible:
+    if request.get('database_change') and request['action'] in ('secure', 'revert'):
+        result = database_change(site, request, work, data)
+        if 'error' not in result:
+            remaining = [key for key in request['measures'] if key not in ('prefix', 'admin_login')]
+            if remaining:
+                next_result = execute(site, dict(request, measures=remaining, undo=result['installation']['undo']), work)
+                if 'error' in next_result:
+                    result['operation_error'] = next_result['error']
+                else:
+                    result = next_result
+    elif irreversible:
         if not data.get('backup_id'):
             raise Unavailable('backup_required')
         result = one_way(site, request, work, data)

@@ -227,13 +227,19 @@ class Toolkit:
         if code == 0 and not admin.isdigit():
             raise Failure('invalid_worker_result')
         try:
-            self.database(config)
-            if not self.request.get('database_available'):
-                raise Failure('database_backup_unavailable')
+            prefix, _ = self.owned_database(config)
+            self.database_engines(prefix)
+            prior = self.undo.get('prefix', {})
+            security['prefix']['can_revert'] = prior.get('database') == config['DB_NAME'] and prior.get('applied') == prefix and prior.get('previous') != prefix
+            prior = self.undo.get('admin_login', {})
+            security['admin_login']['can_revert'] = False
+            if prior.get('database') == config['DB_NAME'] and type(prior.get('id')) is int and prior['id'] > 0:
+                login = self.query('SELECT user_login FROM ' + identifier(prefix + 'users') + ' WHERE ID=' + str(prior['id']))
+                taken = self.query('SELECT ID FROM ' + identifier(prefix + 'users') + ' WHERE user_login=' + literal(prior.get('previous', '')) + ' AND ID<>' + str(prior['id']))
+                security['admin_login']['can_revert'] = login == prior.get('applied') and not taken
         except Failure as error:
             for key in ('prefix', 'admin_login'):
-                if security[key]['status'] != 'ok':
-                    security[key] = {'status': 'unavailable', 'reason': str(error)}
+                security[key] = {'status': 'unavailable', 'reason': str(error)}
         # DB names/hosts are consumed only by the root bridge for ownership matching, never in REST output.
         result.update(security=security, undo=self.undo, database_name=config.get('DB_NAME', ''), database_host=config.get('DB_HOST', ''))
         return result
@@ -448,6 +454,176 @@ class Toolkit:
                 raise Failure('maintenance_changed')
             path.unlink()
 
+    def owned_database(self, config):
+        prefix, tables = self.database(config)
+        if not self.request.get('database_available') or config.get('DB_NAME') != self.request.get('database_name') or config.get('DB_HOST') not in ('localhost', '127.0.0.1', 'localhost:3306', '127.0.0.1:3306'):
+            raise Failure('owned_database_required')
+        return prefix, tables
+
+    def database_engines(self, prefix):
+        names = [prefix + suffix for suffix in ('options', 'usermeta', 'users')]
+        engines = self.query('SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN (' + ','.join(literal(name) for name in names) + ')').splitlines()
+        if len(engines) != 3 or any(line.split('\t')[-1] != 'InnoDB' for line in engines):
+            raise Failure('unsupported_database_engine')
+
+    def prefix_namespace(self, prefix, target):
+        # Every key matching the destination must also be part of the source mapping.
+        # This makes the inverse unambiguous without copying table contents.
+        for suffix, column in (('options', 'option_name'), ('usermeta', 'meta_key')):
+            col = identifier(column)
+            if self.query('SELECT 1 FROM ' + identifier(prefix + suffix) + ' WHERE LEFT(' + col + ',' + str(len(target)) + ')=' + literal(target) + ' AND LEFT(' + col + ',' + str(len(prefix)) + ')<>' + literal(prefix) + ' LIMIT 1'):
+                raise Failure('prefix_conflict')
+
+    def metadata_updates(self, table_prefix, source, target):
+        statements = []
+        if source != target:
+            for suffix, column in (('options', 'option_name'), ('usermeta', 'meta_key')):
+                col = identifier(column)
+                statements.append('UPDATE ' + identifier(table_prefix + suffix) + ' SET ' + col + '=CONCAT(' + literal(target) + ',SUBSTRING(' + col + ',' + str(len(source) + 1) + ')) WHERE LEFT(' + col + ',' + str(len(source)) + ')=' + literal(source))
+        return statements
+
+    def database_plan(self):
+        self.validate()
+        config = self.config_values()
+        prefix, tables = self.owned_database(config)
+        self.database_engines(prefix)
+        metadata = self.metadata()
+        if metadata['multisite']:
+            raise Failure('unsupported_database_layout')
+        selected = self.request['measures']
+        reverting = self.request['direction'] == 'revert'
+        target = prefix
+        undo = dict(self.undo)
+        if 'prefix' in selected:
+            if reverting:
+                prior = undo.get('prefix', {})
+                if prior.get('database') != config['DB_NAME'] or prior.get('applied') != prefix:
+                    raise Failure('no_previous_value')
+                target = prior['previous']
+                del undo['prefix']
+            elif prefix == 'wp_':
+                target = 'wp_' + secrets.token_hex(6) + '_'
+                undo['prefix'] = {'previous': prefix, 'applied': target, 'database': config['DB_NAME']}
+            else:
+                raise Failure('already_secured')
+            identifier(target)
+            for table in tables:
+                identifier(target + table[len(prefix):])
+            self.prefix_namespace(prefix, target)
+        admin = None
+        if 'admin_login' in selected:
+            prior = undo.get('admin_login', {})
+            if reverting:
+                if prior.get('database') != config['DB_NAME'] or type(prior.get('id')) is not int or prior['id'] < 1:
+                    raise Failure('no_previous_value')
+                lookup = str(prior['id'])
+                login = prior['previous']
+            else:
+                lookup = 'admin'
+                login = self.request.get('admin_login', '')
+                if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_.-]{2,59}', login) or login.lower() == 'admin':
+                    raise Failure('invalid_admin_login')
+            admin = json.loads(self.value('user', 'get', lookup, '--fields=ID,user_login,roles', '--format=json'))
+            if 'administrator' not in admin.get('roles', []) or (reverting and admin['user_login'] != prior.get('applied')):
+                raise Failure('configuration_changed')
+            uid = int(admin['ID'])
+            if self.query('SELECT ID FROM ' + identifier(prefix + 'users') + ' WHERE user_login=' + literal(login) + ' AND ID<>' + str(uid)):
+                raise Failure('admin_login_exists')
+            if reverting:
+                del undo['admin_login']
+            else:
+                undo['admin_login'] = {'id': uid, 'previous': admin['user_login'], 'applied': login, 'database': config['DB_NAME']}
+            admin['target'] = login
+        self.http_verify(metadata['url'])
+        return {'prepared': {'prefix': prefix, 'new_prefix': target, 'tables': tables, 'url': metadata['url'], 'admin': admin,
+                             'database': config['DB_NAME'], 'config_hash': metadata['config_hash'], 'undo': undo}}
+
+    def database_marker(self):
+        job = self.request.get('job', '')
+        if not re.fullmatch(r'[a-f0-9-]{36}', job):
+            raise Failure('invalid_job')
+        return '_ispcp_database_' + job
+
+    def database_apply(self):
+        before = self.request['prepared']
+        prefix, target, admin = before['prefix'], before['new_prefix'], before['admin']
+        try:
+            config = self.config_values()
+            current_prefix, tables = self.owned_database(config)
+            if current_prefix != prefix or sorted(tables) != sorted(before['tables']) or hashlib.sha256(safe_file(self.config)[0]).hexdigest() != before['config_hash']:
+                return {'error': 'configuration_changed', 'not_applied': True}
+            if target != prefix:
+                self.prefix_namespace(prefix, target)
+            if admin and self.query('SELECT user_login FROM ' + identifier(prefix + 'users') + ' WHERE ID=' + str(int(admin['ID']))) != admin['user_login']:
+                return {'error': 'configuration_changed', 'not_applied': True}
+        except Failure as error:
+            return {'error': str(error), 'not_applied': True}
+        self.maintenance(True)
+        if prefix != target:
+            self.query('RENAME TABLE ' + ', '.join(identifier(name) + ' TO ' + identifier(target + name[len(prefix):]) for name in tables))
+        statements = ["INSERT INTO " + identifier(target + 'options') + " (option_name,option_value,autoload) VALUES (" + literal(self.database_marker()) + ",'applied','no')"]
+        statements += self.metadata_updates(target, prefix, target)
+        if admin:
+            statements.append('UPDATE ' + identifier(target + 'users') + ' SET user_login=' + literal(admin['target']) + ' WHERE ID=' + str(int(admin['ID'])) + ' AND BINARY user_login=' + literal(admin['user_login']))
+        # Marker and all data changes commit together; a lost DB connection rolls all of them back.
+        self.query('START TRANSACTION; ' + '; '.join(statements) + '; COMMIT;')
+        if target != prefix:
+            self.config_change('table_prefix', target, variable=True)
+        self.wp('cache', 'flush')
+        self.maintenance(False)
+        self.verify_one_way(before)
+        if admin:
+            after = json.loads(self.value('user', 'get', str(int(admin['ID'])), '--fields=ID,user_login,roles', '--format=json'))
+            if after['user_login'] != admin['target'] or after['roles'] != admin['roles']:
+                raise Failure('verification_failed')
+        self.undo = before['undo']
+        return {'installation': self.check()}
+
+    def database_restore(self):
+        before = self.request['prepared']
+        prefix, target, admin = before['prefix'], before['new_prefix'], before['admin']
+        config = self.config_values()
+        if config.get('DB_NAME') != before['database'] or config.get('DB_HOST') not in ('localhost', '127.0.0.1', 'localhost:3306', '127.0.0.1:3306') or config.get('table_prefix') not in (prefix, target):
+            raise Failure('configuration_changed')
+        current = sorted(self.query('SHOW TABLES').splitlines())
+        original = sorted(before['tables'])
+        renamed = sorted(target + name[len(prefix):] for name in before['tables'])
+        if current not in (original, renamed):
+            raise Failure('recovery_required')
+        live = target if current == renamed else prefix
+        marker = self.query('SELECT option_value FROM ' + identifier(live + 'options') + ' WHERE option_name=' + literal(self.database_marker()))
+        if marker:
+            if marker != 'applied' or live != target:
+                raise Failure('recovery_required')
+            statements = self.metadata_updates(live, target, prefix)
+            if admin:
+                login = self.query('SELECT user_login FROM ' + identifier(live + 'users') + ' WHERE ID=' + str(int(admin['ID'])))
+                if login != admin['target']:
+                    raise Failure('configuration_changed')
+                if self.query('SELECT ID FROM ' + identifier(live + 'users') + ' WHERE user_login=' + literal(admin['user_login']) + ' AND ID<>' + str(int(admin['ID']))):
+                    raise Failure('admin_login_exists')
+                statements.append('UPDATE ' + identifier(live + 'users') + ' SET user_login=' + literal(admin['user_login']) + ' WHERE ID=' + str(int(admin['ID'])))
+            statements.append('DELETE FROM ' + identifier(live + 'options') + ' WHERE option_name=' + literal(self.database_marker()))
+            self.query('START TRANSACTION; ' + '; '.join(statements) + '; COMMIT;')
+        if live != prefix:
+            self.query('RENAME TABLE ' + ', '.join(identifier(target + name[len(prefix):]) + ' TO ' + identifier(name) for name in before['tables']))
+        if config.get('table_prefix') != prefix:
+            self.config_change('table_prefix', prefix, variable=True)
+        self.wp('cache', 'flush')
+        self.maintenance(False)
+        self.verify_one_way(dict(before, new_prefix=prefix))
+        if admin:
+            restored = json.loads(self.value('user', 'get', str(int(admin['ID'])), '--fields=ID,user_login,roles', '--format=json'))
+            if restored['user_login'] != admin['user_login'] or restored['roles'] != admin['roles']:
+                raise Failure('recovery_required')
+        return {'restored': True}
+
+    def database_finalize(self):
+        config = self.config_values()
+        prefix, _ = self.owned_database(config)
+        self.query('DELETE FROM ' + identifier(prefix + 'options') + ' WHERE option_name=' + literal(self.database_marker()))
+        return {'cleaned': True}
+
     def prepare(self):
         if not self.request.get('confirmed') or not self.request.get('backup') or not self.request.get('database_available'):
             raise Failure('backup_required')
@@ -628,6 +804,8 @@ def main(request):
                     raise Failure('unsupported_option')
                 toolkit.undo.setdefault(measure, current)
         return {'installation': toolkit.check()}
+    if request['action'] in ('database_plan', 'database_apply', 'database_restore', 'database_finalize'):
+        return getattr(toolkit, request['action'])()
     if request['action'] == 'prepare':
         return toolkit.prepare()
     if request['action'] == 'one_way_apply':

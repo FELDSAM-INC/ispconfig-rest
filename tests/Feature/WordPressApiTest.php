@@ -66,11 +66,37 @@ final class WordPressApiTest extends SitesApiTestCase
     public function test_arbitrary_commands_paths_and_unconfirmed_irreversible_actions_are_rejected(): void
     {
         [$id, $url, $installation] = $this->prepareSite();
-        foreach ([['command' => 'id'], ['path' => '../../'], ['measures' => ['unknown']], ['measures' => ['prefix']], ['measures' => ['prefix'], 'confirmed' => true], ['measures' => ['admin_login'], 'confirmed' => true, 'backup' => true], ['measures' => ['permissions'], 'action' => 'revert']] as $override) {
+        foreach ([['command' => 'id'], ['path' => '../../'], ['measures' => ['unknown']], ['measures' => ['salts']], ['database_change' => true], ['measures' => ['admin_login'], 'confirmed' => true, 'backup' => true], ['measures' => ['permissions'], 'action' => 'revert']] as $override) {
             $this->postJson($url.'/jobs', array_replace(['action' => 'secure', 'installation' => $installation, 'measures' => ['xmlrpc']], $override), $this->authHeaders())->assertUnprocessable();
         }
         $this->assertCount(0, $this->datalogRows('web_domain'));
         $this->assertSame(0, DB::table('api_wordpress_jobs')->count());
+    }
+
+    public function test_database_changes_need_owned_database_and_worker_v3_but_no_backup_worker(): void
+    {
+        [$id, $url, $install] = $this->prepareSite();
+        $body = ['action' => 'secure', 'installation' => $install, 'measures' => ['prefix']];
+        $this->postJson($url.'/jobs', $body, $this->authHeaders())->assertConflict();
+        DB::table('api_wordpress_workers')->update(['version' => '3']);
+        $this->postJson($url.'/jobs', $body, $this->authHeaders())->assertConflict();
+        $site = WebDomain::findOrFail($id);
+        DB::table('web_database')->insert(['database_id' => 42, 'database_name' => 'owned', 'server_id' => 1, 'sys_groupid' => $site->sys_groupid, 'sys_userid' => 1, 'active' => 'y', 'sys_perm_user' => 'riud', 'sys_perm_group' => 'riud']);
+        $job = $this->postJson($url.'/jobs', $body, $this->authHeaders())->assertCreated()->assertJsonPath('backup_id', null)->json('id');
+        $stored = DB::table('api_wordpress_jobs')->where('id', $job)->first();
+        $this->assertTrue(json_decode($stored->request, true)['database_change']);
+        $this->assertSame(0, DB::table('api_database_operations')->count());
+        $this->deleteJson('/api/v1/sites/databases/42', [], $this->authHeaders())->assertConflict();
+        DB::table('api_wordpress_jobs')->update(['status' => 'completed']);
+        $body['action'] = 'revert';
+        $this->postJson($url.'/jobs', $body, $this->authHeaders())->assertConflict();
+        $row = DB::table('api_wordpress_sites')->where('website_id', $id)->first();
+        $installs = json_decode($row->installations, true);
+        $installs[0]['security']['prefix'] = ['status' => 'ok', 'can_revert' => true];
+        $installs[0]['undo']['prefix'] = ['previous' => 'wp_', 'applied' => 'wp_example_', 'database' => 'owned'];
+        DB::table('api_wordpress_sites')->where('website_id', $id)->update(['installations' => json_encode($installs)]);
+        $this->postJson($url.'/jobs', $body, $this->authHeaders())->assertCreated()->assertJsonPath('backup_id', null);
+        $this->getJson($url, $this->authHeaders())->assertJsonMissingPath('installations.0.undo');
     }
 
     public function test_offline_locked_and_read_only_sites_cannot_queue_changes(): void

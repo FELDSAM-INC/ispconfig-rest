@@ -24,7 +24,7 @@ final class WordPressWorker
 
     private function heartbeat(bool $available = true, ?string $reason = null): void
     {
-        $this->write('INSERT INTO api_wordpress_workers (server_id, heartbeat, version, available, reason) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE heartbeat=VALUES(heartbeat), version=VALUES(version), available=VALUES(available), reason=VALUES(reason)', [$this->server, time(), '2', (int) $available, $reason]);
+        $this->write('INSERT INTO api_wordpress_workers (server_id, heartbeat, version, available, reason) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE heartbeat=VALUES(heartbeat), version=VALUES(version), available=VALUES(available), reason=VALUES(reason)', [$this->server, time(), '3', (int) $available, $reason]);
     }
 
     public function run(): void
@@ -65,7 +65,9 @@ final class WordPressWorker
                     break;
                 }
             } catch (Throwable $e) {
-                $status = $job['backup_id'] && $job['status'] === 'running' ? 'recovery_required' : 'failed';
+                $request = json_decode($job['request'], true);
+                $running = $this->one('SELECT status FROM api_wordpress_jobs WHERE id=?', [$job['id']]);
+                $status = ($job['backup_id'] || ! empty($request['database_change'])) && ($running['status'] ?? '') === 'running' ? 'recovery_required' : 'failed';
                 $this->finish($job, $status, $e instanceof RuntimeException && preg_match('/\A[a-z_]{1,64}\z/D', $e->getMessage()) ? $e->getMessage() : 'worker_failed');
             }
             $this->heartbeat();
@@ -363,14 +365,19 @@ final class WordPressWorker
         $request['languages'] = array_map(static fn ($value) => $value === 'y', array_intersect_key($site, array_flip(['cgi', 'ssi', 'perl', 'python', 'ruby'])));
         $request['permissions_available'] = $site['php'] === 'php-fpm' || ($site['php'] === 'fast-cgi' && $site['suexec'] === 'y');
         $request['server_security'] = $this->serverSecurity($site, $engine, $request['path'] ?? '');
-        $request['database_available'] = ! empty($previous['database_id']) && (bool) $this->one('SELECT server_id FROM api_database_workers WHERE server_id = ? AND heartbeat >= ?', [$this->server, time() - 180]);
+        $database = ! empty($previous['database_id']) ? $this->one("SELECT database_name FROM web_database WHERE database_id=? AND server_id=? AND sys_groupid=? AND active='y'", [$previous['database_id'], $this->server, $site['sys_groupid']]) : null;
+        $request['database_available'] = $database !== null;
+        $request['database_name'] = $database['database_name'] ?? null;
+        if ($database && $previous) {
+            $request['undo'] += $this->legacyDatabaseUndo($site, $previous, $database['database_name'], $root);
+        }
         if ($job['backup_id'] && $job['status'] !== 'running') {
             $backup = $this->one('SELECT * FROM api_database_operations WHERE id = ?', [$job['backup_id']]);
             if ((int) $backup['database_id'] !== (int) ($previous['database_id'] ?? 0) || (int) $backup['sys_groupid'] !== (int) $site['sys_groupid'] || (int) $backup['server_id'] !== $this->server) {
                 throw new RuntimeException('backup_failed');
             }
         }
-        if ($job['status'] === 'running' && ! $job['backup_id'] && ! in_array($job['action'], ['cron_enable', 'cron_disable'], true)) {
+        if ($job['status'] === 'running' && ! $job['backup_id'] && empty($request['database_change']) && ! in_array($job['action'], ['cron_enable', 'cron_disable'], true)) {
             $this->finish($job, 'failed', 'interrupted_check_required');
 
             return null;
@@ -417,6 +424,9 @@ final class WordPressWorker
             foreach (array_slice($result['installations'] ?? [], 0, 20) as $row) {
                 $row = $this->clean($row, $site);
                 foreach ($installs as $old) {
+                    if ($row['id'] === $old['id'] && ! empty($row['database_id']) && $row['database_id'] === ($old['database_id'] ?? null)) {
+                        $row['undo'] = array_intersect_key($old['undo'] ?? [], array_flip(['prefix', 'admin_login']));
+                    }
                     if ($row['id'] === $old['id'] && isset($row['config_hash'], $old['config_hash']) && hash_equals($old['config_hash'], $row['config_hash'])) {
                         $row = array_replace($row, array_intersect_key($old, array_flip(['undo', 'salts_changed', 'security', 'checked_at', 'integrity'])));
                     }
@@ -444,7 +454,7 @@ final class WordPressWorker
         }
         $this->write('INSERT INTO api_wordpress_sites (website_id, server_id, identity, scanned_at, incomplete, installations) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE server_id=VALUES(server_id), identity=VALUES(identity), scanned_at=VALUES(scanned_at), incomplete=VALUES(incomplete), installations=VALUES(installations)',
             [$job['website_id'], $this->server, $identity, $job['action'] === 'rescan' ? time() : ($snapshot['scanned_at'] ?? time()), (int) ($result['incomplete'] ?? $snapshot['incomplete'] ?? false), json_encode($installs, JSON_THROW_ON_ERROR)]);
-        $this->finish($job, 'completed');
+        $this->finish($job, isset($result['operation_error']) ? 'failed' : 'completed', $result['operation_error'] ?? null);
 
         return null;
     }
@@ -521,6 +531,15 @@ final class WordPressWorker
                 $clean['undo'][$key] = $row['undo'][$key];
             }
         }
+        foreach (['prefix', 'admin_login'] as $key) {
+            $undo = $row['undo'][$key] ?? null;
+            $pattern = $key === 'prefix' ? '/\A[A-Za-z0-9_]{1,64}\z/D' : '/\A[A-Za-z0-9_.@-]{1,60}\z/D';
+            if (is_array($undo) && is_string($undo['previous'] ?? null) && preg_match($pattern, $undo['previous'])
+                && is_string($undo['applied'] ?? null) && preg_match($pattern, $undo['applied']) && is_string($undo['database'] ?? null) && strlen($undo['database']) <= 64
+                && ($key !== 'admin_login' || (is_int($undo['id'] ?? null) && $undo['id'] > 0))) {
+                $clean['undo'][$key] = array_intersect_key($undo, array_flip(['previous', 'applied', 'database', 'id']));
+            }
+        }
         $clean['salts_changed'] = ($row['salts_changed'] ?? false) === true;
         $clean['database_id'] = null;
         if (in_array($row['database_host'] ?? '', ['localhost', '127.0.0.1', 'localhost:3306', '127.0.0.1:3306'], true) && is_string($row['database_name'] ?? null)) {
@@ -529,6 +548,38 @@ final class WordPressWorker
         }
 
         return $clean;
+    }
+
+    private function legacyDatabaseUndo(array $site, array $installation, string $database, string $root): array
+    {
+        // Adopt only a successful, identity-bound old worker journal; never guess the renamed user.
+        $q = $this->db->prepare("SELECT id, request FROM api_wordpress_jobs WHERE website_id=? AND server_id=? AND status='completed' AND action='secure' AND backup_id IS NOT NULL ORDER BY created_at DESC LIMIT 20");
+        $q->execute([$site['domain_id'], $this->server]);
+        $undo = [];
+        foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $job) {
+            $input = json_decode($job['request'], true);
+            if (($input['public_root'] ?? '') !== $root || ($input['installation'] ?? '') !== $installation['id'] || (int) ($input['database_id'] ?? 0) !== (int) $installation['database_id'] || ! preg_match('/\A[a-f0-9-]{36}\z/D', $job['id'])) {
+                continue;
+            }
+            $path = '/var/lib/ispcp-files/wordpress/'.$job['id'].'.recovery/state.json';
+            $stat = @lstat($path);
+            if (! $stat || ($stat['mode'] & 0170000) !== 0100000 || $stat['uid'] !== 0 || ($stat['mode'] & 0077) || $stat['size'] > 1048576) {
+                continue;
+            }
+            $state = json_decode(file_get_contents($path), true);
+            if (($state['phase'] ?? '') !== 'completed' || ($state['identity'] ?? '') !== WordPressPolicy::identity($site, $input['public_root'])) {
+                continue;
+            }
+            $before = $state['prepared'];
+            if (in_array('prefix', $input['measures'], true) && $before['new_prefix'] !== $before['prefix']) {
+                $undo += ['prefix' => ['previous' => $before['prefix'], 'applied' => $before['new_prefix'], 'database' => $database]];
+            }
+            if (in_array('admin_login', $input['measures'], true) && ! empty($before['admin'])) {
+                $undo += ['admin_login' => ['previous' => $before['admin']['user_login'], 'applied' => $input['admin_login'], 'id' => (int) $before['admin']['ID'], 'database' => $database]];
+            }
+        }
+
+        return $undo;
     }
 
     private function serverSecurity(array $site, string $engine, string $path): array
