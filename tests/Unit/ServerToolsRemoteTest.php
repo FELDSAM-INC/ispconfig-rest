@@ -22,7 +22,7 @@ class ServerToolsRemoteTest extends TestCase
             $this->assertSame([], array_diff($rights, ['SELECT', 'INSERT', 'UPDATE', 'DELETE']));
         }
         $this->assertSame(['SELECT', 'INSERT', 'UPDATE'], $tables['api_web_log_workers']);
-        $this->assertSame(['SELECT', 'INSERT', 'DELETE'], $tables['api_web_waf_events']);
+        $this->assertSame(['SELECT', 'INSERT', 'UPDATE', 'DELETE'], $tables['api_web_waf_events']);
     }
 
     public function test_unrecognized_component_is_rejected(): void
