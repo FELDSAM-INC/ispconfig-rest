@@ -467,20 +467,21 @@ class Toolkit:
             raise Failure('unsupported_database_engine')
 
     def prefix_namespace(self, prefix, target):
-        # Every key matching the destination must also be part of the source mapping.
-        # This makes the inverse unambiguous without copying table contents.
-        for suffix, column in (('options', 'option_name'), ('usermeta', 'meta_key')):
-            col = identifier(column)
-            if self.query('SELECT 1 FROM ' + identifier(prefix + suffix) + ' WHERE LEFT(' + col + ',' + str(len(target)) + ')=' + literal(target) + ' AND LEFT(' + col + ',' + str(len(prefix)) + ')<>' + literal(prefix) + ' LIMIT 1'):
-                raise Failure('prefix_conflict')
+        # Only user_roles is a prefix-dependent core option. Ordinary options such as
+        # wp_calendar_block_has_published_posts keep their literal names across prefixes.
+        if self.query('SELECT 1 FROM ' + identifier(prefix + 'options') + ' WHERE option_name=' + literal(target + 'user_roles') + ' LIMIT 1'):
+            raise Failure('prefix_conflict')
+        # Per-site user options use wpdb::get_blog_prefix(); reject an ambiguous inverse.
+        if self.query('SELECT 1 FROM ' + identifier(prefix + 'usermeta') + ' WHERE LEFT(meta_key,' + str(len(target)) + ')=' + literal(target) + ' AND LEFT(meta_key,' + str(len(prefix)) + ')<>' + literal(prefix) + ' LIMIT 1'):
+            raise Failure('prefix_conflict')
 
     def metadata_updates(self, table_prefix, source, target):
-        statements = []
-        if source != target:
-            for suffix, column in (('options', 'option_name'), ('usermeta', 'meta_key')):
-                col = identifier(column)
-                statements.append('UPDATE ' + identifier(table_prefix + suffix) + ' SET ' + col + '=CONCAT(' + literal(target) + ',SUBSTRING(' + col + ',' + str(len(source) + 1) + ')) WHERE LEFT(' + col + ',' + str(len(source)) + ')=' + literal(source))
-        return statements
+        if source == target:
+            return []
+        return [
+            'UPDATE ' + identifier(table_prefix + 'options') + ' SET option_name=' + literal(target + 'user_roles') + ' WHERE BINARY option_name=' + literal(source + 'user_roles'),
+            'UPDATE ' + identifier(table_prefix + 'usermeta') + ' SET meta_key=CONCAT(' + literal(target) + ',SUBSTRING(meta_key,' + str(len(source) + 1) + ')) WHERE BINARY LEFT(meta_key,' + str(len(source)) + ')=' + literal(source),
+        ]
 
     def database_plan(self):
         self.validate()

@@ -79,6 +79,17 @@ class WordPressWorkerTest(unittest.TestCase):
                 self.assertIn('RENAME TABLE `new_options` TO `wp_options`', sql)
                 config.assert_called_once_with('table_prefix', 'wp_', variable=True)
 
+    def test_prefix_changes_leave_literal_wordpress_option_names_unchanged(self):
+        toolkit = tools.Toolkit({'path': '', 'php': []})
+        for source, target in [('wp_', 'wp_random_'), ('wp_random_', 'wp_')]:
+            option, meta = toolkit.metadata_updates(target, source, target)
+            self.assertIn('WHERE BINARY option_name=' + tools.literal(source + 'user_roles'), option)
+            self.assertNotIn('LEFT', option)
+            self.assertIn('WHERE BINARY LEFT(meta_key,', meta)
+            with patch.object(toolkit, 'query', return_value='') as query:
+                toolkit.prefix_namespace(source, target)
+                self.assertIn('WHERE option_name=' + tools.literal(target + 'user_roles'), query.call_args_list[0].args[0])
+
     def test_database_plan_rejects_unknown_username_or_prefix_history(self):
         toolkit = tools.Toolkit({'path': '', 'php': [], 'direction': 'revert', 'measures': ['prefix']})
         with patch.object(toolkit, 'validate'), patch.object(toolkit, 'config_values', return_value={'DB_NAME': 'owned'}), patch.object(toolkit, 'owned_database', return_value=('custom_', ['custom_options'])), patch.object(toolkit, 'database_engines'), patch.object(toolkit, 'metadata', return_value={'multisite': False}):
