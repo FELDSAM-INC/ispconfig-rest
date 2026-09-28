@@ -7,6 +7,8 @@ use RuntimeException;
 /** Bounded JSON audit reader. Only normalized metadata may leave the web server. */
 final class WebWafAudit
 {
+    private const PARSER_VERSION = 2;
+
     public static function catalog(string $directory = '/usr/share/modsecurity-crs/rules'): array
     {
         $result = [];
@@ -134,7 +136,12 @@ final class WebWafAudit
             if ($id < 1 || $id > 2147483647) {
                 continue;
             }
-            preg_match('/\bARGS:([A-Za-z0-9_.\-]{1,128})(?=[:\s\x27"\)])/', $data, $parameter);
+            // Apache ends the operator message with a full stop, before its
+            // metadata fields. Consume exactly that delimiter, not real dots
+            // in the argument name (including a genuine trailing dot).
+            if ($nginx || ! preg_match('/\bat ARGS:([A-Za-z0-9_.\-]{1,128})\.(?= \[(?:file|id|line) ")/', $data, $parameter)) {
+                preg_match('/\bARGS:([A-Za-z0-9_.\-]{1,128})(?=[:\s\x27"\)])/', $data, $parameter);
+            }
             $out[$id] = ['event_key' => hash('sha256', $unique.':'.$id), 'occurred_at' => $occurred, 'rule_id' => $id,
                 'outcome' => $blocked ? 'blocked' : 'detected', 'client_ip' => filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '',
                 'method' => preg_match('/\A[A-Z]{1,16}\z/D', $method) ? $method : '', 'path' => $path,
@@ -190,7 +197,8 @@ final class WebWafAudit
         }
         try {
             $stat = fstat($file);
-            $offset = ($position['inode'] ?? null) === $stat['ino'] && ($position['offset'] ?? 0) <= $stat['size'] ? (int) ($position['offset'] ?? 0) : 0;
+            $offset = ($position['parser_version'] ?? null) === self::PARSER_VERSION
+                && ($position['inode'] ?? null) === $stat['ino'] && ($position['offset'] ?? 0) <= $stat['size'] ? (int) ($position['offset'] ?? 0) : 0;
             // Bound work even after a burst/rotation. Newline-delimited audit JSON is emitted by both engines.
             if ($stat['size'] - $offset > 4194304) {
                 $offset = $stat['size'] - 4194304;
@@ -217,7 +225,7 @@ final class WebWafAudit
                 }
             }
 
-            return ['events' => $events, 'position' => ['inode' => $stat['ino'], 'offset' => $offset]];
+            return ['events' => $events, 'position' => ['inode' => $stat['ino'], 'offset' => $offset, 'parser_version' => self::PARSER_VERSION]];
         } finally {
             fclose($file);
         }

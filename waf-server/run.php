@@ -60,7 +60,9 @@ try {
                 foreach ($read['events'] as $event) {
                     $event['event_key'] = hash('sha256', $identity.':'.$event['event_key']);
                     $event = ['server_id' => $server, 'website_id' => (int) $site['domain_id'], 'identity' => $identity] + $event;
-                    $sql = 'INSERT IGNORE INTO api_web_waf_events ('.implode(',', array_keys($event)).') VALUES ('.implode(',', array_fill(0, count($event), '?')).')';
+                    // A parser upgrade re-reads the bounded audit tail. Repair
+                    // existing metadata without duplicating/reordering events.
+                    $sql = 'INSERT INTO api_web_waf_events ('.implode(',', array_keys($event)).') VALUES ('.implode(',', array_fill(0, count($event), '?')).') ON DUPLICATE KEY UPDATE parameter=VALUES(parameter)';
                     $db->prepare($sql)->execute(array_values($event));
                 }
                 $positions[$identity] = $read['position'];

@@ -3,6 +3,18 @@
 Release notes for ISPConfig REST API. Versions refer to the application release;
 the HTTP API remains under `/api/v1`.
 
+## [Unreleased]
+
+### Fixed
+
+- WAF events and exception suggestions no longer include the full stop from
+  Apache's `at ARGS:name.` audit message in the argument name. Real dots in names
+  are preserved. Update the WAF server tool as well as the API: its versioned
+  cursor re-reads the bounded recent audit tail and repairs stored parameter
+  metadata without duplicating events. The server-tools manager grants the
+  collector UPDATE on `api_web_waf_events` for this repair; native tables remain
+  read-only to the collector.
+
 ## [1.0.2] - 2026-09-28
 
 Bugfix release for the installation manager. No API endpoint, database migration

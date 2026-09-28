@@ -15,7 +15,7 @@ foreach ($tables as $table => $rights) {
 $root->exec('GRANT SELECT ON server_tools_fixture.web_domain TO tools_fixture');
 $worker = new PDO('mysql:host=127.0.0.1;dbname=server_tools_fixture', 'tools_fixture', 'fixture-only', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $missing = ServerToolsRemote::missingGrants($worker, $tables);
-if (isset($missing['web_domain']) || $missing['api_web_waf_events'] !== ['SELECT', 'INSERT', 'DELETE']) {
+if (isset($missing['web_domain']) || $missing['api_web_waf_events'] !== ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) {
     throw new RuntimeException('Missing grants not detected correctly.');
 }
 mkdir('/usr/local/ispconfig/server/lib', 0700, true);

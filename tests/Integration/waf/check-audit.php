@@ -26,9 +26,14 @@ if (WebWafAudit::read($identity, $data['position'], $catalog)['events'] !== []) 
     throw new RuntimeException('Cursor repeats events');
 }
 foreach ($data['events'] as $event) {
-    if ($event['rule_id'] === 942100 && ($event['parameter'] === '' || $event['message'] === 'Rule 942100 matched')) {
+    if ($event['rule_id'] === 942100 && (! in_array($event['parameter'], ['q', 'different'], true) || $event['message'] === 'Rule 942100 matched')) {
         throw new RuntimeException('Rule context missing');
     }
+}
+$oldPosition = $data['position'];
+unset($oldPosition['parser_version']);
+if (WebWafAudit::read($identity, $oldPosition, $catalog)['events'] !== $data['events']) {
+    throw new RuntimeException('Parser upgrade did not re-read retained audit metadata');
 }
 $summary = array_filter($data['events'], fn ($event) => $event['rule_id'] === 949110);
 if (! $summary) {

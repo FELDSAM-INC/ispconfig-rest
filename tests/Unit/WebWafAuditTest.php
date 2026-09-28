@@ -35,6 +35,31 @@ final class WebWafAuditTest extends TestCase
         $this->assertSame(['tx-123' => true], WebWafAudit::blockedTransactions('ModSecurity: Access denied with code 403 [unique_id "tx-123"]'));
     }
 
+    public function test_apache_operator_punctuation_is_not_part_of_the_argument_name(): void
+    {
+        foreach (['q', 'user.name', 'user.name.', 'user..name', 'a-b_c', str_repeat('a', 128)] as $argument) {
+            $record = ['transaction' => ['transaction_id' => 'apache-args', 'time' => date('c')],
+                'audit_data' => ['messages' => ['Warning. Pattern match "PRIVATE" at ARGS:'.$argument.'. [file "/rules.conf"] [id "942100"] [data "Matched Data: PRIVATE found within ARGS:'.$argument.': PRIVATE"]']]];
+            $row = WebWafAudit::events($record)[0];
+            $this->assertSame($argument, $row['parameter']);
+            $this->assertStringNotContainsString('PRIVATE', json_encode($row));
+        }
+    }
+
+    public function test_data_and_quoted_argument_names_keep_their_own_dots(): void
+    {
+        foreach (['q', 'user.name', 'user.name.'] as $argument) {
+            foreach (['Matched at ARGS:'.$argument.': PRIVATE', "Match against 'ARGS:".$argument."' PRIVATE"] as $data) {
+                $nginx = $this->nginx();
+                $nginx['transaction']['messages'][0]['details']['data'] = $data;
+                $this->assertSame($argument, WebWafAudit::events($nginx)[0]['parameter']);
+                $apache = ['transaction' => ['transaction_id' => 'apache-data', 'time' => date('c')],
+                    'audit_data' => ['messages' => ['Warning [id "942100"] [data "'.$data.'"]']]];
+                $this->assertSame($argument, WebWafAudit::events($apache)[0]['parameter']);
+            }
+        }
+    }
+
     public function test_apache_microsecond_timestamp_is_preserved_and_stale_or_invalid_records_ignored(): void
     {
         $time = time() - 3600;
