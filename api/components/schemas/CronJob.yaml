@@ -186,3 +186,13 @@ properties:
     readOnly: true
     description: Name of the parent domain
     example: "example.com"
+
+  wordpress:
+    type: [object, 'null']
+    readOnly: true
+    description: Managed WordPress task; change its schedule or stop takeover through the website WordPress jobs endpoint, not ordinary cron update/delete.
+    properties:
+      website_id: {type: integer}
+      installation: {type: string, pattern: '^[a-f0-9]{32}$'}
+      state: {type: string, enum: [disabled, enabling, active, disabling, error]}
+      last_run: {type: [string, 'null'], format: date-time}

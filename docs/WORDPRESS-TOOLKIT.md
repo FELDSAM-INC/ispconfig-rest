@@ -125,3 +125,26 @@ set `DISABLE_WP_CRON=true`. The previous literal/absent value is persisted first
 `cron_disable` deletes the native reservation and restores that previous value.
 It remains available after a plan downgrade. Errors preserve explicit state and
 allow retry/stop; unexpected external config edits are never overwritten on stop.
+
+### Development verification, 2026-09-28 (cron/integrity)
+
+- REST: 1,545 tests, 12,060 assertions, one existing skip. Worker Python: 16 tests;
+  server-tools: 17 tests. Added plan counts/frequency/type and managed-cron write
+  protection tests, checksum output validation and boolean config normalization.
+- A fresh WordPress 6.8.3 installation on disposable website 53 / PHP 8.5 was
+  detected through the customer API. Its unmodified core verified, with native
+  ISPConfig favicon/error/statistics files reported as unexpected additions.
+- Deliberately modified `wp-includes/version.php`, missing `readme.html` and an
+  extra test PHP file were correctly reported as changed/missing/unexpected.
+  Original files were restored after the check; checksum checks themselves made
+  no changes to the site.
+- Native chrooted cron 7 used the five-minute plan-permitted interval. The worker
+  waited for ISPConfig/Jailkit, set the previously absent constant, consumed the
+  native cron trigger and executed a due callback from an active ordinary plugin.
+  Stopping takeover removed the native row and restored the absent constant.
+- Worker compatibility was checked against the pinned WP-CLI 2.12 binary: it lacks
+  the newer JSON checksum formatter and emits JSON booleans for literal constants.
+  Both paths are handled explicitly; no unpinned runtime upgrade was needed.
+- Live WHMCS service 2 rendered all three tools in both themes from real API data.
+  Disposable website 53, database 13, database user 15, cron, worker metadata/job
+  directories, SFTP bind mounts/account and temporary helpers were removed.
