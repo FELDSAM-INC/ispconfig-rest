@@ -703,7 +703,7 @@ function sample(string $path, array $samples, array &$next, int $now, ?string $p
         'throttled' => $cpu['nr_throttled'] ?? 0,
         'oom_kill' => $keyed($read('memory.events'))['oom_kill'] ?? 0,
         'pids_max' => $keyed($read('pids.events'))['max'] ?? 0,
-    ], $now);
+    ], $now, filectime($path) ?: null);
     $next[$path] = $history;
     $limits = limits($path);
     if ($parent !== null) {

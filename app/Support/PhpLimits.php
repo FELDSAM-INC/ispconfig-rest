@@ -308,15 +308,20 @@ final class PhpLimits
     }
 
     /**
-     * Fold one cgroup sample into hourly buckets for the 24-hour figures.
+     * Fold one cgroup sample into hourly buckets for the 24-hour figures. Without
+     * a previous sample, a cgroup created (`$born`) within the last 24 hours counts
+     * from zero at its creation, so events before the first sample are kept.
      *
      * @param  array<string, mixed>|null  $history  previous return value
      * @param  array{cpu_usec: int|null, throttled: int|null, oom_kill: int|null, pids_max: int|null}  $sample
      * @return array<string, mixed>
      */
-    public static function fold(?array $history, array $sample, int $now): array
+    public static function fold(?array $history, array $sample, int $now, ?int $born = null): array
     {
         $last = $history['last'] ?? null;
+        if ($last === null && $born !== null && $born < $now && $now - $born <= 86400) {
+            $last = ['t' => $born, 'cpu_usec' => 0, 'throttled' => 0, 'oom_kill' => 0, 'pids_max' => 0];
+        }
         $buckets = array_filter($history['buckets'] ?? [], fn ($bucket, $hour): bool => (int) $hour > intdiv($now, 3600) - 24, ARRAY_FILTER_USE_BOTH);
         $delta = null;
         if (is_array($last) && $now > (int) $last['t']) {

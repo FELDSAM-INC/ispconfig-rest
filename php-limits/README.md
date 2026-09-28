@@ -75,6 +75,13 @@ group when it is exceeded (the pool keeps serving, `OOMPolicy=continue`),
 used: without swap it stalls a whole account instead of ending one request.
 Size `memory_mb` for `pm.max_children` × typical request memory.
 
+Moving a pool into or out of its own service (limits added to or removed from an
+account, not ordinary changes) leaves its socket unserved for a few hundred
+milliseconds: the shared master drops the pool on reload before the dedicated master
+can bind the socket. On isp-test 3 of about 500 requests sent every 100 ms during the
+move returned 503. Limit changes, ISPConfig pool updates and PHP version changes of
+already isolated pools behave like native ISPConfig reloads.
+
 Each dedicated master costs about 3 MB of private memory plus the OPcache pages
 that website uses, charged to its own account. Pool messages go to the journal
 (`journalctl -t ispconfig-php-web34`).

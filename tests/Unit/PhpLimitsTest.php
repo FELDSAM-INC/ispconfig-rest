@@ -165,4 +165,15 @@ class PhpLimitsTest extends TestCase
         $this->assertSame(0, PhpLimits::figures($history)['memory_limit_hits_24h']);
         $this->assertSame(0.0, PhpLimits::figures($history)['cpu_percent']);
     }
+
+    public function test_first_sample_of_a_new_cgroup_counts_from_its_creation(): void
+    {
+        $now = 1790000000;
+        $sample = ['cpu_usec' => 30000000, 'throttled' => 3, 'oom_kill' => 1, 'pids_max' => 0];
+        $figures = PhpLimits::figures(PhpLimits::fold(null, $sample, $now, $now - 60));
+        $this->assertSame([50.0, 1, 1], [$figures['cpu_percent'], $figures['memory_limit_hits_24h'], $figures['cpu_limited_minutes_24h']]);
+        // Older cgroups (for example after a worker reinstall) start a new baseline.
+        $figures = PhpLimits::figures(PhpLimits::fold(null, $sample, $now, $now - 90000));
+        $this->assertSame([null, 0], [$figures['cpu_percent'], $figures['memory_limit_hits_24h']]);
+    }
 }

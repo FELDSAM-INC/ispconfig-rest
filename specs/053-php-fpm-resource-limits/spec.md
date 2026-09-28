@@ -107,3 +107,44 @@ the effective limits. Per website: `state` = `isolated`, `pending`, `fallback`,
 `not_fpm` (with the PHP mode) or `failed`, and a short admin-safe reason. The worker
 keeps a bounded local sample ring for the 24 h figures. Heartbeat expiry and
 freshness follow the existing worker and usage patterns.
+
+## Decisions (owner-delegated, 2026-09-28)
+
+- One php-fpm master per isolated pool (not per account, not a PID-moving daemon), so
+  per-website limits are possible and containment starts at fork. Opt-in per account.
+- Hard limits only (`MemoryMax` + `MemorySwapMax=0`, `CPUQuota`, `TasksMax`); no
+  `MemoryHigh` (spike: stalls the account) and no block-I/O limits in this version.
+- The shared master's `ExecStart` is overridden by a drop-in pointing at a generated
+  copy of the distribution configuration, instead of editing the dpkg conffile
+  (package upgrades would prompt or be held back).
+- `php-limits` is not part of the default `server-tools install` selection because it
+  restarts PHP-FPM once; `update` covers it where installed.
+- Tasks validation: the lower of the account/website tasks limits must allow
+  `pm_max_children` workers plus the master when a product PHP policy exists; the
+  stored limits are re-checked when only the PHP policy changes.
+- Limits are accepted even while no worker is available (provisioning must not fail on
+  a worker outage); `GET /usage/resources` reports `unavailable`/`pending`.
+
+## Live verification (isp-test, Ubuntu 24.04, systemd 255, 2026-09-28)
+
+Installed with `ispconfig-rest php-limits:install` from the published commit: all seven
+distribution services (PHP 7.4–8.5) managed, each restarted once onto the generated
+configuration; existing websites stayed in the shared masters. With a temporary client
+(account 80 % CPU / 300 MiB / 64 tasks, website 50 % / 160 MiB / 32) and one website:
+
+| Scenario | Result |
+| --- | --- |
+| ISPConfig creates the pool | `ispconfig-php-web61.service` in `ispconfig-client65.slice`, shared include list without it, site served by the dedicated master |
+| 250 MB request (website cap 160 MiB) | worker SIGKILLed, HTTP 503 in 0.16 s, unit active, next request 200 in 14 ms |
+| 3 s CPU loop at 50 % | `nr_throttled 35` |
+| `GET /usage/resources` | limits, applied revision, account and website usage with effective limits |
+| Limits changed through the API | slice and unit cgroup values updated by `daemon-reload`, master PID unchanged |
+| PHP 8.3 → 8.4 through the API | 8.3 reload stopped the unit, 8.4 reload started it with the 8.4 binary (3 s apart, ISPConfig's own reload spacing); shared masters unaffected |
+| Limits removed | pool back in the shared 8.4 master, units and slice removed |
+| Limits re-added (cron path) | isolated within a minute; 3 of 498 requests at 100 ms intervals returned 503 during the move |
+| Website and client deleted | unit, slice, state and usage rows removed; no hook errors in the journal |
+
+`systemctl daemon-reload` and blocking `systemctl stop` of a pool unit from inside the
+shared master's reload job completed without deadlock. An OOM kill before the worker's
+first sample of a new cgroup was absorbed into the baseline; fixed by counting from the
+cgroup's creation time when it is less than 24 hours old.
