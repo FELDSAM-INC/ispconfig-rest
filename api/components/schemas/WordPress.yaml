@@ -33,7 +33,7 @@ properties:
         integrity:
           type: [object, 'null']
           properties:
-            status: {type: string, enum: [clean, modified]}
+            status: {type: string, enum: [clean, modified], description: Clean includes verified CRLF/LF-only differences; content changes remain modified.}
             version: {type: string}
             locale: {type: string}
             checked_at: {type: string, format: date-time}
@@ -46,7 +46,7 @@ properties:
                 type: object
                 properties:
                   file: {type: string}
-                  status: {type: string, enum: [missing, changed, unexpected]}
+                  status: {type: string, enum: [missing, changed, unexpected, line_endings], description: line_endings is informational after comparison with checksum-verified official release contents.}
         security: {type: object, additionalProperties: {type: object}}
   measures:
     type: array

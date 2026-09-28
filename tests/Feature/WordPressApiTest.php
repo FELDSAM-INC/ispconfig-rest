@@ -192,6 +192,16 @@ final class WordPressApiTest extends SitesApiTestCase
         $this->assertCount(0, $this->datalogRows('web_domain'));
     }
 
+    public function test_integrity_inventory_preserves_informational_line_ending_results(): void
+    {
+        [$id, $url] = $this->prepareSite();
+        $installs = json_decode(DB::table('api_wordpress_sites')->where('website_id', $id)->value('installations'), true);
+        $installs[0]['integrity'] = ['status' => 'clean', 'files' => [['file' => 'license.txt', 'status' => 'line_endings']], 'total' => 1, 'truncated' => false];
+        DB::table('api_wordpress_sites')->where('website_id', $id)->update(['installations' => json_encode($installs)]);
+        $this->getJson($url, $this->authHeaders())->assertOk()->assertJsonPath('installations.0.integrity.status', 'clean')
+            ->assertJsonPath('installations.0.integrity.files.0.status', 'line_endings');
+    }
+
     public function test_cron_takeover_obeys_limits_and_owns_a_native_jailed_schedule(): void
     {
         TenantSchema::create();

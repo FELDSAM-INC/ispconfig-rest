@@ -111,6 +111,18 @@ changed, missing and unexpected files (up to 500 in the public result). It does 
 scan plugin/theme/upload contents, remove files or claim malware detection.
 Network/unpublished-checksum failures never become a clean result.
 
+When a text file fails the byte checksum, the worker can classify a CRLF/LF-only
+difference as informational `line_endings`. It downloads the official ZIP for the
+installed version and locale over verified HTTPS, checks each reference file
+against the official checksum manifest, and compares contents with only CRLF
+converted to LF. Mixed upstream line endings are supported. Other whitespace,
+code/content, binary, missing and unexpected-file differences remain findings.
+Only verified line-ending differences allow overall `clean`; unavailable or
+invalid reference data leaves the original `changed` result. No site file is
+rewritten. Downloads/time, file reads and comparison totals are bounded; archive
+members are never extracted, local links/special files are rejected, and actual
+findings precede informational rows within the 500-row display limit.
+
 `cron_enable` accepts a fixed interval in minutes, reserves one native ISPConfig
 cron row through the normal model/datalog path and enforces client/reseller counts,
 command permission and minimum frequency. Full and native Jailkit/chrooted plans
@@ -167,9 +179,10 @@ The four reported differences on a fresh Czech WordPress 7.1.2 installation were
 verified against the official `wordpress-7.1.2-cs_CZ.zip`: crystal/license.txt,
 js/codemirror/csslint.js under wp-includes, wp-config-sample.php and license.txt.
 All differences were CRLF-to-LF conversion, with no content changes. csslint.js
-has mixed line endings in the official package. Strict byte checksums correctly
-report these changes; files are not silently ignored or rewritten. Binary-mode
-transfer preserves the original bytes. The user's website was read only.
+has mixed line endings in the official package. The initial strict byte check
+reported these as changed. The subsequent line-ending comparison described above
+allows these verified differences to pass while retaining informational rows.
+The user's website is read only; binary-mode transfer preserves original bytes.
 
 ### Development verification, 2026-09-28 (reversible database measures)
 

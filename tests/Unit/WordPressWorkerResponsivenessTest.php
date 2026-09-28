@@ -33,6 +33,25 @@ final class WordPressWorkerResponsivenessTest extends TestCase
         };
     }
 
+    public function test_integrity_retains_informational_line_endings_but_never_clean_content_changes(): void
+    {
+        $worker = $this->worker(new PDO('sqlite::memory:'));
+        $read = new ReflectionMethod($worker, 'integrity');
+        $value = ['status' => 'clean', 'files' => [['file' => 'license.txt', 'status' => 'line_endings']], 'version' => '7.1.2', 'locale' => 'cs_CZ', 'total' => 1];
+        $result = $read->invoke($worker, $value);
+        self::assertSame('clean', $result['status']);
+        self::assertSame($value['files'], $result['files']);
+        foreach (['changed', 'missing', 'unexpected', 'unknown'] as $kind) {
+            $value['files'][0]['status'] = $kind;
+            try {
+                $read->invoke($worker, $value);
+                self::fail('A clean result must not contain unverified differences');
+            } catch (\RuntimeException $error) {
+                self::assertSame('invalid_worker_result', $error->getMessage());
+            }
+        }
+    }
+
     public function test_idle_local_connection_is_reopened_before_reading_current_site_identity(): void
     {
         $db = new PDO('sqlite::memory:');

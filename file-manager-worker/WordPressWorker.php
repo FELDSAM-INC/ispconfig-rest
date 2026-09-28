@@ -374,7 +374,10 @@ final class WordPressWorker
         }
         $files = [];
         foreach ($value['files'] as $entry) {
-            if (! is_string($entry['file'] ?? null) || strlen($entry['file']) > 1024 || preg_match('~(?:\A/|(?:\A|/)\.\.?(?:/|\z)|[\x00-\x1f\x7f])~', $entry['file']) || ! in_array($entry['status'] ?? '', ['missing', 'changed', 'unexpected'], true)) {
+            if (! is_string($entry['file'] ?? null) || strlen($entry['file']) > 1024 || preg_match('~(?:\A/|(?:\A|/)\.\.?(?:/|\z)|[\x00-\x1f\x7f])~', $entry['file']) || ! in_array($entry['status'] ?? '', ['missing', 'changed', 'unexpected', 'line_endings'], true)) {
+                throw new RuntimeException('invalid_worker_result');
+            }
+            if ($value['status'] === 'clean' && $entry['status'] !== 'line_endings') {
                 throw new RuntimeException('invalid_worker_result');
             }
             $files[] = ['file' => $entry['file'], 'status' => $entry['status']];

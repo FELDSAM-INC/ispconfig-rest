@@ -133,7 +133,7 @@ class WordPressWorkerTest(unittest.TestCase):
         toolkit = tools.Toolkit({'path': '', 'php': []})
         version = b"<?php $wp_version = '6.8.3'; $wp_local_package = 'cs_CZ'; die('must not execute');"
         findings = [{'file': 'wp-includes/version.php', 'message': "File doesn't verify against checksum"}, {'file': 'index.php', 'message': "File doesn't exist"}, {'file': 'strange.php', 'message': 'File should not exist'}]
-        with patch.object(tools, 'safe_file', return_value=(version, None)), patch.object(toolkit, 'wp', return_value=('\n'.join('Warning: '+row['message']+': '+row['file'] for row in findings)+"\nError: WordPress installation doesn't verify against checksums.", 1)) as wp:
+        with patch.object(tools, 'safe_file', return_value=(version, None)), patch.object(toolkit, 'integrity_line_endings'), patch.object(toolkit, 'wp', return_value=('\n'.join('Warning: '+row['message']+': '+row['file'] for row in findings)+"\nError: WordPress installation doesn't verify against checksums.", 1)) as wp:
             result = toolkit.integrity()['integrity']
             self.assertEqual('modified', result['status'])
             self.assertEqual(['changed', 'missing', 'unexpected'], [row['status'] for row in result['files']])

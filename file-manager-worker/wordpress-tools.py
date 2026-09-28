@@ -2,6 +2,7 @@
 """Runs ONLY as the vhost UID inside bubblewrap. No ISPConfig/master credentials are visible."""
 import hashlib
 import http.client
+import io
 import json
 import os
 import pathlib
@@ -13,12 +14,16 @@ import ssl
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.parse
+import zipfile
 
 SERVER = ('xmlrpc', 'config', 'htfiles', 'sensitive', 'potential', 'indexes', 'includes_php', 'uploads_php', 'cache_php', 'author', 'bots')
 CONSTANTS = {'file_editor': ('DISALLOW_FILE_EDIT', 'true'), 'concatenate': ('CONCATENATE_SCRIPTS', 'false')}
 SKIP = {'wp-includes', 'node_modules', '.git', '.svn', 'vendor', '.ispcp-trash'}
+INTEGRITY_TEXT_LIMIT = 8 * 1024 * 1024
+INTEGRITY_TEXT_TYPES = {'.php', '.js', '.css', '.txt', '.html', '.htm', '.xml', '.json', '.svg', '.md'}
 
 
 class Failure(Exception):
@@ -81,6 +86,77 @@ def safe_file(path, maximum=1048576):
             return source.read(maximum + 1), info
     finally:
         os.close(fd)
+
+
+def integrity_file(root, name):
+    """Pin every ancestor and reject special files; checksum exceptions never follow links."""
+    pieces = name.split('/')
+    if any(piece in ('', '.', '..') for piece in pieces):
+        raise Failure('unsafe_wordpress_files')
+    parent = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for piece in pieces[:-1]:
+            child = os.open(piece, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+            os.close(parent)
+            parent = child
+        fd = os.open(pieces[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+        with os.fdopen(fd, 'rb') as source:
+            info = os.fstat(source.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.geteuid() or info.st_size > INTEGRITY_TEXT_LIMIT:
+                raise Failure('unsafe_wordpress_files')
+            return source.read(INTEGRITY_TEXT_LIMIT + 1)
+    finally:
+        os.close(parent)
+
+
+def official_download(url, target, maximum, deadline):
+    """HTTPS only, fixed WordPress hosts, bounded response/time; no ambient proxy or auth."""
+    for _ in range(4):
+        parsed = urllib.parse.urlsplit(url)
+        if (parsed.scheme != 'https' or parsed.port is not None or parsed.username is not None or parsed.password is not None
+                or not re.fullmatch(r'(?:api\.|downloads\.|[a-z]{2}\.)?wordpress\.org', parsed.netloc)):
+            raise Failure('checksums_unavailable')
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise Failure('checksums_unavailable')
+        connection = http.client.HTTPSConnection(parsed.hostname, timeout=min(15, remaining))
+        try:
+            connection.request('GET', parsed.path + ('?' + parsed.query if parsed.query else ''), headers={'User-Agent': 'ISPConfig-REST-WordPress/1', 'Accept-Encoding': 'identity'})
+            response = connection.getresponse()
+            if response.status in (301, 302, 303, 307, 308):
+                url = urllib.parse.urljoin(url, response.getheader('Location', ''))
+                continue
+            if response.status != 200:
+                raise Failure('checksums_unavailable')
+            length = response.getheader('Content-Length')
+            if length is not None and (not length.isdigit() or int(length) > maximum):
+                raise Failure('checksums_unavailable')
+            count = 0
+            while True:
+                if time.monotonic() >= deadline:
+                    raise Failure('checksums_unavailable')
+                chunk = response.read(min(65536, maximum + 1 - count))
+                if not chunk:
+                    return
+                count += len(chunk)
+                if count > maximum:
+                    raise Failure('checksums_unavailable')
+                target.write(chunk)
+        finally:
+            connection.close()
+    raise Failure('checksums_unavailable')
+
+
+def same_text_lines(local, official):
+    # Only CRLF/LF conversion, never trimming whitespace, ignoring lines or binary changes.
+    for data in (local, official):
+        if len(data) > INTEGRITY_TEXT_LIMIT or re.search(rb'[\x00-\x08\x0b\x0e-\x1f\x7f]', data):
+            return False
+        try:
+            data.decode('utf-8')
+        except UnicodeDecodeError:
+            return False
+    return local != official and local.replace(b'\r\n', b'\n') == official.replace(b'\r\n', b'\n')
 
 
 def replace_file(path, value, mode, expected=None):
@@ -279,9 +355,65 @@ class Toolkit:
         changed = any(row['status'] in ('changed', 'missing') for row in files)
         if (code == 0 and (not success or failure or changed)) or (code != 0 and (not failure or not changed or success)):
             raise Failure('checksums_unavailable')
-        return {'integrity': {'status': 'modified' if files else 'clean', 'version': version, 'locale': locale,
+        self.integrity_line_endings(files, version, locale)
+        # Keep actionable findings visible when the display limit is reached.
+        files.sort(key=lambda row: row['status'] == 'line_endings')
+        modified = any(row['status'] != 'line_endings' for row in files)
+        return {'integrity': {'status': 'modified' if modified else 'clean', 'version': version, 'locale': locale,
                              'checked_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
                              'files': files[:500], 'total': len(files), 'truncated': len(files) > 500}}
+
+    def integrity_line_endings(self, files, version, locale):
+        candidates = [row for row in files if row['status'] == 'changed' and pathlib.PurePosixPath(row['file']).suffix.lower() in INTEGRITY_TEXT_TYPES][:500]
+        if not candidates:
+            return
+        # ZIP preserves upstream CRLF and mixed line endings; a tarball or blindly
+        # converting everything to CRLF cannot establish the official file contents.
+        deadline = time.monotonic() + 90
+        try:
+            manifest = io.BytesIO()
+            official_download('https://api.wordpress.org/core/checksums/1.0/?' + urllib.parse.urlencode({'version': version, 'locale': locale}), manifest, 4 * 1024 * 1024, deadline)
+            checksums = json.loads(manifest.getvalue()).get('checksums')
+            if not isinstance(checksums, dict):
+                return
+            package_version = version[:-2] if version.count('.') == 2 and version.endswith('.0') else version
+            host = 'wordpress.org' if locale == 'en_US' else locale[:2].lower() + '.wordpress.org'
+            suffix = '' if locale == 'en_US' else '-' + locale
+            with tempfile.TemporaryFile() as archive:
+                official_download('https://' + host + '/wordpress-' + package_version + suffix + '.zip', archive, 96 * 1024 * 1024, deadline)
+                archive.seek(0)
+                with zipfile.ZipFile(archive) as package:
+                    names = [entry.filename for entry in package.infolist()]
+                    compared = 0
+                    for row in candidates:
+                        if time.monotonic() >= deadline or compared >= 64 * 1024 * 1024:
+                            break
+                        name = row['file']
+                        expected = checksums.get(name)
+                        member = 'wordpress/' + name
+                        if not isinstance(expected, str) or not re.fullmatch(r'[a-f0-9]{32}', expected) or names.count(member) != 1:
+                            continue
+                        info = package.getinfo(member)
+                        mode = stat.S_IFMT(info.external_attr >> 16)
+                        if info.file_size > INTEGRITY_TEXT_LIMIT or mode not in (0, stat.S_IFREG) or info.flag_bits & 1:
+                            continue
+                        # No archive member is extracted or executed. Verify its exact
+                        # checksum BEFORE using it as a normalization reference.
+                        with package.open(info) as source:
+                            official = source.read(INTEGRITY_TEXT_LIMIT + 1)
+                        compared += len(official)
+                        if len(official) != info.file_size or hashlib.md5(official).hexdigest() != expected:
+                            continue
+                        try:
+                            local = integrity_file(self.root, name)
+                        except (OSError, Failure):
+                            continue
+                        if same_text_lines(local, official):
+                            row['status'] = 'line_endings'
+        except (OSError, ValueError, AttributeError, Failure, http.client.HTTPException, zipfile.BadZipFile, RuntimeError, NotImplementedError):
+            # An unavailable/untrusted reference never excuses a checksum mismatch.
+            # Already verified rows stay informational; all others stay changed.
+            return
 
     def cron_constant(self, enable):
         value = self.config_values().get('DISABLE_WP_CRON')
