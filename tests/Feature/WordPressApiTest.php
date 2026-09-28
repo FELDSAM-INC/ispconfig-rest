@@ -63,6 +63,23 @@ final class WordPressApiTest extends SitesApiTestCase
         $this->assertStringContainsString('uploads_php', $raw);
     }
 
+    public function test_completed_job_tracks_configuration_pending_from_the_owned_snapshot(): void
+    {
+        [$id, $url, $installation] = $this->prepareSite();
+        $job = $this->postJson($url.'/jobs', ['action' => 'check', 'installation' => $installation], $this->authHeaders())->assertCreated()->json('id');
+        $snapshot = DB::table('api_wordpress_sites')->where('website_id', $id)->first();
+        $installs = json_decode($snapshot->installations, true);
+        $installs[0]['security']['xmlrpc'] = ['status' => 'pending'];
+        DB::table('api_wordpress_sites')->where('website_id', $id)->update(['installations' => json_encode($installs)]);
+        $this->getJson($url.'/jobs/'.$job, $this->authHeaders())->assertJsonPath('configuration_pending', false);
+        DB::table('api_wordpress_jobs')->where('id', $job)->update(['status' => 'completed']);
+        $this->getJson($url.'/jobs/'.$job, $this->authHeaders())->assertJsonPath('configuration_pending', true)->assertJsonMissingPath('request');
+        $this->getJson($url, $this->authHeaders())->assertJsonPath('job.configuration_pending', true)->assertJsonMissingPath('installations.0.undo');
+        $installs[0]['security']['xmlrpc']['status'] = 'ok';
+        DB::table('api_wordpress_sites')->where('website_id', $id)->update(['installations' => json_encode($installs)]);
+        $this->getJson($url.'/jobs/'.$job, $this->authHeaders())->assertJsonPath('configuration_pending', false);
+    }
+
     public function test_arbitrary_commands_paths_and_unconfirmed_irreversible_actions_are_rejected(): void
     {
         [$id, $url, $installation] = $this->prepareSite();

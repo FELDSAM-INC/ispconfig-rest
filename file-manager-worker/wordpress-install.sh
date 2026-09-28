@@ -10,6 +10,10 @@ if ! command -v bwrap >/dev/null || ! command -v mysql >/dev/null || ! command -
 fi
 bwrap --help | grep -q -- --bind-fd || { echo 'WordPress requires bubblewrap with --bind-fd and --disable-userns.' >&2; exit 1; }
 bwrap --help | grep -q -- --disable-userns || exit 1
+# Stop gracefully before replacing the runtime used by an in-flight operation.
+if [ -f /etc/systemd/system/ispconfig-rest-wordpress.service ]; then
+    systemctl stop ispconfig-rest-wordpress.service
+fi
 install -d -m 0755 -o root -g root /usr/local/share/ispconfig-rest-wordpress
 install -d -m 0711 -o root -g root /var/lib/ispcp-files/wordpress
 install -m 0644 -o root -g root "$worker_source/wordpress-tools.py" /usr/local/share/ispconfig-rest-wordpress/
@@ -38,8 +42,42 @@ else:
     finally:
         if os.path.exists(name):os.unlink(name)
 PY
-cat > /etc/cron.d/ispconfig-rest-wordpress <<'CRON'
-* * * * * root /usr/bin/php /usr/local/lib/ispconfig-rest-file-manager-worker/wordpress.php
-CRON
-chmod 0644 /etc/cron.d/ispconfig-rest-wordpress
+/usr/bin/php -r 'exit(function_exists("pcntl_async_signals") ? 0 : 1);' || { echo 'WordPress worker requires PHP CLI pcntl for graceful service restarts.' >&2; exit 1; }
+cat > /etc/systemd/system/ispconfig-rest-wordpress.service <<'UNIT'
+[Unit]
+Description=ISPConfig REST WordPress worker
+After=network-online.target mariadb.service mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/php /usr/local/lib/ispconfig-rest-file-manager-worker/wordpress.php --daemon
+Restart=always
+RestartSec=3
+UMask=0077
+# Let the site-user subprocess finish before stopping the root supervisor.
+KillMode=mixed
+TimeoutStopSec=3600
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+# Wake ISPConfig's existing datalog processor. Its normal lock, validation and
+# reload handling remain authoritative; the worker never writes a live vhost.
+cat > /etc/systemd/system/ispconfig-rest-wordpress-apply.service <<'UNIT'
+[Unit]
+Description=Apply pending ISPConfig configuration for WordPress
+ConditionPathIsExecutable=/usr/local/ispconfig/server/server.sh
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/ispconfig/server/server.sh
+UMask=0077
+TimeoutStartSec=600
+UNIT
+chmod 0644 /etc/systemd/system/ispconfig-rest-wordpress*.service
+rm -f /etc/cron.d/ispconfig-rest-wordpress
+systemctl daemon-reload
+systemctl enable ispconfig-rest-wordpress.service
+systemctl restart ispconfig-rest-wordpress.service
 echo 'Installed WordPress runtime (WP-CLI 2.12.0). Commands fail closed if user namespaces or the matching PHP CLI are unavailable.'

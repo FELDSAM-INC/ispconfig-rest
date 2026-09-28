@@ -197,7 +197,17 @@ final class WordPressService
             $backupDatabase = null;
         }
 
-        return ['backup_database_id' => $backupDatabase ? (int) $backupDatabase : null, 'id' => $row->id, 'action' => $row->action, 'status' => $row->status, 'created_at' => gmdate('c', $row->created_at),
+        $configurationPending = false;
+        if ($row->status === 'completed') {
+            $snapshot = DB::table('api_wordpress_sites')->where('website_id', $row->website_id)->where('identity', $row->identity)->value('installations');
+            foreach (json_decode($snapshot ?? '[]', true) ?: [] as $installation) {
+                foreach (WordPressPolicy::SERVER as $id) {
+                    $configurationPending = $configurationPending || ($installation['security'][$id]['status'] ?? '') === 'pending';
+                }
+            }
+        }
+
+        return ['configuration_pending' => $configurationPending, 'backup_database_id' => $backupDatabase ? (int) $backupDatabase : null, 'id' => $row->id, 'action' => $row->action, 'status' => $row->status, 'created_at' => gmdate('c', $row->created_at),
             'finished_at' => $row->finished_at ? gmdate('c', $row->finished_at) : null, 'error' => $row->error, 'backup_id' => $row->backup_id];
     }
 }

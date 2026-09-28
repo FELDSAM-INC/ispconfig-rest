@@ -8,6 +8,18 @@ use App\Support\WordPressPolicy;
 /** Root-owned bridge. All WordPress code runs in the separate UID sandbox. */
 final class WordPressWorker
 {
+    private int $maintenanceAt = 0;
+
+    private int $heartbeatAt = 0;
+
+    private int $runtimeAt = 0;
+
+    private ?string $runtimeError = null;
+
+    private int $applyAt = 0;
+
+    private int $refreshAfter = 0;
+
     public function __construct(private PDO $db, private PDO $local, private int $server) {}
 
     private function one(string $sql, array $params = []): ?array
@@ -25,35 +37,37 @@ final class WordPressWorker
 
     private function heartbeat(bool $available = true, ?string $reason = null): void
     {
-        $this->write('INSERT INTO api_wordpress_workers (server_id, heartbeat, version, available, reason) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE heartbeat=VALUES(heartbeat), version=VALUES(version), available=VALUES(available), reason=VALUES(reason)', [$this->server, time(), '3', (int) $available, $reason]);
+        $this->write('INSERT INTO api_wordpress_workers (server_id, heartbeat, version, available, reason) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE heartbeat=VALUES(heartbeat), version=VALUES(version), available=VALUES(available), reason=VALUES(reason)', [$this->server, time(), '4', (int) $available, $reason]);
+        $this->heartbeatAt = time();
     }
 
-    public function run(): void
+    public function run(?callable $stopping = null): void
     {
-        if (! is_file('/usr/local/share/ispconfig-rest-wordpress/wp-cli.phar') || ! is_executable('/usr/bin/bwrap')) {
-            $this->heartbeat(false, 'runtime_missing');
-
+        if (time() - $this->runtimeAt >= 60) {
+            $this->runtimeError = ! is_file('/usr/local/share/ispconfig-rest-wordpress/wp-cli.phar') || ! is_executable('/usr/bin/bwrap')
+                ? 'runtime_missing' : (! $this->runtimeReady() ? 'sandbox_unavailable' : null);
+            $this->runtimeAt = time();
+        }
+        if (time() - $this->heartbeatAt >= 30) {
+            $this->heartbeat($this->runtimeError === null, $this->runtimeError);
+        }
+        if ($this->runtimeError !== null) {
             return;
         }
-        if (! $this->runtimeReady()) {
-            $this->heartbeat(false, 'sandbox_unavailable');
-
-            return;
-        }
-        $this->heartbeat();
-        $this->cleanup();
-        $this->queueCron();
-        $this->queueScan();
+        $this->refreshPending();
         $started = time();
-        while (time() - $started < 45) {
-            $job = $this->one("SELECT * FROM api_wordpress_jobs WHERE server_id = ? AND status IN ('queued','running') ORDER BY created_at LIMIT 1", [$this->server]);
+        $deferred = [];
+        while (time() - $started < 45 && count($deferred) < 100 && ! ($stopping && $stopping())) {
+            $job = $this->nextJob($deferred);
             if (! $job) {
                 break;
             }
             if ($job['backup_id'] && $job['status'] !== 'running') {
                 $backup = $this->one('SELECT * FROM api_database_operations WHERE id = ?', [$job['backup_id']]);
                 if ($backup && in_array($backup['status'], ['queued', 'running'], true)) {
-                    break;
+                    $deferred[] = $job['id'];
+
+                    continue;
                 }
                 if (! $backup || $backup['status'] !== 'complete' || $backup['action'] !== 'export' || (int) $backup['download_bytes'] < 1 || (int) $backup['expires_at'] <= time()) {
                     $this->finish($job, 'failed', 'backup_failed');
@@ -63,7 +77,7 @@ final class WordPressWorker
             }
             try {
                 if ($this->process($job) === false) {
-                    break;
+                    $deferred[] = $job['id'];
                 }
             } catch (Throwable $e) {
                 $request = json_decode($job['request'], true);
@@ -72,6 +86,91 @@ final class WordPressWorker
                 $this->finish($job, $status, $e instanceof RuntimeException && preg_match('/\A[a-z_]{1,64}\z/D', $e->getMessage()) ? $e->getMessage() : 'worker_failed');
             }
             $this->heartbeat();
+        }
+        // Background discovery/cleanup must not delay interactive requests or run
+        // on every two-second tick of the persistent service.
+        if (time() - $this->maintenanceAt >= 60 && ! ($stopping && $stopping())) {
+            $this->maintenanceAt = time();
+            $this->queueCron();
+            $this->queueScan();
+            $this->cleanup();
+        }
+    }
+
+    private function nextJob(array $deferred): ?array
+    {
+        $skip = $deferred ? ' AND id NOT IN ('.implode(',', array_fill(0, count($deferred), '?')).')' : '';
+
+        return $this->one("SELECT * FROM api_wordpress_jobs WHERE server_id=? AND status IN ('queued','running')".$skip.
+            " ORDER BY (status='running') DESC, (action IN ('cron_run','rescan')), created_at, id LIMIT 1", [$this->server, ...$deferred]);
+    }
+
+    private function requestNativeApply(): void
+    {
+        if (time() - $this->applyAt < 10 || ! is_file('/etc/systemd/system/ispconfig-rest-wordpress-apply.service')) {
+            return;
+        }
+        $this->applyAt = time();
+        $process = proc_open(['/usr/bin/systemctl', 'start', '--no-block', 'ispconfig-rest-wordpress-apply.service'],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, '/', ['PATH' => '/usr/bin:/bin']);
+        if (is_resource($process)) {
+            proc_close($process);
+        }
+    }
+
+    private function refreshPending(): void
+    {
+        $query = $this->db->prepare("SELECT p.* FROM api_wordpress_sites p WHERE p.server_id=? AND p.website_id>? AND p.installations LIKE '%pending%'
+            AND NOT EXISTS (SELECT 1 FROM api_wordpress_jobs j WHERE j.website_id=p.website_id AND j.status IN ('queued','running','recovery_required'))
+            ORDER BY p.website_id LIMIT 50");
+        $query->execute([$this->server, $this->refreshAfter]);
+        $snapshots = $query->fetchAll(PDO::FETCH_ASSOC);
+        $this->refreshAfter = count($snapshots) === 50 ? (int) end($snapshots)['website_id'] : 0;
+        foreach ($snapshots as $snapshot) {
+            $site = $this->one("SELECT w.* FROM web_domain w JOIN sys_group g ON g.groupid=w.sys_groupid LEFT JOIN client c ON c.client_id=g.client_id
+                WHERE w.domain_id=? AND w.server_id=? AND w.active='y' AND w.type IN ('vhost','vhostsubdomain','vhostalias') AND (c.locked IS NULL OR c.locked!='y')", [$snapshot['website_id'], $this->server]);
+            if (! $site) {
+                continue;
+            }
+            try {
+                $server = $this->one('SELECT config FROM server WHERE server_id=?', [$this->server]);
+                $config = parse_ini_string($server['config'], true, INI_SCANNER_RAW);
+                $engine = $config['web']['server_type'] ?? '';
+                $local = $this->local->prepare('SELECT * FROM web_domain WHERE domain_id=? AND server_id=?');
+                $local->execute([$site['domain_id'], $this->server]);
+                $applied = $local->fetch(PDO::FETCH_ASSOC);
+                $identity = WordPressPolicy::identity($site, $this->publicRoot($site, $engine));
+                if (! hash_equals($snapshot['identity'], $identity) || ! $applied || $applied['active'] !== 'y'
+                    || ! hash_equals($identity, WordPressPolicy::identity($applied, $this->publicRoot($applied, $engine)))) {
+                    continue;
+                }
+                $installs = json_decode($snapshot['installations'], true, 32, JSON_THROW_ON_ERROR);
+                foreach ($installs as &$installation) {
+                    if (! in_array('pending', array_column($installation['security'] ?? [], 'status'), true)) {
+                        continue;
+                    }
+                    $states = $this->serverSecurity($site, $engine, $installation['path']);
+                    foreach ($states as $id => $state) {
+                        if (isset($installation['security'][$id])) {
+                            $installation['security'][$id] = $state;
+                        }
+                    }
+                    if (in_array('pending', array_column($states, 'status'), true) && strtotime($installation['checked_at'] ?? '') > time() - 600) {
+                        $this->requestNativeApply();
+                    }
+                }
+                unset($installation);
+                $json = json_encode($installs, JSON_THROW_ON_ERROR);
+                if ($json !== $snapshot['installations']) {
+                    // Do not overwrite results from a newly started site operation.
+                    $this->write("UPDATE api_wordpress_sites SET installations=? WHERE website_id=? AND identity=? AND installations=?
+                        AND NOT EXISTS (SELECT 1 FROM api_wordpress_jobs j WHERE j.website_id=? AND j.status IN ('queued','running','recovery_required'))",
+                        [$json, $site['domain_id'], $identity, $snapshot['installations'], $site['domain_id']]);
+                }
+            } catch (InvalidArgumentException|JsonException $e) {
+                // Invalid/stale managed configuration is never reported as applied.
+                continue;
+            }
         }
     }
 
@@ -385,6 +484,10 @@ final class WordPressWorker
             return null;
         }
         $this->write("UPDATE api_wordpress_jobs SET status='running', started_at=COALESCE(started_at, ?) WHERE id=?", [time(), $job['id']]);
+        if ((in_array($job['action'], ['secure', 'revert'], true) && array_intersect($request['measures'] ?? [], [...WordPressPolicy::SERVER, 'languages']))
+            || in_array($job['action'], ['cron_enable', 'cron_disable'], true)) {
+            $this->requestNativeApply();
+        }
         if ($job['action'] === 'secure' && array_intersect($request['measures'] ?? [], ['file_editor', 'concatenate', 'pingbacks'])) {
             $prepared = $this->sandbox($site, array_replace($request, ['action' => 'prepare_security']), $job);
             if (isset($prepared['error'])) {
@@ -619,11 +722,18 @@ final class WordPressWorker
                 $live = str_replace("\r\n", "\n", file_get_contents($file));
             }
         }
+
+        return $this->serverStates($path, $configured, $live);
+    }
+
+    private function serverStates(string $path, array $configured, string $live): array
+    {
         $applied = $configured && str_contains($live, trim(WordPressPolicy::compile($path, $configured)));
         $result = [];
         foreach (WordPressPolicy::SERVER as $measure) {
             $wanted = in_array($measure, $configured, true);
-            $result[$measure] = ['status' => $wanted ? ($applied ? 'ok' : 'pending') : 'warning', 'can_revert' => $wanted];
+            $stillLive = str_contains($live, '# ISPCP WP '.WordPressPolicy::id($path).' '.$measure."\n");
+            $result[$measure] = ['status' => $wanted ? ($applied ? 'ok' : 'pending') : ($stillLive ? 'pending' : 'warning'), 'can_revert' => $wanted];
         }
 
         return $result;

@@ -4,6 +4,7 @@ properties:
   id: {type: string, format: uuid}
   action: {type: string}
   status: {type: string, enum: [queued, running, completed, failed, recovery_required]}
+  configuration_pending: {type: boolean, description: WordPress work finished but Apache protections are still being applied. Poll until false; the worker refreshes the cached security status automatically.}
   created_at: {type: string, format: date-time}
   finished_at: {type: [string, 'null'], format: date-time}
   error: {type: [string, 'null'], description: Safe error code; command output and credentials are never exposed.}

@@ -225,3 +225,31 @@ and roles survived. No database exports were created. Tests used the deployed wo
 and customer-scoped API. English/Czech verification errors now explain the cause.
 Cleanup removed website 55, database 15/user 17, worker metadata/journals, SFTP
 account/mounts/key, runtime fixtures and the real-site probe helpers.
+
+## Responsive worker and server status (worker version 4)
+
+The installer now replaces the once-per-minute WordPress cron with
+`ispconfig-rest-wordpress.service`. It checks for work every two seconds and
+prioritizes interactive actions over discovery and scheduled WordPress events.
+A job waiting for a native cron entry or legacy export does not block other
+websites. Runtime probes, discovery and cleanup remain throttled to once a
+minute. The existing root lock prevents duplicate supervisors; SIGTERM lets the
+current site-user operation finish before a service restart replaces its files.
+
+For native changes the worker starts the fixed
+`ispconfig-rest-wordpress-apply.service`, which invokes ISPConfig's existing
+`server.sh` datalog processor with its own locking, validation and reload path.
+The worker never writes live Apache configuration. Requests carry no service
+name, command or path. Native activation can still take longer while ISPConfig
+is busy; the UI keeps pending rules disabled until their configured managed
+block appears (or disappears on Revert) in the root-owned vhost.
+
+The worker reconciles pending server states without another WP-CLI check,
+preserving local security results and private undo data. It verifies master and
+local site identities and skips active operations. Job responses expose only
+`configuration_pending`; the module polls automatically through this final phase.
+
+Upgrade with `ispconfig-rest server-tools update --components file-manager --yes`.
+No migration or additional native database grants are required. Diagnose with
+`systemctl status ispconfig-rest-wordpress.service` and
+`journalctl -u ispconfig-rest-wordpress.service -u ispconfig-rest-wordpress-apply.service`.
