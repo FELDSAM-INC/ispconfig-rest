@@ -170,3 +170,30 @@ All differences were CRLF-to-LF conversion, with no content changes. csslint.js
 has mixed line endings in the official package. Strict byte checksums correctly
 report these changes; files are not silently ignored or rewritten. Binary-mode
 transfer preserves the original bytes. The user's website was read only.
+
+### Development verification, 2026-09-28 (reversible database measures)
+
+- REST: 1,546 tests / 12,071 assertions, one existing skip. Worker Python: 23;
+  server-tools Python: 17. The suite also exposed and fixed an unquoted comma in
+  the cron OpenAPI description; both contract tests now pass.
+- Disposable website 54, database 14, database user 16: real WordPress 6.8.3 with
+  PHP 8.5. Secure randomized the prefix and changed admin to toolkit_owner without
+  backup/confirmation fields. Revert restored wp_ and admin while retaining ID 1,
+  administrator role, and a post and option created after Secure. A second round
+  trip included rescan/check and confirmed that both undo records survived.
+- A must-use plugin forced HTTP 500 only with a changed prefix. The worker reported
+  verification_failed_restored; the original prefix, login and newer content were
+  verified intact. An existing destination username was rejected before mutation.
+- No api_database_operations exports were created. Protected journals were 657–844
+  bytes, root directory 0700/file 0600, with no SQL dump. Preflight failures created
+  no journal contents. Interrupted recovery and cleanup failures have unit coverage.
+- Live testing caught a literal core option created after a prefix change:
+  wp_calendar_block_has_published_posts. Options now rename only the dynamic
+  role key; literal wp_ option names remain untouched. Per-site user metadata keeps
+  its prefix mapping. This follows WordPress's [role key implementation](https://developer.wordpress.org/reference/classes/wp_roles/for_site/)
+  and [per-site user option lookup](https://developer.wordpress.org/reference/functions/get_user_option/).
+- Live WHMCS rendered Security, cron and integrity modals in both themes. Browser
+  tests covered both themes at 1440/960/390px with actual vars/minified.css and
+  Bootstrap, including Revert enabled / Secure disabled for an already renamed user.
+- Cleanup completed: removed website 54, database/user, native runtime, API job/cache
+  rows and workspaces, SFTP account/bind mounts/key, and disposable helper files.
