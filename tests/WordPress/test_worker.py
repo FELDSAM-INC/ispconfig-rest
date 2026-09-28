@@ -20,6 +20,31 @@ tools = module('wp_tools', 'wordpress-tools.py')
 sandbox = module('wp_sandbox', 'wordpress-sandbox.py')
 
 class WordPressWorkerTest(unittest.TestCase):
+
+    def test_integrity_uses_installed_version_and_never_executes_version_php(self):
+        toolkit = tools.Toolkit({'path': '', 'php': []})
+        version = b"<?php $wp_version = '6.8.3'; $wp_local_package = 'cs_CZ'; die('must not execute');"
+        findings = [{'file': 'wp-includes/version.php', 'message': "File doesn't verify against checksum"}, {'file': 'index.php', 'message': "File doesn't exist"}, {'file': 'strange.php', 'message': 'File should not exist'}]
+        with patch.object(tools, 'safe_file', return_value=(version, None)), patch.object(toolkit, 'wp', return_value=(json.dumps(findings), 1)) as wp:
+            result = toolkit.integrity()['integrity']
+            self.assertEqual('modified', result['status'])
+            self.assertEqual(['changed', 'missing', 'unexpected'], [row['status'] for row in result['files']])
+            self.assertIn('--version=6.8.3', wp.call_args.args)
+            self.assertIn('--locale=cs_CZ', wp.call_args.args)
+            self.assertNotIn('--insecure', wp.call_args.args)
+        with patch.object(tools, 'safe_file', return_value=(version, None)), patch.object(toolkit, 'wp', return_value=('', 1)):
+            with self.assertRaises(tools.Failure): toolkit.integrity()
+
+    def test_cron_restores_absent_and_existing_constants_but_rejects_external_edits(self):
+        for previous in (None, 'false', '0', 'true'):
+            toolkit = tools.Toolkit({'path': '', 'php': [], 'action': 'cron_disable', 'previous_value': previous})
+            with patch.object(toolkit, 'config_values', side_effect=[{'DISABLE_WP_CRON': 'true'}, {'DISABLE_WP_CRON': previous}]), patch.object(toolkit, 'config_change') as change, patch.object(tools, 'safe_file', return_value=(b'config', None)):
+                self.assertTrue(toolkit.cron_constant(False)['cron_changed'])
+                change.assert_called_once_with('DISABLE_WP_CRON', previous)
+        with patch.object(toolkit, 'config_values', return_value={'DISABLE_WP_CRON': 'getenv("DISABLE_CRON")'}), patch.object(toolkit, 'config_change') as change:
+            with self.assertRaises(tools.Failure): toolkit.cron_constant(False)
+            change.assert_not_called()
+
     def test_sql_identifiers_and_literals_are_not_shell_or_sql_fragments(self):
         for value in ('a` DROP TABLE users', 'a.b', '', 'x' * 65, '../outside', 'a\n'):
             with self.assertRaises(tools.Failure):

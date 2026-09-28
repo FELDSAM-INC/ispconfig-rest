@@ -1,8 +1,8 @@
-# WordPress Toolkit Lite: detection and security
+# WordPress Toolkit Lite
 
 Implemented: per-public-root cached inventory and on-demand rescan; Check, Secure
-and Revert for the approved security measures. Integrity and managed wp-cron are
-separate follow-up milestones. There are no update, login, integrity or cron buttons.
+and Revert for the approved security measures; read-only core checksum verification;
+managed native cron takeover. Core reinstallation, updates and login are not exposed.
 
 ## Deployment and capabilities
 
@@ -90,3 +90,37 @@ Final deployed-worker check returned OK for all 19 measures. Live Apache returne
 The disposable website, client-domain registration, database/user, exported dumps,
 WordPress job/cache rows, recovery snapshots, sandbox account and test SFTP bind
 mounts/helper were removed. Existing development websites were not modified.
+
+## Integrity checks and managed cron (worker version 2)
+
+Apply migration `2026_09_28_000002_create_wordpress_cron_table.php` before upgrading
+workers. Reinstall the server-tools manager and update `--components file-manager`
+to refresh both worker files and remote master grants (`cron` SELECT and
+`api_wordpress_cron` SELECT/UPDATE). The module offers new actions only when a live
+version-2 worker advertises `tools_available`.
+
+`verify_integrity` reads the installed version and locale as text, then runs
+`wp core verify-checksums --include-root --format=json` against official checksums.
+The site is mounted read-only; broken WordPress PHP is not bootstrapped. It reports
+changed, missing and unexpected files (up to 500 in the public result). It does not
+scan plugin/theme/upload contents, remove files or claim malware detection.
+Network/unpublished-checksum failures never become a clean result.
+
+`cron_enable` accepts a fixed interval in minutes, reserves one native ISPConfig
+cron row through the normal model/datalog path and enforces client/reseller counts,
+command permission and minimum frequency. Full and native Jailkit/chrooted plans
+are supported. URL-only plans cannot use takeover. Managed native rows are shown
+in Scheduled tasks but can only be changed through WordPress controls.
+
+Native cron writes an empty private trigger using a shell builtin as the website
+user. The existing worker validates the native command, applied schedule, identity
+and private directory, consumes the trigger in the UID sandbox, and runs
+`wp cron event run --due-now` with the site's PHP version. Plugins/themes are loaded
+for cron callbacks. Triggers coalesce and execution can lag by one worker minute or
+while another operation is running; events do not overlap with security jobs.
+
+Only after native cron and (where required) Jailkit are installed does the worker
+set `DISABLE_WP_CRON=true`. The previous literal/absent value is persisted first.
+`cron_disable` deletes the native reservation and restores that previous value.
+It remains available after a plan downgrade. Errors preserve explicit state and
+allow retry/stop; unexpected external config edits are never overwritten on stop.

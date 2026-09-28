@@ -135,8 +135,16 @@ def execute(site, request, workspace, *, backup=None, timeout=360, input_stream=
         stack.callback(os.close, workfd)
         php = runtime(site['php_cli'])
         request = dict(request, php=php, domain=site['domain'], uid=uid, gid=gid)
-        args = command(uid, gid, rootfd, workfd, php, request['action'] in ('rescan', 'check', 'prepare_security'), backup)
+        args = command(uid, gid, rootfd, workfd, php, request['action'] in ('rescan', 'check', 'prepare_security', 'verify_integrity', 'prepare_cron', 'cron_poll'), backup)
         descriptors = (rootfd, workfd) + (() if backup is None else (backup,))
+        if request['action'] == 'cron_poll':
+            privatefd = open_directory(site['document_root'].rstrip('/') + '/private')
+            stack.callback(os.close, privatefd)
+            private = os.fstat(privatefd)
+            if private.st_uid != uid or private.st_gid != gid or private.st_mode & 0o022:
+                raise Unavailable('unsafe_private_directory')
+            args[1:1] = ['--bind-fd', str(privatefd), '/trigger']
+            descriptors += (privatefd,)
         # Passing an already-pinned directory prevents path substitution between validation and bind.
         process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                    pass_fds=descriptors, user=uid, group=gid, extra_groups=[], env={'PATH': '/usr/bin:/bin'},

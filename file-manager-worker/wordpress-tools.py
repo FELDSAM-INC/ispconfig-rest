@@ -139,7 +139,7 @@ class Toolkit:
 
     def config_values(self):
         rows = json.loads(self.value('config', 'list', '--format=json'))
-        allowed = {'DISALLOW_FILE_EDIT', 'CONCATENATE_SCRIPTS', 'table_prefix', 'DB_NAME', 'DB_HOST', 'MULTISITE', 'CUSTOM_USER_TABLE', 'CUSTOM_USER_META_TABLE'}
+        allowed = {'DISALLOW_FILE_EDIT', 'CONCATENATE_SCRIPTS', 'table_prefix', 'DB_NAME', 'DB_HOST', 'MULTISITE', 'CUSTOM_USER_TABLE', 'CUSTOM_USER_META_TABLE', 'DISABLE_WP_CRON'}
         result = {row['name']: row['value'] for row in rows if row.get('name') in allowed}
         names = {'AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY', 'AUTH_SALT', 'SECURE_AUTH_SALT', 'LOGGED_IN_SALT', 'NONCE_SALT'}
         salts = [row['value'] for row in rows if row.get('name') in names]
@@ -230,6 +230,52 @@ class Toolkit:
         # DB names/hosts are consumed only by the root bridge for ownership matching, never in REST output.
         result.update(security=security, undo=self.undo, database_name=config.get('DB_NAME', ''), database_host=config.get('DB_HOST', ''))
         return result
+
+    def integrity(self):
+        # Read version metadata as text; verification must work without loading broken site PHP.
+        source, _ = safe_file(self.root / 'wp-includes/version.php')
+        version = re.search(rb"\$wp_version\s*=\s*['\"]([0-9]+(?:\.[0-9]+){1,2}(?:-(?:beta|RC)[0-9]+)?)['\"]", source)
+        locale = re.search(rb"\$wp_local_package\s*=\s*['\"]([A-Za-z_]{2,20})['\"]", source)
+        if not version:
+            raise Failure('integrity_version_unknown')
+        version = version.group(1).decode()
+        locale = locale.group(1).decode() if locale else 'en_US'
+        output, code = self.wp('core', 'verify-checksums', '--version=' + version, '--locale=' + locale,
+                               '--include-root', '--format=json', '--quiet', accepted=(0, 1), timeout=180)
+        try:
+            entries = json.loads(output) if output else []
+        except (ValueError, TypeError):
+            raise Failure('checksums_unavailable')
+        if not isinstance(entries, list) or (code != 0 and not entries):
+            raise Failure('checksums_unavailable')
+        kinds = {"File doesn't exist": 'missing', "File doesn't verify against checksum": 'changed', 'File should not exist': 'unexpected'}
+        files = []
+        for row in entries:
+            path = row.get('file', '') if isinstance(row, dict) else ''
+            if not isinstance(path, str) or len(path) > 1024 or path.startswith('/') or any(part in ('.', '..') for part in path.split('/')) or re.search(r'[\x00-\x1f\x7f]', path):
+                raise Failure('invalid_worker_result')
+            kind = kinds.get(row.get('message'))
+            if not path or kind is None:
+                raise Failure('invalid_worker_result')
+            files.append({'file': path, 'status': kind})
+        return {'integrity': {'status': 'modified' if files else 'clean', 'version': version, 'locale': locale,
+                             'checked_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                             'files': files[:500], 'total': len(files), 'truncated': len(files) > 500}}
+
+    def cron_constant(self, enable):
+        value = self.config_values().get('DISABLE_WP_CRON')
+        if value is not None and str(value).lower() not in ('true', 'false', '0', '1'):
+            raise Failure('unsupported_constant')
+        if self.request['action'] == 'prepare_cron':
+            return {'previous_value': value}
+        previous = self.request.get('previous_value')
+        if not enable and value not in (previous, 'true', '1'):
+            raise Failure('configuration_changed')
+        self.config_change('DISABLE_WP_CRON', 'true' if enable else previous)
+        after = self.config_values().get('DISABLE_WP_CRON')
+        if after != ('true' if enable else previous):
+            raise Failure('configuration_changed')
+        return {'cron_changed': True, 'config_hash': hashlib.sha256(safe_file(self.config)[0]).hexdigest()}
 
     def permissions(self, apply=False):
         count = 0
@@ -524,9 +570,31 @@ def main(request):
         assert not pathlib.Path('/var/www').exists()
         assert not pathlib.Path('/proc/1/root/etc/shadow').exists()
         return {'uid': os.geteuid(), 'gid': os.getegid(), 'isolated': True, 'wp_cli': run(request['php'] + ['/tool/wp-cli.phar', '--version'])[0]}
+    if request['action'] == 'cron_poll':
+        token = request.get('cron_token', '')
+        if not re.fullmatch(r'[a-f0-9-]{36}', token):
+            raise Failure('invalid_job')
+        marker = pathlib.Path('/trigger/.ispcp-wp-cron-' + token)
+        if not marker.exists():
+            return {'triggered': False}
+        content, info = safe_file(marker, 0)
+        if content:
+            raise Failure('invalid_trigger')
+        marker.unlink()
+        return {'triggered': True}
     if request['action'] == 'rescan':
         return scan(request)
     toolkit = Toolkit(request)
+    if request['action'] == 'verify_integrity':
+        return toolkit.integrity()
+    if request['action'] in ('prepare_cron', 'cron_enable', 'cron_disable'):
+        return toolkit.cron_constant(request['action'] != 'cron_disable')
+    if request['action'] == 'cron_run':
+        if toolkit.config_values().get('DISABLE_WP_CRON') not in ('true', '1'):
+            raise Failure('cron_changed')
+        # Load plugins/themes here: their registered callbacks are the purpose of WordPress cron.
+        run(request['php'] + ['/tool/wp-cli.phar', '--path=' + str(toolkit.root), '--skip-packages', '--no-color', 'cron', 'event', 'run', '--due-now'], timeout=300)
+        return {'cron_ran': True}
     if request['action'] == 'prepare_security':
         values = toolkit.config_values()
         for measure in request.get('measures', []):
