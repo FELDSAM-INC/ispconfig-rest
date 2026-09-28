@@ -40,8 +40,10 @@ final class WordPressService
     {
         $worker = $this->worker($site);
         $snapshot = Schema::hasTable('api_wordpress_sites') ? $this->snapshot($site) : null;
+        $installs = json_decode($snapshot->installations ?? '[]', true) ?: [];
+        $public = array_map(fn ($row) => array_intersect_key($row, array_flip(['id', 'path', 'title', 'url', 'admin_url'])), $installs);
 
-        return ['available' => (bool) ($worker->available ?? false), 'count' => count(json_decode($snapshot->installations ?? '[]', true) ?: [])];
+        return ['available' => (bool) ($worker->available ?? false), 'count' => count($installs), 'installations' => $public];
     }
 
     public function view(WebDomain $site): array

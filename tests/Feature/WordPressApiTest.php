@@ -33,6 +33,8 @@ final class WordPressApiTest extends SitesApiTestCase
         [$id, $url, $installation] = $this->prepareSite($this->ownedBy('clientA'));
         $headers = $this->tenantHeaders('clientA');
         $this->getJson($url, $headers)->assertOk()->assertJsonPath('installations.0.path', 'blog')->assertJsonMissingPath('installations.0.database_id')->assertJsonMissingPath('installations.0.undo');
+        $this->getJson('/api/v1/sites/web-domains/'.$id, $headers)->assertOk()->assertJsonPath('wordpress.installations.0.title', 'Example')
+            ->assertJsonPath('wordpress.installations.0.url', 'https://example.test/blog')->assertJsonMissingPath('wordpress.installations.0.database_id')->assertJsonMissingPath('wordpress.installations.0.undo');
         $this->getJson($url, $this->tenantHeaders('clientB'))->assertNotFound();
         $this->postJson($url.'/jobs', ['action' => 'rescan'])->assertUnauthorized();
         $this->postJson($url.'/jobs', ['action' => 'rescan'], $this->tenantHeaders('clientB'))->assertNotFound();

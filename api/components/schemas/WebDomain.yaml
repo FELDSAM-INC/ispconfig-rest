@@ -35,6 +35,17 @@ properties:
     properties:
       available: {type: boolean}
       count: {type: integer, minimum: 0}
+      installations:
+        type: array
+        description: Cached public identity of detected installations; contains no database credentials, undo data or filesystem settings.
+        items:
+          type: object
+          properties:
+            id: {type: string}
+            path: {type: string}
+            title: {type: string}
+            url: {type: string}
+            admin_url: {type: string}
   waf_available: {type: boolean, readOnly: true, description: WAF server tool is installed and reporting a current heartbeat.}
   public_document_root:
     type: string
