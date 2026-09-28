@@ -25,7 +25,7 @@ class WordPressWorkerTest(unittest.TestCase):
         toolkit = tools.Toolkit({'path': '', 'php': []})
         version = b"<?php $wp_version = '6.8.3'; $wp_local_package = 'cs_CZ'; die('must not execute');"
         findings = [{'file': 'wp-includes/version.php', 'message': "File doesn't verify against checksum"}, {'file': 'index.php', 'message': "File doesn't exist"}, {'file': 'strange.php', 'message': 'File should not exist'}]
-        with patch.object(tools, 'safe_file', return_value=(version, None)), patch.object(toolkit, 'wp', return_value=(json.dumps(findings), 1)) as wp:
+        with patch.object(tools, 'safe_file', return_value=(version, None)), patch.object(toolkit, 'wp', return_value=('\n'.join('Warning: '+row['message']+': '+row['file'] for row in findings)+"\nError: WordPress installation doesn't verify against checksums.", 1)) as wp:
             result = toolkit.integrity()['integrity']
             self.assertEqual('modified', result['status'])
             self.assertEqual(['changed', 'missing', 'unexpected'], [row['status'] for row in result['files']])
@@ -34,6 +34,16 @@ class WordPressWorkerTest(unittest.TestCase):
             self.assertNotIn('--insecure', wp.call_args.args)
         with patch.object(tools, 'safe_file', return_value=(version, None)), patch.object(toolkit, 'wp', return_value=('', 1)):
             with self.assertRaises(tools.Failure): toolkit.integrity()
+
+    def test_php_boolean_literals_are_normalized_without_evaluating_expressions(self):
+        toolkit = tools.Toolkit({'path': '', 'php': []})
+        rows = [{'name': 'DISABLE_WP_CRON', 'value': True}, {'name': 'DISALLOW_FILE_EDIT', 'value': False}, {'name': 'MULTISITE', 'value': 0}, {'name': 'CONCATENATE_SCRIPTS', 'value': 'getenv("X")'}]
+        with patch.object(toolkit, 'value', return_value=json.dumps(rows)):
+            result = toolkit.config_values()
+            self.assertEqual('true', result['DISABLE_WP_CRON'])
+            self.assertEqual('false', result['DISALLOW_FILE_EDIT'])
+            self.assertEqual('0', result['MULTISITE'])
+            self.assertEqual('getenv("X")', result['CONCATENATE_SCRIPTS'])
 
     def test_cron_restores_absent_and_existing_constants_but_rejects_external_edits(self):
         for previous in (None, 'false', '0', 'true'):

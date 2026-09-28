@@ -100,8 +100,9 @@ to refresh both worker files and remote master grants (`cron` SELECT and
 version-2 worker advertises `tools_available`.
 
 `verify_integrity` reads the installed version and locale as text, then runs
-`wp core verify-checksums --include-root --format=json` against official checksums.
-The site is mounted read-only; broken WordPress PHP is not bootstrapped. It reports
+`wp core verify-checksums --include-root` against official checksums.
+The pinned WP-CLI 2.12 diagnostics are normalized to safe structured results
+(JSON checksum output is not supported in that release). The site is mounted read-only; broken WordPress PHP is not bootstrapped. It reports
 changed, missing and unexpected files (up to 500 in the public result). It does not
 scan plugin/theme/upload contents, remove files or claim malware detection.
 Network/unpublished-checksum failures never become a clean result.

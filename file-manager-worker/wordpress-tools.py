@@ -25,7 +25,7 @@ class Failure(Exception):
     pass
 
 
-def run(args, *, data=None, limit=262144, timeout=90, accepted=(0,)):
+def run(args, *, data=None, limit=262144, timeout=90, accepted=(0,), include_stderr=False):
     process = subprocess.Popen(args, stdin=subprocess.PIPE if data is not None else subprocess.DEVNULL,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd='/tool', start_new_session=True)
     try:
@@ -52,7 +52,8 @@ def run(args, *, data=None, limit=262144, timeout=90, accepted=(0,)):
         if process.returncode not in accepted:
             operation = next((name for name in ('config', 'db', 'eval', 'user', 'option') if name in args), 'command')
             raise Failure('wp_' + operation + '_failed')
-        return output['out'].decode('utf-8', errors='replace').strip(), process.returncode
+        combined = output['out'] + (b'\n' + output['err'] if include_stderr else b'')
+        return combined.decode('utf-8', errors='replace').strip(), process.returncode
     finally:
         if process.poll() is None:
             os.killpg(process.pid, signal.SIGKILL)
@@ -122,8 +123,8 @@ class Toolkit:
         self.php = request['php']
         self.undo = dict(request.get('undo') or {})
 
-    def wp(self, *args, path=None, data=None, accepted=(0,), timeout=90):
-        return run(self.php + ['/tool/wp-cli.phar', '--path=' + str(path or self.root), '--skip-plugins', '--skip-themes', '--skip-packages', '--no-color'] + list(args), data=data, accepted=accepted, timeout=timeout)
+    def wp(self, *args, path=None, data=None, accepted=(0,), timeout=90, include_stderr=False):
+        return run(self.php + ['/tool/wp-cli.phar', '--path=' + str(path or self.root), '--skip-plugins', '--skip-themes', '--skip-packages', '--no-color'] + list(args), data=data, accepted=accepted, timeout=timeout, include_stderr=include_stderr)
 
     def value(self, *args):
         return self.wp(*args)[0]
@@ -141,6 +142,12 @@ class Toolkit:
         rows = json.loads(self.value('config', 'list', '--format=json'))
         allowed = {'DISALLOW_FILE_EDIT', 'CONCATENATE_SCRIPTS', 'table_prefix', 'DB_NAME', 'DB_HOST', 'MULTISITE', 'CUSTOM_USER_TABLE', 'CUSTOM_USER_META_TABLE', 'DISABLE_WP_CRON'}
         result = {row['name']: row['value'] for row in rows if row.get('name') in allowed}
+        # WP-CLI's JSON config parser returns PHP boolean literals as JSON booleans.
+        for name in ('DISALLOW_FILE_EDIT', 'CONCATENATE_SCRIPTS', 'DISABLE_WP_CRON', 'MULTISITE'):
+            if isinstance(result.get(name), bool):
+                result[name] = 'true' if result[name] else 'false'
+            elif type(result.get(name)) is int and result[name] in (0, 1):
+                result[name] = str(result[name])
         names = {'AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY', 'AUTH_SALT', 'SECURE_AUTH_SALT', 'LOGGED_IN_SALT', 'NONCE_SALT'}
         salts = [row['value'] for row in rows if row.get('name') in names]
         result['_salts_ok'] = len(salts) == 8 and all(isinstance(value, str) and len(value) >= 32 and len(set(value)) >= 10 and 'put your unique phrase here' not in value.lower() for value in salts) and len(set(salts)) == 8
@@ -240,24 +247,32 @@ class Toolkit:
             raise Failure('integrity_version_unknown')
         version = version.group(1).decode()
         locale = locale.group(1).decode() if locale else 'en_US'
+        # Pinned WP-CLI 2.12 has no JSON checksum formatter. Parse only its fixed
+        # diagnostics, require the explicit success/failure marker, reject all other output.
         output, code = self.wp('core', 'verify-checksums', '--version=' + version, '--locale=' + locale,
-                               '--include-root', '--format=json', '--quiet', accepted=(0, 1), timeout=180)
-        try:
-            entries = json.loads(output) if output else []
-        except (ValueError, TypeError):
-            raise Failure('checksums_unavailable')
-        if not isinstance(entries, list) or (code != 0 and not entries):
-            raise Failure('checksums_unavailable')
+                               '--include-root', accepted=(0, 1), timeout=180, include_stderr=True)
         kinds = {"File doesn't exist": 'missing', "File doesn't verify against checksum": 'changed', 'File should not exist': 'unexpected'}
         files = []
-        for row in entries:
-            path = row.get('file', '') if isinstance(row, dict) else ''
-            if not isinstance(path, str) or len(path) > 1024 or path.startswith('/') or any(part in ('.', '..') for part in path.split('/')) or re.search(r'[\x00-\x1f\x7f]', path):
+        success = failure = False
+        for line in output.splitlines():
+            if not line.strip():
+                continue
+            if line == 'Success: WordPress installation verifies against checksums.':
+                success = True
+                continue
+            if line == "Error: WordPress installation doesn't verify against checksums.":
+                failure = True
+                continue
+            match = re.fullmatch(r"Warning: (File doesn't exist|File doesn't verify against checksum|File should not exist): (.+)", line)
+            if not match:
+                raise Failure('checksums_unavailable')
+            path = match.group(2)
+            if len(path) > 1024 or path.startswith('/') or any(part in ('.', '..') for part in path.split('/')) or re.search(r'[\x00-\x1f\x7f]', path):
                 raise Failure('invalid_worker_result')
-            kind = kinds.get(row.get('message'))
-            if not path or kind is None:
-                raise Failure('invalid_worker_result')
-            files.append({'file': path, 'status': kind})
+            files.append({'file': path, 'status': kinds[match.group(1)]})
+        changed = any(row['status'] in ('changed', 'missing') for row in files)
+        if (code == 0 and (not success or failure or changed)) or (code != 0 and (not failure or not changed or success)):
+            raise Failure('checksums_unavailable')
         return {'integrity': {'status': 'modified' if files else 'clean', 'version': version, 'locale': locale,
                              'checked_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
                              'files': files[:500], 'total': len(files), 'truncated': len(files) > 500}}
