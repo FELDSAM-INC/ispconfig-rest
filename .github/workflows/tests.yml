@@ -3,7 +3,11 @@ name: tests
 on:
   push:
     branches: [main, '0*']
+    tags: ['v*']
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   server-tools:
@@ -42,3 +46,52 @@ jobs:
 
       - name: Run tests
         run: php artisan test
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [server-tools, phpunit]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate release metadata and prepare notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          tag = os.environ['RELEASE_TAG']
+          version = Path('VERSION').read_text().strip()
+          if not re.fullmatch(r'v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', tag) or tag != 'v' + version:
+              raise SystemExit('Release tag must match VERSION.')
+          api_version = re.search(r'^  version: (\S+)$', Path('api/openapi.yaml').read_text(), re.M)
+          if not api_version or api_version.group(1) != version:
+              raise SystemExit('OpenAPI version must match VERSION.')
+          changelog = Path('CHANGELOG.md').read_text()
+          section = re.search(r'^## \[' + re.escape(version) + r'\] - \d{4}-\d{2}-\d{2}\n(.*?)(?=^## |\Z)', changelog, re.M | re.S)
+          if not section or not section.group(1).strip():
+              raise SystemExit('Release notes are missing from CHANGELOG.md.')
+          notes = section.group(1).strip()
+          # Changelog paths must remain usable from the GitHub release page.
+          notes = re.sub(r'\]\((?!https?://|#)([^)]+)\)',
+                         lambda match: '](https://github.com/' + os.environ['GITHUB_REPOSITORY'] + '/blob/' + tag + '/' + match.group(1) + ')', notes)
+          Path(os.environ['RUNNER_TEMP'], 'release-notes.md').write_text(notes + '\n')
+          PY
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          release_flags=(--verify-tag --title "ISPConfig REST API $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md")
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            release_flags+=(--prerelease)
+          else
+            release_flags+=(--latest)
+          fi
+          gh release create "$RELEASE_TAG" "${release_flags[@]}"
