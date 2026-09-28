@@ -8,7 +8,8 @@ python3 -m unittest discover -s tests/Integration/updater -p 'test_*.py' -v
 ```
 
 Tests execute the CLI's actual functions against temporary Git origins and shallow
-clones. They cover stale saved branches, pinned annotated tags, explicit channel
+clones. They cover repeated depth-one fetch boundaries, stale saved branches,
+pinned annotated tags, explicit channel
 changes, missing/moved releases, local edits/commits, version reporting, and CLI
 refresh from verified release blobs without downgrading to the old updater.
 Deployment services and PHP/Composer are replaced with inert fixtures. No system

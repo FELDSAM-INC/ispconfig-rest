@@ -193,6 +193,7 @@ valid_release_tag() {
 
 update_checkout() {
   local branch="" tag="" selected="" target
+  local fetch_options=(--atomic)
   while [ $# -gt 0 ]; do
     case "$1" in
       --branch|--tag)
@@ -210,11 +211,17 @@ update_checkout() {
   run_as git diff --quiet && run_as git diff --cached --quiet \
     || die "Tracked files have local changes. Commit or save them before updating."
 
+  # Previous updaters repeatedly fetched --depth 1, leaving multiple shallow
+  # boundaries between HEAD and origin. Complete history before checking ancestry
+  # so a legitimate update is not mistaken for divergent local commits.
+  if [ "$(run_as git rev-parse --is-shallow-repository)" = true ]; then
+    fetch_options+=(--unshallow)
+  fi
   # Explicit refspecs also work with single-branch shallow installer clones.
   # Do not force-fetch tags: a moved release must fail instead of silently changing.
   if [ -n "$branch" ]; then
     info "Update channel: branch $branch"
-    run_as git fetch --atomic origin "+refs/heads/$branch:refs/remotes/origin/$branch" 'refs/tags/*:refs/tags/*'
+    run_as git fetch "${fetch_options[@]}" origin "+refs/heads/$branch:refs/remotes/origin/$branch" 'refs/tags/*:refs/tags/*'
     target="refs/remotes/origin/$branch"
     if run_as git show-ref --verify --quiet "refs/heads/$branch"; then
       run_as git merge-base --is-ancestor "refs/heads/$branch" "$target" \
@@ -224,7 +231,7 @@ update_checkout() {
     RELEASE_REF="refs/heads/$branch"
     BRANCH="$branch"
   else
-    run_as git fetch --atomic origin 'refs/tags/*:refs/tags/*'
+    run_as git fetch "${fetch_options[@]}" origin 'refs/tags/*:refs/tags/*'
     if [ -z "$tag" ]; then
       tag="$(run_as git describe --tags --exact-match --match 'v[0-9]*' HEAD 2>/dev/null || true)"
       valid_release_tag "$tag" || die "Detached HEAD is not a release tag. Choose 'update --branch main' or 'update --tag VERSION'."

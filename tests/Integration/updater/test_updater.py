@@ -124,6 +124,15 @@ class UpdaterTests(unittest.TestCase):
         self.assert_branch("main")
         self.assertFalse((self.checkout / "development.txt").exists())
 
+    def test_repeated_old_depth_one_fetches_do_not_look_like_local_divergence(self):
+        self.git(self.checkout, "fetch", "--depth", "1", "origin", "develop")
+        (self.source / "next.txt").write_text("Next development commit\n")
+        self.commit("Newer development commit")
+        self.assertEqual("true", self.git(self.checkout, "rev-parse", "--is-shallow-repository"))
+        self.run_manager()
+        self.assert_branch("develop")
+        self.assertEqual("false", self.git(self.checkout, "rev-parse", "--is-shallow-repository"))
+
     def test_explicit_release_from_clone_without_tag(self):
         self.assertNotIn("v1.0.1", self.git(self.checkout, "tag", "--list"))
         self.run_manager("--tag", "v1.0.1")
