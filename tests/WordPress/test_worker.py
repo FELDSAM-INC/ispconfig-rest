@@ -263,6 +263,22 @@ class WordPressWorkerTest(unittest.TestCase):
                 self.assertEqual(10, request.call_count)
             self.assertEqual([], list(toolkit.root.iterdir()))
 
+    def test_webserver_reload_interruptions_retry_full_probe_and_homepage_verification(self):
+        from unittest.mock import MagicMock
+        for error in (tools.http.client.RemoteDisconnected(), tools.http.client.IncompleteRead(b'partial'), ConnectionRefusedError(), ConnectionResetError(), TimeoutError()):
+            with self.subTest(error=type(error).__name__), tempfile.TemporaryDirectory() as temp:
+                toolkit = tools.Toolkit({'path': '', 'php': [], 'domain': 'example.test'})
+                toolkit.root = Path(temp)
+                response = MagicMock(status=200)
+                response.read.return_value = json.dumps({'token': 'nonce', 'prefix': 'wp_', 'url': 'http://example.test'}).encode()
+                with patch.object(toolkit, 'config_values', return_value={'table_prefix': 'wp_'}), patch.object(tools.secrets, 'token_hex', return_value='nonce'), patch.object(tools.time, 'sleep') as sleep, patch.object(tools.http.client, 'HTTPConnection') as connection:
+                    connection.return_value.getresponse.side_effect = [error, response, response]
+                    toolkit.http_verify('http://example.test')
+                    self.assertEqual(3, connection.return_value.getresponse.call_count)
+                    self.assertEqual(3, connection.return_value.close.call_count)
+                    sleep.assert_called_once_with(2)
+                self.assertEqual([], list(toolkit.root.iterdir()))
+
     def test_configuration_change_prevents_any_database_mutation(self):
         toolkit = tools.Toolkit({'path': '', 'php': [], 'prepared': {'prefix': 'wp_', 'new_prefix': 'new_', 'config_hash': 'old'}})
         with patch.object(tools, 'safe_file', return_value=(b'changed', None)), patch.object(toolkit, 'query') as query:

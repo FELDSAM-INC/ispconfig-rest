@@ -448,6 +448,11 @@ class Toolkit:
                 next_url = self.verification_url(urllib.parse.urljoin(parsed.geturl(), location), 'http_verification_failed')
                 parsed = next_url
                 path = parsed.path + ('?' + parsed.query if parsed.query else '')
+            except (OSError, http.client.HTTPException):
+                # ISPConfig may reload the webserver while applying the same batch.
+                # Use the existing bounded verification retry; never accept an
+                # interrupted response as proof that the database change worked.
+                raise Failure('http_verification_failed') from None
             finally:
                 connection.close()
         raise Failure('http_verification_failed')
