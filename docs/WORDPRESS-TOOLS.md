@@ -12,14 +12,14 @@ The worker's managed grants include the new API tables; it never writes native
 ISPConfig rows directly. Apache directives and language settings go through normal
 REST model validation and ISPConfig datalog processing.
 
-This extends the existing file-manager worker with a separate one-minute WordPress
-queue and lock. The existing SFTP jail, accounts and key configuration are retained.
+This extends the existing file-manager worker with a separate persistent WordPress
+queue service and lock. The existing SFTP jail, accounts and key configuration are retained.
 WP-CLI 2.12.0 is downloaded from its official release with a pinned SHA-256. Linux
 bubblewrap must support unprivileged user namespaces, `--bind-fd`, and
 `--disable-userns`; there is no unjailed fallback. The selected website PHP version
 must have a matching CLI under `/usr/bin/phpX.Y` (Debian/Ubuntu layout), with mysqli,
 mysqlnd, phar and WP-CLI's required extensions. The worker bridge needs PHP 8.3+,
-pdo_mysql, posix and mbstring. Missing runtime capabilities are reported, not guessed.
+pdo_mysql, posix, pcntl and mbstring. Missing runtime capabilities are reported, not guessed.
 
 Every WordPress/PHP/MySQL subprocess runs under the website UID/GID in a namespace
 containing only its public root, private job directory, root-owned runtime and
@@ -253,3 +253,23 @@ Upgrade with `ispconfig-rest server-tools update --components file-manager --yes
 No migration or additional native database grants are required. Diagnose with
 `systemctl status ispconfig-rest-wordpress.service` and
 `journalctl -u ispconfig-rest-wordpress.service -u ispconfig-rest-wordpress-apply.service`.
+
+
+### Development latency verification (2026-09-28)
+
+On disposable website 56, WordPress 7.1.2 cs_CZ with PHP 8.5, jobs were submitted
+through the WHMCS service API without manually running the worker. Queue time was
+1–2 seconds (previous customer jobs: 40–48 seconds). Rescan ran in 1 second;
+security checks in 2 seconds. Secure for XML-RPC, directory indexes and the file
+editor ran in 4 seconds; Revert in 2 seconds. Both included native Apache
+activation and automatic pending-state refresh in approximately 9 seconds as
+observed through API polling. The fixture's website, database/user, SFTP jail,
+WordPress inventory/job workspaces and temporary helpers were removed.
+
+Both installed systemd units passed `systemd-analyze verify`; the persistent
+worker reports version 4 and remains active without restarts. The full REST suite
+passed 1,551 tests / 12,110 assertions (one existing skip), plus the 25 WordPress
+sandbox tests and 17 server-tools tests. The module passed 3,495 tests / 104,734
+assertions (four existing skips). Browser tests load both themes and the actual
+`vars/minified.css` at 1440/960/390 px, covering bulk selection, automatic native
+pending completion and cached installation identity with matching modal links.
