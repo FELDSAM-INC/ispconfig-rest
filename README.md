@@ -74,7 +74,7 @@ Every prompt has a flag and `ISPC_REST_*` env var for unattended installs — se
 ispconfig-rest status                        # service state, version, DB connectivity
 ispconfig-rest update                        # update current branch; keep a release tag pinned
 ispconfig-rest update --branch main          # select stable updates
-ispconfig-rest update --tag v1.0.1            # select a specific release
+ispconfig-rest update --tag v1.0.2            # select a specific release
 ispconfig-rest key:create "my integration"   # mint an admin key
 ispconfig-rest key:create "acme" --client-id 42   # mint a client-scoped key
 ispconfig-rest key:list --client-id 42       # list keys (never shows secrets)
@@ -95,7 +95,9 @@ Untracked runtime files such as `.env` and `.composer/` are preserved.
 **Updaters shipped through v1.0.1:** these used `BRANCH` from the root-owned
 `/etc/ispconfig-rest/install.conf` and forcibly checked it out on every update.
 Checking out `main` or a tag manually did not change that setting. The behavior
-and options above require the corrected manager (currently on `develop`).
+and options above require the corrected manager from **v1.0.2 or newer**.
+Follow the [1.0.2 upgrade instructions](CHANGELOG.md#upgrade-from-101) to refresh
+the old manager before selecting a branch or release tag.
 It retains its branch/tag handling when an older API release is selected, while
 worker sources still come from the selected API release. Existing release tags
 are not changed or replaced by this fix.

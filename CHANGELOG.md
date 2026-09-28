@@ -3,7 +3,10 @@
 Release notes for ISPConfig REST API. Versions refer to the application release;
 the HTTP API remains under `/api/v1`.
 
-## [Unreleased]
+## [1.0.2] - 2026-09-28
+
+Bugfix release for the installation manager. No API endpoint, database migration
+or worker changes compared with 1.0.1; existing workers do not need reinstalling.
 
 ### Fixed
 
@@ -14,6 +17,41 @@ the HTTP API remains under `/api/v1`.
   edits, local commits or changed release tags. Refresh the CLI from verified
   official sources and retain the corrected updater when selecting an older API
   release. Worker provenance follows the selected branch or release tag.
+- **Shallow checkout recovery:** complete Git history before checking whether an
+  update is a fast-forward. Repeated depth-one fetches from older updaters no longer
+  make a valid update appear to contain divergent local commits.
+
+### Upgrade from 1.0.1
+
+The old manager reads `BRANCH` from `/etc/ispconfig-rest/install.conf`, ignores
+`--branch`/`--tag` update options and can switch back to `develop` even after a
+manual checkout of `main` or a release tag. **Refresh the manager first**, then
+choose the update channel explicitly:
+
+```bash
+sudo bash <<'SH'
+set -eu
+manager="$(mktemp)"
+trap 'rm -f -- "$manager"' EXIT
+curl -fsSL https://raw.githubusercontent.com/FELDSAM-INC/ispconfig-rest/v1.0.2/bin/ispconfig-rest -o "$manager"
+bash -n "$manager"
+install -o root -g root -m 0755 "$manager" /usr/local/bin/ispconfig-rest
+ispconfig-rest update --branch main
+SH
+```
+
+To pin this exact release instead, replace the final update command with
+`ispconfig-rest update --tag v1.0.2`. Once the corrected manager is installed,
+ordinary `sudo ispconfig-rest update` follows the current branch or keeps a
+detached release tag pinned. It fetches release tags and reports the actual
+checkout in `version`/`status`. Local tracked edits and divergent commits must be
+resolved before updating; they are no longer discarded automatically.
+
+The bootstrap above uses the manager from the immutable `v1.0.2` release tag;
+it leaves the installation configuration and API credentials in place. An
+installation that already has the corrected manager can run
+`sudo ispconfig-rest update --branch main` directly. For upgrades from 1.0.0,
+also follow the [1.0.1 migration and worker upgrade notes](CHANGELOG.md#upgrade-from-100).
 
 ## [1.0.1] - 2026-09-28
 
