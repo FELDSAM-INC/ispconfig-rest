@@ -27,6 +27,11 @@ the HTTP API remains under `/api/v1`.
 
 ### Fixed
 
+- Re-applying a product PHP policy with Force PHP-FPM no longer moves an existing
+  website from the hidden default PHP to the first additional version by sort order
+  (often an older PHP). It now selects the additional version that runs the server's
+  default PHP-FPM (same pool directory, else init script); new websites keep the
+  documented first-usable rule.
 - WAF events and exception suggestions no longer include the full stop from
   Apache's `at ARGS:name.` audit message in the argument name. Real dots in names
   are preserved. Update the WAF server tool as well as the API: its versioned

@@ -205,6 +205,22 @@ final class ClientWebPhpPolicyTest extends ClientApiTestCase
         $this->assertSame(0, DB::table('web_domain')->where('domain_id', $second['id'])->value('server_php_id'));
     }
 
+    public function test_existing_site_on_hidden_default_keeps_the_default_php_runtime(): void
+    {
+        DB::table('server')->where('server_id', 1)->update(['config' => "[web]\nserver_type=apache\nphp_default_hide=y\n"
+            ."php_fpm_init_script=php8.3-fpm\nphp_fpm_pool_dir=/etc/php/8.3/fpm/pool.d\n"]);
+        $old = DB::table('server_php')->insertGetId(['server_id' => 1, 'client_id' => 0, 'active' => 'y', 'name' => 'PHP 7.4',
+            'php_fpm_init_script' => '/etc/init.d/php7.4-fpm', 'php_fpm_ini_dir' => '/etc/php/7.4/fpm', 'php_fpm_pool_dir' => '/etc/php/7.4/fpm/pool.d'], 'server_php_id');
+        $same = DB::table('server_php')->insertGetId(['server_id' => 1, 'client_id' => 0, 'active' => 'y', 'name' => 'PHP 8.3',
+            'php_fpm_init_script' => '/etc/init.d/php8.3-fpm', 'php_fpm_ini_dir' => '/etc/php/8.3/fpm', 'php_fpm_pool_dir' => '/etc/php/8.3/fpm/pool.d/'], 'server_php_id');
+        $site = $this->site(['php' => 'php-fpm', 'server_php_id' => $old]);
+        DB::table('web_domain')->where('domain_id', $site['id'])->update(['server_php_id' => 0]);
+
+        $this->applyPolicy($this->policy())->assertOk();
+
+        $this->assertSame($same, DB::table('web_domain')->where('domain_id', $site['id'])->value('server_php_id'), 'not the older first version');
+    }
+
     public function test_missing_migration_is_a_clear_error_and_null_policy_remains_backward_compatible(): void
     {
         Schema::drop('api_client_web_php_policies');

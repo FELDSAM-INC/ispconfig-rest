@@ -90,6 +90,33 @@ class PhpVersionService
     }
 
     /**
+     * The usable PHP-FPM version that runs the same PHP as the server's default (same pool directory, else the same
+     * init script), so an existing website on the hidden default can be given a real version without changing its
+     * PHP. Null when no additional version matches.
+     */
+    public function fpmDefaultEquivalent(int $serverId, Collection $usable): ?object
+    {
+        $web = $this->config->serverConfig($serverId, 'web');
+        $poolDir = rtrim(trim((string) ($web['php_fpm_pool_dir'] ?? '')), '/');
+        $script = basename(trim((string) ($web['php_fpm_init_script'] ?? '')));
+        foreach ([['php_fpm_pool_dir', $poolDir], ['php_fpm_init_script', $script]] as [$column, $value]) {
+            if ($value === '' || $value === '.') {
+                continue;
+            }
+            $match = $usable->first(function (object $row) use ($column, $value): bool {
+                $candidate = trim((string) ($row->{$column} ?? ''));
+
+                return ($column === 'php_fpm_pool_dir' ? rtrim($candidate, '/') : basename($candidate)) === $value;
+            });
+            if ($match !== null) {
+                return $match;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Display name of the default version (legacy `[web] php_default_name`).
      */
     public function defaultName(int $serverId): string
