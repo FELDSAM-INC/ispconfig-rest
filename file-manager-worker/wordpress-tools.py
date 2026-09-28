@@ -839,4 +839,10 @@ if __name__ == '__main__':
     try:
         print(json.dumps(main(json.loads(sys.stdin.buffer.readline(1048577)))))
     except Exception as error:
-        print(json.dumps({'error': str(error) if isinstance(error, Failure) else 'wp_cli_failed'}))
+        result = {'error': str(error) if isinstance(error, Failure) else 'wp_cli_failed'}
+        if not isinstance(error, Failure):
+            trace = error.__traceback__
+            while trace.tb_next:
+                trace = trace.tb_next
+            result['diagnostic'] = {'exception': type(error).__name__, 'line': trace.tb_lineno}
+        print(json.dumps(result))

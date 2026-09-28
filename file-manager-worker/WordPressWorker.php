@@ -515,6 +515,12 @@ final class WordPressWorker
         }
         $result = $this->sandbox($site, $request, $job);
         if (isset($result['error'])) {
+            $diagnostic = $result['diagnostic'] ?? null;
+            if (is_array($diagnostic) && is_string($diagnostic['exception'] ?? null) && preg_match('/\A[A-Za-z_]{1,64}\z/D', $diagnostic['exception'])
+                && is_int($diagnostic['line'] ?? null) && $diagnostic['line'] > 0 && $diagnostic['line'] < 10000) {
+                error_log(json_encode(['event' => 'wordpress_sandbox_failed', 'job' => $job['id'], 'website_id' => (int) $job['website_id'],
+                    'exception' => $diagnostic['exception'], 'line' => $diagnostic['line']], JSON_THROW_ON_ERROR));
+            }
             $error = is_string($result['error']) && preg_match('/\A[a-z_]{1,64}\z/D', $result['error']) ? $result['error'] : 'worker_failed';
             $this->finish($job, ! empty($result['recovery_required']) ? 'recovery_required' : 'failed', $error);
 
