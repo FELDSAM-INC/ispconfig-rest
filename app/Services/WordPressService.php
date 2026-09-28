@@ -50,14 +50,15 @@ final class WordPressService
         $snapshot = Schema::hasTable('api_wordpress_sites') ? $this->snapshot($site) : null;
         $installs = json_decode($snapshot->installations ?? '[]', true) ?: [];
         // The worker snapshot contains private DB matching and undo metadata. Never serialize it wholesale.
-        $public = array_map(static fn ($row) => array_intersect_key($row, array_flip(['id', 'path', 'url', 'admin_url', 'version', 'title', 'checked_at', 'security', 'error'])), $installs);
-        $job = Schema::hasTable('api_wordpress_jobs') ? DB::table('api_wordpress_jobs')->where('website_id', $site->getKey())->where('identity', $this->identity($site))->orderByDesc('created_at')->first() : null;
+        $public = array_map(fn ($row) => array_intersect_key($row, array_flip(['id', 'path', 'url', 'admin_url', 'version', 'title', 'checked_at', 'security', 'error', 'integrity'])) + ['cron' => app(WordPressCronService::class)->view($site, $row['id'])], $installs);
+        $job = Schema::hasTable('api_wordpress_jobs') ? DB::table('api_wordpress_jobs')->where('website_id', $site->getKey())->where('identity', $this->identity($site))->where('action', '!=', 'cron_run')->orderByDesc('created_at')->orderByDesc('id')->first() : null;
 
         return ['available' => (bool) ($worker->available ?? false), 'reason' => $worker->reason ?? ($worker ? null : 'worker_unavailable'),
             'scanned_at' => $snapshot ? gmdate('c', $snapshot->scanned_at) : null, 'scan_incomplete' => (bool) ($snapshot->incomplete ?? false), 'installations' => $public,
             'measures' => array_map(fn ($key) => ['id' => $key, 'reversible' => ! in_array($key, WordPressPolicy::ONE_WAY, true),
                 'available' => ! in_array($key, WordPressPolicy::SERVER, true) || $site->web_server_type === 'apache',
                 'reason' => in_array($key, WordPressPolicy::SERVER, true) && $site->web_server_type !== 'apache' ? 'apache_required' : null], [...WordPressPolicy::SERVER, ...WordPressPolicy::LOCAL]),
+            'tools_available' => (bool) ($worker->available ?? false) && (int) ($worker->version ?? 0) >= 2,
             'job' => $job ? $this->present($job) : null];
     }
 
@@ -67,6 +68,9 @@ final class WordPressService
         app(LockedClientGuard::class)->checkBackupWrite($site);
         abort_unless($site->active && in_array($site->type, ['vhost', 'vhostsubdomain', 'vhostalias'], true), 409, 'WordPress requires an active vhost.');
         abort_unless($this->worker($site)?->available && app(WebRuntimeService::class)->publicRoot($site), 409, 'The WordPress worker is unavailable.');
+        if (in_array($input['action'], ['verify_integrity', 'cron_enable', 'cron_disable'], true)) {
+            abort_unless((int) $this->worker($site)->version >= 2, 409, 'Update the WordPress worker to enable these tools.');
+        }
 
         return DB::transaction(function () use ($site, $input): array {
             DB::table('api_wordpress_workers')->where('server_id', $site->server_id)->lockForUpdate()->first();
@@ -87,7 +91,7 @@ final class WordPressService
                     }
                 }
                 abort_unless($installation, 404, 'Re-scan this website to find the installation.');
-                if ($input['action'] !== 'check') {
+                if (in_array($input['action'], ['secure', 'revert'], true)) {
                     foreach ($input['measures'] as $measure) {
                         abort_if(($installation['security'][$measure]['status'] ?? '') === 'unavailable', 409, 'This security measure is unavailable; run a security check.');
                     }
@@ -99,6 +103,9 @@ final class WordPressService
                 }
                 if (in_array($input['action'], ['secure', 'revert'], true)) {
                     $this->native($site, $installation['path'], $input['measures'], $input['action'] === 'secure');
+                }
+                if (in_array($input['action'], ['cron_enable', 'cron_disable'], true)) {
+                    $input['cron_token'] = app(WordPressCronService::class)->begin($site, $installation, $input['action'] === 'cron_enable', (int) ($input['interval'] ?? 15));
                 }
             }
             $payload = $input + ['path' => $installation['path'] ?? null, 'public_root' => app(WebRuntimeService::class)->publicRoot($site), 'database_id' => $installation['database_id'] ?? null];

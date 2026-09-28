@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\YesNoBoolean;
 use App\Models\Concerns\HasSitesDisplayFields;
+use App\Services\WordPressCronService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 /**
@@ -69,6 +70,7 @@ class CronJob extends BaseModel
     protected $appends = [
         'server_name',
         'parent_domain',
+        'wordpress',
     ];
 
     /**
@@ -83,6 +85,11 @@ class CronJob extends BaseModel
     protected function serverName(): Attribute
     {
         return Attribute::get(fn () => $this->lookupServerName((int) ($this->getAttributes()['server_id'] ?? 0)));
+    }
+
+    protected function wordpress(): Attribute
+    {
+        return Attribute::get(fn () => app(WordPressCronService::class)->managed($this));
     }
 
     protected function parentDomain(): Attribute

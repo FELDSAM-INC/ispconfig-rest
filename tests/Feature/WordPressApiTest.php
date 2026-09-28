@@ -133,4 +133,71 @@ final class WordPressApiTest extends SitesApiTestCase
         $this->deleteJson('/api/v1/sites/databases/'.$database, [], $this->authHeaders())->assertConflict();
         $this->getJson($url.'/jobs/'.$job, $this->authHeaders())->assertOk()->assertJsonPath('backup_database_id', $database);
     }
+
+    public function test_integrity_requires_current_worker_and_rejects_command_options(): void
+    {
+        [$id, $url, $install] = $this->prepareSite();
+        $body = ['action' => 'verify_integrity', 'installation' => $install];
+        $this->postJson($url.'/jobs', $body, $this->authHeaders())->assertConflict();
+        DB::table('api_wordpress_workers')->update(['version' => '2']);
+        foreach (['version', 'locale', 'path', 'command', 'cron_token'] as $key) {
+            $this->postJson($url.'/jobs', $body + [$key => 'unsafe'], $this->authHeaders())->assertUnprocessable();
+        }
+        $this->postJson($url.'/jobs', $body, $this->authHeaders())->assertCreated();
+        $this->assertCount(0, $this->datalogRows('web_domain'));
+    }
+
+    public function test_cron_takeover_obeys_limits_and_owns_a_native_jailed_schedule(): void
+    {
+        TenantSchema::create();
+        $this->seedTenants();
+        $this->assignServers('clientA', ['web' => [1]]);
+        $this->setClientLimit('reseller', 'limit_cron', 10);
+        $client = DB::table('client')->where('client_id', $this->tenant('clientA')['client_id']);
+        $client->update(['limit_cron' => 1, 'limit_cron_type' => 'chrooted', 'limit_cron_frequency' => 15]);
+        [$id, $url, $install] = $this->prepareSite($this->ownedBy('clientA'));
+        DB::table('api_wordpress_workers')->update(['version' => '2']);
+        $headers = $this->tenantHeaders('clientA');
+        $this->getJson($url, $headers)->assertJsonPath('installations.0.cron.available', true)->assertJsonPath('installations.0.cron.intervals.0', 15);
+        $this->postJson($url.'/jobs', ['action' => 'cron_enable', 'installation' => $install, 'interval' => 5], $headers)->assertUnprocessable();
+        $body = ['action' => 'cron_enable', 'installation' => $install, 'interval' => 15];
+        $this->postJson($url.'/jobs', $body, $headers)->assertCreated();
+        $managed = DB::table('api_wordpress_cron')->first();
+        $native = DB::table('cron')->first();
+        $this->assertSame('chrooted', $native->type);
+        $this->assertSame(": > '/private/.ispcp-wp-cron-".$managed->id."'", $native->command);
+        $this->assertSame('*/15', $native->run_min);
+        $this->assertSame('enabling', $managed->state);
+        $this->assertCount(1, $this->datalogRows('cron'));
+        $this->getJson('/api/v1/sites/cron-jobs/'.$native->id, $headers)->assertJsonPath('wordpress.installation', $install);
+        $this->putJson('/api/v1/sites/cron-jobs/'.$native->id, ['active' => false], $headers)->assertConflict();
+        $this->deleteJson('/api/v1/sites/cron-jobs/'.$native->id, [], $headers)->assertConflict();
+        DB::table('api_wordpress_jobs')->update(['status' => 'completed']);
+        // Updating this reservation works at the limit; another install cannot reserve a second task.
+        $this->postJson($url.'/jobs', array_replace($body, ['interval' => 30]), $headers)->assertCreated();
+        $this->assertSame(1, DB::table('cron')->count());
+        DB::table('api_wordpress_jobs')->update(['status' => 'completed']);
+        [$other, $otherUrl, $otherInstall] = $this->prepareSite($this->ownedBy('clientA', ['domain' => 'second.test']));
+        $this->postJson($otherUrl.'/jobs', array_replace($body, ['installation' => $otherInstall]), $headers)->assertConflict();
+        // Stop remains possible after a downgrade to URL-only / zero allowance.
+        $client->update(['limit_cron' => 0, 'limit_cron_type' => 'url']);
+        $this->postJson($url.'/jobs', ['action' => 'cron_disable', 'installation' => $install], $headers)->assertCreated();
+        $this->assertSame(0, DB::table('cron')->count());
+        $this->assertSame('disabling', DB::table('api_wordpress_cron')->value('state'));
+    }
+
+    public function test_url_only_and_zero_cron_plans_cannot_take_over_wordpress(): void
+    {
+        TenantSchema::create();
+        $this->seedTenants();
+        [$id, $url, $install] = $this->prepareSite($this->ownedBy('clientA'));
+        DB::table('api_wordpress_workers')->update(['version' => '2']);
+        $client = DB::table('client')->where('client_id', $this->tenant('clientA')['client_id']);
+        $client->update(['limit_cron' => 5, 'limit_cron_type' => 'url']);
+        $this->getJson($url, $this->tenantHeaders('clientA'))->assertJsonPath('installations.0.cron.reason', 'cron_command_required');
+        $this->postJson($url.'/jobs', ['action' => 'cron_enable', 'installation' => $install], $this->tenantHeaders('clientA'))->assertConflict();
+        $client->update(['limit_cron' => 0, 'limit_cron_type' => 'full']);
+        $this->getJson($url, $this->tenantHeaders('clientA'))->assertJsonPath('installations.0.cron.reason', 'cron_limit');
+        $this->assertSame(0, DB::table('cron')->count());
+    }
 }

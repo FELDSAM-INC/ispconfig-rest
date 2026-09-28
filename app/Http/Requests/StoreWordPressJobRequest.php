@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\WebDomain;
+use App\Services\WordPressCronService;
 use App\Support\IspContext;
 use App\Support\WordPressPolicy;
 use Illuminate\Validation\Rule;
@@ -19,18 +20,19 @@ final class StoreWordPressJobRequest extends SitesRequest
 
     public function rules(): array
     {
-        return ['action' => ['required', Rule::in(['rescan', 'check', 'secure', 'revert'])],
+        return ['action' => ['required', Rule::in(['rescan', 'check', 'secure', 'revert', 'verify_integrity', 'cron_enable', 'cron_disable'])],
             'installation' => ['required_unless:action,rescan', 'string', 'regex:/\A[a-f0-9]{32}\z/D'],
             'measures' => ['required_if:action,secure,revert', 'array', 'min:1', 'max:19'],
             'measures.*' => ['string', 'distinct', Rule::in([...WordPressPolicy::SERVER, ...WordPressPolicy::LOCAL])],
             'confirmed' => ['sometimes', 'boolean'], 'backup' => ['sometimes', 'boolean'],
-            'admin_login' => ['sometimes', 'string', 'regex:/\A[A-Za-z][A-Za-z0-9_.-]{2,59}\z/D']];
+            'admin_login' => ['sometimes', 'string', 'regex:/\A[A-Za-z][A-Za-z0-9_.-]{2,59}\z/D'],
+            'interval' => ['sometimes', 'integer', Rule::in(WordPressCronService::INTERVALS)]];
     }
 
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $v): void {
-            if (array_diff(array_keys($this->all()), ['action', 'installation', 'measures', 'confirmed', 'backup', 'admin_login'])) {
+            if (array_diff(array_keys($this->all()), ['action', 'installation', 'measures', 'confirmed', 'backup', 'admin_login', 'interval'])) {
                 $v->errors()->add('action', 'Unknown WordPress parameters.');
             }
             $measures = $this->input('measures');

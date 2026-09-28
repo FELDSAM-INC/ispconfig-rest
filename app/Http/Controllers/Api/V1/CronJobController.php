@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateCronJobRequest;
 use App\Models\CronJob;
 use App\Services\ClientLimitService;
 use App\Services\SitesService;
+use App\Services\WordPressCronService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -79,6 +80,10 @@ class CronJobController extends Controller
         $this->limits->checkCronLimits($job);
 
         DB::transaction(function () use ($job): void {
+            $owner = DB::table('sys_group')->where('groupid', $job->sys_groupid)->value('client_id');
+            if ($owner) {
+                DB::table('client')->where('client_id', $owner)->lockForUpdate()->first();
+            }
             $job->save();
         });
 
@@ -91,6 +96,7 @@ class CronJobController extends Controller
      */
     public function update(UpdateCronJobRequest $request, CronJob $cronJob): JsonResponse
     {
+        app(WordPressCronService::class)->guard($cronJob);
         $cronJob->fill($request->payload());
 
         $parent = $this->service->parentDomain((int) $cronJob->getAttributes()['parent_domain_id']);
@@ -112,6 +118,7 @@ class CronJobController extends Controller
      */
     public function destroy(CronJob $cronJob): Response
     {
+        app(WordPressCronService::class)->guard($cronJob);
         DB::transaction(function () use ($cronJob): void {
             $cronJob->delete();
         });

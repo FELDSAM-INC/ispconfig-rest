@@ -2,6 +2,7 @@ type: object
 required: [available, installations, measures]
 properties:
   available: {type: boolean}
+  tools_available: {type: boolean, description: Live version-2 worker supports integrity and cron actions.}
   reason: {type: [string, 'null']}
   scanned_at: {type: [string, 'null'], format: date-time}
   scan_incomplete: {type: boolean}
@@ -18,6 +19,34 @@ properties:
         title: {type: string}
         admin_url: {type: string}
         checked_at: {type: [string, 'null'], format: date-time}
+        cron:
+          type: object
+          properties:
+            available: {type: boolean}
+            reason: {type: [string, 'null']}
+            state: {type: string, enum: [disabled, enabling, active, disabling, error]}
+            interval: {type: integer}
+            intervals: {type: array, items: {type: integer}}
+            cron_id: {type: [integer, 'null']}
+            last_run: {type: [string, 'null'], format: date-time}
+            error: {type: [string, 'null']}
+        integrity:
+          type: [object, 'null']
+          properties:
+            status: {type: string, enum: [clean, modified]}
+            version: {type: string}
+            locale: {type: string}
+            checked_at: {type: string, format: date-time}
+            total: {type: integer}
+            truncated: {type: boolean}
+            files:
+              type: array
+              maxItems: 500
+              items:
+                type: object
+                properties:
+                  file: {type: string}
+                  status: {type: string, enum: [missing, changed, unexpected]}
         security: {type: object, additionalProperties: {type: object}}
   measures:
     type: array

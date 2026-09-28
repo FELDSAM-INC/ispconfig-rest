@@ -39,13 +39,14 @@
             additionalProperties: false
             required: [action]
             properties:
-              action: {type: string, enum: [rescan, check, secure, revert]}
+              action: {type: string, enum: [rescan, check, secure, revert, verify_integrity, cron_enable, cron_disable]}
               installation: {type: string, pattern: '^[a-f0-9]{32}$'}
               measures:
                 type: array
                 maxItems: 19
                 uniqueItems: true
                 items: {type: string, enum: [xmlrpc, config, htfiles, sensitive, potential, indexes, includes_php, uploads_php, cache_php, author, bots, file_editor, concatenate, salts, pingbacks, permissions, languages, prefix, admin_login]}
+              interval: {type: integer, enum: [5, 10, 15, 30, 60, 360, 720, 1440], default: 15, description: Cron interval in minutes, restricted by the owning plan.}
               confirmed: {type: boolean, default: false}
               backup: {type: boolean, default: false}
               admin_login: {type: string, pattern: '^[A-Za-z][A-Za-z0-9_.-]{2,59}$'}
