@@ -10,6 +10,81 @@ required:
   - username
   - password
 properties:
+  web_php_policy:
+    type: object
+    nullable: true
+    additionalProperties: false
+    description: >-
+      Administrator-only per-client PHP product policy. Omit to leave unchanged;
+      null removes it and restores the saved pool settings. Returned on detail,
+      create and update, not list responses. Applies atomically to existing owned
+      vhosts and to future REST-created vhosts. Requires the product PHP migration.
+      Clients/resellers cannot set or clear this policy.
+    required: [force_fpm, php_fpm_use_socket, php_fpm_chroot, pm, pm_max_children, pm_start_servers, pm_min_spare_servers, pm_max_spare_servers, pm_process_idle_timeout, pm_max_requests, ini]
+    properties:
+      force_fpm:
+        type: boolean
+        description: Restrict native client PHP modes to PHP-FPM and enforce it on vhosts.
+      php_fpm_use_socket:
+        type: boolean
+      php_fpm_chroot:
+        type: boolean
+      pm:
+        type: string
+        enum: [ondemand, dynamic]
+        description: Dynamic requires max_children >= max_spare_servers >= start_servers >= min_spare_servers.
+      pm_max_children:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      pm_start_servers:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      pm_min_spare_servers:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      pm_max_spare_servers:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      pm_process_idle_timeout:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      pm_max_requests:
+        type: integer
+        minimum: 0
+        maximum: 2147483647
+      ini:
+        type: object
+        additionalProperties: false
+        required: [memory_limit, max_execution_time, max_input_time, post_max_size, upload_max_filesize]
+        description: Customer-read-only values in a managed custom_php_ini block. Other directives are preserved.
+        properties:
+          memory_limit:
+            type: string
+            pattern: '^(?:-1|[1-9][0-9]{0,8}[KkMmGg]?)$'
+            example: 256M
+          max_execution_time:
+            type: string
+            example: '30'
+            description: Nonnegative integer seconds, at most 2147483647; 0 means unlimited.
+          max_input_time:
+            type: string
+            example: '60'
+            description: Integer seconds from -1 to 2147483647; -1 inherits max_execution_time.
+          post_max_size:
+            type: string
+            pattern: '^(?:0|[1-9][0-9]{0,8}[KkMmGg]?)$'
+            example: 8M
+          upload_max_filesize:
+            type: string
+            pattern: '^(?:0|[1-9][0-9]{0,8}[KkMmGg]?)$'
+            example: 2M
+            description: Must not exceed a finite post_max_size.
+
   id:
     type: integer
     format: int64

@@ -8,6 +8,7 @@ use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Models\Client;
 use App\Services\ClientService;
+use App\Services\ClientWebPhpPolicyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -55,7 +56,7 @@ class ClientController extends Controller
      */
     public function show(Client $client): JsonResponse
     {
-        return response()->json($client);
+        return response()->json($this->withPhpPolicy($client));
     }
 
     /**
@@ -68,7 +69,7 @@ class ClientController extends Controller
             fn (): Client => $this->service->createClient(new Client, $request->payload())
         );
 
-        return response()->json($client, 201);
+        return response()->json($this->withPhpPolicy($client), 201);
     }
 
     /**
@@ -82,7 +83,12 @@ class ClientController extends Controller
             fn (): Client => $this->service->updateClient($client, $request->payload())
         );
 
-        return response()->json($client);
+        return response()->json($this->withPhpPolicy($client));
+    }
+
+    private function withPhpPolicy(Client $client): array
+    {
+        return $client->toArray() + ['web_php_policy' => app(ClientWebPhpPolicyService::class)->policy((int) $client->getKey())];
     }
 
     /**

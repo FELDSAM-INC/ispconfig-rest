@@ -5,6 +5,15 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Added
+
+- Administrator-only client `web_php_policy` for product INI limits and native
+  PHP-FPM pool settings, socket/chroot and optional FPM-only hosting. Applies to
+  current owned vhosts and future REST-created sites, preserves unrelated INI,
+  and restores previous managed settings when removed. Requires migration
+  `2026_09_28_000003_create_client_web_php_policies.php`. See
+  [product PHP policy](docs/product-php-policy.md) for scope and native-panel limits.
+
 ### Fixed
 
 - WAF events and exception suggestions no longer include the full stop from

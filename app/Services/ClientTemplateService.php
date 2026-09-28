@@ -381,7 +381,7 @@ class ClientTemplateService
         if ($updates !== []) {
             // forceFill routes values through the model casts and save()
             // datalogs the update (no-change suppression applies).
-            $client->forceFill($updates)->save();
+            $client->forceFill(app(ClientWebPhpPolicyService::class)->clientAttributes($clientId, $updates))->save();
         }
     }
 

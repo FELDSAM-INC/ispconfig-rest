@@ -15,7 +15,7 @@ function request(string $socket, string $script): string
 {
     $fp = false;
     for ($i = 0; $i < 60 && ! $fp; $i++) {
-        $fp = @stream_socket_client('unix://'.$socket, $errno, $error, .1);
+        $fp = @stream_socket_client(str_contains($socket, '://') ? $socket : 'unix://'.$socket, $errno, $error, .1);
         if (! $fp) {
             usleep(50000);
         }
@@ -121,6 +121,46 @@ try {
                     throw new RuntimeException('OPcache startup restriction not respected');
                 }
                 echo 'PASS '.($globallyDisabled ? 'globally disabled OPcache ' : '').$mode.' PHP values and function '.($allow ? 'enabled' : 'blocked')."\n";
+            }
+        }
+    }
+    // Product limits must be php_admin_value even for numeric 0/1. Reproduce
+    // ISPConfig's loose switch conversion, then verify the real FPM runtime.
+    file_put_contents($script, '<?php $out=[]; foreach (["memory_limit","max_execution_time","max_input_time","post_max_size","upload_max_filesize"] as $key) {$out[$key]=ini_get($key);} $out["override_denied"]=ini_set("memory_limit","512M")===false; echo json_encode($out);');
+    foreach (['ondemand', 'dynamic'] as $manager) {
+        foreach ([false, true] as $chroot) {
+            foreach ([false, true] as $socket) {
+                $numericEdge = $manager === 'dynamic';
+                $expected = ['memory_limit' => '256M', 'max_execution_time' => $numericEdge ? '0' : '30', 'max_input_time' => $numericEdge ? '1' : '60', 'post_max_size' => '8M', 'upload_max_filesize' => '2M'];
+                $listen = $socket ? $root.'/product.sock' : '127.0.0.1:19000';
+                $pool = "[global]\nerror_log=$root/fpm.log\n[product]\nuser=www-data\ngroup=www-data\nlisten=$listen\npm=$manager\npm.max_children=5\npm.max_requests=100\n";
+                $pool .= $manager === 'dynamic' ? "pm.start_servers=2\npm.min_spare_servers=1\npm.max_spare_servers=3\n" : "pm.process_idle_timeout=10s\n";
+                if ($chroot) {
+                    $pool .= "chroot=$root\n";
+                }
+                foreach ($expected as $key => $value) {
+                    $value = in_array($value, ['0', '1'], true) ? '"'.$value.'"' : $value;
+                    switch (strtolower($value)) {
+                        case '0': $value = 'off';
+                        case '1': case 'on': case 'off': case 'true': case 'false': case 'yes': case 'no':
+                            $pool .= 'php_admin_flag['.$key.'] = '.$value."\n";
+                            break;
+                        default: $pool .= 'php_admin_value['.$key.'] = '.$value."\n";
+                    }
+                }
+                file_put_contents($root.'/fpm.conf', $pool);
+                $process = proc_open(['php-fpm8.4', '-F', '-y', $root.'/fpm.conf'], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $root.'/process.log', 'a'], 2 => ['file', $root.'/process.log', 'a']], $pipes);
+                try {
+                    $out = request($socket ? $listen : 'tcp://'.$listen, $chroot ? '/read.php' : $script);
+                    $data = json_decode(explode("\r\n\r\n", $out, 2)[1] ?? $out, true);
+                    if ($data !== $expected + ['override_denied' => true]) {
+                        throw new RuntimeException('Product pool mismatch: '.json_encode($data));
+                    }
+                    echo "PASS product $manager, chroot=".(int) $chroot.', socket='.(int) $socket.": actual limits and ini_set denied\n";
+                } finally {
+                    proc_terminate($process);
+                    proc_close($process);
+                }
             }
         }
     }

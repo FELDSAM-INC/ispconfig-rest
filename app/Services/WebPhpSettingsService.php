@@ -44,7 +44,7 @@ final class WebPhpSettingsService
     }
 
     /** ISPConfig appends required PHP snippets after the website's custom INI. */
-    private function snippet(WebDomain $site): array
+    public function snippetValues(WebDomain $site): array
     {
         if (! $site->directive_snippets_id) {
             return [];
@@ -82,7 +82,7 @@ final class WebPhpSettingsService
         }
         $defaults = $this->defaults($site);
         $custom = WebPhpDefaults::values((string) $site->custom_php_ini);
-        $snippet = $this->snippet($site);
+        $snippet = $this->snippetValues($site);
         $values = array_replace(array_fill_keys(WebPhpDefaults::KEYS, null), $defaults['values'] ?? [], $custom, $snippet);
         $locked = array_keys($snippet);
         if (($defaults['mode'] ?? '') === 'cgi') {

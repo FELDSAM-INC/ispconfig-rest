@@ -150,6 +150,13 @@ class WebDomainService
             $record['php_fpm_chroot'] = $webConfig['php_fpm_default_chroot'];
         }
 
+        $domain->setRawAttributes($record);
+        $beforePolicy = clone $domain;
+        $phpPolicy = app(ClientWebPhpPolicyService::class);
+        $phpPolicy->apply($domain);
+        $record = $domain->getAttributes();
+        $this->runConfigDependentChecks($record, null);
+
         // Client resource-limit enforcement (spec 012). WebDomainService
         // inserts web_domain via a raw query rather than BaseModel::save(), so
         // the count (limit_web_domain / _subdomain / _aliasdomain by type) and
@@ -168,6 +175,12 @@ class WebDomainService
         app(LockedClientGuard::class)->check($domain, true);
 
         $id = (int) DB::table('web_domain')->insertGetId($record, 'domain_id');
+        $ownerClientId = (int) DB::table('sys_group')->where('groupid', $record['sys_groupid'])->value('client_id');
+        $storedPolicy = $phpPolicy->policy($ownerClientId);
+        if ($storedPolicy !== null) {
+            $beforePolicy->setAttribute('domain_id', $id);
+            $phpPolicy->snapshot($beforePolicy, $ownerClientId, $storedPolicy['force_fpm']);
+        }
 
         // Derived provisioning fields (legacy onAfterInsert).
         if ($isChildVhost) {
@@ -297,6 +310,9 @@ class WebDomainService
             $domain->setRawAttributes(array_merge($attributes, $forced));
         }
 
+        app(ClientWebPhpPolicyService::class)->apply($domain);
+        $this->runConfigDependentChecks($domain->getAttributes(), (int) $domain->getKey());
+        $domain->setAttribute('server_php_id', $this->resolveServerPhpId($domain->getAttributes()));
         app(WebRuntimeService::class)->apply($domain, $runtime);
         app(WebPhpSettingsService::class)->apply($domain, $phpSettings);
         $domain->save();
@@ -322,6 +338,7 @@ class WebDomainService
                 ->where('type', '!=', 'vhost')
                 ->pluck('domain_id');
             foreach ($children as $childId) {
+                app(ClientWebPhpPolicyService::class)->forgetSite((int) $childId);
                 $this->datalog->deleteRecord('web_domain', 'domain_id', $childId);
             }
 
@@ -359,6 +376,7 @@ class WebDomainService
             $this->datalog->deleteRecord('web_folder', 'web_folder_id', $folderId);
         }
 
+        app(ClientWebPhpPolicyService::class)->forgetSite($id);
         $domain->delete();
     }
 

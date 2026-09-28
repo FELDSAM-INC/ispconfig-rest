@@ -88,6 +88,9 @@ class ClientService
      */
     public function createClient(Client $client, array $payload, bool $asReseller = false): Client
     {
+        $phpPolicySent = array_key_exists('web_php_policy', $payload);
+        $phpPolicy = $payload['web_php_policy'] ?? null;
+        unset($payload['web_php_policy']);
         $plainPassword = (string) $payload['password'];
         $payload['password'] = LegacyCrypt::hash($plainPassword);
         unset($plainPassword);
@@ -141,7 +144,12 @@ class ClientService
 
         // Apply master + additional templates (legacy clients_template_plugin
         // runs on every insert; no-op while template_master is 0).
+        $policy = app(ClientWebPhpPolicyService::class);
+        if ($phpPolicySent) {
+            $policy->store($client, $phpPolicy);
+        }
         $this->templates->applyClientTemplates($clientId);
+        $client->refresh()->forceFill($policy->clientAttributes($clientId, []))->save();
 
         return $client->refresh();
     }
@@ -154,6 +162,9 @@ class ClientService
      */
     public function updateClient(Client $client, array $payload): Client
     {
+        $phpPolicySent = array_key_exists('web_php_policy', $payload);
+        $phpPolicy = $payload['web_php_policy'] ?? null;
+        unset($payload['web_php_policy']);
         $old = $client->getRawOriginal();
         $clientId = (int) $client->getKey();
 
@@ -228,7 +239,15 @@ class ClientService
 
         // Re-apply templates (legacy clients_template_plugin on_after_update;
         // no-op while template_master is 0).
+        $policy = app(ClientWebPhpPolicyService::class);
+        if ($phpPolicySent) {
+            $policy->store($client, $phpPolicy);
+        }
         $this->templates->applyClientTemplates($clientId);
+        $client->refresh()->forceFill($policy->clientAttributes($clientId, []))->save();
+        if ($phpPolicySent) {
+            $policy->syncSites($clientId);
+        }
 
         return $client->refresh();
     }
@@ -337,6 +356,7 @@ class ClientService
         }
 
         // 4. The client row itself (datalog 'd').
+        app(ClientWebPhpPolicyService::class)->forgetClient($clientId);
         $client->delete();
     }
 
