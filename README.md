@@ -72,7 +72,9 @@ Every prompt has a flag and `ISPC_REST_*` env var for unattended installs — se
 
 ```bash
 ispconfig-rest status                        # service state, version, DB connectivity
-ispconfig-rest update                        # pull latest, install deps, migrate, restart
+ispconfig-rest update                        # update current branch; keep a release tag pinned
+ispconfig-rest update --branch main          # select stable updates
+ispconfig-rest update --tag v1.0.1            # select a specific release
 ispconfig-rest key:create "my integration"   # mint an admin key
 ispconfig-rest key:create "acme" --client-id 42   # mint a client-scoped key
 ispconfig-rest key:list --client-id 42       # list keys (never shows secrets)
@@ -80,6 +82,23 @@ ispconfig-rest key:revoke 17                 # revoke (deactivate) a key
 ispconfig-rest firewall:allow 8090           # open a port in the ISPConfig firewall
 ispconfig-rest restart | logs -f | version | uninstall
 ```
+
+The updater follows the **actual checkout**: `main` stays on `main`, `develop`
+stays on `develop`, and a detached release tag stays on that exact release.
+Use `--branch main` to leave a pinned release and follow stable updates, or
+`--tag VERSION` to select another release. A detached commit without a release
+tag requires an explicit selection. `version` and `status` report the actual
+branch or pinned tag. Updates fetch release tags, including on shallow installs,
+and stop if tracked files have local edits or the branch has diverged from origin.
+Untracked runtime files such as `.env` and `.composer/` are preserved.
+
+**Updaters shipped through v1.0.1:** these used `BRANCH` from the root-owned
+`/etc/ispconfig-rest/install.conf` and forcibly checked it out on every update.
+Checking out `main` or a tag manually did not change that setting. The behavior
+and options above require the corrected manager (currently on `develop`).
+It retains its branch/tag handling when an older API release is selected, while
+worker sources still come from the selected API release. Existing release tags
+are not changed or replaced by this fix.
 
 ## Manual / development installation
 

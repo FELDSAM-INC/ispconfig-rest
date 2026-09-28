@@ -2,7 +2,7 @@ name: tests
 
 on:
   push:
-    branches: [main, '0*']
+    branches: [main, develop, '0*']
     tags: ['v*']
   pull_request:
 
@@ -17,6 +17,7 @@ jobs:
       - name: Check server tools CLI
         run: |
           python3 -m unittest discover -s tests/Integration/server-tools -p 'test_*.py'
+          python3 -m unittest discover -s tests/Integration/updater -p 'test_*.py'
           bash -n bin/ispconfig-rest install.sh
           sh -n worker/install.sh file-manager-worker/install.sh file-manager-worker/wordpress-install.sh
           python3 -m unittest discover -s tests/WordPress -p 'test_*.py'

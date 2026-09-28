@@ -3,6 +3,18 @@
 Release notes for ISPConfig REST API. Versions refer to the application release;
 the HTTP API remains under `/api/v1`.
 
+## [Unreleased]
+
+### Fixed
+
+- **Updater release selection:** follow the checked-out branch instead of silently
+  restoring the install-time branch; keep detached release tags pinned. Add
+  `update --branch NAME` and `update --tag VERSION`, fetch tags on shallow installs,
+  and report the actual checkout in `version`/`status`. Refuse to discard tracked
+  edits, local commits or changed release tags. Refresh the CLI from verified
+  official sources and retain the corrected updater when selecting an older API
+  release. Worker provenance follows the selected branch or release tag.
+
 ## [1.0.1] - 2026-09-28
 
 This release adds WordPress Tools, per-website WAF controls, configured PHP settings

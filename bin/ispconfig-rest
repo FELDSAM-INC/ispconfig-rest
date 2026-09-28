@@ -5,7 +5,9 @@
 # Installed to /usr/local/bin/ispconfig-rest by install.sh. Reads
 # /etc/ispconfig-rest/install.conf to locate the deployment.
 #
-#   ispconfig-rest update                 fetch latest, install deps, migrate, restart
+#   ispconfig-rest update                 update current branch; keep release tags pinned
+#   ispconfig-rest update --branch main   switch to the stable branch and update
+#   ispconfig-rest update --tag v1.0.1    install a specific release (detached HEAD)
 #   ispconfig-rest status                 service state, version, DB connectivity
 #   ispconfig-rest restart|start|stop     control the service
 #   ispconfig-rest logs [-f]              service logs
@@ -20,6 +22,7 @@
 #   ispconfig-rest uninstall              remove service + manager (keeps DB data)
 
 set -euo pipefail
+# release-aware-updater-v1: keep this manager when selecting older API releases.
 
 STATE_FILE="/etc/ispconfig-rest/install.conf"
 
@@ -47,20 +50,20 @@ cmd_server_tools() {
   # the new helpers from the same published commit without running API code as root.
   { [ -f "$helper" ] && [ -f /usr/local/lib/ispconfig-rest-cli/remote.php ]; } || install_server_tools_manager
   shift
-  ISPCP_TOOLS_INSTALL_DIR="$INSTALL_DIR" ISPCP_TOOLS_RUN_USER="$RUN_USER" ISPCP_TOOLS_PHP="$PHP_BIN" ISPCP_TOOLS_BRANCH="${BRANCH:-main}" \
+  ISPCP_TOOLS_INSTALL_DIR="$INSTALL_DIR" ISPCP_TOOLS_RUN_USER="$RUN_USER" ISPCP_TOOLS_PHP="$PHP_BIN" ISPCP_TOOLS_BRANCH="${RELEASE_REF:-${BRANCH:-main}}" \
     python3 "$helper" "$@"
 }
 
 install_server_tools_manager() {
-  local revision stage
+  local revision stage refresh_manager="${1:-}"
   revision="$(run_as git rev-parse HEAD)"
   [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || die "Cannot determine installed release."
   stage="$(mktemp -d /root/ispconfig-rest-cli.XXXXXXXX)"
   if ! (
     trap 'rm -rf -- "$stage"' EXIT
     git init --bare "$stage/repository" >/dev/null 2>&1 || exit 1
-    git -c core.hooksPath=/dev/null -c protocol.file.allow=never -C "$stage/repository" fetch --no-tags https://github.com/FELDSAM-INC/ispconfig-rest.git "${BRANCH:-main}" || exit 1
-    # The checkout's revision is untrusted input. It must belong to the branch
+    git -c core.hooksPath=/dev/null -c protocol.file.allow=never -C "$stage/repository" fetch --no-tags https://github.com/FELDSAM-INC/ispconfig-rest.git "${RELEASE_REF:-${BRANCH:-main}}" || exit 1
+    # The checkout's revision is untrusted input. It must belong to the ref
     # selected in root-owned install.conf, not merely an arbitrary public object.
     git -C "$stage/repository" merge-base --is-ancestor "$revision" FETCH_HEAD || exit 1
     for file in manage.py remote.php; do
@@ -68,6 +71,15 @@ install_server_tools_manager() {
     done
     install -d -o root -g root -m 0755 /usr/local/lib/ispconfig-rest-cli || exit 1
     install -o root -g root -m 0644 "$stage/manage.py" "$stage/remote.php" /usr/local/lib/ispconfig-rest-cli/ || exit 1
+    if [ "$refresh_manager" = --refresh-manager ]; then
+      # Never install root-executed code directly from the web-owned checkout.
+      git -C "$stage/repository" show "$revision:bin/ispconfig-rest" > "$stage/manager" || exit 1
+      if grep -q '^# release-aware-updater-v1:' "$stage/manager"; then
+        install -o root -g root -m 0755 "$stage/manager" /usr/local/bin/ispconfig-rest || exit 1
+      else
+        info "Keeping the current manager: this API release predates branch/tag-aware updates."
+      fi
+    fi
   ); then die "Could not install trusted server-tools helpers for $revision."; fi
 }
 
@@ -121,10 +133,15 @@ reload_server(){
 }
 
 cmd_version() {
-  local ver commit
+  local ver commit branch tag location
   ver="$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || echo '?')"
-  commit="$(git -C "$INSTALL_DIR" rev-parse --short HEAD 2>/dev/null || echo '?')"
-  echo "ISPConfig REST API $ver ($commit) on branch ${BRANCH:-?}"
+  commit="$(run_as git rev-parse --short HEAD 2>/dev/null || echo '?')"
+  branch="$(run_as git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  tag="$(run_as git describe --tags --exact-match --match 'v[0-9]*' HEAD 2>/dev/null || true)"
+  if [ -n "$branch" ]; then location="on branch $branch"
+  elif [ -n "$tag" ]; then location="at release $tag (detached, pinned)"
+  else location="at detached commit $commit"; fi
+  echo "ISPConfig REST API $ver ($commit) $location"
 }
 
 cmd_status() {
@@ -167,21 +184,77 @@ CRON
   ok "One-minute API scheduler installed"
 }
 
+valid_update_branch() {
+  [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9_./-]*$ ]] && git check-ref-format "refs/heads/$1" >/dev/null
+}
+valid_release_tag() {
+  [[ "$1" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] && git check-ref-format "refs/tags/$1" >/dev/null
+}
+
+update_checkout() {
+  local branch="" tag="" selected="" target
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --branch|--tag)
+        [ $# -ge 2 ] && [ -n "$2" ] || die "$1 requires a value."
+        [ -z "$selected" ] || die "Choose either --branch NAME or --tag VERSION."
+        selected="$1"
+        if [ "$1" = --branch ]; then branch="$2"; else tag="$2"; fi
+        shift 2;;
+      *) die "Unknown update option: $1 (try 'ispconfig-rest update --help').";;
+    esac
+  done
+  if [ -z "$selected" ]; then branch="$(run_as git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"; fi
+  [ -z "$branch" ] || valid_update_branch "$branch" || die "Invalid update branch."
+  [ -z "$tag" ] || valid_release_tag "$tag" || die "Expected a release tag such as v1.0.1."
+  run_as git diff --quiet && run_as git diff --cached --quiet \
+    || die "Tracked files have local changes. Commit or save them before updating."
+
+  # Explicit refspecs also work with single-branch shallow installer clones.
+  # Do not force-fetch tags: a moved release must fail instead of silently changing.
+  if [ -n "$branch" ]; then
+    info "Update channel: branch $branch"
+    run_as git fetch --atomic origin "+refs/heads/$branch:refs/remotes/origin/$branch" 'refs/tags/*:refs/tags/*'
+    target="refs/remotes/origin/$branch"
+    if run_as git show-ref --verify --quiet "refs/heads/$branch"; then
+      run_as git merge-base --is-ancestor "refs/heads/$branch" "$target" \
+        || die "Branch $branch has diverged from origin. Resolve local commits before updating."
+    fi
+    run_as git checkout -B "$branch" "$target"
+    RELEASE_REF="refs/heads/$branch"
+    BRANCH="$branch"
+  else
+    run_as git fetch --atomic origin 'refs/tags/*:refs/tags/*'
+    if [ -z "$tag" ]; then
+      tag="$(run_as git describe --tags --exact-match --match 'v[0-9]*' HEAD 2>/dev/null || true)"
+      valid_release_tag "$tag" || die "Detached HEAD is not a release tag. Choose 'update --branch main' or 'update --tag VERSION'."
+    fi
+    target="refs/tags/$tag"
+    # The tag must still exist on origin, not only in the local tag cache.
+    run_as git ls-remote --exit-code --refs origin "$target" >/dev/null \
+      || die "Release $tag was not found on origin."
+    info "Update channel: release $tag (pinned; use --branch main to follow stable updates)"
+    run_as git checkout --detach "$target"
+    RELEASE_REF="$target"
+    BRANCH="$tag"
+  fi
+  # Both values are validated refs with no shell/sed metacharacters. Saved state
+  # is used for trusted worker provenance; it never overrides the next checkout.
+  set_state BRANCH "$BRANCH"
+  set_state RELEASE_REF "$RELEASE_REF"
+}
+
 cmd_update() {
+  if [ "${1:-}" = --help ] || [ "${1:-}" = -h ]; then
+    echo "Usage: ispconfig-rest update [--branch NAME | --tag VERSION]"
+    echo "Without options: update the current branch, or keep a detached release tag pinned."
+    return
+  fi
   need_root
   info "Updating ISPConfig REST API in $INSTALL_DIR"
-  # Ensure root can also read the tree cleanly (status/version) going forward.
-  git config --system --get-all safe.directory 2>/dev/null | grep -qxF "$INSTALL_DIR" \
-    || git config --system --add safe.directory "$INSTALL_DIR"
-  # Run git as the repo owner (not root) — the tree is owned by $RUN_USER, and
-  # git refuses to operate on a repo owned by a different user ("dubious
-  # ownership"). run_as = sudo -u $RUN_USER, so ownership matches.
   local before after
   before="$(run_as git rev-parse --short HEAD 2>/dev/null || echo '?')"
-
-  run_as git fetch --depth 1 origin "${BRANCH:-main}"
-  run_as git checkout -f "${BRANCH:-main}"
-  run_as git reset --hard "origin/${BRANCH:-main}"
+  update_checkout "$@"
   after="$(run_as git rev-parse --short HEAD 2>/dev/null || echo '?')"
 
   if [ "$before" = "$after" ]; then ok "Already up to date ($after)"; else info "Updated $before → $after"; fi
@@ -192,9 +265,7 @@ cmd_update() {
   sync_timezone
   run_as "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true
   run_as "$PHP_BIN" artisan route:cache  >/dev/null 2>&1 || true
-  # refresh the manager itself if it changed
-  if [ -f "$INSTALL_DIR/bin/ispconfig-rest" ]; then install -m 0755 "$INSTALL_DIR/bin/ispconfig-rest" /usr/local/bin/ispconfig-rest; fi
-  install_server_tools_manager
+  install_server_tools_manager --refresh-manager
 
   cmd_schedule_install
   reload_server
@@ -250,7 +321,7 @@ cmd_uninstall() {
 }
 
 case "${1:-}" in
-  update)        cmd_update;;
+  update)        shift; cmd_update "$@";;
   schedule:install) cmd_schedule_install;;
   schedule:run)   run_as "$PHP_BIN" artisan schedule:run;;
   status)        cmd_status;;
