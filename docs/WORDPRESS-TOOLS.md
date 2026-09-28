@@ -197,3 +197,31 @@ transfer preserves the original bytes. The user's website was read only.
   Bootstrap, including Revert enabled / Secure disabled for an already renamed user.
 - Cleanup completed: removed website 54, database/user, native runtime, API job/cache
   rows and workspaces, SFTP account/bind mounts/key, and disposable helper files.
+
+### Preview-address verification fix, 2026-09-28
+
+WordPress installed at the ISPConfig-generated preview hostname was rejected by
+prefix/admin preflight (`http_verification_unavailable`) before any database write.
+The worker now uses the same autoalias resolver as the API, including the native
+website owner's client placeholders. Only the website, its www hostname, and its
+configured preview hostname are accepted, including across redirects. Connections
+remain pinned to loopback on ports 80/443. A supplied verification_hosts request
+field is rejected; the root bridge provides the allowlist.
+
+Update the server-tools manager and file-manager component: the shared autoalias
+resolver is installed with the worker. No migration or customer URL change is needed.
+
+Validation: REST 1,547 tests / 12,079 assertions (one existing skip), WordPress Python
+25 tests, server-tools Python 17 tests. Host tests cover preview access, owner-specific
+placeholders, unrelated hosts, userinfo, invalid ports, control characters and redirect
+escape attempts. Module WordPress/language tests: 23 tests / 4,511 assertions.
+The actual development site passed its token-bound HTTP probe at the preview address;
+its database prefix and administrator login were not changed by the diagnostic.
+
+A disposable Czech WordPress 7.1.2 installation on website 55 used its generated
+preview hostname as siteurl. Separate admin-rename and prefix-change jobs completed,
+then separate Revert jobs restored both original values. New posts/options, user ID
+and roles survived. No database exports were created. Tests used the deployed worker
+and customer-scoped API. English/Czech verification errors now explain the cause.
+Cleanup removed website 55, database 15/user 17, worker metadata/journals, SFTP
+account/mounts/key, runtime fixtures and the real-site probe helpers.
