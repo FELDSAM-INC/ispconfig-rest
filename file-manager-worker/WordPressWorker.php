@@ -80,6 +80,10 @@ final class WordPressWorker
                     $deferred[] = $job['id'];
                 }
             } catch (Throwable $e) {
+                // Keep diagnostics in the root service journal, without exception
+                // messages (which can contain SQL, site contents or credentials).
+                error_log(json_encode(['event' => 'wordpress_job_failed', 'job' => $job['id'], 'website_id' => (int) $job['website_id'],
+                    'action' => $job['action'], 'exception' => get_class($e), 'file' => basename($e->getFile()), 'line' => $e->getLine()], JSON_THROW_ON_ERROR));
                 $request = json_decode($job['request'], true);
                 $running = $this->one('SELECT status FROM api_wordpress_jobs WHERE id=?', [$job['id']]);
                 $status = ($job['backup_id'] || ! empty($request['database_change'])) && ($running['status'] ?? '') === 'running' ? 'recovery_required' : 'failed';
