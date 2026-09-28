@@ -273,3 +273,28 @@ sandbox tests and 17 server-tools tests. The module passed 3,495 tests / 104,734
 assertions (four existing skips). Browser tests load both themes and the actual
 `vars/minified.css` at 1440/960/390 px, covering bulk selection, automatic native
 pending completion and cached installation identity with matching modal links.
+
+## Full-selection Revert regression (2026-09-28)
+
+The first persistent-worker release kept a second PDO connection for local native
+identity checks. With this server's `wait_timeout=100`, an idle local connection
+failed before the next job started; the generic `worker_failed` message hid that
+cause. `localOne()` now reconnects once for MariaDB disconnect errors 2006/2013/2055
+and repeats only the fixed SELECT. Writes and database changes are never blindly
+retried. Site and cron identity checks all use this path. A live isolated session
+with `wait_timeout=1` reproduced error 2006 and verified a successful identity read
+after automatic reconnection.
+
+A complete 16-measure Revert also reproduced `ConnectionRefusedError` during the
+HTTP check while ISPConfig restarted Apache to apply the selected server rules.
+Transport interruptions now enter the existing bounded verification retry. Both
+the expiring WordPress probe and the homepage must still pass; persistent failure
+keeps the existing recovery behavior. Root journal diagnostics record exception
+classes and source locations without SQL, command output or credentials.
+
+Disposable WordPress 7.1.2 cs_CZ website 57 exercised all eleven Apache protections,
+file editor, script concatenation, pingbacks, table prefix and administrator name
+in one Revert. A subsequent full Secure/Revert cycle passed too. Independent
+site-user checks confirmed the original prefix/login, administrator ID/role and
+newer post/option remained intact. Full REST suite: 1,553 tests / 12,124 assertions,
+one existing skip; WordPress sandbox: 26 tests; server-tools: 17 tests.
