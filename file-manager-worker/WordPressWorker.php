@@ -20,7 +20,26 @@ final class WordPressWorker
 
     private int $refreshAfter = 0;
 
-    public function __construct(private PDO $db, private PDO $local, private int $server) {}
+    public function __construct(private PDO $db, private PDO $local, private int $server, private ?Closure $connectLocal = null) {}
+
+    private function localOne(string $sql, array $params): ?array
+    {
+        // This connection can sit idle between user jobs, unlike the master queue
+        // connection. Retry only these fixed reads, never a site/database mutation.
+        for ($attempt = 0; ; $attempt++) {
+            try {
+                $query = $this->local->prepare($sql);
+                $query->execute($params);
+
+                return $query->fetch(PDO::FETCH_ASSOC) ?: null;
+            } catch (PDOException $e) {
+                if ($attempt !== 0 || $this->connectLocal === null || ! in_array((int) ($e->errorInfo[1] ?? 0), [2006, 2013, 2055], true)) {
+                    throw $e;
+                }
+                $this->local = ($this->connectLocal)();
+            }
+        }
+    }
 
     private function one(string $sql, array $params = []): ?array
     {
@@ -140,9 +159,7 @@ final class WordPressWorker
                 $server = $this->one('SELECT config FROM server WHERE server_id=?', [$this->server]);
                 $config = parse_ini_string($server['config'], true, INI_SCANNER_RAW);
                 $engine = $config['web']['server_type'] ?? '';
-                $local = $this->local->prepare('SELECT * FROM web_domain WHERE domain_id=? AND server_id=?');
-                $local->execute([$site['domain_id'], $this->server]);
-                $applied = $local->fetch(PDO::FETCH_ASSOC);
+                $applied = $this->localOne('SELECT * FROM web_domain WHERE domain_id=? AND server_id=?', [$site['domain_id'], $this->server]);
                 $identity = WordPressPolicy::identity($site, $this->publicRoot($site, $engine));
                 if (! hash_equals($snapshot['identity'], $identity) || ! $applied || $applied['active'] !== 'y'
                     || ! hash_equals($identity, WordPressPolicy::identity($applied, $this->publicRoot($applied, $engine)))) {
@@ -271,9 +288,7 @@ final class WordPressWorker
             if ($native['command'] !== $expected) {
                 throw new RuntimeException('cron_changed');
             }
-            $local = $this->local->prepare('SELECT * FROM cron WHERE id=?');
-            $local->execute([$row['cron_id']]);
-            $applied = $local->fetch(PDO::FETCH_ASSOC);
+            $applied = $this->localOne('SELECT * FROM cron WHERE id=?', [$row['cron_id']]);
             $file = rtrim($config['cron']['crontab_dir'] ?? '/etc/cron.d', '/').'/ispc_'.($native['type'] === 'chrooted' ? 'chrooted_' : '').$site['system_user'];
             $schedule = implode('	', array_map(static fn ($field) => $native[$field], ['run_min', 'run_hour', 'run_mday', 'run_month', 'run_wday']));
             $same = true;
@@ -426,9 +441,7 @@ final class WordPressWorker
             throw new RuntimeException('site_changed');
         }
         // Master approval is not enough: a remote server must have applied the same identity locally.
-        $query = $this->local->prepare('SELECT * FROM web_domain WHERE domain_id = ? AND server_id = ?');
-        $query->execute([$job['website_id'], $this->server]);
-        $local = $query->fetch(PDO::FETCH_ASSOC);
+        $local = $this->localOne('SELECT * FROM web_domain WHERE domain_id = ? AND server_id = ?', [$job['website_id'], $this->server]);
         foreach (['sys_groupid', 'domain', 'document_root', 'web_folder', 'system_user', 'system_group', 'active', 'type'] as $key) {
             if (! $local || $site[$key] !== $local[$key]) {
                 throw new RuntimeException('site_not_applied');

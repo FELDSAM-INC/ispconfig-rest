@@ -4,6 +4,8 @@ namespace Tests\Unit;
 
 use App\Support\WordPressPolicy;
 use PDO;
+use PDOException;
+use PDOStatement;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
@@ -14,6 +16,63 @@ final class WordPressWorkerResponsivenessTest extends TestCase
         require_once dirname(__DIR__, 2).'/file-manager-worker/WordPressWorker.php';
 
         return new \WordPressWorker($db, $local ?? $db, 1);
+    }
+
+    private function disconnected(int $errno = 2006): PDO
+    {
+        return new class($errno) extends PDO
+        {
+            public function __construct(private int $errno) {}
+
+            public function prepare(string $query, array $options = []): PDOStatement|false
+            {
+                $error = new PDOException('Test connection failure');
+                $error->errorInfo = ['HY000', $this->errno, 'Test connection failure'];
+                throw $error;
+            }
+        };
+    }
+
+    public function test_idle_local_connection_is_reopened_before_reading_current_site_identity(): void
+    {
+        $db = new PDO('sqlite::memory:');
+        $this->worker($db);
+        $db->exec('CREATE TABLE web_domain (domain_id INTEGER, server_id INTEGER, domain TEXT)');
+        $db->exec("INSERT INTO web_domain VALUES (19,1,'current-owner.test')");
+        foreach ([2006, 2013, 2055] as $errno) {
+            $connects = 0;
+            $worker = new \WordPressWorker($db, $this->disconnected($errno), 1, function () use ($db, &$connects) {
+                $connects++;
+
+                return $db;
+            });
+            $read = new ReflectionMethod($worker, 'localOne');
+            $row = $read->invoke($worker, 'SELECT * FROM web_domain WHERE domain_id=? AND server_id=?', [19, 1]);
+            self::assertSame('current-owner.test', $row['domain']);
+            self::assertSame(1, $connects);
+            self::assertNull($read->invoke($worker, 'SELECT * FROM web_domain WHERE domain_id=? AND server_id=?', [19, 2]));
+            self::assertSame(1, $connects);
+        }
+    }
+
+    public function test_local_read_retry_is_bounded_and_does_not_hide_permissions_or_sql_errors(): void
+    {
+        $db = new PDO('sqlite::memory:');
+        $this->worker($db);
+        foreach ([2006 => 1, 1142 => 0] as $errno => $expected) {
+            $connects = 0;
+            $worker = new \WordPressWorker($db, $this->disconnected($errno), 1, function () use (&$connects) {
+                $connects++;
+
+                return $this->disconnected();
+            });
+            try {
+                (new ReflectionMethod($worker, 'localOne'))->invoke($worker, 'SELECT * FROM web_domain WHERE domain_id=?', [19]);
+                self::fail('Connection failure must propagate');
+            } catch (PDOException $e) {
+                self::assertSame($expected, $connects);
+            }
+        }
     }
 
     public function test_apply_and_revert_wait_for_the_live_installation_block(): void

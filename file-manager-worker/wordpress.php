@@ -31,7 +31,7 @@ try {
         pcntl_signal(SIGTERM, $stop);
         pcntl_signal(SIGINT, $stop);
     }
-    $worker = new WordPressWorker($connect($prefix), $connect('db_'), (int) $conf['server_id']);
+    $worker = new WordPressWorker($connect($prefix), $connect('db_'), (int) $conf['server_id'], static fn () => $connect('db_'));
     do {
         $worker->run(static function () use (&$stopping): bool {
             return $stopping;
