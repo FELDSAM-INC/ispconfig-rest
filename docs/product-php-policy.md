@@ -38,3 +38,19 @@ hook and need a subsequent REST edit or product reapply. Administrator changes
 outside REST are not continuously reconciled. Required snippet conflicts must be
 resolved by the administrator. Global server PHP policy and jail prerequisites
 remain under server administrator control.
+
+## Verification
+
+Automated coverage checks administrator/client/reseller boundaries, atomic package
+changes, primary and child vhosts, preserved customer PHP preferences, conflicting
+snippets, restoration, invalid pool configuration, and cleanup. The real FPM
+fixture in `tests/Integration/web-php-settings/check.php` exercises both process
+managers with sockets/TCP and chroot on/off, including numeric 0/1 INI values and
+an attempted application `ini_set()` override.
+
+On 2026-09-28 the development ISPConfig server generated and served a temporary
+primary site, vhost subdomain and vhost alias with the five product limits. All
+three passed HTTP checks in ondemand/socket mode and again after changing the
+product policy to dynamic/socket/chroot. Native pool files matched the policy,
+and application changes to the memory limit were denied. The temporary client
+and its domains/vhosts were deleted through REST afterwards.
