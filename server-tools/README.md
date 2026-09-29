@@ -167,6 +167,8 @@ docker rm -f ispcp-server-tools-db
 ```
 
 The native checks use only the disposable container's loopback fixture database.
-The SSH fixture runs the real installers twice and verifies all four components,
+The SSH fixture runs the real installers twice and verifies all five components,
 configuration preservation, source ownership, cleanup, wrong-server rejection and
 both host-key and login-key failure. It stubs systemctl only inside that container.
+`php-limits` needs a Docker host with the cgroup v2 unified hierarchy, and `waf`
+downloads the pinned OWASP CRS release.

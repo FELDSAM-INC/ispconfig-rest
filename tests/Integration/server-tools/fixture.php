@@ -7,11 +7,12 @@ $db->exec('CREATE DATABASE server_tools_ssh');
 $db->exec('USE server_tools_ssh');
 define('ISPCP_SERVER_TOOLS_TEST', true);
 require '/app/server-tools/remote.php';
-foreach (ServerToolsRemote::permissions(['database', 'web-logs', 'waf']) as $table => $rights) {
+// Every component's tables, with the columns the probe checks for current migrations.
+foreach (ServerToolsRemote::permissions(array_keys(ServerToolsRemote::TABLES)) as $table => $rights) {
     if ($table === 'web_domain') {
         $db->exec('CREATE TABLE web_domain (domain_id int, server_id int, sys_groupid int, domain varchar(255), type varchar(30), document_root varchar(255), web_folder varchar(255), system_user varchar(64), system_group varchar(64), active char(1))');
     } else {
-        $db->exec('CREATE TABLE '.$table.' (id int primary key, runtime_version int, application_profiles text)');
+        $db->exec('CREATE TABLE '.$table.' (id int primary key, runtime_version int, application_profiles text, revision int)');
     }
 }
 file_put_contents('/usr/local/ispconfig/server/lib/config.inc.php', '<?php $conf='.var_export([

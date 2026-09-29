@@ -29,7 +29,7 @@ pub = cmd("ssh-keygen", "-y", "-f", "/etc/ssh/ssh_host_ed25519_key").decode().st
 Path("/root/.ssh/known_hosts").write_text("[127.0.0.1]:2222 " + pub + "\n")
 cmd("/usr/sbin/sshd", "-p", "2222", "-o", "ListenAddress=127.0.0.1", "-o", "HostKey=/etc/ssh/ssh_host_ed25519_key")
 # Only this disposable container uses a systemctl stub.
-Path("/usr/bin/systemctl").write_text("#!/bin/sh\nexit 0\n")
+Path("/usr/bin/systemctl").write_text('#!/bin/sh\n[ "$1" != --version ] || echo "systemd 257 (257)"\nexit 0\n')
 Path("/usr/bin/systemctl").chmod(0o755)
 cmd("a2dismod", "security2")
 Path("/usr/local/ispconfig/server/plugins-enabled/apache2_plugin.inc.php").symlink_to("/tmp/plugin.php")
@@ -119,4 +119,4 @@ try:
     raise AssertionError("Wrong SSH host key accepted")
 except manager.Failure:
     pass
-print("PASS real SSH, all four installers, repeated update, preserved SFTP settings, root ownership, cleanup and host/login key rejection")
+print("PASS real SSH, all five installers, repeated update, preserved SFTP settings, root ownership, cleanup and host/login key rejection")
