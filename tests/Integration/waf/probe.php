@@ -10,7 +10,7 @@ $site = ['domain_id' => 1, 'server_id' => 1, 'sys_groupid' => 5, 'domain' => 'wa
 $settings = WebWafPolicy::DEFAULTS;
 $settings['enabled'] = true;
 $settings['mode'] = $mode === 'detection' ? 'detection' : 'enforcing';
-if (isset(WebWafProfiles::FILES[$mode])) {
+if (isset(WebWafProfiles::PLUGINS[$mode])) {
     $settings['application_profile'] = $mode;
 }
 if ($mode === 'exclude') {

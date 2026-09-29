@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Services\ClientResourceLimitsService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\ClientApiTestCase;
 use Tests\Support\SitesSchema;
 use Tests\Support\SystemSchema;
@@ -121,7 +122,7 @@ final class ClientResourceLimitsTest extends ClientApiTestCase
         ];
     }
 
-    /** @dataProvider invalidLimits */
+    #[DataProvider('invalidLimits')]
     public function test_invalid_limits_are_rejected(array $changes): void
     {
         $this->apply(array_replace_recursive($this->limits(), $changes))->assertUnprocessable();

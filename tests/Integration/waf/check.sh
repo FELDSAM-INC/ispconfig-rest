@@ -50,7 +50,7 @@ if [[ "$engine" = nginx ]]; then [[ -s /tmp/waf-original-error.log ]]; echo 'PAS
 mkdir -p /tmp/waf-www/wp-json/wp/v2
 cp /tmp/waf-www/index.html /tmp/waf-www/wp-json/wp/v2/posts
 # Even an administrator's global WordPress default must not override a site's None.
-printf '\nSecAction "id:900130,phase:1,pass,nolog,setvar:tx.crs_exclusions_wordpress=1"\n' >> /etc/modsecurity/crs/crs-setup.conf
+printf '\nSecAction "id:900999,phase:1,pass,nolog,setvar:tx.wordpress-rule-exclusions-plugin_enabled=1"\n' >> /etc/ispconfig-waf/crs-setup.local.conf
 for profile in wordpress drupal nextcloud dokuwiki cpanel xenforo none; do
     php /app/tests/Integration/waf/probe.php "$profile"
     if [[ "$engine" = apache ]]; then apache2ctl -t; apache2ctl graceful; else nginx -t; nginx -s reload; fi

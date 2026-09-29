@@ -19,7 +19,7 @@ final class WebWafPolicy
             throw new InvalidArgumentException('Unsupported WAF setting.');
         }
         $input += self::DEFAULTS;
-        if (! is_string($input['application_profile']) || ! in_array($input['application_profile'], ['none', ...array_keys(WebWafProfiles::FILES)], true)) {
+        if (! is_string($input['application_profile']) || ! in_array($input['application_profile'], ['none', ...array_keys(WebWafProfiles::PLUGINS)], true)) {
             throw new InvalidArgumentException('Select a supported application profile.');
         }
         if (! is_bool($input['enabled']) || ! is_bool($input['atomic']) || ! in_array($input['mode'], ['detection', 'enforcing'], true)) {

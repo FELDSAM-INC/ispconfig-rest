@@ -5,6 +5,23 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Changed
+
+- WAF uses upstream **OWASP CRS 4.25.1 (LTS)** instead of the distribution
+  `modsecurity-crs` package (CRS 3.3.5 on Ubuntu 24.04). The installer downloads the
+  pinned release, verifies its SHA-256 and OpenPGP signature against the shipped CRS
+  release key, and keeps verified versions in `/usr/local/share/ispconfig-waf/crs`.
+  Application profiles now use the official CRS 4 rule exclusion plugins (WordPress,
+  Drupal, Nextcloud, DokuWiki, cPanel, XenForo), pinned by SHA-256. Local CRS
+  settings go in `/etc/ispconfig-waf/crs-setup.local.conf`, which updates keep.
+  Requires ModSecurity 2.9.6+ (Apache) or libmodsecurity 3.0.8+ (nginx), that is
+  Debian 12+ or Ubuntu 24.04+, and HTTPS access to GitHub from each webserver. On
+  libmodsecurity older than 3.0.16, rule 901181's XML attribute opt-out is removed
+  so the rules load. Security events describe the CRS 4 anomaly summaries.
+  Update with `ispconfig-rest server-tools update --components waf --yes`; see
+  [upgrading from distribution CRS 3](waf-server/README.md#upgrading-from-distribution-crs-3)
+  for settings in `/etc/modsecurity/crs/crs-setup.conf` and removing the old package.
+
 ### Added
 
 - WordPress jobs report the `installation` they acted on (null for a website-wide

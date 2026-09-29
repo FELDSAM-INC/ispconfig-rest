@@ -80,7 +80,8 @@ the prerequisites documented by their individual installers, including PHP CLI
 8.3+, the required extensions and native utilities. WAF supports Debian/Ubuntu
 distribution packages. The command reports missing prerequisites; it does not
 replace a server's PHP installation. The WAF installer installs its ModSecurity
-and CRS packages normally.
+packages normally and downloads the OWASP CRS release pinned by this API release,
+verifying its checksum and signature.
 
 By default, sources come directly from the official HTTPS GitHub repository at
 the **exact commit installed by the API**. That commit must belong to the branch

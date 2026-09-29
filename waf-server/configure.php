@@ -1,12 +1,15 @@
 <?php
 
+use App\Support\WebWafCrs;
 use App\Support\WebWafProfiles;
 
 // Administrative tool. License data is accepted only on stdin and stored root-only.
 if (PHP_SAPI !== 'cli' || posix_geteuid() !== 0) {
     exit(1);
 }
-require is_file(__DIR__.'/WebWafProfiles.php') ? __DIR__.'/WebWafProfiles.php' : __DIR__.'/../app/Support/WebWafProfiles.php';
+foreach (['WebWafProfiles.php', 'WebWafCrs.php'] as $support) {
+    require is_file(__DIR__.'/'.$support) ? __DIR__.'/'.$support : __DIR__.'/../app/Support/'.$support;
+}
 umask(0077);
 function command(array $argv): void
 {
@@ -34,6 +37,27 @@ function check(string $engine): void
 function reload(string $engine): void
 {
     command(['/usr/bin/systemctl', 'reload', $engine === 'apache' ? 'apache2' : 'nginx']);
+}
+/** Patches for engines that cannot load the pinned CRS unchanged. */
+function crsPatches(string $engine): array
+{
+    if ($engine !== 'nginx') {
+        return [];
+    }
+    $versions = [];
+    foreach (explode("\n", (string) shell_exec("dpkg-query -W -f='\${Status} \${Version}\\n' libmodsecurity3 libmodsecurity3t64 2>/dev/null")) as $line) {
+        if (preg_match('/^install ok installed ([0-9][A-Za-z0-9.+~:-]*)$/', $line, $match)) {
+            $versions[] = $match[1];
+        }
+    }
+    foreach ($versions as $version) {
+        exec('dpkg --compare-versions '.escapeshellarg($version).' ge 3.0.16', $output, $code);
+        if ($code === 0) {
+            return [];
+        }
+    }
+
+    return [WebWafCrs::PATCH_XML_ATTRIBUTES];
 }
 function validateRules(string $engine, bool $atomic = false): void
 {
@@ -101,6 +125,7 @@ try {
             throw new RuntimeException('Remove the existing managed WAF before changing web server engines.');
         }
         $rollback = snapshot(['/etc/ispconfig-waf/base.conf', '/etc/ispconfig-waf/unicode.mapping', '/etc/ispconfig-waf/owasp.conf', $stateFile,
+            '/etc/ispconfig-waf/crs-setup.conf', '/etc/ispconfig-waf/crs-setup.local.conf', WebWafProfiles::CRS,
             '/etc/apache2/conf-available/ispconfig-waf.conf', '/etc/apache2/conf-enabled/ispconfig-waf.conf',
             '/etc/apache2/mods-enabled/security2.load', '/etc/apache2/mods-enabled/security2.conf', '/etc/apache2/mods-enabled/unique_id.load']);
         $base = file_get_contents($source.'/modsecurity.conf-recommended');
@@ -128,6 +153,14 @@ try {
         }
         put('/etc/ispconfig-waf/base.conf', $base, 0644);
         put('/etc/ispconfig-waf/unicode.mapping', file_get_contents($source.'/unicode.mapping'), 0644);
+        // Upstream CRS pinned by this release, verified before use; a rejected configuration restores the previous one.
+        $manifest = WebWafCrs::manifest((string) file_get_contents(__DIR__.'/crs.json'));
+        $crs = WebWafCrs::install($manifest, __DIR__.'/crs-release-key.gpg', crsPatches($engine));
+        WebWafCrs::activate($manifest['version']);
+        put('/etc/ispconfig-waf/crs-setup.conf', WebWafCrs::setup((string) file_get_contents($crs.'/crs-setup.conf.example'), $manifest['version']), 0644);
+        if (! is_file('/etc/ispconfig-waf/crs-setup.local.conf')) {
+            put('/etc/ispconfig-waf/crs-setup.local.conf', WebWafCrs::LOCAL_SETUP, 0644);
+        }
         put('/etc/ispconfig-waf/owasp.conf', WebWafProfiles::configuration(), 0644);
         if ($engine === 'apache') {
             // Unmanaged websites stay off; the native website block enables its own isolated rules.
@@ -138,10 +171,10 @@ try {
         validateRules($engine);
         check($engine);
         reload($engine);
-        $version = trim((string) shell_exec('dpkg-query -W -f=\'${Version}\' modsecurity-crs 2>/dev/null'));
-        put($stateFile, json_encode(['engine' => $engine, 'rules_version' => $version, 'atomic_available' => (bool) ($state['atomic_available'] ?? false)], JSON_THROW_ON_ERROR));
+        put($stateFile, json_encode(['engine' => $engine, 'rules_version' => $manifest['version'], 'atomic_available' => (bool) ($state['atomic_available'] ?? false)], JSON_THROW_ON_ERROR));
         $rollback = [];
-        echo "Configured OWASP CRS and isolated per-website logging.\n";
+        WebWafCrs::prune();
+        echo 'Configured OWASP CRS '.$manifest['version']." and isolated per-website logging.\n";
     } elseif ($action === 'status') {
         if (! $state) {
             throw new RuntimeException('WAF is not installed.');

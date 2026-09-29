@@ -28,9 +28,10 @@ FILES = (
     "file-manager-worker/wordpress-install.sh", "file-manager-worker/wordpress.php", "file-manager-worker/WordPressWorker.php",
     "file-manager-worker/wordpress-sandbox.py", "file-manager-worker/wordpress-tools.py", "app/Support/WordPressPolicy.php", "app/Support/WebDomainAutoalias.php",
     "file-manager-worker/sshd.conf", "waf-server/install.sh", "waf-server/run.php",
-    "waf-server/configure.php", "waf-server/ispconfig-security.php", "waf-server/ispconfig-waf",
+    "waf-server/configure.php", "waf-server/crs.json", "waf-server/crs-release-key.gpg",
+    "waf-server/ispconfig-security.php", "waf-server/ispconfig-waf",
     "app/Support/WebWafPolicy.php", "app/Support/WebWafAudit.php", "app/Support/WebWafProfiles.php",
-    "app/Support/WebWafIspconfigSecurity.php", "php-limits/install.sh", "php-limits/run.php",
+    "app/Support/WebWafCrs.php", "app/Support/WebWafIspconfigSecurity.php", "php-limits/install.sh", "php-limits/run.php",
     "php-limits/ispconfig-php-limits", "app/Support/PhpLimits.php", "server-tools/remote.php",
 )
 

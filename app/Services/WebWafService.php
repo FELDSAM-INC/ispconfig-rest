@@ -59,7 +59,7 @@ final class WebWafService
     {
         $reported = json_decode($worker->application_profiles ?? 'null', true);
 
-        return ['none', ...array_values(array_filter(array_keys(WebWafProfiles::FILES), static fn ($profile) => is_array($reported) && in_array($profile, $reported, true)))];
+        return ['none', ...array_values(array_filter(array_keys(WebWafProfiles::PLUGINS), static fn ($profile) => is_array($reported) && in_array($profile, $reported, true)))];
     }
 
     public function revision(WebDomain $site): string

@@ -9,10 +9,11 @@ final class WebWafAudit
 {
     private const PARSER_VERSION = 2;
 
-    public static function catalog(string $directory = '/usr/share/modsecurity-crs/rules'): array
+    /** Static messages of the active CRS rules and application plugins, by rule ID. */
+    public static function catalog(string $crs = WebWafProfiles::CRS): array
     {
         $result = [];
-        foreach (glob($directory.'/*.conf') ?: [] as $file) {
+        foreach ([...(glob($crs.'/rules/*.conf') ?: []), ...(glob($crs.'/plugins/*.conf') ?: [])] as $file) {
             $stat = lstat($file);
             if (! $stat || is_link($file) || $stat['uid'] !== 0 || ($stat['mode'] & 0022) || $stat['size'] > 2097152) {
                 continue;
@@ -37,31 +38,42 @@ final class WebWafAudit
         return mb_strcut(preg_replace('/[\x00-\x1f\x7f]/', ' ', mb_convert_encoding($value, 'UTF-8', 'UTF-8')), 0, $limit, 'UTF-8');
     }
 
-    /** Only known CRS summary formats may supply dynamic values, and only bounded integers. */
+    /**
+     * Only known CRS summary formats may supply dynamic values, and only bounded integers. CRS 4 adds 949111/959101
+     * (early blocking) and 980170 (reporting); 980130/980140 are CRS 3 summaries still in older audit logs.
+     */
     public static function description(int $id, string $template, string $rendered = ''): string
     {
-        $labels = [949110 => 'Inbound anomaly score exceeded', 959100 => 'Outbound anomaly score exceeded',
-            980130 => 'Inbound anomaly score exceeded', 980140 => 'Outbound anomaly score exceeded'];
+        $labels = [949110 => 'Inbound anomaly score exceeded', 949111 => 'Inbound anomaly score exceeded',
+            959100 => 'Outbound anomaly score exceeded', 959101 => 'Outbound anomaly score exceeded',
+            980130 => 'Inbound anomaly score exceeded', 980140 => 'Outbound anomaly score exceeded', 980170 => 'Anomaly scores'];
         if (! isset($labels[$id])) {
             return $template;
         }
         $number = '([0-9]{1,9})';
         $categories = ['SQLI', 'XSS', 'RFI', 'LFI', 'RCE', 'PHPI', 'HTTP', 'SESS'];
+        $first = 2;
         if ($id === 980130) {
             $pattern = 'Inbound Anomaly Score Exceeded \(Total Inbound Score: '.$number.' - '.implode(',', array_map(fn ($name) => $name.'='.$number, $categories)).'\): individual paranoia level scores: '.implode(', ', array_fill(0, 4, $number));
         } elseif ($id === 980140) {
             $pattern = 'Outbound Anomaly Score Exceeded \(score '.$number.'\): individual paranoia level scores: '.implode(', ', array_fill(0, 4, $number));
+        } elseif ($id === 980170) {
+            $scores = fn ($direction) => '\('.$direction.' Scores: blocking='.$number.', detection='.$number.', per_pl='.implode('-', array_fill(0, 4, $number)).', threshold='.$number.'\)';
+            $pattern = 'Anomaly Scores: '.$scores('Inbound').' - '.$scores('Outbound').' - \('.implode(', ', array_map(fn ($name) => $name.'='.$number, $categories)).', COMBINED_SCORE='.$number.'\)';
+            $first = 15;
         } else {
-            $pattern = ($id === 949110 ? 'Inbound' : 'Outbound').' Anomaly Score Exceeded \(Total Score: '.$number.'\)';
+            $phase = [949111 => ' in phase 1', 959101 => ' in phase 3'][$id] ?? '';
+            $pattern = (in_array($id, [949110, 949111], true) ? 'Inbound' : 'Outbound').' Anomaly Score Exceeded'.$phase.' \(Total Score: '.$number.'\)';
         }
         if (! preg_match('/\A'.$pattern.'\z/D', $rendered, $scores)) {
             return $labels[$id];
         }
-        $details = ['total: '.(int) $scores[1]];
-        if ($id === 980130) {
+        // 980170 reports the blocking inbound (1) and outbound (8) scores.
+        $details = $id === 980170 ? ['inbound: '.(int) $scores[1], 'outbound: '.(int) $scores[8]] : ['total: '.(int) $scores[1]];
+        if (in_array($id, [980130, 980170], true)) {
             foreach ($categories as $index => $name) {
-                if ((int) $scores[$index + 2] > 0) {
-                    $details[] = $name.': '.(int) $scores[$index + 2];
+                if ((int) $scores[$index + $first] > 0) {
+                    $details[] = $name.': '.(int) $scores[$index + $first];
                 }
             }
         }

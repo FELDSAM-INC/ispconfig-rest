@@ -81,6 +81,9 @@ final class WebWafAuditTest extends TestCase
             [959100, 'Outbound Anomaly Score Exceeded (Total Score: 4)', 'Outbound anomaly score exceeded (total: 4)'],
             [980130, 'Inbound Anomaly Score Exceeded (Total Inbound Score: 8 - SQLI=5,XSS=3,RFI=0,LFI=0,RCE=0,PHPI=0,HTTP=0,SESS=0): individual paranoia level scores: 8, 0, 0, 0', 'Inbound anomaly score exceeded (total: 8; SQLI: 5; XSS: 3)'],
             [980140, 'Outbound Anomaly Score Exceeded (score 4): individual paranoia level scores: 4, 0, 0, 0', 'Outbound anomaly score exceeded (total: 4)'],
+            [949111, 'Inbound Anomaly Score Exceeded in phase 1 (Total Score: 10)', 'Inbound anomaly score exceeded (total: 10)'],
+            [959101, 'Outbound Anomaly Score Exceeded in phase 3 (Total Score: 4)', 'Outbound anomaly score exceeded (total: 4)'],
+            [980170, 'Anomaly Scores: (Inbound Scores: blocking=8, detection=13, per_pl=8-5-0-0, threshold=5) - (Outbound Scores: blocking=0, detection=0, per_pl=0-0-0-0, threshold=4) - (SQLI=5, XSS=3, RFI=0, LFI=0, RCE=0, PHPI=0, HTTP=0, SESS=0, COMBINED_SCORE=8)', 'Anomaly scores (inbound: 8; outbound: 0; SQLI: 5; XSS: 3)'],
         ];
         foreach ($cases as [$id, $native, $expected]) {
             $nginx = $this->nginx();
@@ -103,6 +106,8 @@ final class WebWafAuditTest extends TestCase
             $record['transaction']['messages'][0]['message'] = $native;
             $this->assertSame('Inbound anomaly score exceeded', WebWafAudit::events($record, [949110 => 'Summary [value]'])[0]['message']);
         }
+        $this->assertSame('Inbound anomaly score exceeded', WebWafAudit::description(949111, 'Summary', 'Inbound Anomaly Score Exceeded (Total Score: 5)'));
+        $this->assertSame('Anomaly scores', WebWafAudit::description(980170, 'Summary', 'Anomaly Scores: (Inbound Scores: blocking=PRIVATE_DATA)'));
         $this->assertSame('SQL injection', WebWafAudit::description(942100, 'SQL injection', 'PRIVATE_MESSAGE'));
     }
 }

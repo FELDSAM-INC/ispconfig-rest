@@ -1,0 +1,57 @@
+{
+    "version": "4.25.1",
+    "archive": "https://github.com/coreruleset/coreruleset/releases/download/v4.25.1/coreruleset-4.25.1-minimal.tar.gz",
+    "sha256": "e314bc5b64a268ae4264822bc93db24eb93c5eb648ff80aed96b23f3fce2c701",
+    "signature": "https://github.com/coreruleset/coreruleset/releases/download/v4.25.1/coreruleset-4.25.1-minimal.tar.gz.asc",
+    "fingerprint": "36006F0E0BA167832158821138EEACA1AB8A6E72",
+    "plugins": {
+        "wordpress": {
+            "name": "wordpress-rule-exclusions",
+            "version": "1.2.0",
+            "files": {
+                "wordpress-rule-exclusions-before.conf": "d6bb0e6a2848e6d39e73818537b21058c61a2b80a7b9e0de79fe2b3238eb9076",
+                "wordpress-rule-exclusions-config.conf": "cdffad1a5410057a06cc2ce0489c470f77c69af876d79536f5f34e88c00bced2"
+            }
+        },
+        "drupal": {
+            "name": "drupal-rule-exclusions",
+            "version": "1.0.0",
+            "files": {
+                "drupal-rule-exclusions-before.conf": "1c529d96f4df82bf57edc64ce7541b25923b608d020ebf42fd635d0717d5dcac",
+                "drupal-rule-exclusions-config.conf": "01ee7ff94b101c42dbb7117a73af6d3bc3327fc24a92cd774be3623f45d8df9f"
+            }
+        },
+        "nextcloud": {
+            "name": "nextcloud-rule-exclusions",
+            "version": "1.7.1",
+            "files": {
+                "nextcloud-rule-exclusions-before.conf": "5f398812bfec2c9d21dcad3b7898065cdfa4721cdf980bfe487e988cc4729aab",
+                "nextcloud-rule-exclusions-config.conf": "17ed8c7826c3351d8f86683a9898b88aca89311fc140f8e319d10c797d5be11a"
+            }
+        },
+        "dokuwiki": {
+            "name": "dokuwiki-rule-exclusions",
+            "version": "1.0.0",
+            "files": {
+                "dokuwiki-rule-exclusions-before.conf": "ba93cc37f8c6a101b13fa8681eff740fd0c4235a9dcf6a0a1fb63be98dc5aa74",
+                "dokuwiki-rule-exclusions-config.conf": "921dc270f6709e8c27db23b2d845bb8702bf8862584497f4c6a6ee99dab5c762"
+            }
+        },
+        "cpanel": {
+            "name": "cpanel-rule-exclusions",
+            "version": "1.0.0",
+            "files": {
+                "cpanel-rule-exclusions-before.conf": "8433fce90b44fd6adfdda9b68f2cb9d1c8f81c4c26af586eeaf1d0648d510726",
+                "cpanel-rule-exclusions-config.conf": "f4c93c6b8c404237b4ac7a01332476827982216f3e39dbb1f9735045e0cc6ce4"
+            }
+        },
+        "xenforo": {
+            "name": "xenforo-rule-exclusions",
+            "version": "1.0.0",
+            "files": {
+                "xenforo-rule-exclusions-before.conf": "f65f5600d9cb2004291013461fd206dd7cf2743398e8e40e5285f0588c0d6df3",
+                "xenforo-rule-exclusions-config.conf": "dcd4091a4b611931715f9b6a4c10a02210d617a810f044ef8e7d16fc9a6b6253"
+            }
+        }
+    }
+}
