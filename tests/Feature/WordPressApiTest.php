@@ -38,8 +38,10 @@ final class WordPressApiTest extends SitesApiTestCase
         $this->getJson($url, $this->tenantHeaders('clientB'))->assertNotFound();
         $this->postJson($url.'/jobs', ['action' => 'rescan'])->assertUnauthorized();
         $this->postJson($url.'/jobs', ['action' => 'rescan'], $this->tenantHeaders('clientB'))->assertNotFound();
-        $job = $this->postJson($url.'/jobs', ['action' => 'check', 'installation' => $installation], $headers)->assertCreated()->json('id');
-        $this->getJson($url.'/jobs/'.$job, $headers)->assertOk();
+        $job = $this->postJson($url.'/jobs', ['action' => 'check', 'installation' => $installation], $headers)->assertCreated()
+            ->assertJsonPath('installation', $installation)->json('id');
+        $this->getJson($url.'/jobs/'.$job, $headers)->assertOk()->assertJsonPath('action', 'check')->assertJsonPath('installation', $installation);
+        $this->getJson($url, $headers)->assertJsonPath('job.installation', $installation);
         $this->getJson($url.'/jobs/'.$job, $this->tenantHeaders('clientB'))->assertNotFound();
         $this->postJson($url.'/jobs', ['action' => 'rescan'], $headers)->assertConflict();
         DB::table('web_domain')->where('domain_id', $id)->update(['domain' => 'renamed.example.test']);

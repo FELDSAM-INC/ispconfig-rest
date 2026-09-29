@@ -209,7 +209,11 @@ final class WordPressService
             }
         }
 
-        return ['configuration_pending' => $configurationPending, 'backup_database_id' => $backupDatabase ? (int) $backupDatabase : null, 'id' => $row->id, 'action' => $row->action, 'status' => $row->status, 'created_at' => gmdate('c', $row->created_at),
+        // The installation lets a client show a job's result next to the tool and installation that started it.
+        $installation = json_decode((string) $row->request, true)['installation'] ?? null;
+
+        return ['configuration_pending' => $configurationPending, 'backup_database_id' => $backupDatabase ? (int) $backupDatabase : null, 'id' => $row->id, 'action' => $row->action,
+            'installation' => is_string($installation) && preg_match('/\A[a-f0-9]{32}\z/D', $installation) === 1 ? $installation : null, 'status' => $row->status, 'created_at' => gmdate('c', $row->created_at),
             'finished_at' => $row->finished_at ? gmdate('c', $row->finished_at) : null, 'error' => $row->error, 'backup_id' => $row->backup_id];
     }
 }

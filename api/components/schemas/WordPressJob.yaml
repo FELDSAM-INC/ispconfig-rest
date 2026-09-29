@@ -3,6 +3,7 @@ required: [id, action, status, created_at]
 properties:
   id: {type: string, format: uuid}
   action: {type: string}
+  installation: {type: [string, 'null'], pattern: '^[a-f0-9]{32}$', description: Installation the job acted on; null for a website-wide rescan.}
   status: {type: string, enum: [queued, running, completed, failed, recovery_required]}
   configuration_pending: {type: boolean, description: WordPress work finished but Apache protections are still being applied. Poll until false; the worker refreshes the cached security status automatically.}
   created_at: {type: string, format: date-time}

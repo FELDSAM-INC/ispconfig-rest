@@ -5,6 +5,12 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Added
+
+- WordPress jobs report the `installation` they acted on (null for a website-wide
+  rescan), so clients can show a result next to the tool and installation that
+  started it.
+
 ## [1.0.3] - 2026-09-29
 
 This release adds administrator product policies for PHP: INI limits and PHP-FPM
