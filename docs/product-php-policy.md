@@ -8,7 +8,7 @@ See `api/components/schemas/Client.yaml` for all required fields and validation.
 
 Apply migration `2026_09_28_000003_create_client_web_php_policies.php` before use.
 It adds only API-owned tables for policies and original website settings. This is
-an unreleased feature after 1.0.2. No additional privileged worker is required.
+a feature added in 1.0.3. No additional privileged worker is required.
 The existing PHP configuration snapshot worker continues to supply inherited
 values in website detail responses.
 

@@ -14,7 +14,7 @@ info:
     - **Errors**: RFC 9457 `application/problem+json` (`type`, `title`, `status`, `detail`,
       plus an `errors` map on 422 validation failures).
     - **Status codes**: 200 read/update, 201 create, 204 delete.
-  version: 1.0.2
+  version: 1.0.3
 
 servers:
   # Relative to wherever the docs are served. When the spec is fetched through

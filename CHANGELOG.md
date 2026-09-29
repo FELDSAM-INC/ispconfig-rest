@@ -5,6 +5,14 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-09-29
+
+This release adds administrator product policies for PHP: INI limits and PHP-FPM
+pool settings per client, and PHP-FPM resource limits with cgroup v2 applied by the
+new `php-limits` server tool. It also fixes WAF argument names in security events.
+Requires PHP 8.3 or newer and ISPConfig 3.3; the HTTP API continues to use `/api/v1`.
+Both new features need their migrations; resource limits also need the server tool.
+
 ### Added
 
 - PHP-FPM resource limits with cgroup v2: administrator-only client
@@ -39,6 +47,32 @@ the HTTP API remains under `/api/v1`.
   metadata without duplicating events. The server-tools manager grants the
   collector UPDATE on `api_web_waf_events` for this repair; native tables remain
   read-only to the collector.
+
+### Upgrade from 1.0.2
+
+1. **Back up and apply migrations first.** Two new migrations create API-owned tables
+   for product PHP policies and PHP-FPM resource limits
+   (`2026_09_28_000003_create_client_web_php_policies.php`,
+   `2026_09_28_000004_create_php_resource_limit_tables.php`); native ISPConfig tables
+   are not migrated. Run `sudo ispconfig-rest update --branch main` (or
+   `--tag v1.0.3`). The updater migrates with the runtime database account; if it lacks
+   DDL rights the update stops at the migration. Then run, as root in the installation
+   directory, `php artisan config:clear` followed by
+   `DB_USERNAME=root DB_PASSWORD='' php artisan migrate --force` (MySQL root over the
+   local socket, as the installer does; use your administrative account otherwise), and
+   repeat `sudo ispconfig-rest update` to rebuild caches and reload. Do not leave
+   database-administrator credentials in the API runtime configuration.
+2. **Refresh installed components:** `sudo ispconfig-rest server-tools update`. This
+   updates the WAF collector for the argument-name fix and grants it UPDATE on
+   `api_web_waf_events`. Updates do not install absent components.
+3. **Add resource limits deliberately.** `sudo ispconfig-rest php-limits:install --dry-run`,
+   then repeat without `--dry-run`. It needs Debian/Ubuntu with systemd 243+, cgroup v2
+   with the cpu, memory and pids controllers and distribution php-fpm units, and
+   restarts each managed PHP-FPM service once. Accounts without `web_resource_limits`
+   keep running in the shared masters. See [PHP-FPM resource limits](php-limits/README.md).
+4. **Update the consuming WHMCS module** after the API migrations. Its product PHP
+   settings and resource limit profiles require this release; products that do not use
+   them keep working with older API releases.
 
 ## [1.0.2] - 2026-09-28
 
