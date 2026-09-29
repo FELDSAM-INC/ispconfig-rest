@@ -5,6 +5,14 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-09-29
+
+This release moves the WAF from the distribution CRS 3 package to the upstream
+OWASP CRS 4.25 LTS release, with application profiles based on the official CRS 4
+plugins, and reports which WordPress installation a job acted on. No database
+migrations. Requires PHP 8.3 or newer and ISPConfig 3.3; the HTTP API continues to
+use `/api/v1`.
+
 ### Changed
 
 - WAF uses upstream **OWASP CRS 4.25.1 (LTS)** instead of the distribution
@@ -27,6 +35,26 @@ the HTTP API remains under `/api/v1`.
 - WordPress jobs report the `installation` they acted on (null for a website-wide
   rescan), so clients can show a result next to the tool and installation that
   started it.
+
+### Upgrade from 1.0.3
+
+1. **Update the API:** `sudo ispconfig-rest update --branch main` (or `--tag v1.0.4`).
+   There are no migrations.
+2. **Update the WAF on its webservers:** `sudo ispconfig-rest server-tools update
+   --components waf --yes`. Each webserver needs Debian 12+ or Ubuntu 24.04+ and HTTPS
+   access to `github.com` and `raw.githubusercontent.com`. All managed websites switch
+   to CRS 4 in one validated reload and keep their modes, profiles, exceptions and IP
+   allowlists; a rejected configuration restores the previous state. On an older
+   engine the installer stops before changing anything and the server stays on CRS 3.
+3. **Move local CRS settings and remove the old package.** The installer warns when
+   `/etc/modsecurity/crs/crs-setup.conf` has local changes; CRS 4 does not read it.
+   Put the settings you still need in `/etc/ispconfig-waf/crs-setup.local.conf` with
+   their CRS 4 names, then run `apt-get remove modsecurity-crs` when nothing else uses
+   it. Review new rule events, preferably in detection mode, before relying on older
+   rule exceptions. See
+   [upgrading from distribution CRS 3](waf-server/README.md#upgrading-from-distribution-crs-3).
+4. **Update the consuming WHMCS module** to offer no exception shortcut on the CRS 4
+   anomaly summary events. Older module versions keep working.
 
 ## [1.0.3] - 2026-09-29
 
