@@ -29,6 +29,7 @@ properties:
             intervals: {type: array, items: {type: integer}}
             cron_id: {type: [integer, 'null']}
             last_run: {type: [string, 'null'], format: date-time}
+            last_output: {type: [string, 'null'], description: 'What the last run printed (WP-CLI output and PHP messages, the last 8 KiB). Every run is also appended to the website''s private/wp-cron.log.'}
             error: {type: [string, 'null']}
         integrity:
           type: [object, 'null']

@@ -136,6 +136,15 @@ and private directory, consumes the trigger in the UID sandbox, and runs
 for cron callbacks. Triggers coalesce and execution can lag by one worker minute or
 while another operation is running; events do not overlap with security jobs.
 
+Each run is appended, as the website user, to `private/wp-cron.log` next to
+ISPConfig's own `private/cron.log`: a UTC timestamp, the installation path, `ok` or
+the exit status, then WP-CLI output including PHP messages from plugin callbacks. At
+1 MiB the file is rotated to `wp-cron.log.1`; a link in its place is never followed and
+only disables logging. The last 8 KiB of the latest run are also stored as
+`cron.last_output` (migration `2026_10_01_000001_add_wordpress_cron_output.php`) and
+shown in the panel. The native cron line itself prints nothing, so ISPConfig's cron log
+option has nothing to record for it.
+
 Only after native cron and (where required) Jailkit are installed does the worker
 set `DISABLE_WP_CRON=true`. The previous literal/absent value is persisted first.
 `cron_disable` deletes the native reservation and restores that previous value.

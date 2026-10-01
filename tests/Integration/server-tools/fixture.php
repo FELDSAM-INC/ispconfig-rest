@@ -12,7 +12,7 @@ foreach (ServerToolsRemote::permissions(array_keys(ServerToolsRemote::TABLES)) a
     if ($table === 'web_domain') {
         $db->exec('CREATE TABLE web_domain (domain_id int, server_id int, sys_groupid int, domain varchar(255), type varchar(30), document_root varchar(255), web_folder varchar(255), system_user varchar(64), system_group varchar(64), active char(1))');
     } else {
-        $db->exec('CREATE TABLE '.$table.' (id int primary key, runtime_version int, application_profiles text, revision int)');
+        $db->exec('CREATE TABLE '.$table.' (id int primary key, runtime_version int, application_profiles text, revision int, last_output text)');
     }
 }
 file_put_contents('/usr/local/ispconfig/server/lib/config.inc.php', '<?php $conf='.var_export([

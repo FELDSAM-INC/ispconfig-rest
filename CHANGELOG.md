@@ -14,6 +14,12 @@ the HTTP API remains under `/api/v1`.
   FTP and shell users, cron jobs and protected folders of each website and the
   mailboxes, aliases and forwards of its domain, counted only for the website's own
   client with a few grouped queries per page.
+- WordPress cron takeover logs every run: WP-CLI output, including PHP messages from
+  plugin callbacks, is appended as the website user to `private/wp-cron.log` (rotated
+  at 1 MiB), and the latest run's output is returned as `cron.last_output`. Requires
+  migration `2026_10_01_000001_add_wordpress_cron_output.php` and the updated
+  file-manager server tool; server-tools refuses to install that worker before the
+  migration.
 - Each installation in a website's `wordpress` summary has `checks`: available
   security measures counted by status, the managed wp-cron state and the last core
   file check, for badges without a request per website.

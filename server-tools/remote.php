@@ -188,7 +188,7 @@ final class ServerToolsRemote
         }
         // Verify the migrations that added fields used by current worker releases.
         foreach (['web-logs' => 'SELECT runtime_version FROM api_web_log_workers WHERE 1=0', 'waf' => 'SELECT application_profiles FROM api_web_waf_workers WHERE 1=0',
-            'php-limits' => 'SELECT revision FROM api_client_resource_limits WHERE 1=0'] as $component => $sql) {
+            'php-limits' => 'SELECT revision FROM api_client_resource_limits WHERE 1=0', 'file-manager' => 'SELECT last_output FROM api_wordpress_cron WHERE 1=0'] as $component => $sql) {
             if (in_array($component, $components, true) && $result['grants']['missing'] === []) {
                 $db->query($sql);
             }

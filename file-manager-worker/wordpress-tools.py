@@ -30,6 +30,34 @@ class Failure(Exception):
     pass
 
 
+class CronFailure(Failure):
+    """A WordPress cron run that failed, with what WP-CLI printed."""
+
+    def __init__(self, code, output):
+        super().__init__(code)
+        self.output = output
+
+
+CRON_LOG = pathlib.Path('/trigger/wp-cron.log')
+CRON_LOG_LIMIT = 1048576
+
+
+def cron_log(path, started, status, output, log=None):
+    """Appends one run to the website's private/wp-cron.log as the website user. Logging never stops a run."""
+    log = log or CRON_LOG
+    try:
+        try:
+            if os.lstat(log).st_size > CRON_LOG_LIMIT:
+                os.replace(log, log.with_name(log.name + '.1'))
+        except FileNotFoundError:
+            pass
+        fd = os.open(log, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, 'a', encoding='utf-8', errors='replace') as handle:
+            handle.write('[%s UTC] /%s: %s\n%s\n' % (time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(started)), path, status, output.rstrip() or '(no output)'))
+    except OSError:
+        pass
+
+
 def run(args, *, data=None, limit=262144, timeout=90, accepted=(0,), include_stderr=False):
     process = subprocess.Popen(args, stdin=subprocess.PIPE if data is not None else subprocess.DEVNULL,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd='/tool', start_new_session=True)
@@ -937,8 +965,17 @@ def main(request):
         if toolkit.config_values().get('DISABLE_WP_CRON') not in ('true', '1'):
             raise Failure('cron_changed')
         # Load plugins/themes here: their registered callbacks are the purpose of WordPress cron.
-        run(request['php'] + ['/tool/wp-cli.phar', '--path=' + str(toolkit.root), '--skip-packages', '--no-color', 'cron', 'event', 'run', '--due-now'], timeout=300)
-        return {'cron_ran': True}
+        started = time.time()
+        try:
+            output, code = run(request['php'] + ['/tool/wp-cli.phar', '--path=' + str(toolkit.root), '--skip-packages', '--no-color', 'cron', 'event', 'run', '--due-now'],
+                               timeout=300, accepted=tuple(range(256)), include_stderr=True)
+        except Failure as error:
+            cron_log(request.get('path', ''), started, str(error), '')
+            raise
+        cron_log(request.get('path', ''), started, 'ok' if code == 0 else 'exit %d' % code, output)
+        if code != 0:
+            raise CronFailure('wp_command_failed', output[-8192:])
+        return {'cron_ran': True, 'output': output[-8192:]}
     if request['action'] == 'prepare_security':
         values = toolkit.config_values()
         for measure in request.get('measures', []):
@@ -977,6 +1014,8 @@ if __name__ == '__main__':
         print(json.dumps(main(json.loads(sys.stdin.buffer.readline(1048577)))))
     except Exception as error:
         result = {'error': str(error) if isinstance(error, Failure) else 'wp_cli_failed'}
+        if isinstance(error, CronFailure):
+            result['output'] = error.output
         if not isinstance(error, Failure):
             trace = error.__traceback__
             while trace.tb_next:

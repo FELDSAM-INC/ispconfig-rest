@@ -137,7 +137,8 @@ def execute(site, request, workspace, *, backup=None, timeout=360, input_stream=
         request = dict(request, php=php, domain=site['domain'], verification_hosts=site.get('verification_hosts', []), uid=uid, gid=gid)
         args = command(uid, gid, rootfd, workfd, php, request['action'] in ('rescan', 'check', 'prepare_security', 'verify_integrity', 'prepare_cron', 'cron_poll'), backup)
         descriptors = (rootfd, workfd) + (() if backup is None else (backup,))
-        if request['action'] == 'cron_poll':
+        # The trigger and the run log live in the website's private directory.
+        if request['action'] in ('cron_poll', 'cron_run'):
             privatefd = open_directory(site['document_root'].rstrip('/') + '/private')
             stack.callback(os.close, privatefd)
             private = os.fstat(privatefd)

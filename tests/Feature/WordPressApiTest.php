@@ -51,7 +51,7 @@ final class WordPressApiTest extends SitesApiTestCase
 
     public function test_website_summary_reports_badge_checks_without_private_metadata(): void
     {
-        [$id, , $installation] = $this->prepareSite();
+        [$id, $url, $installation] = $this->prepareSite();
         $security = ['xmlrpc' => ['status' => 'ok'], 'config' => ['status' => 'warning'], 'author' => ['status' => 'danger'],
             'salts' => ['status' => 'pending'], 'prefix' => ['status' => 'warning']];
         $rows = json_decode(DB::table('api_wordpress_sites')->value('installations'), true);
@@ -63,7 +63,8 @@ final class WordPressApiTest extends SitesApiTestCase
             ->assertJsonPath('wordpress.installations.0.checks', ['security' => ['ok' => 1, 'warning' => 1, 'danger' => 1], 'cron' => 'disabled', 'integrity' => 'modified'])
             ->assertJsonMissingPath('wordpress.installations.0.security');
         DB::table('api_wordpress_cron')->insert(['id' => (string) Str::uuid(), 'website_id' => $id, 'server_id' => 1, 'installation' => $installation,
-            'identity' => 'x', 'path' => 'blog', 'state' => 'active']);
+            'identity' => 'x', 'path' => 'blog', 'state' => 'active', 'last_output' => "Success: Executed a total of 1 cron event."]);
+        $this->getJson($url, $this->authHeaders())->assertOk()->assertJsonPath('installations.0.cron.last_output', 'Success: Executed a total of 1 cron event.');
         DB::table('api_wordpress_workers')->update(['version' => '3']);
         $this->getJson('/api/v1/sites/web-domains', $this->authHeaders())->assertOk()
             ->assertJsonPath('data.0.wordpress.installations.0.checks.cron', 'active')

@@ -153,6 +153,40 @@ class WordPressWorkerTest(unittest.TestCase):
             self.assertEqual('0', result['MULTISITE'])
             self.assertEqual('getenv("X")', result['CONCATENATE_SCRIPTS'])
 
+    def test_cron_run_logs_each_run_in_the_private_directory_and_returns_its_output(self):
+        class Site:
+            root = Path('/site')
+            def __init__(self, request): pass
+            def config_values(self): return {'DISABLE_WP_CRON': 'true'}
+        with tempfile.TemporaryDirectory() as temp, patch.object(tools, 'CRON_LOG', Path(temp) / 'wp-cron.log'), \
+                patch.object(tools, 'Toolkit', Site), patch.object(tools.pathlib.Path, 'mkdir'), patch.object(tools.os, 'geteuid', return_value=1000):
+            request = {'action': 'cron_run', 'path': 'blog', 'php': ['php']}
+            with patch.object(tools, 'run', return_value=("Executed the cron event 'wp_version_check' in 0.4s.\nSuccess: Executed a total of 1 cron event.", 0)) as run:
+                self.assertEqual({'cron_ran': True, 'output': "Executed the cron event 'wp_version_check' in 0.4s.\nSuccess: Executed a total of 1 cron event."}, tools.main(request))
+            self.assertTrue(run.call_args.kwargs['include_stderr'], 'plugin PHP messages are kept')
+            with patch.object(tools, 'run', return_value=('PHP Fatal error: plugin broke', 255)):
+                with self.assertRaises(tools.CronFailure) as failure:
+                    tools.main(request)
+            self.assertEqual(('wp_command_failed', 'PHP Fatal error: plugin broke'), (str(failure.exception), failure.exception.output))
+            log = (Path(temp) / 'wp-cron.log').read_text()
+            self.assertRegex(log, r"^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d UTC\] /blog: ok\nExecuted the cron event 'wp_version_check'")
+            self.assertIn('/blog: exit 255\nPHP Fatal error: plugin broke\n', log)
+            self.assertEqual(0o600, (Path(temp) / 'wp-cron.log').stat().st_mode & 0o777)
+
+    def test_cron_log_rotates_and_never_follows_a_link(self):
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp) / 'wp-cron.log'
+            log.write_text('x' * (tools.CRON_LOG_LIMIT + 1))
+            tools.cron_log('', 0, 'ok', '', log)
+            self.assertEqual(tools.CRON_LOG_LIMIT + 1, (Path(temp) / 'wp-cron.log.1').stat().st_size)
+            self.assertEqual('[1970-01-01 00:00:00 UTC] /: ok\n(no output)\n', log.read_text())
+            log.unlink()
+            target = Path(temp) / 'elsewhere'
+            target.write_text('kept')
+            log.symlink_to(target)
+            tools.cron_log('', 0, 'ok', 'output', log)
+            self.assertEqual('kept', target.read_text())
+
     def test_cron_restores_absent_and_existing_constants_but_rejects_external_edits(self):
         for previous in (None, 'false', '0', 'true'):
             toolkit = tools.Toolkit({'path': '', 'php': [], 'action': 'cron_disable', 'previous_value': previous})

@@ -340,6 +340,10 @@ final class WordPressWorker
             $request['previous_value'] = $row['previous_value'];
         }
         $result = $this->sandbox($site, $request, $job);
+        if ($job['action'] === 'cron_run' && is_string($result['output'] ?? null)) {
+            // What the last run printed, for the panel; private/wp-cron.log keeps the history.
+            $this->write('UPDATE api_wordpress_cron SET last_output=? WHERE id=?', [self::output($result['output']), $row['id']]);
+        }
         if (isset($result['error'])) {
             throw new RuntimeException($result['error']);
         }
@@ -365,6 +369,14 @@ final class WordPressWorker
         $this->finish($job, 'completed');
 
         return null;
+    }
+
+    /** Valid UTF-8 without control characters other than line breaks and tabs, the last 8 KiB. */
+    private static function output(string $text): string
+    {
+        $text = (string) preg_replace('/[^\P{C}\n\t]/u', '', mb_convert_encoding($text, 'UTF-8', 'UTF-8'));
+
+        return strlen($text) > 8192 ? mb_strcut($text, strlen($text) - 8192, 8192, 'UTF-8') : $text;
     }
 
     private function integrity(array $value): array

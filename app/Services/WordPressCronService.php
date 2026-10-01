@@ -31,7 +31,7 @@ final class WordPressCronService
 
         return ['available' => $reason === null, 'reason' => $reason, 'state' => $row->state ?? 'disabled', 'interval' => (int) ($row->interval ?? 15),
             'intervals' => $intervals, 'cron_id' => $row?->cron_id ? (int) $row->cron_id : null,
-            'last_run' => $row?->last_run ? gmdate('c', $row->last_run) : null, 'error' => $row->error ?? null];
+            'last_run' => $row?->last_run ? gmdate('c', $row->last_run) : null, 'last_output' => $row->last_output ?? null, 'error' => $row->error ?? null];
     }
 
     public function begin(WebDomain $site, array $installation, bool $enable, int $interval): string
