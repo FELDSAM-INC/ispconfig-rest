@@ -41,9 +41,33 @@ final class WordPressService
         $worker = $this->worker($site);
         $snapshot = Schema::hasTable('api_wordpress_sites') ? $this->snapshot($site) : null;
         $installs = json_decode($snapshot->installations ?? '[]', true) ?: [];
-        $public = array_map(fn ($row) => array_intersect_key($row, array_flip(['id', 'path', 'title', 'url', 'admin_url'])), $installs);
+        // List badges: the measures counted as the full view offers them, the schedule state and the last core check.
+        $available = array_column(array_filter($this->measures($site, $worker), fn ($measure) => $measure['available']), 'id');
+        $cron = $installs && Schema::hasTable('api_wordpress_cron')
+            ? DB::table('api_wordpress_cron')->where('website_id', $site->getKey())->pluck('state', 'installation')->all() : [];
+        $public = array_map(function (array $row) use ($available, $cron): array {
+            $security = ['ok' => 0, 'warning' => 0, 'danger' => 0];
+            foreach ($available as $id) {
+                $status = $row['security'][$id]['status'] ?? null;
+                if (is_string($status) && isset($security[$status])) {
+                    $security[$status]++;
+                }
+            }
+            $integrity = $row['integrity']['status'] ?? null;
+
+            return array_intersect_key($row, array_flip(['id', 'path', 'title', 'url', 'admin_url'])) + ['checks' => ['security' => $security,
+                'cron' => $cron[$row['id'] ?? ''] ?? 'disabled', 'integrity' => in_array($integrity, ['clean', 'modified'], true) ? $integrity : null]];
+        }, $installs);
 
         return ['available' => (bool) ($worker->available ?? false), 'count' => count($installs), 'installations' => $public];
+    }
+
+    /** Security measures with whether this website's server and worker can apply them. */
+    private function measures(WebDomain $site, ?object $worker): array
+    {
+        return array_map(fn ($key) => ['id' => $key, 'reversible' => ! in_array($key, WordPressPolicy::ONE_WAY, true),
+            'available' => in_array($key, ['prefix', 'admin_login'], true) ? (int) ($worker->version ?? 0) >= 3 : (! in_array($key, WordPressPolicy::SERVER, true) || $site->web_server_type === 'apache'),
+            'reason' => in_array($key, ['prefix', 'admin_login'], true) && (int) ($worker->version ?? 0) < 3 ? 'worker_update_required' : (in_array($key, WordPressPolicy::SERVER, true) && $site->web_server_type !== 'apache' ? 'apache_required' : null)], [...WordPressPolicy::SERVER, ...WordPressPolicy::LOCAL]);
     }
 
     public function view(WebDomain $site): array
@@ -57,9 +81,7 @@ final class WordPressService
 
         return ['available' => (bool) ($worker->available ?? false), 'reason' => $worker->reason ?? ($worker ? null : 'worker_unavailable'),
             'scanned_at' => $snapshot ? gmdate('c', $snapshot->scanned_at) : null, 'scan_incomplete' => (bool) ($snapshot->incomplete ?? false), 'installations' => $public,
-            'measures' => array_map(fn ($key) => ['id' => $key, 'reversible' => ! in_array($key, WordPressPolicy::ONE_WAY, true),
-                'available' => in_array($key, ['prefix', 'admin_login'], true) ? (int) ($worker->version ?? 0) >= 3 : (! in_array($key, WordPressPolicy::SERVER, true) || $site->web_server_type === 'apache'),
-                'reason' => in_array($key, ['prefix', 'admin_login'], true) && (int) ($worker->version ?? 0) < 3 ? 'worker_update_required' : (in_array($key, WordPressPolicy::SERVER, true) && $site->web_server_type !== 'apache' ? 'apache_required' : null)], [...WordPressPolicy::SERVER, ...WordPressPolicy::LOCAL]),
+            'measures' => $this->measures($site, $worker),
             'tools_available' => (bool) ($worker->available ?? false) && (int) ($worker->version ?? 0) >= 2,
             'job' => $job ? $this->present($job) : null];
     }

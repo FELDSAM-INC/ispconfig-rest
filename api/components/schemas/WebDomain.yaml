@@ -46,6 +46,20 @@ properties:
             title: {type: string}
             url: {type: string}
             admin_url: {type: string}
+            checks:
+              type: object
+              description: |
+                State for list badges: security measures the website's server and worker can apply, counted by their
+                last checked status; the managed wp-cron schedule; the last core file check (null before one).
+              properties:
+                security:
+                  type: object
+                  properties:
+                    ok: {type: integer}
+                    warning: {type: integer}
+                    danger: {type: integer}
+                cron: {type: string, enum: [disabled, enabling, active, disabling, error]}
+                integrity: {type: string, enum: [clean, modified], nullable: true}
   waf_available: {type: boolean, readOnly: true, description: WAF server tool is installed and reporting a current heartbeat.}
   waf_mode:
     type: string

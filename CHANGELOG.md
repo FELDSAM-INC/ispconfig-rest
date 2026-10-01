@@ -14,6 +14,9 @@ the HTTP API remains under `/api/v1`.
   FTP and shell users, cron jobs and protected folders of each website and the
   mailboxes, aliases and forwards of its domain, counted only for the website's own
   client with a few grouped queries per page.
+- Each installation in a website's `wordpress` summary has `checks`: available
+  security measures counted by status, the managed wp-cron state and the last core
+  file check, for badges without a request per website.
 
 ## [1.0.4] - 2026-09-29
 

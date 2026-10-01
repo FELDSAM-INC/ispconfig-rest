@@ -49,6 +49,27 @@ final class WordPressApiTest extends SitesApiTestCase
         $this->getJson($url.'/jobs/'.$job, $headers)->assertNotFound();
     }
 
+    public function test_website_summary_reports_badge_checks_without_private_metadata(): void
+    {
+        [$id, , $installation] = $this->prepareSite();
+        $security = ['xmlrpc' => ['status' => 'ok'], 'config' => ['status' => 'warning'], 'author' => ['status' => 'danger'],
+            'salts' => ['status' => 'pending'], 'prefix' => ['status' => 'warning']];
+        $rows = json_decode(DB::table('api_wordpress_sites')->value('installations'), true);
+        $rows[0] = ['security' => $security, 'integrity' => ['status' => 'modified', 'files' => []]] + $rows[0];
+        DB::table('api_wordpress_sites')->update(['installations' => json_encode($rows)]);
+        $path = '/api/v1/sites/web-domains/'.$id;
+        // Worker version 1 cannot change the table prefix, so its warning is not counted.
+        $this->getJson($path, $this->authHeaders())->assertOk()
+            ->assertJsonPath('wordpress.installations.0.checks', ['security' => ['ok' => 1, 'warning' => 1, 'danger' => 1], 'cron' => 'disabled', 'integrity' => 'modified'])
+            ->assertJsonMissingPath('wordpress.installations.0.security');
+        DB::table('api_wordpress_cron')->insert(['id' => (string) Str::uuid(), 'website_id' => $id, 'server_id' => 1, 'installation' => $installation,
+            'identity' => 'x', 'path' => 'blog', 'state' => 'active']);
+        DB::table('api_wordpress_workers')->update(['version' => '3']);
+        $this->getJson('/api/v1/sites/web-domains', $this->authHeaders())->assertOk()
+            ->assertJsonPath('data.0.wordpress.installations.0.checks.cron', 'active')
+            ->assertJsonPath('data.0.wordpress.installations.0.checks.security.warning', 2);
+    }
+
     public function test_native_rules_are_datalogged_and_preserve_other_blocks(): void
     {
         [$id, $url, $installation] = $this->prepareSite(['apache_directives' => "# Existing WAF\r\nHeader set X-Test test\r\n"]);
