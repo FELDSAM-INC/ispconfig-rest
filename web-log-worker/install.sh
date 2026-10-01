@@ -10,6 +10,7 @@ install -m 0600 -o root -g root "$worker_source/run.php" /usr/local/lib/ispconfi
 install -m 0600 -o root -g root "$worker_source/../app/Support/WebLogReader.php" /usr/local/lib/ispconfig-rest-web-log-worker/
 install -m 0600 -o root -g root "$worker_source/../app/Support/WebRuntimeDirectory.php" /usr/local/lib/ispconfig-rest-web-log-worker/
 install -m 0600 -o root -g root "$worker_source/../app/Support/WebPhpDefaults.php" /usr/local/lib/ispconfig-rest-web-log-worker/
+install -m 0600 -o root -g root "$worker_source/../app/Support/CronOutputLog.php" /usr/local/lib/ispconfig-rest-web-log-worker/
 install -m 0600 -o root -g root "$worker_source/nginx-runtime.conf" /usr/local/lib/ispconfig-rest-web-log-worker/
 if [ -L /usr/local/ispconfig/server/plugins-enabled/nginx_plugin.inc.php ]; then
     runtime_target=/etc/nginx/conf.d/ispcp-runtime.conf

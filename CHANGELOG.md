@@ -14,6 +14,14 @@ the HTTP API remains under `/api/v1`.
   FTP and shell users, cron jobs and protected folders of each website and the
   mailboxes, aliases and forwards of its domain, counted only for the website's own
   client with a few grouped queries per page.
+- Scheduled tasks can keep their own output log (`output_log`, spec 054): every run's
+  output and errors, between its UTC time and exit status, are appended as the website
+  user to the website's `private/.ispcp-cron-<token>.log`, and
+  `GET /sites/cron-jobs/{id}/log` returns the latest lines through the web-log worker,
+  which reads and trims the file (above 1 MiB, to 512 KiB) as the website user. The
+  native command carries a managed prefix that the API never returns; ISPConfig's shared
+  `log` option is turned off for such tasks. URL tasks are not supported. Update the
+  `web-logs` server tool: it needs the new `cron` SELECT grant.
 - WordPress cron takeover logs every run: WP-CLI output, including PHP messages from
   plugin callbacks, is appended as the website user to `private/wp-cron.log` (rotated
   at 1 MiB), and the latest run's output is returned as `cron.last_output`. Requires

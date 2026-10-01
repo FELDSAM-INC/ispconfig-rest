@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\CronJob;
 use App\Models\WebDomain;
+use App\Support\CronOutputLog;
 use App\Support\WebLogReader;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -19,12 +21,7 @@ final class WebLogService
         if ($this->local($site)) {
             return $this->reader()->available((string) $site->domain);
         }
-        if ($this->workers === null) {
-            $this->workers = Schema::hasTable('api_web_log_workers')
-                ? DB::table('api_web_log_workers')->where('heartbeat', '>=', time() - 90)->pluck('server_id')->map(fn ($id) => (int) $id)->all() : [];
-        }
-
-        return in_array((int) $site->server_id, $this->workers, true);
+        return in_array((int) $site->server_id, $this->workerServers(), true);
     }
 
     private function local(WebDomain $site): bool
@@ -61,22 +58,10 @@ final class WebLogService
                 return ['state' => 'unavailable', 'reason' => $this->reason($e->getMessage())];
             }
         } else {
-            $request = json_encode(['kind' => $kind, 'lines' => $lines, 'before' => $before], JSON_THROW_ON_ERROR);
-            $id = hash('sha256', implode(':', [$site->server_id, $site->getKey(), $site->sys_groupid, $site->domain, $request]));
-            // Results are short-lived: each new refresh queues a fresh read. No web logs in ISPConfig datalog.
-            DB::table('api_web_log_reads')->where('id', $id)->where(function ($query): void {
-                $query->where('created_at', '<', time() - 30)
-                    ->orWhere(fn ($ready) => $ready->whereNotNull('result')->where('created_at', '<', time() - 8));
-            })->delete();
-            DB::table('api_web_log_reads')->insertOrIgnore([
-                'id' => $id, 'server_id' => $site->server_id, 'website_id' => $site->getKey(), 'sys_groupid' => $site->sys_groupid,
-                'domain' => $site->domain, 'request' => $request, 'created_at' => time(),
-            ]);
-            $raw = DB::table('api_web_log_reads')->where('id', $id)->value('result');
-            if ($raw === null) {
+            $result = $this->queue($site, ['kind' => $kind, 'lines' => $lines, 'before' => $before]);
+            if ($result === null) {
                 return ['state' => 'pending'];
             }
-            $result = json_decode($raw, true, 8, JSON_THROW_ON_ERROR);
             if (isset($result['error'])) {
                 return ['state' => 'unavailable', 'reason' => $this->reason($result['error'])];
             }
@@ -87,6 +72,63 @@ final class WebLogService
         return ['state' => 'ready'] + $result + ['before' => $next === null ? null : Crypt::encryptString(json_encode([
             'site' => (int) $site->getKey(), 'group' => (int) $site->sys_groupid, 'kind' => $kind, 'position' => $next,
         ], JSON_THROW_ON_ERROR))];
+    }
+
+    /**
+     * The last lines of a scheduled task's own output log (spec 054). Only the web-log worker on the website's server
+     * can read the website user's files, also when the API runs on that server.
+     */
+    public function cron(CronJob $job, int $lines): array
+    {
+        if (CronOutputLog::parse((string) $job->getAttributes()['command']) === null) {
+            return ['state' => 'disabled'];
+        }
+        $site = WebDomain::query()->find((int) $job->getAttributes()['parent_domain_id']);
+        if ($site === null || ! in_array((int) $site->server_id, $this->workerServers(), true)) {
+            return ['state' => 'unavailable'];
+        }
+        $result = $this->queue($site, ['kind' => 'cron', 'cron_id' => (int) $job->getKey(), 'lines' => $lines]);
+        if ($result === null) {
+            return ['state' => 'pending'];
+        }
+        if (isset($result['error'])) {
+            return ['state' => 'unavailable', 'reason' => $this->reason($result['error'])];
+        }
+
+        return ['state' => 'ready', 'lines' => $result['lines'] ?? [], 'size' => (int) ($result['size'] ?? 0),
+            'modified_at' => isset($result['modified_at']) ? gmdate('c', (int) $result['modified_at']) : null, 'truncated' => (bool) ($result['truncated'] ?? false)];
+    }
+
+    /** @return int[] servers with a current web-log worker heartbeat */
+    private function workerServers(): array
+    {
+        if ($this->workers === null) {
+            $this->workers = Schema::hasTable('api_web_log_workers')
+                ? DB::table('api_web_log_workers')->where('heartbeat', '>=', time() - 90)->pluck('server_id')->map(fn ($id) => (int) $id)->all() : [];
+        }
+
+        return $this->workers;
+    }
+
+    /**
+     * Queues one read for the website's web-log worker; its result, or null while it is pending. Results are
+     * short-lived: each new refresh queues a fresh read. No web logs in ISPConfig datalog.
+     */
+    private function queue(WebDomain $site, array $request): ?array
+    {
+        $request = json_encode($request, JSON_THROW_ON_ERROR);
+        $id = hash('sha256', implode(':', [$site->server_id, $site->getKey(), $site->sys_groupid, $site->domain, $request]));
+        DB::table('api_web_log_reads')->where('id', $id)->where(function ($query): void {
+            $query->where('created_at', '<', time() - 30)
+                ->orWhere(fn ($ready) => $ready->whereNotNull('result')->where('created_at', '<', time() - 8));
+        })->delete();
+        DB::table('api_web_log_reads')->insertOrIgnore([
+            'id' => $id, 'server_id' => $site->server_id, 'website_id' => $site->getKey(), 'sys_groupid' => $site->sys_groupid,
+            'domain' => $site->domain, 'request' => $request, 'created_at' => time(),
+        ]);
+        $raw = DB::table('api_web_log_reads')->where('id', $id)->value('result');
+
+        return $raw === null ? null : json_decode($raw, true, 8, JSON_THROW_ON_ERROR);
     }
 
     private function reason(string $reason): string

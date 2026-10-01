@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Support\CronOutputLog;
 use App\Support\WebLogReader;
 use App\Support\WebPhpDefaults;
 use App\Support\WebRuntimeDirectory;
@@ -20,6 +21,7 @@ require SCRIPT_PATH.'/lib/config.inc.php';
 require __DIR__.'/WebLogReader.php';
 require __DIR__.'/WebRuntimeDirectory.php';
 require __DIR__.'/WebPhpDefaults.php';
+require __DIR__.'/CronOutputLog.php';
 $prefix = ! empty($conf['dbmaster_host']) && ($conf['dbmaster_host'] !== $conf['db_host'] || $conf['dbmaster_database'] !== $conf['db_database'] || (int) $conf['dbmaster_port'] !== (int) $conf['db_port']) ? 'dbmaster_' : 'db_';
 try {
     $db = new PDO('mysql:host='.$conf[$prefix.'host'].';port='.($conf[$prefix.'port'] ?? 3306).';dbname='.$conf[$prefix.'database'].';charset=utf8mb4', $conf[$prefix.'user'], $conf[$prefix.'password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false]);
@@ -36,6 +38,19 @@ try {
         // A missing snapshot grant must not interrupt existing log/directory requests.
         error_log('ISPConfig PHP configuration snapshot failed ('.get_class($e).'). Check worker database grants.');
     }
+    // Scheduled task output logs (spec 054) are trimmed above their limit, as the website user, once a minute.
+    try {
+        $tasks = $db->prepare("SELECT c.command, c.type, w.document_root, w.system_user FROM cron c JOIN web_domain w ON w.domain_id = c.parent_domain_id WHERE c.server_id = ? AND c.command LIKE 'command exec >>%'");
+        $tasks->execute([$server]);
+        foreach ($tasks->fetchAll() as $task) {
+            $parsed = CronOutputLog::parse((string) $task['command']);
+            if ($parsed !== null && $parsed['dir'] === CronOutputLog::directory((string) $task['type'], (string) $task['document_root'])) {
+                CronOutputLog::trim((string) $task['document_root'], (string) $task['system_user'], $parsed['token']);
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('ISPConfig scheduled task log trimming failed ('.get_class($e).'). Check worker database grants.');
+    }
     while (microtime(true) - $started < 50) {
         if (time() - $heartbeat >= 5) {
             $runtimeVersion = is_file(__DIR__.'/runtime-ready') && (is_link(SCRIPT_PATH.'/plugins-enabled/apache2_plugin.inc.php')
@@ -49,7 +64,7 @@ try {
         $query->execute([$server, time() - 30]);
         foreach ($query->fetchAll() as $job) {
             try {
-                $website = $db->prepare("SELECT domain, document_root, web_folder, type FROM web_domain WHERE domain_id = ? AND server_id = ? AND sys_groupid = ? AND domain = ? AND type IN ('vhost','vhostsubdomain','vhostalias')");
+                $website = $db->prepare("SELECT domain, document_root, web_folder, type, system_user FROM web_domain WHERE domain_id = ? AND server_id = ? AND sys_groupid = ? AND domain = ? AND type IN ('vhost','vhostsubdomain','vhostalias')");
                 $website->execute([$job['website_id'], $server, $job['sys_groupid'], $job['domain']]);
                 $site = $website->fetch();
                 if (! is_array($site)) {
@@ -59,6 +74,16 @@ try {
                 if (($request['kind'] ?? '') === 'document_root') {
                     WebRuntimeDirectory::check($site, $request['subdirectory']);
                     $result = ['directory_valid' => true];
+                } elseif (($request['kind'] ?? '') === 'cron') {
+                    // The task must still belong to this website and carry the managed prefix for its own private directory.
+                    $task = $db->prepare('SELECT command, type FROM cron WHERE id = ? AND parent_domain_id = ? AND server_id = ? AND sys_groupid = ?');
+                    $task->execute([(int) ($request['cron_id'] ?? 0), $job['website_id'], $server, $job['sys_groupid']]);
+                    $row = $task->fetch();
+                    $parsed = is_array($row) ? CronOutputLog::parse((string) $row['command']) : null;
+                    if ($parsed === null || $parsed['dir'] !== CronOutputLog::directory((string) $row['type'], (string) $site['document_root'])) {
+                        throw new RuntimeException('logs_unavailable');
+                    }
+                    $result = CronOutputLog::read((string) $site['document_root'], (string) $site['system_user'], $parsed['token'], max(1, min(1000, (int) ($request['lines'] ?? 200))));
                 } else {
                     $result = $reader->read($site['domain'], $request['kind'], $request['lines'], $request['before']);
                 }

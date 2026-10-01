@@ -32,6 +32,7 @@ class UpdateCronJobRequest extends StoreCronJobRequest
             'run_wday' => ['sometimes', 'string', 'max:100', $this->runTimeRule('run_wday')],
             'command' => ['sometimes', 'string', $this->commandRule()],
             'log' => ['sometimes', 'boolean'],
+            'output_log' => ['sometimes', 'boolean'],
             'active' => ['sometimes', 'boolean'],
         ];
     }

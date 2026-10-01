@@ -220,3 +220,44 @@
         $ref: '../../components/responses/NotFound.yaml'
       '500':
         $ref: '../../components/responses/InternalServerError.yaml'
+
+/sites/cron-jobs/{id}/log:
+  get:
+    tags:
+      - Cron Jobs
+    summary: Read the last lines of a scheduled task's own output log
+    description: |
+      Available for tasks with `output_log`. Every run of such a task appends, as the website user, its standard
+      output and errors to `private/.ispcp-cron-<token>.log` of the website, between a `=== <UTC time> ===` line and
+      `=== exit <status> ===`. The web-log worker on the website's server reads the file as the website user and
+      trims it to the last 512 KiB once it exceeds 1 MiB. `pending` means the worker has not answered yet; ask again
+      after a second. Uses the same read scope as the task; responses are private/no-store.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+      - name: lines
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 1000, default: 200 }
+    responses:
+      '200':
+        description: The log, a pending read or why it is unavailable
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state: { type: string, enum: [ready, pending, unavailable, disabled], description: '`disabled` when the task has no own output log.' }
+                reason: { type: string, enum: [logs_unavailable] }
+                lines: { type: array, items: { type: string }, description: 'Latest lines in chronological order, each at most 4096 bytes.' }
+                size: { type: integer, description: 'File size in bytes; 0 before the first run.' }
+                modified_at: { type: string, format: date-time, nullable: true }
+                truncated: { type: boolean, description: 'Older lines exist beyond the returned ones.' }
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'

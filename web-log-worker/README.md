@@ -27,7 +27,10 @@ Like ISPConfig itself, the worker uses local `server/lib/config.inc.php` to conn
 to the master database. Its existing master SQL account needs SELECT on
 `web_domain`, SELECT/INSERT/UPDATE on `api_web_log_workers` and SELECT/UPDATE/DELETE
 on `api_web_log_reads`. PHP configuration snapshots also need SELECT on `server`
-and `server_php`, plus SELECT/INSERT/UPDATE on `api_web_php_defaults`.
+and `server_php`, plus SELECT/INSERT/UPDATE on `api_web_php_defaults`. Scheduled task
+output logs (spec 054) need SELECT on `cron`: the worker reads a task's
+`private/.ispcp-cron-<token>.log` as the website user (`runuser`, ten-second timeout)
+and trims logs above 1 MiB to their last 512 KiB once a minute.
 Grant only these tables, not global database privileges.
 There is no new HTTP listener, SSH credential or public log URL.
 

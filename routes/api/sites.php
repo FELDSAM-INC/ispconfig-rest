@@ -125,6 +125,7 @@ Route::get('sites/cron-jobs', [CronJobController::class, 'index']);
 Route::post('sites/cron-jobs', [CronJobController::class, 'store']);
 Route::get('sites/cron-jobs/{cronJob}', [CronJobController::class, 'show'])->whereNumber('cronJob');
 Route::put('sites/cron-jobs/{cronJob}', [CronJobController::class, 'update'])->whereNumber('cronJob');
+Route::get('sites/cron-jobs/{cronJob}/log', [CronJobController::class, 'log'])->whereNumber('cronJob');
 Route::delete('sites/cron-jobs/{cronJob}', [CronJobController::class, 'destroy'])->whereNumber('cronJob');
 
 // Web Folders — api/modules/sites/web-folders.yaml

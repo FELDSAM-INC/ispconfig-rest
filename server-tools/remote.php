@@ -16,6 +16,7 @@ final class ServerToolsRemote
             'web_domain' => 'SELECT', 'server' => 'SELECT', 'server_php' => 'SELECT',
             'api_web_log_workers' => 'SELECT,INSERT,UPDATE', 'api_web_log_reads' => 'SELECT,UPDATE,DELETE',
             'api_web_php_defaults' => 'SELECT,INSERT,UPDATE',
+            'cron' => 'SELECT',
         ],
         'waf' => [
             'web_domain' => 'SELECT', 'api_web_waf_workers' => 'SELECT,INSERT,UPDATE', 'api_web_waf_events' => 'SELECT,INSERT,UPDATE,DELETE',

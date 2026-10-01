@@ -123,9 +123,22 @@ properties:
   log:
     type: boolean
     default: false
-    description: Whether to log the cron job output
+    description: |
+      ISPConfig's own log option: the output of the command's last part is appended to the website's shared
+      private/cron.log and cron_error.log. Turned off while `output_log` is on.
     example: false
     x-db-format: "y/n"
+
+  output_log:
+    type: boolean
+    default: false
+    description: |
+      Own output log of this task (spec 054): every run's standard output and errors, with its time and exit status,
+      are appended as the website user to the website's private/.ispcp-cron-<token>.log, readable through
+      `GET /sites/cron-jobs/{id}/log`. The native command then starts with a managed prefix that this API never
+      returns; `command` stays the task's own command. For chrooted tasks a leading document root is removed from the
+      command, as ISPConfig does. Not available for URL tasks, which ignore it.
+    example: true
 
   active:
     type: boolean

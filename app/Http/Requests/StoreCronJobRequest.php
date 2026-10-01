@@ -19,7 +19,7 @@ class StoreCronJobRequest extends SitesRequest
 
     protected function booleanFields(): array
     {
-        return ['log', 'active'];
+        return ['log', 'active', 'output_log'];
     }
 
     /**
@@ -40,6 +40,7 @@ class StoreCronJobRequest extends SitesRequest
             'run_wday' => ['required', 'string', 'max:100', $this->runTimeRule('run_wday')],
             'command' => ['required', 'string', $this->commandRule()],
             'log' => ['sometimes', 'boolean'],
+            'output_log' => ['sometimes', 'boolean'],
             'active' => ['sometimes', 'boolean'],
         ];
     }

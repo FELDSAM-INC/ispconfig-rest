@@ -23,7 +23,7 @@ REPOSITORY = "https://github.com/FELDSAM-INC/ispconfig-rest.git"
 FILES = (
     "worker/install.sh", "worker/run.php", "worker/DatabaseWorker.php", "worker/SqlDump.php",
     "web-log-worker/install.sh", "web-log-worker/run.php", "web-log-worker/nginx-runtime.conf",
-    "app/Support/WebLogReader.php", "app/Support/WebRuntimeDirectory.php", "app/Support/WebPhpDefaults.php",
+    "app/Support/WebLogReader.php", "app/Support/WebRuntimeDirectory.php", "app/Support/WebPhpDefaults.php", "app/Support/CronOutputLog.php",
     "file-manager-worker/install.sh", "file-manager-worker/reconcile.py", "file-manager-worker/sites.php",
     "file-manager-worker/wordpress-install.sh", "file-manager-worker/wordpress.php", "file-manager-worker/WordPressWorker.php",
     "file-manager-worker/wordpress-sandbox.py", "file-manager-worker/wordpress-tools.py", "app/Support/WordPressPolicy.php", "app/Support/WebDomainAutoalias.php",
