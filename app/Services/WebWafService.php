@@ -46,6 +46,18 @@ final class WebWafService
         }
     }
 
+    /** off, detection or enforcing for list badges; null when the managed block was changed outside the API. */
+    public function mode(WebDomain $site): ?string
+    {
+        try {
+            $settings = $this->settings($site);
+        } catch (ConflictHttpException) {
+            return null;
+        }
+
+        return $settings === null || ! $settings['enabled'] ? 'off' : $settings['mode'];
+    }
+
     public function view(WebDomain $site): array
     {
         $worker = $this->worker($site);

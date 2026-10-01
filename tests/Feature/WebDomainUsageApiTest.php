@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\DB;
 use Tests\Support\UsageApiTestCase;
 
 /**
@@ -110,6 +111,37 @@ class WebDomainUsageApiTest extends UsageApiTestCase
             $sub['disk']
         );
         $this->assertSame(500, $sub['traffic']['this_month']);
+    }
+
+    public function test_counts_the_records_of_each_website_in_its_own_client_only(): void
+    {
+        $insert = function (string $owner, string $table, array $attrs): void {
+            DB::table($table)->insert($this->ownedBy($owner, $attrs + ['server_id' => 1]));
+        };
+        foreach (['web_database' => 2, 'ftp_user' => 1, 'shell_user' => 1, 'cron' => 3, 'web_folder' => 1] as $table => $count) {
+            for ($i = 0; $i < $count; $i++) {
+                $insert('clientA', $table, ['parent_domain_id' => $this->a1]);
+            }
+        }
+        $insert('clientA', 'web_database', ['parent_domain_id' => $this->sub]);
+        // Another client's record under this website and a same-named mail domain elsewhere are not counted.
+        $insert('clientB', 'ftp_user', ['parent_domain_id' => $this->a1]);
+        $insert('clientA', 'mail_user', ['email' => 'info@a1.test']);
+        $insert('clientA', 'mail_user', ['email' => 'sales@A1.test']);
+        $insert('clientA', 'mail_user', ['email' => 'info@a2.test']);
+        $insert('clientB', 'mail_user', ['email' => 'other@a1.test']);
+        $insert('clientA', 'mail_forwarding', ['source' => 'hello@a1.test', 'destination' => 'info@a1.test', 'type' => 'alias']);
+        $insert('clientA', 'mail_forwarding', ['source' => 'out@a1.test', 'destination' => 'x@example.org', 'type' => 'forward']);
+        $insert('clientA', 'mail_forwarding', ['source' => '@a1.test', 'destination' => 'info@a1.test', 'type' => 'catchall']);
+
+        $rows = $this->rowsByDomain($this->getAs('clientA', '/usage/web-domains')->assertOk()->json('data'));
+
+        $this->assertSame(['databases' => 2, 'ftp_users' => 1, 'shell_users' => 1, 'cron_jobs' => 3, 'protected_folders' => 1,
+            'mailboxes' => 2, 'mail_aliases' => 1, 'mail_forwards' => 1], $rows['a1.test']['records']);
+        $this->assertSame(1, $rows['sub.a1.test']['records']['databases']);
+        $this->assertSame(1, $rows['a2.test']['records']['mailboxes']);
+        $this->assertSame(0, $rows['a3.test']['records']['databases']);
+        $this->assertSame($rows['a1.test']['records'], $this->getAs('clientA', '/usage/web-domains/'.$this->a1)->assertOk()->json('records'));
     }
 
     public function test_filters_sorting_and_strict_parameters(): void

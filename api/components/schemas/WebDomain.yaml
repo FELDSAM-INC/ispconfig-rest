@@ -47,6 +47,12 @@ properties:
             url: {type: string}
             admin_url: {type: string}
   waf_available: {type: boolean, readOnly: true, description: WAF server tool is installed and reporting a current heartbeat.}
+  waf_mode:
+    type: string
+    enum: ['off', detection, enforcing]
+    nullable: true
+    readOnly: true
+    description: WAF state of the website from its managed configuration; `off` also when it was never configured, null when the managed block was changed outside the API.
   public_document_root:
     type: string
     nullable: true

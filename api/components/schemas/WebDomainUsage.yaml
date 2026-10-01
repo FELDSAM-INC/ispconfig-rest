@@ -11,6 +11,7 @@ required:
   - hd_quota_bytes
   - traffic
   - traffic_quota_bytes
+  - records
 properties:
   domain_id:
     type: integer
@@ -85,3 +86,20 @@ properties:
     nullable: true
     description: The website's monthly traffic quota; null when unlimited.
     example: 10737418240
+  records:
+    type: object
+    description: |
+      Records belonging to the website, for list badges: databases, FTP and shell users, cron jobs and protected
+      folders attached to it, and mailboxes and mail aliases/forwards of its domain name. Only records of the
+      website's own client are counted.
+    additionalProperties: false
+    required: [databases, ftp_users, shell_users, cron_jobs, protected_folders, mailboxes, mail_aliases, mail_forwards]
+    properties:
+      databases: {type: integer, example: 2}
+      ftp_users: {type: integer, example: 1}
+      shell_users: {type: integer, example: 0}
+      cron_jobs: {type: integer, example: 1}
+      protected_folders: {type: integer, example: 0}
+      mailboxes: {type: integer, example: 3}
+      mail_aliases: {type: integer, example: 1}
+      mail_forwards: {type: integer, example: 0}

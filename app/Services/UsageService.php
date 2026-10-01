@@ -209,8 +209,9 @@ class UsageService
 
         $blobs = $this->monitor->latestBlobs(['harddisk_quota'], $sites->where('type', 'vhost')->pluck('server_id')->all());
         $traffic = $this->traffic->webPeriods($sites->pluck('domain')->all());
+        $records = $this->webDomainRecords($sites);
 
-        return $sites->map(function (object $site) use ($blobs, $traffic): array {
+        return $sites->map(function (object $site) use ($blobs, $traffic, $records): array {
             $disk = $site->type === 'vhost'
                 ? $this->diskFigures((string) $site->system_user, (int) $site->server_id, $blobs)
                 : ['used' => null, 'soft' => null, 'hard' => null, 'files' => null, 'created' => null];
@@ -237,8 +238,58 @@ class UsageService
                 'hd_quota_bytes' => $hdQuotaBytes,
                 'traffic' => $traffic[(string) $site->domain] ?? TrafficPeriodService::emptyPeriods(),
                 'traffic_quota_bytes' => $trafficQuota > 0 ? $trafficQuota * self::MB : null,
+                'records' => $records[(int) $site->domain_id],
             ];
         })->values()->all();
+    }
+
+    /**
+     * Records of each website for list badges, a few grouped queries per page rather than per website. Only records
+     * of the website's own client count; mail by the website's domain name.
+     *
+     * @param  Collection<int, object>  $sites
+     * @return array<int, array<string, int>>
+     */
+    private function webDomainRecords(Collection $sites): array
+    {
+        $tables = ['databases' => 'web_database', 'ftp_users' => 'ftp_user', 'shell_users' => 'shell_user',
+            'cron_jobs' => 'cron', 'protected_folders' => 'web_folder'];
+        $empty = array_fill_keys([...array_keys($tables), 'mailboxes', 'mail_aliases', 'mail_forwards'], 0);
+        $groups = $sites->mapWithKeys(fn (object $site): array => [(int) $site->domain_id => (int) $site->sys_groupid])->all();
+        $records = array_fill_keys(array_keys($groups), $empty);
+        if ($groups === []) {
+            return $records;
+        }
+        foreach ($tables as $key => $table) {
+            $rows = DB::table($table)->whereIn('parent_domain_id', array_keys($groups))
+                ->groupBy('parent_domain_id', 'sys_groupid')->select('parent_domain_id', 'sys_groupid', DB::raw('COUNT(*) AS total'))->get();
+            foreach ($rows as $row) {
+                if ((int) $row->sys_groupid === ($groups[(int) $row->parent_domain_id] ?? null)) {
+                    $records[(int) $row->parent_domain_id][$key] += (int) $row->total;
+                }
+            }
+        }
+
+        $byDomain = [];
+        foreach ($sites as $site) {
+            $byDomain[strtolower((string) $site->domain)][(int) $site->sys_groupid] = (int) $site->domain_id;
+        }
+        $count = function (string $address, int $group, string $key) use ($byDomain, &$records): void {
+            $at = strrpos($address, '@');
+            $id = $at === false ? null : ($byDomain[strtolower(substr($address, $at + 1))][$group] ?? null);
+            if ($id !== null) {
+                $records[$id][$key]++;
+            }
+        };
+        $clientGroups = array_values(array_unique($groups));
+        foreach (DB::table('mail_user')->whereIn('sys_groupid', $clientGroups)->get(['email', 'sys_groupid']) as $row) {
+            $count((string) $row->email, (int) $row->sys_groupid, 'mailboxes');
+        }
+        foreach (DB::table('mail_forwarding')->whereIn('sys_groupid', $clientGroups)->whereIn('type', ['alias', 'forward'])->get(['source', 'type', 'sys_groupid']) as $row) {
+            $count((string) $row->source, (int) $row->sys_groupid, $row->type === 'alias' ? 'mail_aliases' : 'mail_forwards');
+        }
+
+        return $records;
     }
 
     /**

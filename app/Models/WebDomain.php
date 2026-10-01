@@ -144,6 +144,7 @@ class WebDomain extends BaseModel
     protected $appends = [
         'logs_available',
         'waf_available',
+        'waf_mode',
         'wordpress',
         'public_document_root',
         'runtime_capabilities',
@@ -238,6 +239,11 @@ class WebDomain extends BaseModel
     protected function wafAvailable(): Attribute
     {
         return Attribute::get(fn () => app(WebWafService::class)->available($this));
+    }
+
+    protected function wafMode(): Attribute
+    {
+        return Attribute::get(fn () => app(WebWafService::class)->mode($this));
     }
 
     protected function logsAvailable(): Attribute

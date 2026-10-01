@@ -27,6 +27,7 @@ final class WebWafApiTest extends SitesApiTestCase
         $url = '/api/v1/sites/web-domains/'.$id.'/waf';
         $headers = $this->tenantHeaders('clientA');
         $this->getJson($url, $headers)->assertOk()->assertJsonPath('available', true)->assertJsonPath('settings.enabled', false);
+        $this->getJson('/api/v1/sites/web-domains/'.$id, $headers)->assertOk()->assertJsonPath('waf_mode', 'off');
         $this->putJson($url, ['enabled' => true, 'exclusions' => [['rule_id' => 942100, 'path' => '/allowed', 'parameter' => 'q']], 'ip_allowlist' => ['192.0.2.1']], $headers)->assertOk()->assertJsonPath('settings.mode', 'detection');
         $raw = DB::table('web_domain')->where('domain_id', $id)->value('apache_directives');
         $this->assertStringContainsString('Header set X-Test value', $raw);
@@ -35,8 +36,10 @@ final class WebWafApiTest extends SitesApiTestCase
         $this->assertCount(1, $this->datalogRows('web_domain'));
         $this->putJson($url, ['enabled' => true], $headers)->assertOk();
         $this->assertCount(1, $this->datalogRows('web_domain'));
+        $this->getJson('/api/v1/sites/web-domains/'.$id, $headers)->assertOk()->assertJsonPath('waf_mode', 'detection');
         $this->putJson($url, ['mode' => 'enforcing'], $headers)->assertOk()->assertJsonPath('settings.exclusions.0.rule_id', 942100);
         $this->assertCount(2, $this->datalogRows('web_domain'));
+        $this->getJson('/api/v1/sites/web-domains', $headers)->assertOk()->assertJsonPath('data.0.waf_mode', 'enforcing');
         $this->getJson($url, $this->tenantHeaders('clientB'))->assertNotFound();
         $this->putJson($url, ['enabled' => false], $this->tenantHeaders('clientB'))->assertNotFound();
         $this->getJson($url)->assertUnauthorized();
@@ -156,6 +159,7 @@ final class WebWafApiTest extends SitesApiTestCase
         $this->putJson($url, ['enabled' => true], $this->tenantHeaders('clientA'))->assertForbidden();
         DB::table('web_domain')->where('domain_id', $id)->update(['apache_directives' => WebWafPolicy::BEGIN.' invalid']);
         $this->putJson($url, ['enabled' => true], $this->authHeaders())->assertConflict();
+        $this->getJson('/api/v1/sites/web-domains/'.$id, $this->authHeaders())->assertOk()->assertJsonPath('waf_mode', null);
         $this->assertCount(0, $this->datalogRows('web_domain'));
     }
 

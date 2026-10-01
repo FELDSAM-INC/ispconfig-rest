@@ -5,6 +5,16 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Added
+
+- Websites report `waf_mode` (`off`, `detection` or `enforcing`; null when the
+  managed block was changed outside the API), so clients can show the WAF state in
+  lists without a request per website.
+- Website usage rows (`GET /usage/web-domains`) include `records`: the databases,
+  FTP and shell users, cron jobs and protected folders of each website and the
+  mailboxes, aliases and forwards of its domain, counted only for the website's own
+  client with a few grouped queries per page.
+
 ## [1.0.4] - 2026-09-29
 
 This release moves the WAF from the distribution CRS 3 package to the upstream
