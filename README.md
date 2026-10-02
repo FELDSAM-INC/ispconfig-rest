@@ -75,7 +75,7 @@ Every prompt has a flag and `ISPC_REST_*` env var for unattended installs — se
 ispconfig-rest status                        # service state, version, DB connectivity
 ispconfig-rest update                        # update current branch; keep a release tag pinned
 ispconfig-rest update --branch main          # select stable updates
-ispconfig-rest update --tag v1.0.4            # select a specific release
+ispconfig-rest update --tag v1.0.5            # select a specific release
 ispconfig-rest key:create "my integration"   # mint an admin key
 ispconfig-rest key:create "acme" --client-id 42   # mint a client-scoped key
 ispconfig-rest key:list --client-id 42       # list keys (never shows secrets)

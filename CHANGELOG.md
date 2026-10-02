@@ -5,6 +5,14 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-10-02
+
+This release adds logs for scheduled tasks and for the WordPress cron takeover, and
+the per-website data that clients need for tile badges without a request per website:
+WAF mode, record counts and WordPress check states. One migration (an API-owned
+column); the `file-manager` and `web-logs` server tools need updating. Requires PHP
+8.3 or newer and ISPConfig 3.3; the HTTP API continues to use `/api/v1`.
+
 ### Added
 
 - Websites report `waf_mode` (`off`, `detection` or `enforcing`; null when the
@@ -32,6 +40,26 @@ the HTTP API remains under `/api/v1`.
 - Each installation in a website's `wordpress` summary has `checks`: available
   security measures counted by status, the managed wp-cron state and the last core
   file check, for badges without a request per website.
+
+### Upgrade from 1.0.4
+
+1. **Update the API and apply the migration.** `sudo ispconfig-rest update --branch main`
+   (or `--tag v1.0.5`). The migration `2026_10_01_000001_add_wordpress_cron_output.php`
+   adds a column to the API-owned `api_wordpress_cron` table. If the runtime database
+   account lacks ALTER rights the update stops at the migration: run, as root in the
+   installation directory, `php artisan config:clear` and
+   `DB_USERNAME=root DB_PASSWORD='' php artisan migrate --force` (MySQL root over the
+   local socket; use your administrative account otherwise), then repeat
+   `sudo ispconfig-rest update`.
+2. **Update the server tools:** `sudo ispconfig-rest server-tools update`. The
+   `web-logs` worker reads and trims scheduled task logs and gets SELECT on `cron`;
+   the `file-manager` worker logs WordPress cron runs. server-tools refuses the new
+   file-manager worker until the migration is applied.
+3. **Turn logs on per task.** Existing scheduled tasks keep running unchanged; their
+   own log starts when `output_log` is turned on (the WHMCS module offers it on each
+   task's log page). The native ISPConfig panel then shows the task's managed prefix.
+4. **Update the consuming WHMCS module** for task logs and tile badges. Older module
+   versions keep working.
 
 ## [1.0.4] - 2026-09-29
 
