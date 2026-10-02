@@ -79,11 +79,11 @@ try {
                     $task = $db->prepare('SELECT command, type FROM cron WHERE id = ? AND parent_domain_id = ? AND server_id = ? AND sys_groupid = ?');
                     $task->execute([(int) ($request['cron_id'] ?? 0), $job['website_id'], $server, $job['sys_groupid']]);
                     $row = $task->fetch();
-                    $parsed = is_array($row) ? CronOutputLog::parse((string) $row['command']) : null;
-                    if ($parsed === null || $parsed['dir'] !== CronOutputLog::directory((string) $row['type'], (string) $site['document_root'])) {
+                    $name = is_array($row) ? CronOutputLog::logName((string) $row['command'], (string) $row['type'], (string) $site['document_root']) : null;
+                    if ($name === null) {
                         throw new RuntimeException('logs_unavailable');
                     }
-                    $result = CronOutputLog::read((string) $site['document_root'], (string) $site['system_user'], $parsed['token'], max(1, min(1000, (int) ($request['lines'] ?? 200))));
+                    $result = CronOutputLog::read((string) $site['document_root'], (string) $site['system_user'], $name, max(1, min(1000, (int) ($request['lines'] ?? 200))));
                 } else {
                     $result = $reader->read($site['domain'], $request['kind'], $request['lines'], $request['before']);
                 }

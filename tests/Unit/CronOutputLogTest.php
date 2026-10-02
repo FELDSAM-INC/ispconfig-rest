@@ -27,6 +27,17 @@ final class CronOutputLogTest extends TestCase
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{32}\z/', CronOutputLog::token());
     }
 
+    public function test_log_name_of_own_logs_and_wordpress_takeover_only_in_the_website_directory(): void
+    {
+        $root = '/var/www/clients/client1/web1';
+        $this->assertSame('.ispcp-cron-'.self::TOKEN.'.log', CronOutputLog::logName(CronOutputLog::wrap('php x.php', self::TOKEN, 'chrooted', $root), 'chrooted', $root));
+        $this->assertSame('wp-cron.log', CronOutputLog::logName(": > '/private/.ispcp-wp-cron-7a86e429-b416-4e20-b7d3-b33580d81a38'", 'chrooted', $root));
+        $this->assertSame('wp-cron.log', CronOutputLog::logName(": > '".$root."/private/.ispcp-wp-cron-7a86e429-b416-4e20-b7d3-b33580d81a38'", 'full', $root));
+        $this->assertNull(CronOutputLog::logName(CronOutputLog::wrap('php x.php', self::TOKEN, 'full', '/var/www/clients/client2/web2'), 'full', $root), 'another website');
+        $this->assertNull(CronOutputLog::logName(": > '/private/.ispcp-wp-cron-7a86e429-b416-4e20-b7d3-b33580d81a38'", 'full', $root));
+        $this->assertNull(CronOutputLog::logName('php x.php', 'full', $root));
+    }
+
     public function test_lines_drop_a_partial_first_line_and_control_characters(): void
     {
         $this->assertSame(['lines' => ['b', 'c'], 'truncated' => true], CronOutputLog::lines("rtial a\nb\nc\n", true, 10));
@@ -46,10 +57,10 @@ final class CronOutputLogTest extends TestCase
             return [0, "=== start ===\nhello\n=== exit 0 ===\n"];
         };
         try {
-            $this->assertSame(['lines' => [], 'size' => 0, 'modified_at' => null, 'truncated' => false], CronOutputLog::read($root, 'web7', self::TOKEN, 200, $run), 'no run yet');
+            $this->assertSame(['lines' => [], 'size' => 0, 'modified_at' => null, 'truncated' => false], CronOutputLog::read($root, 'web7', '.ispcp-cron-'.self::TOKEN.'.log', 200, $run), 'no run yet');
             $file = $root.'/private/.ispcp-cron-'.self::TOKEN.'.log';
             file_put_contents($file, "=== start ===\nhello\n=== exit 0 ===\n");
-            $result = CronOutputLog::read($root, 'web7', self::TOKEN, 200, $run);
+            $result = CronOutputLog::read($root, 'web7', '.ispcp-cron-'.self::TOKEN.'.log', 200, $run);
             $this->assertSame(['=== start ===', 'hello', '=== exit 0 ==='], $result['lines']);
             $this->assertSame([['web7', ['/usr/bin/tail', '-c', '262144', '--', $file]]], $calls);
             $this->assertFalse(CronOutputLog::trim($root, 'web7', self::TOKEN, $run), 'small files are left alone');
@@ -59,12 +70,12 @@ final class CronOutputLogTest extends TestCase
             unlink($file);
             symlink('/etc/hostname', $file);
             try {
-                CronOutputLog::read($root, 'web7', self::TOKEN, 200, $run);
+                CronOutputLog::read($root, 'web7', '.ispcp-cron-'.self::TOKEN.'.log', 200, $run);
                 $this->fail('Read a link');
             } catch (RuntimeException) {
                 $this->assertCount(2, $calls);
             }
-            foreach ([['root', self::TOKEN], ['web7', '../x']] as [$user, $token]) {
+            foreach ([['root', '.ispcp-cron-'.self::TOKEN.'.log'], ['web7', '../x'], ['web7', 'cron.log']] as [$user, $token]) {
                 try {
                     CronOutputLog::read($root, $user, $token, 200, $run);
                     $this->fail('Accepted '.$user.' '.$token);

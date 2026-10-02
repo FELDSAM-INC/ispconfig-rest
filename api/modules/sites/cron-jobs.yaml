@@ -227,7 +227,8 @@
       - Cron Jobs
     summary: Read the last lines of a scheduled task's own output log
     description: |
-      Available for tasks with `output_log`. Every run of such a task appends, as the website user, its standard
+      Available for tasks with `output_log` and for WordPress cron takeover tasks, whose runs the WordPress worker logs
+      in the website's `private/wp-cron.log`. Every run of a task with `output_log` appends, as the website user, its standard
       output and errors to `private/.ispcp-cron-<token>.log` of the website, between a `=== <UTC time> ===` line and
       `=== exit <status> ===`. The web-log worker on the website's server reads the file as the website user and
       trims it to the last 512 KiB once it exceeds 1 MiB. `pending` means the worker has not answered yet; ask again
@@ -249,7 +250,7 @@
               type: object
               required: [state]
               properties:
-                state: { type: string, enum: [ready, pending, unavailable, disabled], description: '`disabled` when the task has no own output log.' }
+                state: { type: string, enum: [ready, pending, unavailable, disabled], description: '`disabled` when the task keeps no log.' }
                 reason: { type: string, enum: [logs_unavailable] }
                 lines: { type: array, items: { type: string }, description: 'Latest lines in chronological order, each at most 4096 bytes.' }
                 size: { type: integer, description: 'File size in bytes; 0 before the first run.' }

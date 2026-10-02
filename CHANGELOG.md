@@ -20,7 +20,8 @@ the HTTP API remains under `/api/v1`.
   `GET /sites/cron-jobs/{id}/log` returns the latest lines through the web-log worker,
   which reads and trims the file (above 1 MiB, to 512 KiB) as the website user. The
   native command carries a managed prefix that the API never returns; ISPConfig's shared
-  `log` option is turned off for such tasks. URL tasks are not supported. Update the
+  `log` option is turned off for such tasks. URL tasks are not supported. For WordPress
+  cron takeover tasks the endpoint returns the website's `private/wp-cron.log`. Update the
   `web-logs` server tool: it needs the new `cron` SELECT grant.
 - WordPress cron takeover logs every run: WP-CLI output, including PHP messages from
   plugin callbacks, is appended as the website user to `private/wp-cron.log` (rotated

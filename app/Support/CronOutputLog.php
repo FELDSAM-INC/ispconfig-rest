@@ -45,6 +45,22 @@ final class CronOutputLog
         return 'command exec >>\''.self::directory($type, $documentRoot).'/.ispcp-cron-'.$token.'.log\' 2>&1; trap \'echo "=== exit $? ==="\' EXIT; echo "=== $(date -u) ==="; '.$command;
     }
 
+    /**
+     * The log file of a task in its website's private directory: its own log behind the managed prefix, or for a
+     * WordPress cron takeover trigger the website's wp-cron.log written by the WordPress worker. Null for any other
+     * task, and when the command names another directory than the website's own.
+     */
+    public static function logName(string $command, string $type, string $documentRoot): ?string
+    {
+        $directory = self::directory($type, $documentRoot);
+        $parsed = self::parse($command);
+        if ($parsed !== null) {
+            return $parsed['dir'] === $directory ? '.ispcp-cron-'.$parsed['token'].'.log' : null;
+        }
+
+        return preg_match('/\A: > \'(?<dir>[^\']+)\/\.ispcp-wp-cron-[a-f0-9-]{36}\'\z/D', $command, $match) === 1 && $match['dir'] === $directory ? 'wp-cron.log' : null;
+    }
+
     /** @return array{dir: string, token: string, command: string}|null the task's own command behind a managed prefix */
     public static function parse(string $command): ?array
     {
@@ -57,9 +73,9 @@ final class CronOutputLog
      *
      * @return array{lines: string[], size: int, modified_at: ?int, truncated: bool}
      */
-    public static function read(string $documentRoot, string $user, string $token, int $lines, ?callable $run = null): array
+    public static function read(string $documentRoot, string $user, string $name, int $lines, ?callable $run = null): array
     {
-        $file = self::file($documentRoot, $user, $token);
+        $file = self::file($documentRoot, $user, $name);
         $info = @lstat($file);
         if (! $info) {
             return ['lines' => [], 'size' => 0, 'modified_at' => null, 'truncated' => false];
@@ -78,7 +94,7 @@ final class CronOutputLog
     /** Keeps the last KEEP bytes of a log above LIMIT, as the website user. A run writing meanwhile may lose lines. */
     public static function trim(string $documentRoot, string $user, string $token, ?callable $run = null): bool
     {
-        $file = self::file($documentRoot, $user, $token);
+        $file = self::file($documentRoot, $user, '.ispcp-cron-'.$token.'.log');
         $info = @lstat($file);
         if (! $info || ($info['mode'] & 0170000) !== 0100000 || $info['size'] <= self::LIMIT) {
             return false;
@@ -112,13 +128,13 @@ final class CronOutputLog
         return ['lines' => $rows, 'truncated' => $truncated];
     }
 
-    private static function file(string $documentRoot, string $user, string $token): string
+    private static function file(string $documentRoot, string $user, string $name): string
     {
-        if (preg_match('/\A[a-f0-9]{32}\z/D', $token) !== 1 || preg_match('/\Aweb[1-9][0-9]*\z/D', $user) !== 1) {
+        if (preg_match('/\A(?:\.ispcp-cron-[a-f0-9]{32}|wp-cron)\.log\z/D', $name) !== 1 || preg_match('/\Aweb[1-9][0-9]*\z/D', $user) !== 1) {
             throw new RuntimeException('logs_unavailable');
         }
 
-        return rtrim($documentRoot, '/').'/private/.ispcp-cron-'.$token.'.log';
+        return rtrim($documentRoot, '/').'/private/'.$name;
     }
 
     /** @return array{int, string} exit code and at most READ bytes of output; ten seconds at most */

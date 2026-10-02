@@ -80,7 +80,8 @@ final class WebLogService
      */
     public function cron(CronJob $job, int $lines): array
     {
-        if (CronOutputLog::parse((string) $job->getAttributes()['command']) === null) {
+        // Its own log, or the WordPress worker's wp-cron.log for a WordPress cron takeover
+        if (CronOutputLog::parse((string) $job->getAttributes()['command']) === null && app(WordPressCronService::class)->managed($job) === null) {
             return ['state' => 'disabled'];
         }
         $site = WebDomain::query()->find((int) $job->getAttributes()['parent_domain_id']);

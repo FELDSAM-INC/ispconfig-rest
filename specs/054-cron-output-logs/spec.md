@@ -30,5 +30,7 @@ files are shared by every task of the website, without run boundaries. Per-task 
   must still belong to the website and carry the prefix for that website's private directory. Once a minute it trims
   logs above 1 MiB to the last 512 KiB, also as the website user; a run writing meanwhile may lose lines.
 - New grant for the web-logs component: `cron` SELECT on the master. Old workers answer `logs_unavailable`.
+- WordPress cron takeover tasks have no own log but the same endpoint reads the WordPress worker's
+  `private/wp-cron.log` for them (owner report 2026-10-02: existing tasks showed no logs at all).
 - Not done: removing a task does not delete its file in private/ (the customer can); the native ISPConfig panel shows
   the prefixed command.

@@ -208,6 +208,13 @@ class CronJobApiTest extends SitesApiTestCase
         $this->getJson($url, $this->authHeaders())->assertOk()->assertJson(['state' => 'ready', 'lines' => ['=== Fri Oct  2 08:00:01 UTC 2026 ===', 'hello', '=== exit 0 ==='],
             'size' => 64, 'modified_at' => gmdate('c', 1790000000), 'truncated' => false]);
         $this->getJson('/api/v1/sites/cron-jobs/'.$logged.'/log?lines=0', $this->authHeaders())->assertStatus(422);
+
+        // A WordPress cron takeover task shows the WordPress worker's wp-cron.log through the same read
+        $wordpress = $this->seedCronJob($site, ['type' => 'full', 'command' => ": > '".$root."/private/.ispcp-wp-cron-7a86e429-b416-4e20-b7d3-b33580d81a38'"]);
+        DB::table('api_wordpress_cron')->insert(['id' => '7a86e429-b416-4e20-b7d3-b33580d81a38', 'website_id' => $site, 'server_id' => 1, 'installation' => str_repeat('b', 32),
+            'identity' => 'x', 'path' => '', 'cron_id' => $wordpress, 'state' => 'active']);
+        $this->getJson('/api/v1/sites/cron-jobs/'.$wordpress.'/log', $this->authHeaders())->assertOk()->assertJsonPath('state', 'pending');
+        $this->assertSame(['kind' => 'cron', 'cron_id' => $wordpress, 'lines' => 200], json_decode(DB::table('api_web_log_reads')->where('request', 'like', '%"cron_id":'.$wordpress.'%')->value('request'), true));
     }
 
     public function test_time_field_validation_matches_legacy(): void
