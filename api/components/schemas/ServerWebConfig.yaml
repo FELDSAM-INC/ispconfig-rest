@@ -4,8 +4,8 @@
 # apache2_http_port/php_fpm_pm/... properties were invented and have been
 # removed).
 # All properties are optional on PUT: omitted text/select keys keep their
-# current value; omitted checkbox keys are written with their unchecked
-# value ('n'), mirroring legacy form semantics. Keys present in the stored
+# current value, checkboxes included (only the submitted keys change). Keys
+# present in the stored
 # blob but unknown to this schema are preserved untouched.
 type: object
 x-db-table: server

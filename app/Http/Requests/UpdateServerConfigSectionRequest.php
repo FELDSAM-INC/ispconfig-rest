@@ -10,8 +10,7 @@ use App\Services\ServerConfigService;
  * The rules come from ServerConfigService's per-section field inventory —
  * the single source of truth mirroring the Server*Config.yaml schemas and
  * the legacy tabs of server_config.tform.php. Every key is optional
- * (omitted text/select keys keep their current value; omitted checkbox
- * keys are backfilled with 'n' by the service); checkbox values are the
+ * (omitted keys, checkboxes included, keep their current value); checkbox values are the
  * literal 'y'/'n' strings the schemas declare. rspamd_available has no
  * rule — it is readOnly and client input for it is ignored.
  *

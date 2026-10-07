@@ -190,22 +190,22 @@ class ServerConfigApiTest extends TestCase
         $this->assertStringContainsString("bind_user=bind\n", $data['new']['config']);
     }
 
-    public function test_put_preserves_unknown_keys_and_backfills_checkboxes(): void
+    public function test_put_preserves_unknown_keys_and_leaves_omitted_checkboxes_alone(): void
     {
         $this->putJson('/api/v1/servers/1/configs/xmpp', [
             'xmpp_port_http' => 15290,
         ], $this->authHeaders())
             ->assertOk()
             ->assertJsonPath('xmpp_port_http', 15290)
-            // omitted checkbox -> unchecked value
-            ->assertJsonPath('xmpp_use_ipv6', 'n');
+            // omitted checkbox -> not touched
+            ->assertJsonMissingPath('xmpp_use_ipv6');
 
         $after = (string) DB::table('server')->where('server_id', 1)->value('config');
 
         // The installer's historic typo key survives verbatim…
         $this->assertStringContainsString("xmpp_use_ispv6=n\n", $after);
-        // …next to the schema's real checkbox key, backfilled with 'n'.
-        $this->assertStringContainsString("xmpp_use_ipv6=n\n", $after);
+        // …and the schema's real checkbox key is not written at all.
+        $this->assertStringNotContainsString('xmpp_use_ipv6=', $after);
         $this->assertStringContainsString("xmpp_port_http=15290\n", $after);
     }
 

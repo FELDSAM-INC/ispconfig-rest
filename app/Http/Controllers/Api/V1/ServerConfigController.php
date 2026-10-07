@@ -17,7 +17,7 @@ use stdClass;
  * Read-only as a whole (GET /servers/{id}/configs), written one section at
  * a time (GET/PUT /servers/{id}/configs/{section}). All blob semantics —
  * ISPConfig-compatible parsing/serialization, byte-safe section merge,
- * checkbox backfill, mail-section guards and the rspamd re-sync side
+ * mail-section guards and the rspamd re-sync side
  * effect — live in ServerConfigService; the datalog 'u' on the `server`
  * row is produced by Server::save() (BaseModel).
  *

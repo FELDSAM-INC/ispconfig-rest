@@ -5,6 +5,14 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Changed
+
+- `PUT /servers/{id}/configs/{section}` changes only the keys it sends. Omitted
+  checkbox keys used to be written as `n` (ISPConfig's form behaviour, where an
+  unticked box is not submitted), so saving one setting silently switched off every
+  other checkbox of that section. Omitted keys of any kind now keep their value, as
+  in the system config.
+
 ## [1.0.6] - 2026-10-10
 
 This release adds the `dns-catalog` server tool: a catalog zone on each ISPConfig DNS
