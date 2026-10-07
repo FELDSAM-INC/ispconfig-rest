@@ -2,10 +2,9 @@
 # server.config INI blob (server table, `config` column). Field inventory
 # mirrors the legacy `rescue` tab of server_config.tform.php (previously
 # declared rescue_* properties were invented and have been removed).
-# All properties are checkboxes and optional on PUT: omitted checkbox keys
-# are written with their unchecked value ('n'), mirroring legacy form
-# semantics. Keys present in the stored blob but unknown to this schema are
-# preserved untouched.
+# All properties are checkboxes and optional on PUT: omitted keys keep their
+# current value (only the submitted keys change). Keys present in the stored
+# blob but unknown to this schema are preserved untouched.
 type: object
 x-db-table: server
 x-db-field: config

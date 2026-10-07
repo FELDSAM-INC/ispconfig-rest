@@ -217,19 +217,19 @@ class ServerConfigServiceTest extends TestCase
         $this->assertStringContainsString("sendmail_path=/usr/sbin/sendmail\n", $after);
     }
 
-    public function test_update_section_backfills_omitted_checkboxes_with_unchecked_value(): void
+    public function test_update_section_changes_only_the_submitted_keys_checkboxes_included(): void
     {
         $server = $this->seedServer();
 
-        // stress_adaptive is not stored in the fixture blob and is omitted
-        // from the request; mailbox_quota_stats is stored as 'y' and
-        // omitted -> both must be written as 'n' (legacy unchecked value).
+        // mailbox_quota_stats is stored as 'y' and omitted -> it must stay
+        // 'y'; stress_adaptive is not stored and omitted -> it must not be
+        // written. Only dkim_strength changes.
         $this->service->updateSection($server, 'mail', ['dkim_strength' => 2048]);
 
         $mail = $this->service->getSection($server, 'mail');
 
-        $this->assertSame('n', $mail['stress_adaptive']);
-        $this->assertSame('n', $mail['mailbox_quota_stats']);
+        $this->assertSame('y', $mail['mailbox_quota_stats']);
+        $this->assertArrayNotHasKey('stress_adaptive', $mail);
         // Omitted text/select keys keep their current value.
         $this->assertSame('rspamd', $mail['content_filter']);
         $this->assertSame('/var/vmail', $mail['homedir_path']);
@@ -251,13 +251,10 @@ class ServerConfigServiceTest extends TestCase
         $rescue = $this->service->updateSection($server, 'rescue', ['try_rescue' => 'y']);
 
         $this->assertSame('y', $rescue['try_rescue']);
-        $this->assertSame('n', $rescue['do_not_try_rescue_httpd']); // backfilled
+        $this->assertArrayNotHasKey('do_not_try_rescue_httpd', $rescue); // omitted -> not written
 
         $after = (string) DB::table('server')->where('server_id', $server->getKey())->value('config');
-        $this->assertSame(
-            "[rescue]\ntry_rescue=y\ndo_not_try_rescue_httpd=n\ndo_not_try_rescue_mongodb=n\ndo_not_try_rescue_mysql=n\ndo_not_try_rescue_mail=n\n\n",
-            $after
-        );
+        $this->assertSame("[rescue]\ntry_rescue=y\n\n", $after);
     }
 
     public function test_update_section_writes_exactly_one_server_datalog_row_with_full_blob(): void

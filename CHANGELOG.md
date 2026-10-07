@@ -11,6 +11,14 @@ the HTTP API remains under `/api/v1`.
   `certbot-dns-ispconfig-rest-vX.Y.Z` publishes new versions through PyPI's trusted
   publishing (`.github/workflows/certbot-plugin.yml`).
 
+### Changed
+
+- `PUT /servers/{id}/configs/{section}` changes only the keys it sends. Omitted
+  checkbox keys used to be written as `n` (ISPConfig's form behaviour, where an
+  unticked box is not submitted), so saving one setting silently switched off every
+  other checkbox of that section. Omitted keys of any kind now keep their value, as
+  in the system config.
+
 ## [1.0.7] - 2026-10-11
 
 This release adds DNS-01 challenges for certbot and acme.sh, so servers outside ISPConfig

@@ -42,10 +42,11 @@ use Illuminate\Validation\ValidationException;
  *  - keys inside the target section that are unknown to the section schema
  *    (e.g. sendmail_path, rspamd_redis_passwd, xmpp_use_ispv6 written by the
  *    installer) are preserved untouched, in place;
- *  - omitted text/select keys keep their current value; omitted checkbox
- *    keys are written with their unchecked value 'n' (legacy form
- *    semantics: unchecked checkboxes are not POSTed and get backfilled in
- *    onUpdateSave);
+ *  - only the submitted keys change: omitted keys keep their current value,
+ *    checkboxes included. Legacy form semantics (an unticked checkbox is not
+ *    POSTed and onUpdateSave backfills it with 'n') are deliberately not
+ *    mirrored, as in the system module (spec 008): a JSON PUT of one setting
+ *    must not switch off the others;
  *  - [mail] only: rspamd_available is ALWAYS forced from the stored blob
  *    (client input ignored); a nonzero mailbox_size_limit smaller than
  *    message_size_limit is rejected with 422; switching content_filter to
@@ -75,7 +76,7 @@ class ServerConfigService
     /**
      * Per-section field inventory: field => 'checkbox' | array of Laravel
      * validation rules. Source of truth for PUT validation, checkbox
-     * backfill and integer typing on read ('integer' rule => int output).
+     * values and integer typing on read ('integer' rule => int output).
      *
      * Inventories and constraints are verbatim from the Server*Config.yaml
      * schemas, which mirror the legacy tabs of
@@ -400,7 +401,7 @@ class ServerConfigService
 
         $new = $current;
 
-        foreach (self::FIELDS[$section] as $field => $spec) {
+        foreach (array_keys(self::FIELDS[$section]) as $field) {
             // Legacy onUpdateSave: rspamd_available always comes from the
             // stored config, never from user input.
             if ($section === 'mail' && $field === 'rspamd_available') {
@@ -411,9 +412,6 @@ class ServerConfigService
 
             if (array_key_exists($field, $input)) {
                 $new[$field] = $this->toIniValue($input[$field]);
-            } elseif ($spec === 'checkbox') {
-                // Unchecked-checkbox backfill (legacy $field['value'][0]).
-                $new[$field] = 'n';
             }
         }
 
