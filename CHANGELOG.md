@@ -5,6 +5,13 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-10-10
+
+This release adds the `dns-catalog` server tool: a catalog zone on each ISPConfig DNS
+server, so secondaries follow its zones by themselves, with an Ansible playbook for the
+secondaries. No database migrations and no API changes. Requires PHP 8.3 or newer and
+ISPConfig 3.3; the HTTP API continues to use `/api/v1`.
+
 ### Added
 
 - `dns-catalog` server tool (spec 055): a catalog zone (RFC 9432, version 2) on each
@@ -16,6 +23,19 @@ the HTTP API remains under `/api/v1`.
   dns-catalog` (DNS servers only; the inventory now reports the `dns` role). Secondaries
   are set up with the Ansible playbook `dns-catalog/ansible/secondary.yml` or by hand;
   see [DNS catalog zones](dns-catalog/README.md).
+
+### Upgrade from 1.0.5
+
+1. **Update the API:** `sudo ispconfig-rest update --branch main` (or `--tag v1.0.6`).
+   There are no migrations; the update also refreshes the `ispconfig-rest` command with
+   `dns-catalog:install` and `dns-catalog:update`.
+2. **Optional: catalog zones for secondaries.** On the REST host run
+   `sudo ispconfig-rest dns-catalog:install`; it goes to the active, non-mirror DNS
+   servers. It changes the BIND configuration: the global `allow-transfer` of
+   `named.conf.options` (and its ISPConfig conf-custom copy) admits the generated TSIG
+   key instead of `none`, and `named.conf` includes the catalog configuration. Then set
+   up the secondaries with `dns-catalog/ansible/secondary.yml` or by hand, as described
+   in [DNS catalog zones](dns-catalog/README.md). Existing server tools need no update.
 
 ## [1.0.5] - 2026-10-02
 
