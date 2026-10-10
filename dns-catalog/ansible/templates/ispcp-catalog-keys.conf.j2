@@ -1,0 +1,8 @@
+// Managed by Ansible (ispconfig-rest dns-catalog): TSIG keys of the ISPConfig DNS primaries.
+{% for host in ispcp_primaries %}
+{% set catalog = hostvars[host].ispcp_catalog %}
+key "{{ catalog.key.name }}" {
+	algorithm {{ catalog.key.algorithm }};
+	secret "{{ catalog.key.secret }}";
+};
+{% endfor %}

@@ -21,6 +21,8 @@ final class ServerToolsRemote
         'waf' => [
             'web_domain' => 'SELECT', 'api_web_waf_workers' => 'SELECT,INSERT,UPDATE', 'api_web_waf_events' => 'SELECT,INSERT,UPDATE,DELETE',
         ],
+        // Reads only named.conf.local on the DNS server
+        'dns-catalog' => [],
         'php-limits' => [
             'api_client_resource_limits' => 'SELECT', 'api_php_limits_workers' => 'SELECT,INSERT,UPDATE', 'api_php_limits_usage' => 'SELECT,INSERT,UPDATE,DELETE',
         ],
@@ -144,6 +146,12 @@ final class ServerToolsRemote
         if (in_array('waf', $components, true)) {
             $programs[] = 'apt-get';
         }
+        if (in_array('dns-catalog', $components, true)) {
+            $programs = array_merge($programs, ['systemctl', 'named', 'named-checkconf', 'named-checkzone', 'rndc', 'tsig-keygen']);
+            if (! is_link('/usr/local/ispconfig/server/plugins-enabled/bind_plugin.inc.php')) {
+                $requirements[] = 'enabled ISPConfig BIND plugin';
+            }
+        }
         if (in_array('php-limits', $components, true)) {
             $programs = array_merge($programs, ['systemctl', 'timeout']);
             $controllers = is_file('/sys/fs/cgroup/cgroup.controllers') ? preg_split('/\s+/', trim((string) file_get_contents('/sys/fs/cgroup/cgroup.controllers'))) : [];
@@ -170,6 +178,7 @@ final class ServerToolsRemote
             'file-manager' => '/etc/cron.d/ispconfig-rest-file-manager-worker',
             'waf' => '/etc/cron.d/ispconfig-rest-waf',
             'php-limits' => '/etc/cron.d/ispconfig-rest-php-limits',
+            'dns-catalog' => '/etc/systemd/system/ispconfig-dns-catalog.path',
         ];
         $installed = array_keys(array_filter($paths, 'is_file'));
         if (is_file('/etc/cron.d/ispcp-files')) {
@@ -256,6 +265,7 @@ final class ServerToolsRemote
                     'web-logs' => ['sh', $root.'/web-log-worker/install.sh'],
                     'waf' => ['bash', $root.'/waf-server/install.sh'],
                     'php-limits' => ['bash', $root.'/php-limits/install.sh'],
+                    'dns-catalog' => ['bash', $root.'/dns-catalog/install.sh'],
                     'file-manager' => self::fileManagerCommand($root),
                     'panel-security' => ['bash', $root.'/waf-server/install.sh', '--ispconfig-security-only'],
                     default => throw new RuntimeException('Unknown installer.'),

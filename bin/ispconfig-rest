@@ -18,6 +18,7 @@
 #   ispconfig-rest server-tools install|update|status [OPTIONS]  workers + WAF on ISPConfig servers
 #   ispconfig-rest server-tools install --help      SSH, server selection and component options
 #   ispconfig-rest php-limits:install|update [OPTIONS]  PHP-FPM cgroup limits (restarts PHP-FPM once)
+#   ispconfig-rest dns-catalog:install|update [OPTIONS] DNS catalog zone for secondaries (DNS servers)
 #   ispconfig-rest artisan ...            run an artisan command as the run user
 #   ispconfig-rest version                installed version + commit
 #   ispconfig-rest uninstall              remove service + manager (keeps DB data)
@@ -342,16 +343,16 @@ case "${1:-}" in
   firewall:allow) cmd_firewall_allow "$@";;
   server-tools)  cmd_server_tools "$@";;
   server-tools:manager-install) need_root; install_server_tools_manager;;
-  workers:install|workers:update|waf:install|waf:update|php-limits:install|php-limits:update)
+  workers:install|workers:update|waf:install|waf:update|php-limits:install|php-limits:update|dns-catalog:install|dns-catalog:update)
     tool_action="${1#*:}"; tool_group="${1%%:*}"; shift
     case "$tool_group" in
-      waf|php-limits) tool_components="$tool_group";;
+      waf|php-limits|dns-catalog) tool_components="$tool_group";;
       *) tool_components=database,web-logs,file-manager;;
     esac
     cmd_server_tools server-tools "$tool_action" --components "$tool_components" "$@";;
   artisan)       cmd_artisan "$@";;
   uninstall)     cmd_uninstall;;
   ""|help|-h|--help)
-    grep '^#' "$0" | sed -n '3,25p' | sed 's/^# \{0,1\}//';;
+    grep '^#' "$0" | sed -n '3,26p' | sed 's/^# \{0,1\}//';;
   *) die "Unknown command: $1 (try 'ispconfig-rest help')";;
 esac

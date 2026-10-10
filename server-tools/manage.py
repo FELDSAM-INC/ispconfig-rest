@@ -16,8 +16,9 @@ import tarfile
 import tempfile
 
 
-COMPONENTS = ("database", "web-logs", "file-manager", "waf", "php-limits")
-# php-limits restarts PHP-FPM once when installed, so it is only installed when selected.
+COMPONENTS = ("database", "web-logs", "file-manager", "waf", "php-limits", "dns-catalog")
+# php-limits restarts PHP-FPM once when installed and dns-catalog opens zone transfers to a TSIG key, so they are
+# only installed when selected.
 DEFAULT_COMPONENTS = ("database", "web-logs", "file-manager", "waf")
 REPOSITORY = "https://github.com/FELDSAM-INC/ispconfig-rest.git"
 FILES = (
@@ -33,6 +34,7 @@ FILES = (
     "app/Support/WebWafPolicy.php", "app/Support/WebWafAudit.php", "app/Support/WebWafProfiles.php",
     "app/Support/WebWafCrs.php", "app/Support/WebWafIspconfigSecurity.php", "php-limits/install.sh", "php-limits/run.php",
     "php-limits/ispconfig-php-limits", "app/Support/PhpLimits.php", "server-tools/remote.php",
+    "dns-catalog/install.sh", "dns-catalog/run.php", "dns-catalog/ispconfig-dns-catalog", "app/Support/DnsCatalog.php",
 )
 
 
@@ -87,7 +89,7 @@ def inventory(raw, selected, overrides):
             if not isinstance(row, dict) or type(row["id"]) is not int or row["id"] < 1 or row["id"] in seen:
                 raise ValueError("Invalid server identity")
             seen.add(row["id"])
-            if not all(type(row[key]) is bool for key in ("active", "web", "database")):
+            if not all(type(row[key]) is bool for key in ("active", "web", "database")) or type(row.get("dns", False)) is not bool:
                 raise ValueError("Invalid server role")
             if type(row["mirror_of"]) is not int or row["mirror_of"] < 0:
                 raise ValueError("Invalid mirror identity")
@@ -103,7 +105,8 @@ def components_for(row, requested):
     if not row["active"] or row["mirror_of"]:
         return []
     return [item for item in requested if row["database"] and item == "database"] + [
-        item for item in requested if item != "database" and row["web"]]
+        item for item in requested if item not in ("database", "dns-catalog") and row["web"]] + [
+        item for item in requested if item == "dns-catalog" and row.get("dns", False)]
 
 
 class Target:
@@ -231,7 +234,7 @@ def package_release(args, directory, run_as):
 def parser():
     result = argparse.ArgumentParser(description="Install/update ISPConfig REST workers and WAF across ISPConfig servers.")
     result.add_argument("action", choices=("install", "update", "status"))
-    result.add_argument("--components", default=",".join(DEFAULT_COMPONENTS), help="Comma-separated database,web-logs,file-manager,waf,php-limits (default: all except php-limits)")
+    result.add_argument("--components", default=",".join(DEFAULT_COMPONENTS), help="Comma-separated database,web-logs,file-manager,waf,php-limits,dns-catalog (default: all except php-limits and dns-catalog)")
     result.add_argument("--server", type=int, action="append", default=[], help="Only this server ID (repeatable)")
     result.add_argument("--host", action="append", default=[], metavar="ID=HOST", help="Override SSH address/alias for a server")
     result.add_argument("--ssh-user", default="root", help="SSH user; non-root requires passwordless sudo")
@@ -364,6 +367,8 @@ def main(argv=None):
         print("Configure the WHMCS file-manager server mapping separately using each server's verified SSH host key.")
     if "php-limits" in requested:
         print("PHP resource limits apply to accounts whose limits are set; check with: ispconfig-php-limits status")
+    if "dns-catalog" in requested:
+        print("DNS catalog zones: check with ispconfig-dns-catalog status; set up secondaries with dns-catalog/README.md")
     return 0
 
 

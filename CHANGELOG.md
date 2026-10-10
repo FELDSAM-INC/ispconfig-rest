@@ -5,6 +5,18 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Added
+
+- `dns-catalog` server tool (spec 055): a catalog zone (RFC 9432, version 2) on each
+  ISPConfig DNS server, so secondaries provision and remove its zones by themselves,
+  also zones created in the ISPConfig interface. It follows `named.conf.local` with a
+  systemd path unit, authorises transfers with a generated TSIG key and keeps that
+  permission through ISPConfig updates (conf-custom). Zones with their own transfer
+  list are left out. Opt-in: `ispconfig-rest server-tools install --components
+  dns-catalog` (DNS servers only; the inventory now reports the `dns` role). Secondaries
+  are set up with the Ansible playbook `dns-catalog/ansible/secondary.yml` or by hand;
+  see [DNS catalog zones](dns-catalog/README.md).
+
 ## [1.0.5] - 2026-10-02
 
 This release adds logs for scheduled tasks and for the WordPress cron takeover, and

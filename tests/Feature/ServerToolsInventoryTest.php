@@ -16,16 +16,16 @@ class ServerToolsInventoryTest extends TestCase
     {
         ServerSchema::create();
         DB::table('server')->insert([
-            ['server_id' => 1, 'server_name' => 'web.example.test', 'active' => 1, 'web_server' => 1, 'db_server' => 0, 'mirror_server_id' => 0, 'config' => 'private-password'],
-            ['server_id' => 2, 'server_name' => 'db.example.test', 'active' => 1, 'web_server' => 0, 'db_server' => 1, 'mirror_server_id' => 0, 'config' => 'another-secret'],
-            ['server_id' => 3, 'server_name' => 'mirror.example.test', 'active' => 0, 'web_server' => 1, 'db_server' => 0, 'mirror_server_id' => 1, 'config' => 'secret'],
+            ['server_id' => 1, 'server_name' => 'web.example.test', 'active' => 1, 'web_server' => 1, 'db_server' => 0, 'dns_server' => 1, 'mirror_server_id' => 0, 'config' => 'private-password'],
+            ['server_id' => 2, 'server_name' => 'db.example.test', 'active' => 1, 'web_server' => 0, 'db_server' => 1, 'dns_server' => 0, 'mirror_server_id' => 0, 'config' => 'another-secret'],
+            ['server_id' => 3, 'server_name' => 'mirror.example.test', 'active' => 0, 'web_server' => 1, 'db_server' => 0, 'dns_server' => 0, 'mirror_server_id' => 1, 'config' => 'secret'],
         ]);
         $this->assertSame(0, Artisan::call('server-tools:inventory'));
         $output = Artisan::output();
         $this->assertSame(['servers' => [
-            ['id' => 1, 'host' => 'web.example.test', 'active' => true, 'web' => true, 'database' => false, 'mirror_of' => 0],
-            ['id' => 2, 'host' => 'db.example.test', 'active' => true, 'web' => false, 'database' => true, 'mirror_of' => 0],
-            ['id' => 3, 'host' => 'mirror.example.test', 'active' => false, 'web' => true, 'database' => false, 'mirror_of' => 1],
+            ['id' => 1, 'host' => 'web.example.test', 'active' => true, 'web' => true, 'database' => false, 'dns' => true, 'mirror_of' => 0],
+            ['id' => 2, 'host' => 'db.example.test', 'active' => true, 'web' => false, 'database' => true, 'dns' => false, 'mirror_of' => 0],
+            ['id' => 3, 'host' => 'mirror.example.test', 'active' => false, 'web' => true, 'database' => false, 'dns' => false, 'mirror_of' => 1],
         ]], json_decode($output, true, 8, JSON_THROW_ON_ERROR));
         $this->assertStringNotContainsString('secret', $output);
         $this->assertStringNotContainsString('password', $output);

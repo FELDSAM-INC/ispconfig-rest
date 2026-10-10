@@ -1,0 +1,115 @@
+# BIND secondaries for the catalog zones of ISPConfig DNS servers (ispconfig-rest spec 055).
+# The primaries run the dns-catalog server tool; see ../README.md. Run with:
+#   ansible-playbook -i inventory.yml secondary.yml
+- name: Prepare the secondaries
+  hosts: ispconfig_dns_secondaries
+  become: true
+  tasks:
+    - name: Install BIND
+      ansible.builtin.apt:
+        name: [bind9, bind9-dnsutils]
+        update_cache: true
+      when: ispcp_install_packages | default(true)
+
+    - name: Note the secondary's addresses for NOTIFY
+      ansible.builtin.set_fact:
+        ispcp_secondary_addresses: "{{ ispcp_secondary_addresses | default([ansible_default_ipv4.address]) }}"
+
+- name: Read the catalog zones of the ISPConfig DNS servers
+  hosts: ispconfig_dns_primaries
+  become: true
+  tasks:
+    - name: Export the catalog zone and its TSIG key
+      ansible.builtin.command: /usr/local/sbin/ispconfig-dns-catalog export
+      register: ispcp_catalog_export
+      changed_when: false
+      no_log: true
+
+    - name: Keep the catalog of this primary
+      ansible.builtin.set_fact:
+        ispcp_catalog: "{{ ispcp_catalog_export.stdout | from_json }}"
+        ispcp_primary_addresses: "{{ ispcp_primary_addresses | default([ansible_default_ipv4.address]) }}"
+      no_log: true
+
+    - name: Notify the secondaries of catalog changes
+      ansible.builtin.command: /usr/local/sbin/ispconfig-dns-catalog secondary add {{ item }}
+      loop: "{{ groups['ispconfig_dns_secondaries'] | map('extract', hostvars, 'ispcp_secondary_addresses') | flatten | unique }}"
+      register: ispcp_notify
+      changed_when: "'Added' in ispcp_notify.stdout"
+
+- name: Configure the secondaries
+  hosts: ispconfig_dns_secondaries
+  become: true
+  vars:
+    ispcp_primaries: "{{ groups['ispconfig_dns_primaries'] }}"
+  tasks:
+    - name: Check that every primary exported its catalog
+      ansible.builtin.assert:
+        that:
+          - ispcp_primaries | length > 0
+          - ispcp_primaries | map('extract', hostvars) | selectattr('ispcp_catalog', 'defined') | list | length == ispcp_primaries | length
+        fail_msg: Install the dns-catalog server tool on every host of ispconfig_dns_primaries first.
+
+    - name: Directory for the catalog and member zones
+      ansible.builtin.file:
+        path: /var/cache/bind/catz
+        state: directory
+        owner: bind
+        group: bind
+        mode: "0750"
+
+    - name: TSIG keys of the primaries
+      ansible.builtin.template:
+        src: ispcp-catalog-keys.conf.j2
+        dest: /etc/bind/ispcp-catalog-keys.conf
+        owner: root
+        group: bind
+        mode: "0640"
+      no_log: true
+      notify: Reload BIND
+
+    - name: Catalog zones of the primaries
+      ansible.builtin.template:
+        src: named.conf.ispcp-catalog.j2
+        dest: /etc/bind/named.conf.ispcp-catalog
+        owner: root
+        group: bind
+        mode: "0644"
+      notify: Reload BIND
+
+    - name: Provision member zones from the catalogs
+      ansible.builtin.blockinfile:
+        path: /etc/bind/named.conf.options
+        insertafter: '^options\s*\{'
+        marker: "\t// {mark} ISPConfig catalog zones (Ansible)"
+        block: "{{ lookup('ansible.builtin.template', 'catalog-zones.j2') }}"
+        backup: true
+      notify: Reload BIND
+
+    - name: Load the keys before the options that use them
+      ansible.builtin.lineinfile:
+        path: /etc/bind/named.conf
+        line: include "/etc/bind/ispcp-catalog-keys.conf";
+        insertbefore: BOF
+      notify: Reload BIND
+
+    - name: Load the catalog zones
+      ansible.builtin.lineinfile:
+        path: /etc/bind/named.conf
+        line: include "/etc/bind/named.conf.ispcp-catalog";
+      notify: Reload BIND
+
+    - name: Check the configuration
+      ansible.builtin.command: named-checkconf /etc/bind/named.conf
+      changed_when: false
+
+    - name: Run BIND
+      ansible.builtin.service:
+        name: named
+        state: started
+        enabled: true
+      when: ispcp_manage_service | default(true)
+
+  handlers:
+    - name: Reload BIND
+      ansible.builtin.command: rndc reconfig

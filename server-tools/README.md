@@ -10,6 +10,7 @@ checks passwordless SSH, copies the release and runs the existing installers:
 | `file-manager` | Web server | Jailed SFTP accounts for WHMCS |
 | `waf` | Web server | Apache/nginx ModSecurity, OWASP CRS and audit worker |
 | `php-limits` | Web server | PHP-FPM cgroup limits per account and website (opt-in) |
+| `dns-catalog` | DNS server | Catalog zone for secondaries of the server's DNS zones (opt-in, [guide](../dns-catalog/README.md)) |
 
 Inactive servers, mirrors and servers without a selected role are listed as
 skipped. The current workers identify websites by their owning server ID; mirrored
@@ -37,8 +38,9 @@ sudo ispconfig-rest server-tools status
 `install` ensures selected components are installed, and also updates existing
 ones. `update` never adds a component absent from that server. The default component
 selection is all components except `php-limits`, which restarts PHP-FPM once when
-installed and must be selected explicitly (`sudo ispconfig-rest php-limits:install`);
-`update` includes it where it is installed. `--dry-run` performs read-only discovery and target checks;
+installed and must be selected explicitly (`sudo ispconfig-rest php-limits:install`),
+and `dns-catalog`, which opens zone transfers to its TSIG key on DNS servers
+(`sudo ispconfig-rest dns-catalog:install`); `update` includes them where they are installed. `--dry-run` performs read-only discovery and target checks;
 it does not fetch/copy a release, run installers or grant permissions. A normal run
 shows the plan and asks for confirmation; use `--yes` for unattended operation.
 Every selected target must pass preflight before any installer runs. A later

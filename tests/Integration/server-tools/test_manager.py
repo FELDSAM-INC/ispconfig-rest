@@ -29,6 +29,13 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual("database,web-logs,file-manager,waf", self.args().components)
         row.update(web=False, database=True)
         self.assertEqual(["database"], manager.components_for(row, manager.COMPONENTS))
+        # The DNS catalog only on DNS servers, and only when selected
+        row.update(dns=True)
+        self.assertEqual(["database", "dns-catalog"], manager.components_for(row, manager.COMPONENTS))
+        self.assertEqual(["database"], manager.components_for(row, manager.DEFAULT_COMPONENTS))
+        row.update(web=True, database=False)
+        self.assertEqual(["web-logs", "file-manager", "waf", "php-limits", "dns-catalog"], manager.components_for(row, manager.COMPONENTS))
+        row.update(web=False, database=True, dns=False)
         row["mirror_of"] = 3
         self.assertEqual([], manager.components_for(row, manager.COMPONENTS))
         row.update(mirror_of=0, active=False)

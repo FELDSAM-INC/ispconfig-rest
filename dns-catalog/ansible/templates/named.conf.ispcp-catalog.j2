@@ -1,0 +1,9 @@
+// Managed by Ansible (ispconfig-rest dns-catalog): catalog zones of the ISPConfig DNS primaries.
+{% for host in ispcp_primaries %}
+{% set catalog = hostvars[host].ispcp_catalog %}
+zone "{{ catalog.catalog }}" {
+	type secondary;
+	primaries { {% for address in hostvars[host].ispcp_primary_addresses %}{{ address }} key "{{ catalog.key.name }}"; {% endfor %}};
+	file "catz/{{ catalog.catalog }}.db";
+};
+{% endfor %}

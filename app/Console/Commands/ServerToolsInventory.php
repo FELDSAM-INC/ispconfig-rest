@@ -15,13 +15,14 @@ class ServerToolsInventory extends Command
     public function handle(): int
     {
         $servers = DB::table('server')->orderBy('server_id')
-            ->get(['server_id', 'server_name', 'active', 'web_server', 'db_server', 'mirror_server_id'])
+            ->get(['server_id', 'server_name', 'active', 'web_server', 'db_server', 'dns_server', 'mirror_server_id'])
             ->map(static fn ($row) => [
                 'id' => (int) $row->server_id,
                 'host' => (string) $row->server_name,
                 'active' => (bool) $row->active,
                 'web' => (bool) $row->web_server,
                 'database' => (bool) $row->db_server,
+                'dns' => (bool) $row->dns_server,
                 'mirror_of' => (int) $row->mirror_server_id,
             ])->all();
         $this->line(json_encode(['servers' => $servers], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));

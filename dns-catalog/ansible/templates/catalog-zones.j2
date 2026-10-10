@@ -1,0 +1,6 @@
+	catalog-zones {
+{% for host in ispcp_primaries %}
+{% set catalog = hostvars[host].ispcp_catalog %}
+		zone "{{ catalog.catalog }}" default-primaries { {% for address in hostvars[host].ispcp_primary_addresses %}{{ address }} key "{{ catalog.key.name }}"; {% endfor %}} zone-directory "catz" in-memory no min-update-interval 10;
+{% endfor %}
+	};
