@@ -1,0 +1,24 @@
+# Copy to group_vars/all.yml and encrypt the secrets: ansible-vault encrypt_string '...' --name ispconfig_admin_password
+ansible_user: root
+
+# ISPConfig "admin" login of the panel, and the panel's MariaDB account the servers join with.
+ispconfig_admin_password: "change me"
+ispconfig_master_db_admin_password: "change me to 16+ characters"
+
+# Web servers
+ispconfig_php_versions: ["5.3", "5.6", "7.0", "7.1", "7.2", "7.3", "7.4", "8.0", "8.1", "8.2", "8.3", "8.4", "8.5"]
+ispconfig_ftp_passive_ports: "40110-40210"
+ispconfig_webserver: nginx
+
+# Certificate fields until Let's Encrypt issues one for the server name.
+ispconfig_ssl_cert:
+  country: CZ
+  organisation: Example s.r.o.
+  email: admin@example.com
+
+# ispconfig-rest on the panel and its server tools
+ispconfig_rest_version: main
+ispconfig_rest_server_tools: [database, web-logs, waf]
+ispconfig_rest_dns_catalog: true
+# ispconfig_rest_file_manager_key: "ssh-ed25519 AAAA... whmcs-files"
+# ispconfig_rest_whmcs_ip: 198.51.100.10

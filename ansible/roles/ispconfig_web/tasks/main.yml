@@ -1,0 +1,12 @@
+# Web, FTP and SSH server: ISPConfig (autoinstaller with the PHP versions and FTP passive ports), the PHP versions
+# added later, and PHP 5.3 built from source.
+- name: ISPConfig
+  ansible.builtin.include_role:
+    name: ispconfig_server
+
+- name: PHP versions from the sury repository
+  ansible.builtin.include_tasks: php_sury.yml
+
+- name: PHP 5.3
+  ansible.builtin.include_tasks: php53.yml
+  when: "'5.3' in ispconfig_php_build"

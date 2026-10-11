@@ -1,0 +1,80 @@
+# ISPConfig multiserver installation (see README.md):
+#   ansible-playbook -i hosts site.yml
+# The groups of the inventory decide what a server becomes: ispconfig_panel (ISPConfig master and ispconfig-rest),
+# ispconfig_web (web, FTP and SSH), ispconfig_db (customer databases), ispconfig_dns (primary DNS). A server may be in
+# several groups; the panel must be exactly one.
+- name: Prepare the ISPConfig servers
+  hosts: ispconfig_panel:ispconfig_web:ispconfig_db:ispconfig_dns
+  become: true
+  tasks:
+    - name: Services, checks, host name and /etc/hosts
+      ansible.builtin.include_role:
+        name: ispconfig_server
+        tasks_from: prepare
+        apply:
+          tags: always
+      tags: always
+
+- name: ISPConfig panel (master)
+  hosts: ispconfig_panel
+  become: true
+  tags: panel
+  roles:
+    - ispconfig_panel
+
+# The servers join the panel in parallel; set ispconfig_serial (e.g. 1) to install them one after another.
+- name: ISPConfig servers joining the panel
+  hosts: ispconfig_web:ispconfig_db:ispconfig_dns
+  become: true
+  serial: "{{ ispconfig_serial | default('100%') }}"
+  tasks:
+    # One task for all servers, so their autoinstallers run at the same time; the roles below find ISPConfig
+    # installed.
+    - name: ISPConfig, joining the panel
+      ansible.builtin.include_role:
+        name: ispconfig_server
+        apply:
+          tags: [db, web, dns]
+      tags: [db, web, dns]
+
+    - name: Database server
+      ansible.builtin.include_role:
+        name: ispconfig_db
+        apply:
+          tags: db
+      when: "'ispconfig_db' in group_names"
+      tags: db
+
+    - name: Web, FTP and SSH server
+      ansible.builtin.include_role:
+        name: ispconfig_web
+        apply:
+          tags: web
+      when: "'ispconfig_web' in group_names"
+      tags: web
+
+    - name: Primary DNS server
+      ansible.builtin.include_role:
+        name: ispconfig_dns
+        apply:
+          tags: dns
+      when: "'ispconfig_dns' in group_names"
+      tags: dns
+
+- name: ispconfig-rest server tools
+  hosts: ispconfig_panel
+  become: true
+  tags: tools
+  tasks:
+    - name: Server tools on the servers
+      ansible.builtin.include_role:
+        name: ispconfig_panel
+        tasks_from: server_tools
+      when: ispconfig_rest_install | default(true) | bool
+
+# Secondaries following the catalog zones of the DNS servers: list them in ispconfig_dns_secondaries and make
+# ispconfig_dns_primaries a child group of ispconfig_dns (see hosts.example). Skipped without such hosts.
+- name: DNS secondaries
+  ansible.builtin.import_playbook: ../dns-catalog/ansible/secondary.yml
+  when: groups['ispconfig_dns_secondaries'] | default([]) | length > 0
+  tags: secondaries

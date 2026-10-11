@@ -1,0 +1,4 @@
+/hosts
+/group_vars/*.yml
+!/group_vars/all.example.yml
+/host_vars/

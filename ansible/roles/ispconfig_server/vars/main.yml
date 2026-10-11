@@ -1,0 +1,19 @@
+# Inventory groups and the ISPConfig services they stand for.
+ispconfig_groups:
+  ispconfig_panel: panel
+  ispconfig_web: web
+  ispconfig_db: db
+  ispconfig_dns: dns
+
+# PHP versions the autoinstaller installs from the sury repository, and those the ispconfig_web role builds.
+ispconfig_sury_php_versions: ["5.6", "7.0", "7.1", "7.2", "7.3", "7.4", "8.0", "8.1", "8.2", "8.3", "8.4", "8.5"]
+ispconfig_built_php_versions: ["5.3"]
+
+ispconfig_installed_file: /usr/local/ispconfig/server/lib/config.inc.php
+ispconfig_autoinstaller_dir: /root/ispconfig-ai
+ispconfig_autoinstaller_overrides: /root/ispconfig-ai-overrides
+ispconfig_autoinstaller_log: /root/ispconfig-install-log/ansible.log
+# The one line of the autoinstaller that writes the generated autoinstall.ini, and its replacement that passes the
+# generated file through autoinstall.php (join the panel, admin password, certificate fields).
+ispconfig_autoinstaller_patch_from: "file_put_contents('/tmp/ispconfig.autoinstall.ini', $autoinstall);"
+ispconfig_autoinstaller_patch_to: "file_put_contents('/tmp/ispconfig.autoinstall.ini', require '{{ ispconfig_autoinstaller_overrides }}/autoinstall.php');"

@@ -1,0 +1,5 @@
+# Database server: ISPConfig with MariaDB for customer databases. MariaDB listens on all addresses
+# (ispconfig_mariadb_bind_address); ISPConfig grants each database to the addresses of its website's web server.
+- name: ISPConfig
+  ansible.builtin.include_role:
+    name: ispconfig_server

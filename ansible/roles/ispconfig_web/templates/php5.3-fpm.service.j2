@@ -1,0 +1,18 @@
+# Managed by Ansible (ispconfig_web role): PHP 5.3 built from source.
+[Unit]
+Description=The PHP 5.3 FastCGI Process Manager
+After=network.target
+
+[Service]
+Type=simple
+PIDFile=/run/php/php5.3-fpm.pid
+Environment=PHP_INI_SCAN_DIR={{ ispconfig_php53_config_dir }}/fpm/conf.d
+ExecStartPre={{ ispconfig_php53_prefix }}/sbin/php-fpm --test --fpm-config {{ ispconfig_php53_config_dir }}/fpm/php-fpm.conf -c {{ ispconfig_php53_config_dir }}/fpm
+ExecStart={{ ispconfig_php53_prefix }}/sbin/php-fpm --nodaemonize --fpm-config {{ ispconfig_php53_config_dir }}/fpm/php-fpm.conf -c {{ ispconfig_php53_config_dir }}/fpm
+ExecReload=/bin/kill -USR2 $MAINPID
+RuntimeDirectory=php
+RuntimeDirectoryPreserve=yes
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

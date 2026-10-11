@@ -1,0 +1,122 @@
+# ispconfig-rest server tools on the other ISPConfig servers (server-tools/README.md), once they are all installed:
+# SSH from the panel's root with its own key, host keys read through Ansible's connection, then
+# `ispconfig-rest server-tools install`. Runs again when the servers or components change; later updates:
+# `ispconfig-rest server-tools update`.
+- name: Servers and components of the server tools
+  ansible.builtin.set_fact:
+    ispconfig_tools_servers: "{{ (groups['ispconfig_web'] | default([]) + groups['ispconfig_db'] | default([]) + groups['ispconfig_dns'] | default([])) | unique | reject('equalto', inventory_hostname) | list }}"
+    ispconfig_tools_components: >-
+      {{ (ispconfig_rest_server_tools
+          + (['file-manager'] if ispconfig_rest_file_manager_key else [])
+          + (['php-limits'] if ispconfig_rest_php_limits | bool else [])
+          + (['dns-catalog'] if ispconfig_rest_dns_catalog | bool and groups['ispconfig_dns'] | default([]) | length > 0 else []))
+         | unique | list }}
+
+- name: Check the file manager settings
+  ansible.builtin.assert:
+    that: not ispconfig_rest_file_manager_key or ispconfig_rest_whmcs_ip
+    fail_msg: The file manager needs ispconfig_rest_whmcs_ip, the WHMCS server's outgoing address, with its key.
+    quiet: true
+
+- name: SSH access to the servers
+  when: ispconfig_tools_servers | length > 0
+  block:
+    - name: SSH key of the panel for the servers
+      ansible.builtin.command: ssh-keygen -q -t ed25519 -N '' -C 'ispconfig-rest server tools' -f {{ ispconfig_rest_ssh_key | quote }}
+      args:
+        creates: "{{ ispconfig_rest_ssh_key }}"
+
+    - name: Read the panel's public key
+      ansible.builtin.slurp:
+        src: "{{ ispconfig_rest_ssh_key }}.pub"
+      register: ispconfig_tools_public_key
+
+    - name: SSH directory of root on the servers
+      ansible.builtin.file:
+        path: /root/.ssh
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+      delegate_to: "{{ item }}"
+      loop: "{{ ispconfig_tools_servers }}"
+
+    - name: Let the panel's root log in to the servers, from the panel's address only
+      ansible.builtin.lineinfile:
+        path: /root/.ssh/authorized_keys
+        regexp: "{{ ispconfig_tools_key.split()[1] | regex_escape }}"
+        line: 'from="{{ ispconfig_ip }}" {{ ispconfig_tools_key }}'
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+      delegate_to: "{{ item }}"
+      loop: "{{ ispconfig_tools_servers }}"
+      vars:
+        ispconfig_tools_key: "{{ ispconfig_tools_public_key.content | b64decode | trim }}"
+
+    - name: Read the SSH host keys of the servers
+      ansible.builtin.slurp:
+        src: /etc/ssh/ssh_host_ed25519_key.pub
+      delegate_to: "{{ item }}"
+      loop: "{{ ispconfig_tools_servers }}"
+      register: ispconfig_tools_host_keys
+
+    - name: Trust the servers' host keys on the panel
+      ansible.builtin.known_hosts:
+        path: /root/.ssh/known_hosts
+        name: "{{ hostvars[item.item].ispconfig_fqdn }}"
+        key: "{{ hostvars[item.item].ispconfig_fqdn }},{{ hostvars[item.item].ispconfig_ip }} {{ (item.content | b64decode).split()[:2] | join(' ') }}"
+      loop: "{{ ispconfig_tools_host_keys.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: SSH settings of the panel's root for the servers
+      ansible.builtin.blockinfile:
+        path: /root/.ssh/config
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+        marker: "# {mark} ISPConfig server tools (Ansible)"
+        block: |
+          Host {{ ispconfig_tools_servers | map('extract', hostvars, 'ispconfig_fqdn') | join(' ') }}
+              User root
+              IdentityFile {{ ispconfig_rest_ssh_key }}
+              IdentitiesOnly yes
+
+- name: WHMCS public key for the file manager
+  ansible.builtin.copy:
+    dest: /root/whmcs-files.pub
+    content: "{{ ispconfig_rest_file_manager_key | trim }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  when: ispconfig_rest_file_manager_key | length > 0
+
+- name: Read the server tools installed by Ansible
+  ansible.builtin.slurp:
+    src: /etc/ispconfig-rest/ansible-server-tools.json
+  register: ispconfig_tools_installed
+  failed_when: false
+
+- name: Install the server tools
+  when: (ispconfig_tools_installed.content | default('') | b64decode | trim) != ispconfig_tools_state
+  vars:
+    ispconfig_tools_state: "{{ {'components': ispconfig_tools_components | sort, 'servers': ispconfig_tools_servers | sort} | to_json }}"
+  block:
+    - name: Install the server tools (ispconfig-rest server-tools install)
+      ansible.builtin.command:
+        argv: >-
+          {{ ['/usr/local/bin/ispconfig-rest', 'server-tools', 'install', '--yes', '--components', ispconfig_tools_components | join(',')]
+             + (['--file-manager-key', '/root/whmcs-files.pub', '--whmcs-ip', ispconfig_rest_whmcs_ip] if ispconfig_rest_file_manager_key else []) }}
+      register: ispconfig_tools_install
+      changed_when: true
+
+    - name: Record the server tools installed by Ansible
+      ansible.builtin.copy:
+        dest: /etc/ispconfig-rest/ansible-server-tools.json
+        content: "{{ ispconfig_tools_state }}\n"
+        owner: root
+        group: root
+        mode: "0644"

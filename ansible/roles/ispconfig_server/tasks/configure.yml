@@ -1,0 +1,48 @@
+# Settings of an installed server, applied on every run.
+- name: Read the default PHP CLI version
+  ansible.builtin.command: php -r 'echo PHP_MAJOR_VERSION, ".", PHP_MINOR_VERSION;'
+  register: ispconfig_default_php
+  changed_when: false
+
+# ispconfig-rest and its server tools need PHP 8.3+ as `php`; ISPConfig's own scripts run with it as well.
+- name: Make PHP {{ ispconfig_tools_php_version }} the default PHP CLI
+  ansible.builtin.command: update-alternatives --set php /usr/bin/php{{ ispconfig_tools_php_version }}
+  when: ispconfig_default_php.stdout is version(ispconfig_tools_php_version, '<')
+  changed_when: true
+
+# The autoinstaller lets MariaDB listen on all addresses. Only the panel (master database) and database servers
+# need that; the others keep their ISPConfig database to themselves.
+- name: Bind address of MariaDB
+  ansible.builtin.copy:
+    dest: /etc/mysql/mariadb.conf.d/90-ispconfig-ansible.cnf
+    content: |
+      # Managed by Ansible (ispconfig_server role)
+      [mysqld]
+      bind-address = {{ ispconfig_mariadb_bind_address }}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart MariaDB
+
+- name: Read the ISPConfig server ID
+  ansible.builtin.command: sed -n "s/^\$conf\['server_id'\] = '\([0-9]*\)';$/\1/p" {{ ispconfig_installed_file }}
+  register: ispconfig_server_id
+  changed_when: false
+  failed_when: ispconfig_server_id.stdout is not match('^[0-9]+$')
+
+# ISPConfig marks every server as a database server and the panel as a web server. The inventory groups decide which
+# services ISPConfig offers on a server; the master database and the server's own copy both get them.
+- name: Services of this server in ISPConfig
+  ansible.builtin.command:
+    cmd: mysql --defaults-file=/etc/mysql/debian.cnf --batch --skip-column-names dbispconfig
+    stdin: |
+      UPDATE server SET web_server = {{ ispconfig_flag_web }}, file_server = {{ ispconfig_flag_web }}, db_server = {{ ispconfig_flag_db }}, dns_server = {{ ispconfig_flag_dns }} WHERE server_id = {{ ispconfig_server_id.stdout }};
+      SELECT ROW_COUNT();
+  delegate_to: "{{ item }}"
+  loop: "{{ [ispconfig_master, inventory_hostname] | unique }}"
+  register: ispconfig_server_flags
+  changed_when: ispconfig_server_flags.stdout | trim != '0'
+  vars:
+    ispconfig_flag_web: "{{ 1 if 'web' in ispconfig_services else 0 }}"
+    ispconfig_flag_db: "{{ 1 if 'db' in ispconfig_services else 0 }}"
+    ispconfig_flag_dns: "{{ 1 if 'dns' in ispconfig_services else 0 }}"

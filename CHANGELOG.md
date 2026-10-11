@@ -5,6 +5,15 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Added
+
+- Ansible roles to install ISPConfig servers (spec 056): `ansible/site.yml` installs the
+  panel (ISPConfig master with ispconfig-rest and its server tools), web/FTP/SSH, database
+  and primary DNS servers with the ISPConfig autoinstaller, from groups set in the
+  inventory. Servers join the panel unattended. Web servers get PHP 5.6 and 7.0–8.5 from the sury
+  repository, and PHP 5.3 built from source (PHP-FPM, with its own OpenSSL 1.0.2).
+  See [Install ISPConfig servers with Ansible](ansible/README.md).
+
 ## [1.0.6] - 2026-10-10
 
 This release adds the `dns-catalog` server tool: a catalog zone on each ISPConfig DNS

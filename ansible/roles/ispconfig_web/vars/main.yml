@@ -1,0 +1,5 @@
+# A new PHP 5.3 build when the sources, the build script or the paths change.
+ispconfig_php53_build_id: >-
+  {{ [ispconfig_php53_sources.php.sha256, ispconfig_php53_sources.openssl.sha256, ispconfig_php53_sources.curl.sha256,
+      lookup('ansible.builtin.file', 'build-php53.sh') | hash('sha256'), ispconfig_php53_prefix, ispconfig_php53_config_dir]
+     | join(' ') | hash('sha256') }}

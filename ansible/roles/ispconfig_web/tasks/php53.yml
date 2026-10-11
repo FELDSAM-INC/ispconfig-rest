@@ -1,0 +1,156 @@
+# PHP 5.3 for old websites: built from source into /opt/php-5.3 (no package exists for current systems), run as the
+# php5.3-fpm service with the Debian layout below /etc/php/5.3, registered in ISPConfig for PHP-FPM websites and
+# available in SSH jails. It is a PHP without security support: offer it only to websites that cannot move on.
+- name: Packages for building PHP 5.3
+  ansible.builtin.apt:
+    name: "{{ ispconfig_php53_build_packages }}"
+
+- name: Read the PHP 5.3 build
+  ansible.builtin.slurp:
+    src: "{{ ispconfig_php53_prefix }}/.ispconfig-build"
+  register: ispconfig_php53_built
+  failed_when: false
+
+- name: Build PHP 5.3 (5-15 minutes)
+  when: (ispconfig_php53_built.content | default('') | b64decode | trim) != ispconfig_php53_build_id
+  block:
+    - name: Build script
+      ansible.builtin.copy:
+        src: build-php53.sh
+        dest: /usr/local/sbin/ispconfig-build-php53
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Build PHP 5.3 with its own OpenSSL and libcurl
+      ansible.builtin.command:
+        cmd: /usr/local/sbin/ispconfig-build-php53 {{ ispconfig_php53_prefix | quote }} {{ ispconfig_php53_config_dir | quote }}
+      environment:
+        PHP_URL: "{{ ispconfig_php53_sources.php.url }}"
+        PHP_SHA256: "{{ ispconfig_php53_sources.php.sha256 }}"
+        OPENSSL_URL: "{{ ispconfig_php53_sources.openssl.url }}"
+        OPENSSL_SHA256: "{{ ispconfig_php53_sources.openssl.sha256 }}"
+        CURL_URL: "{{ ispconfig_php53_sources.curl.url }}"
+        CURL_SHA256: "{{ ispconfig_php53_sources.curl.sha256 }}"
+      async: "{{ ispconfig_php53_build_timeout }}"
+      poll: 15
+      changed_when: true
+      notify: Restart PHP 5.3
+
+    - name: Record the build
+      ansible.builtin.copy:
+        dest: "{{ ispconfig_php53_prefix }}/.ispconfig-build"
+        content: "{{ ispconfig_php53_build_id }}\n"
+        owner: root
+        group: root
+        mode: "0644"
+
+- name: Configuration directories of PHP 5.3
+  ansible.builtin.file:
+    path: "{{ ispconfig_php53_config_dir }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: [cli, cli/conf.d, fpm, fpm/conf.d, fpm/pool.d]
+
+- name: php.ini of PHP 5.3 (from php.ini-production, kept once present)
+  ansible.builtin.copy:
+    src: "{{ ispconfig_php53_prefix }}/lib/php.ini-production"
+    dest: "{{ ispconfig_php53_config_dir }}/{{ item }}/php.ini"
+    remote_src: true
+    force: false
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [cli, fpm]
+  notify: Restart PHP 5.3
+
+- name: Read the server's time zone
+  ansible.builtin.command: timedatectl show --property=Timezone --value
+  register: ispconfig_timezone
+  changed_when: false
+  failed_when: false
+
+- name: Ansible settings of PHP 5.3
+  ansible.builtin.copy:
+    dest: "{{ ispconfig_php53_config_dir }}/{{ item }}/conf.d/10-ispconfig.ini"
+    content: |
+      ; Managed by Ansible (ispconfig_web role)
+      date.timezone = "{{ (ispconfig_timezone.stdout | trim) or 'UTC' }}"
+      {% for key, value in ispconfig_php53_ini.items() %}
+      {{ key }} = {{ value }}
+      {% endfor %}
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [cli, fpm]
+  notify: Restart PHP 5.3
+
+- name: PHP-FPM configuration of PHP 5.3
+  ansible.builtin.template:
+    src: php53-fpm.conf.j2
+    dest: "{{ ispconfig_php53_config_dir }}/fpm/php-fpm.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart PHP 5.3
+
+# PHP-FPM needs a pool to start; ISPConfig adds one per website next to it.
+- name: Default pool of PHP 5.3
+  ansible.builtin.template:
+    src: php53-www.conf.j2
+    dest: "{{ ispconfig_php53_config_dir }}/fpm/pool.d/www.conf"
+    owner: root
+    group: root
+    mode: "0644"
+    force: false
+  notify: Restart PHP 5.3
+
+- name: php5.3-fpm service
+  ansible.builtin.template:
+    src: php5.3-fpm.service.j2
+    dest: /etc/systemd/system/php5.3-fpm.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart PHP 5.3
+
+- name: php5.3 command (ISPConfig's CLI binary of the version)
+  ansible.builtin.file:
+    src: "{{ ispconfig_php53_prefix }}/bin/php"
+    dest: /usr/bin/php5.3
+    state: link
+
+- name: Start PHP 5.3
+  ansible.builtin.systemd_service:
+    name: php5.3-fpm
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# ISPConfig's installer and updates rewrite jk_init.ini; run the role again after an ISPConfig update.
+- name: PHP 5.3 in SSH jails
+  ansible.builtin.blockinfile:
+    path: /etc/jailkit/jk_init.ini
+    marker: "# {mark} PHP 5.3 (Ansible)"
+    block: |
+      [php5_3]
+      comment = php version 5.3, built from source
+      paths = /usr/bin/php5.3, {{ ispconfig_php53_prefix }}/bin/php, {{ ispconfig_php53_config_dir }}/cli/
+      includesections = php_common
+  when: ispconfig_jailkit | default(true) | bool
+
+- name: Register PHP 5.3 in ISPConfig
+  ansible.builtin.include_tasks: server_php.yml
+  vars:
+    ispconfig_server_php:
+      - name: PHP 5.3
+        php_fastcgi_binary: ""
+        php_fastcgi_ini_dir: ""
+        php_fpm_init_script: php5.3-fpm
+        php_fpm_ini_dir: "{{ ispconfig_php53_config_dir }}/fpm"
+        php_fpm_pool_dir: "{{ ispconfig_php53_config_dir }}/fpm/pool.d"
+        php_fpm_socket_dir: /run/php
+        php_cli_binary: /usr/bin/php5.3
+        php_jk_section: php5_3

@@ -1,0 +1,45 @@
+{#- Autoinstaller options of this server, as a YAML list. -#}
+{%- set web = 'web' in ispconfig_services -%}
+{%- set webserver = web or 'panel' in ispconfig_services -%}
+- --i-know-what-i-am-doing
+- --channel={{ ispconfig_channel }}
+- --lang={{ ispconfig_language }}
+- --use-php={{ ispconfig_php_sury | join(',') }}
+- --no-mail
+- --no-mailman
+- --no-roundcube
+{% if not webserver %}
+- --no-web
+{% elif ispconfig_webserver == 'nginx' %}
+- --use-nginx
+{% endif %}
+{% if webserver and not ('panel' in ispconfig_services and ispconfig_phpmyadmin) %}
+- --no-pma
+{% endif %}
+{% if web %}
+{%   if ispconfig_ftp_passive_ports %}
+- --use-ftp-ports={{ ispconfig_ftp_passive_ports }}
+{%   endif %}
+{%   if not ispconfig_jailkit %}
+- --no-jailkit
+{%   endif %}
+{%   if not ispconfig_quota %}
+- --no-quota
+{%   endif %}
+{% else %}
+- --no-ftp
+- --no-jailkit
+- --no-quota
+{% endif %}
+{% if 'dns' not in ispconfig_services %}
+- --no-dns
+{%   if not ispconfig_local_dns %}
+- --no-local-dns
+{%   endif %}
+{% endif %}
+{% if not ispconfig_firewall %}
+- --no-firewall
+{% endif %}
+{% for option in ispconfig_autoinstaller_args %}
+- {{ option | to_json }}
+{% endfor %}

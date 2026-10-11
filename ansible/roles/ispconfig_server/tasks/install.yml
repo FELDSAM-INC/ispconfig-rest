@@ -1,0 +1,113 @@
+# ISPConfig with the autoinstaller, once per server, with the services of all its groups. A server that is not the
+# panel joins the panel's master database. Runs again only when ISPConfig is missing.
+- name: Allow this server to join the panel's database
+  ansible.builtin.include_tasks: master_grant.yml
+  when: "'panel' not in ispconfig_services"
+
+- name: Check whether ISPConfig is installed
+  ansible.builtin.stat:
+    path: "{{ ispconfig_installed_file }}"
+  register: ispconfig_installed
+
+- name: Install ISPConfig with the autoinstaller
+  when: not ispconfig_installed.stat.exists
+  block:
+    - name: Work out the autoinstaller options
+      ansible.builtin.set_fact:
+        ispconfig_autoinstaller_options: "{{ lookup('ansible.builtin.template', 'autoinstaller-options.j2') | from_yaml }}"
+
+    - name: Install the autoinstaller's requirements
+      ansible.builtin.apt:
+        name: [php-cli, php-mbstring, curl, wget, ca-certificates, tar]
+        update_cache: true
+
+    - name: Download the autoinstaller
+      ansible.builtin.get_url:
+        url: "{{ ispconfig_autoinstaller_url }}"
+        dest: /root/ispconfig-ai.tar.gz
+        checksum: "{{ ('sha256:' ~ ispconfig_autoinstaller_sha256) if ispconfig_autoinstaller_sha256 else omit }}"
+        force: true
+        mode: "0600"
+
+    - name: Remove an earlier copy of the autoinstaller
+      ansible.builtin.file:
+        path: "{{ ispconfig_autoinstaller_dir }}"
+        state: absent
+
+    - name: Directories of the autoinstaller, its values and its log
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+      loop:
+        - "{{ ispconfig_autoinstaller_dir }}"
+        - "{{ ispconfig_autoinstaller_overrides }}"
+        - "{{ ispconfig_autoinstaller_log | dirname }}"
+
+    - name: Extract the autoinstaller
+      ansible.builtin.unarchive:
+        src: /root/ispconfig-ai.tar.gz
+        dest: "{{ ispconfig_autoinstaller_dir }}"
+        remote_src: true
+
+    # Unattended, the autoinstaller only installs standalone servers. This line passes its generated autoinstall.ini
+    # through autoinstall.php, which joins the panel and sets the admin password (see files/autoinstall.php).
+    - name: Let the autoinstaller apply the Ansible values
+      ansible.builtin.replace:
+        path: "{{ ispconfig_autoinstaller_dir }}/lib/os/class.ISPConfigDebianOS.inc.php"
+        regexp: "{{ ispconfig_autoinstaller_patch_from | regex_escape }}"
+        replace: "{{ ispconfig_autoinstaller_patch_to }}"
+
+    - name: Check that the autoinstaller applies them
+      ansible.builtin.command:
+        cmd: grep -cF -- {{ ispconfig_autoinstaller_patch_to | quote }} {{ ispconfig_autoinstaller_dir }}/lib/os/class.ISPConfigDebianOS.inc.php
+      register: ispconfig_autoinstaller_patched
+      changed_when: false
+      failed_when: ispconfig_autoinstaller_patched.stdout | trim != '1'
+
+    - name: Ansible values for the autoinstaller
+      ansible.builtin.copy:
+        src: autoinstall.php
+        dest: "{{ ispconfig_autoinstaller_overrides }}/autoinstall.php"
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Ansible values for the autoinstaller (secrets)
+      ansible.builtin.template:
+        src: autoinstall.json.j2
+        dest: "{{ ispconfig_autoinstaller_overrides }}/autoinstall.json"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
+    - name: Run the autoinstaller (15-60 minutes)
+      ansible.builtin.shell:
+        cmd: >-
+          php -q ispconfig.ai.php {{ ispconfig_autoinstaller_options | map('quote') | join(' ') }}
+          </dev/null >{{ ispconfig_autoinstaller_log }} 2>&1
+        chdir: "{{ ispconfig_autoinstaller_dir }}"
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      async: "{{ ispconfig_autoinstaller_timeout }}"
+      poll: 30
+      changed_when: true
+
+    # The autoinstaller exits with 0 also after an error: ISPConfig's configuration and its final message tell.
+    - name: Check the result
+      ansible.builtin.shell:
+        cmd: >-
+          test -f {{ ispconfig_installed_file }} && grep -q 'Installation ready' {{ ispconfig_autoinstaller_log }} ||
+          { grep -vi 'password' {{ ispconfig_autoinstaller_log }} | sed 's/\x1b\[[0-9;]*m//g' | tail -n 40; exit 1; }
+      changed_when: false
+  always:
+    - name: Remove the Ansible values (secrets)
+      ansible.builtin.file:
+        path: "{{ ispconfig_autoinstaller_overrides }}"
+        state: absent
+
+- name: Configure the installed server
+  ansible.builtin.include_tasks: configure.yml

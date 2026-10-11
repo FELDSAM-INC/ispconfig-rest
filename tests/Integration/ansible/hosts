@@ -1,0 +1,15 @@
+# Inventory of tests/Integration/ansible/run.sh: systemd containers reached through the Docker socket.
+[ispconfig_panel]
+panel.ispcp.test ansible_host=ispcp-ansible-panel ispconfig_address=10.231.80.10
+
+[ispconfig_web]
+web1.ispcp.test ansible_host=ispcp-ansible-web1 ispconfig_address=10.231.80.11
+
+[ispconfig_db]
+db1.ispcp.test ansible_host=ispcp-ansible-db1 ispconfig_address=10.231.80.21
+
+[ispconfig_dns]
+ns1.ispcp.test ansible_host=ispcp-ansible-ns1 ispconfig_address=10.231.80.31
+
+[all:vars]
+ansible_connection=community.docker.docker

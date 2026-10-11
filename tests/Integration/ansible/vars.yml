@@ -1,0 +1,16 @@
+# Test values: disposable containers only.
+ispconfig_admin_password: ansible-e2e-admin
+ispconfig_master_db_admin_password: ansible-e2e-join-0123456789
+# Docker owns the host name and /etc/hosts; containers have no quota or NTP.
+ispconfig_set_hostname: false
+ispconfig_manage_hosts_file: false
+ispconfig_quota: false
+ispconfig_autoinstaller_args: ["--no-ntp"]
+# Fewer versions keep the test shorter: the built one, a legacy and a current sury one.
+ispconfig_php_versions: ["5.3", "5.6", "8.3"]
+ispconfig_ssl_cert:
+  country: CZ
+  organisation: ispconfig-rest e2e
+ispconfig_rest_server_tools: [database, web-logs]
+# The branch under test (installer and server tool sources come from GitHub).
+ispconfig_rest_version: develop

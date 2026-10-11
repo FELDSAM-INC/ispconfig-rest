@@ -1,0 +1,62 @@
+# ispconfig-rest on the panel, with its own installer (README "Install on an ISPConfig server"). An installed API is
+# left alone: update it with `ispconfig-rest update`. API keys are created by hand: `ispconfig-rest key:create`.
+- name: Check whether ispconfig-rest is installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/ispconfig-rest
+  register: ispconfig_rest_installed
+
+# The autoinstaller's PHP modules lack bcmath.
+- name: PHP extensions of ispconfig-rest
+  ansible.builtin.apt:
+    name: "{{ ['bcmath', 'mbstring', 'mysql', 'xml'] | map('regex_replace', '^', 'php' ~ ispconfig_php_tools ~ '-') | list }}"
+
+- name: Install ispconfig-rest
+  when: not ispconfig_rest_installed.stat.exists
+  block:
+    - name: Download the ispconfig-rest installer
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/{{ ispconfig_rest_repository }}/{{ ispconfig_rest_version }}/install.sh
+        dest: /root/ispconfig-rest-install.sh
+        owner: root
+        group: root
+        mode: "0700"
+        force: true
+
+    # The autoinstaller gives MariaDB's root a password and keeps it in debian.cnf; the installer needs it to
+    # create the API's own table.
+    - name: Read the MariaDB root password
+      ansible.builtin.command: sed -n 's/^password[[:space:]]*=[[:space:]]*//p' /etc/mysql/debian.cnf
+      register: ispconfig_rest_db_admin
+      changed_when: false
+      no_log: true
+
+    - name: Run the ispconfig-rest installer
+      ansible.builtin.command: bash /root/ispconfig-rest-install.sh
+      environment:
+        ISPC_REST_NONINTERACTIVE: "1"
+        ISPC_REST_CREATE_KEY: "no"
+        ISPC_REST_REPO: https://github.com/{{ ispconfig_rest_repository }}.git
+        ISPC_REST_BRANCH: "{{ ispconfig_rest_version }}"
+        ISPC_REST_PORT: "{{ ispconfig_rest_port | string }}"
+        ISPC_REST_SERVE: "{{ ispconfig_httpd }}"
+        ISPC_REST_URL: "{{ ispconfig_rest_url }}"
+        ISPC_REST_DB_ADMIN_PASS: "{{ ispconfig_rest_db_admin.stdout_lines[0] | default('') }}"
+      register: ispconfig_rest_installer
+      failed_when: false
+      changed_when: true
+      no_log: true
+
+    - name: Check the ispconfig-rest installation
+      ansible.builtin.fail:
+        msg: "{{ (ispconfig_rest_installer.stdout_lines + ispconfig_rest_installer.stderr_lines)[-40:] }}"
+      when: ispconfig_rest_installer.rc != 0
+  always:
+    - name: Remove the ispconfig-rest installer
+      ansible.builtin.file:
+        path: /root/ispconfig-rest-install.sh
+        state: absent
+
+- name: Check ispconfig-rest
+  ansible.builtin.command: /usr/local/bin/ispconfig-rest status
+  register: ispconfig_rest_status
+  changed_when: false

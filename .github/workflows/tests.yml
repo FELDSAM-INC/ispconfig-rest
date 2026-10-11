@@ -22,6 +22,12 @@ jobs:
           sh -n php-limits/ispconfig-php-limits
           sh -n worker/install.sh file-manager-worker/install.sh file-manager-worker/wordpress-install.sh
           python3 -m unittest discover -s tests/WordPress -p 'test_*.py'
+      - name: Check Ansible roles
+        run: |
+          pipx install 'ansible-core>=2.15,<2.18'
+          bash -n ansible/roles/ispconfig_web/files/build-php53.sh tests/Integration/ansible/run.sh
+          php -l ansible/roles/ispconfig_server/files/autoinstall.php
+          cd ansible && ANSIBLE_CONFIG=ansible.cfg ansible-playbook --syntax-check -i hosts.example site.yml
 
   phpunit:
     runs-on: ubuntu-latest
