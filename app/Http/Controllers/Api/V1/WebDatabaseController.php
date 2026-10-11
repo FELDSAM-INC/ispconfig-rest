@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Extensions\Hooks;
 use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreWebDatabaseRequest;
@@ -9,7 +10,6 @@ use App\Http\Requests\UpdateWebDatabaseRequest;
 use App\Models\WebDatabase;
 use App\Services\DatabaseProvisioningService;
 use App\Services\SitesService;
-use App\Services\WordPressService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -80,7 +80,7 @@ class WebDatabaseController extends Controller
      */
     public function update(UpdateWebDatabaseRequest $request, WebDatabase $webDatabase): JsonResponse
     {
-        app(WordPressService::class)->guardDatabase((int) $webDatabase->getKey());
+        app(Hooks::class)->runGuards($webDatabase, 'update');
         $payload = $request->payload();
         $attributes = $webDatabase->getAttributes();
 
@@ -115,7 +115,7 @@ class WebDatabaseController extends Controller
         ]);
 
         DB::transaction(function () use ($webDatabase, $linkage, $serverId): void {
-            app(WordPressService::class)->guardDatabase((int) $webDatabase->getKey());
+            app(Hooks::class)->runGuards($webDatabase, 'update');
             $webDatabase->save();
             $this->service->touchLinkedDatabaseUser($linkage['database_user_id'], $serverId);
             $this->service->touchLinkedDatabaseUser($linkage['database_ro_user_id'], $serverId);
@@ -130,9 +130,9 @@ class WebDatabaseController extends Controller
      */
     public function destroy(WebDatabase $webDatabase): Response
     {
-        app(WordPressService::class)->guardDatabase((int) $webDatabase->getKey());
+        app(Hooks::class)->runGuards($webDatabase, 'delete');
         DB::transaction(function () use ($webDatabase): void {
-            app(WordPressService::class)->guardDatabase((int) $webDatabase->getKey());
+            app(Hooks::class)->runGuards($webDatabase, 'delete');
             $webDatabase->delete();
         });
 

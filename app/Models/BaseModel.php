@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Extensions\Hooks;
 use App\Services\AliasServicesService;
 use App\Services\ClientLimitService;
 use App\Services\DatalogService;
@@ -137,6 +138,16 @@ abstract class BaseModel extends Model
     protected function authScope(): AuthScope
     {
         return App::make(IspContext::class)->authScope();
+    }
+
+    /**
+     * The JSON representation, with the attributes extensions add to this table (spec 058).
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray()
+    {
+        return array_merge(parent::toArray(), App::make(Hooks::class)->attributesFor($this));
     }
 
     /**

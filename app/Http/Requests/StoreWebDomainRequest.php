@@ -42,6 +42,11 @@ class StoreWebDomainRequest extends WebDomainRequest
         return $this->isVhost() ? $this->assignedServerMessages('web') : [];
     }
 
+    protected function extensionResource(): ?array
+    {
+        return [WebDomain::class, 'create'];
+    }
+
     protected function isVhost(): bool
     {
         return $this->input('type', 'vhost') === 'vhost';

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Extensions\Hooks;
 use App\Models\Client;
 use App\Models\ClientTemplate;
 use App\Models\ClientTemplateAssigned;
@@ -381,7 +382,7 @@ class ClientTemplateService
         if ($updates !== []) {
             // forceFill routes values through the model casts and save()
             // datalogs the update (no-change suppression applies).
-            $client->forceFill(app(ClientWebPhpPolicyService::class)->clientAttributes($clientId, $updates))->save();
+            $client->forceFill(app(Hooks::class)->applyFilter('client.attributes', $updates, $clientId))->save();
         }
     }
 

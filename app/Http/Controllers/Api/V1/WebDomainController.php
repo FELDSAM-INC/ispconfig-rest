@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Extensions\Hooks;
 use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreWebDomainRequest;
@@ -10,14 +11,10 @@ use App\Models\WebDomain;
 use App\Services\AliasClientDomainService;
 use App\Services\AliasServicesService;
 use App\Services\WebDomainService;
-use App\Services\WebPhpSettingsService;
-use App\Services\WebRuntimeService;
-use App\Services\WordPressService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 /**
  * Web Domains (contract: api/modules/sites/web-domains.yaml).
@@ -35,6 +32,7 @@ class WebDomainController extends Controller
     public function __construct(
         protected WebDomainService $service,
         protected AliasClientDomainService $clientDomains,
+        protected Hooks $hooks,
     ) {}
 
     /**
@@ -71,10 +69,7 @@ class WebDomainController extends Controller
      */
     public function show(WebDomain $webDomain): JsonResponse
     {
-        return response()->json($webDomain->toArray() + [
-            'runtime_settings' => app(WebRuntimeService::class)->view($webDomain),
-            'php_settings' => app(WebPhpSettingsService::class)->view($webDomain),
-        ], 200, ['Cache-Control' => 'private, no-store']);
+        return response()->json($webDomain->toArray() + $this->hooks->detailFor($webDomain), 200, ['Cache-Control' => 'private, no-store']);
     }
 
     /**
@@ -84,11 +79,13 @@ class WebDomainController extends Controller
     public function store(StoreWebDomainRequest $request): JsonResponse
     {
         $clientId = $request->filled('client_id') ? $request->integer('client_id') : null;
+        [$fields, $payload] = $request->extensionSplit();
+        $this->hooks->runPreflight(WebDomain::class, null, $fields, $payload);
 
-        $domain = DB::transaction(function () use ($request, $clientId): WebDomain {
-            $domain = $this->service->create($request->payload(), $clientId);
+        $domain = DB::transaction(function () use ($payload, $fields, $clientId): WebDomain {
+            $domain = $this->service->create($payload, $clientId, $fields);
             $this->clientDomains->ensure($domain);
-            app(AliasServicesService::class)->configure($domain, $request->payload());
+            app(AliasServicesService::class)->configure($domain, $payload);
 
             return $domain;
         });
@@ -102,17 +99,15 @@ class WebDomainController extends Controller
      */
     public function update(UpdateWebDomainRequest $request, WebDomain $webDomain): JsonResponse
     {
-        app(WordPressService::class)->guardSite((int) $webDomain->getKey());
-        $checkedIdentity = $webDomain->only(['server_id', 'sys_groupid', 'document_root', 'web_folder', 'type', 'domain']);
-        app(WebRuntimeService::class)->preflight($webDomain, $request->payload());
-        $domain = DB::transaction(function () use ($request, $webDomain, $checkedIdentity): WebDomain {
+        $this->hooks->runGuards($webDomain, 'update');
+        [$fields, $payload] = $request->extensionSplit();
+        // Before the transaction, so an extension can wait for a worker that must see committed rows.
+        $this->hooks->runPreflight(WebDomain::class, $webDomain, $fields, $payload);
+        $domain = DB::transaction(function () use ($payload, $fields, $webDomain): WebDomain {
             $webDomain = WebDomain::query()->readable()->whereKey($webDomain->getKey())->lockForUpdate()->firstOrFail();
-            app(WordPressService::class)->guardSite((int) $webDomain->getKey());
-            if ($request->has('runtime_settings') && $webDomain->only(array_keys($checkedIdentity)) !== $checkedIdentity) {
-                throw new ConflictHttpException('The website changed during the directory check. Reload and try again.');
-            }
-            $domain = $this->service->update($webDomain, $request->payload());
-            app(AliasServicesService::class)->configure($domain, $request->payload());
+            $this->hooks->runGuards($webDomain, 'update');
+            $domain = $this->service->update($webDomain, $payload, $fields);
+            app(AliasServicesService::class)->configure($domain, $payload);
 
             return $domain;
         });
@@ -126,10 +121,10 @@ class WebDomainController extends Controller
      */
     public function destroy(WebDomain $webDomain): Response
     {
-        app(WordPressService::class)->guardSite((int) $webDomain->getKey());
+        $this->hooks->runGuards($webDomain, 'delete');
         DB::transaction(function () use ($webDomain): void {
             $webDomain = WebDomain::query()->readable()->whereKey($webDomain->getKey())->lockForUpdate()->firstOrFail();
-            app(WordPressService::class)->guardSite((int) $webDomain->getKey());
+            $this->hooks->runGuards($webDomain, 'delete');
             $this->service->deleteWithCascade($webDomain);
         });
 

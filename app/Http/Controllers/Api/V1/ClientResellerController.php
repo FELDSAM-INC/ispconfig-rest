@@ -65,11 +65,11 @@ class ClientResellerController extends Controller
      */
     public function store(StoreClientResellerRequest $request): JsonResponse
     {
-        $payload = $request->payload();
+        [$fields, $payload] = $request->extensionSplit();
         $this->assertResellerLimit((int) $payload['limit_client']);
 
         $reseller = DB::transaction(
-            fn (): ClientReseller => $this->service->createClient(new ClientReseller, $payload, asReseller: true)
+            fn (): ClientReseller => $this->service->createClient(new ClientReseller, $payload, asReseller: true, fields: $fields)
         );
 
         return response()->json($reseller, 201);
@@ -81,14 +81,14 @@ class ClientResellerController extends Controller
      */
     public function update(UpdateClientResellerRequest $request, ClientReseller $reseller): JsonResponse
     {
-        $payload = $request->payload();
+        [$fields, $payload] = $request->extensionSplit();
 
         if (array_key_exists('limit_client', $payload)) {
             $this->assertResellerLimit((int) $payload['limit_client']);
         }
 
         $reseller = DB::transaction(
-            fn (): ClientReseller => $this->service->updateClient($reseller, $payload)
+            fn (): ClientReseller => $this->service->updateClient($reseller, $payload, $fields)
         );
 
         return response()->json($reseller);

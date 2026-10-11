@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\V1\CronJobController;
-use App\Http\Controllers\Api\V1\DatabaseOperationController;
 use App\Http\Controllers\Api\V1\DomainServicesController;
 use App\Http\Controllers\Api\V1\FtpUserController;
 use App\Http\Controllers\Api\V1\ShellUserController;
@@ -16,9 +15,6 @@ use App\Http\Controllers\Api\V1\WebDomainController;
 use App\Http\Controllers\Api\V1\WebDomainSslController;
 use App\Http\Controllers\Api\V1\WebFolderController;
 use App\Http\Controllers\Api\V1\WebFolderUserController;
-use App\Http\Controllers\Api\V1\WebLogController;
-use App\Http\Controllers\Api\V1\WebWafController;
-use App\Http\Controllers\Api\V1\WordPressController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -53,22 +49,12 @@ Route::middleware('scope.backup')->group(function (): void {
     Route::put('sites/web-domains/{webDomain}/backup-settings', [WebBackupSettingsController::class, 'update'])->whereNumber('webDomain');
 });
 
-Route::get('sites/web-domains/{webDomain}/logs/{kind}', [WebLogController::class, 'show'])->whereNumber('webDomain')->whereIn('kind', ['access', 'error']);
-
 // Web Domain SSL subresource — api/modules/sites/web-domains.yaml (most specific first)
 Route::get('sites/web-domains/{webDomain}/ssl/status', [WebDomainSslController::class, 'status'])->whereNumber('webDomain');
 Route::post('sites/web-domains/{webDomain}/ssl/renew', [WebDomainSslController::class, 'renew'])->whereNumber('webDomain');
 Route::get('sites/web-domains/{webDomain}/ssl', [WebDomainSslController::class, 'show'])->whereNumber('webDomain');
 Route::post('sites/web-domains/{webDomain}/ssl', [WebDomainSslController::class, 'store'])->whereNumber('webDomain');
 Route::delete('sites/web-domains/{webDomain}/ssl', [WebDomainSslController::class, 'destroy'])->whereNumber('webDomain');
-
-// Website WAF — authenticated, scoped subresources.
-Route::get('sites/web-domains/{webDomain}/wordpress', [WordPressController::class, 'show'])->whereNumber('webDomain');
-Route::post('sites/web-domains/{webDomain}/wordpress/jobs', [WordPressController::class, 'store'])->whereNumber('webDomain');
-Route::get('sites/web-domains/{webDomain}/wordpress/jobs/{job}', [WordPressController::class, 'job'])->whereNumber('webDomain')->whereUuid('job');
-Route::get('sites/web-domains/{webDomain}/waf/events', [WebWafController::class, 'index'])->whereNumber('webDomain');
-Route::get('sites/web-domains/{webDomain}/waf', [WebWafController::class, 'show'])->whereNumber('webDomain');
-Route::put('sites/web-domains/{webDomain}/waf', [WebWafController::class, 'update'])->whereNumber('webDomain');
 
 // Web Domains — api/modules/sites/web-domains.yaml
 Route::get('sites/web-domains', [WebDomainController::class, 'index']);
@@ -98,14 +84,6 @@ Route::get('sites/shell-users/{shellUser}', [ShellUserController::class, 'show']
 Route::put('sites/shell-users/{shellUser}', [ShellUserController::class, 'update'])->whereNumber('shellUser');
 Route::delete('sites/shell-users/{shellUser}', [ShellUserController::class, 'destroy'])->whereNumber('shellUser');
 
-// Database operations — scoped through the existing database route binding.
-Route::post('sites/databases/{webDatabase}/operations', [DatabaseOperationController::class, 'store'])->whereNumber('webDatabase');
-Route::put('sites/databases/{webDatabase}/operations/{operation}/chunks/{sequence}', [DatabaseOperationController::class, 'chunk'])->whereNumber('webDatabase')->whereUuid('operation')->whereNumber('sequence');
-Route::post('sites/databases/{webDatabase}/operations/{operation}/upload-complete', [DatabaseOperationController::class, 'finish'])->whereNumber('webDatabase')->whereUuid('operation');
-Route::delete('sites/databases/{webDatabase}/operations/{operation}', [DatabaseOperationController::class, 'destroy'])->whereNumber('webDatabase')->whereUuid('operation');
-Route::get('sites/databases/{webDatabase}/operations/{operation}/download', [DatabaseOperationController::class, 'download'])->whereNumber('webDatabase')->whereUuid('operation');
-Route::get('sites/databases/{webDatabase}/operations/{operation}', [DatabaseOperationController::class, 'show'])->whereNumber('webDatabase')->whereUuid('operation');
-
 // Databases — api/modules/sites/databases.yaml
 Route::get('sites/databases', [WebDatabaseController::class, 'index']);
 Route::post('sites/databases', [WebDatabaseController::class, 'store']);
@@ -125,7 +103,6 @@ Route::get('sites/cron-jobs', [CronJobController::class, 'index']);
 Route::post('sites/cron-jobs', [CronJobController::class, 'store']);
 Route::get('sites/cron-jobs/{cronJob}', [CronJobController::class, 'show'])->whereNumber('cronJob');
 Route::put('sites/cron-jobs/{cronJob}', [CronJobController::class, 'update'])->whereNumber('cronJob');
-Route::get('sites/cron-jobs/{cronJob}/log', [CronJobController::class, 'log'])->whereNumber('cronJob');
 Route::delete('sites/cron-jobs/{cronJob}', [CronJobController::class, 'destroy'])->whereNumber('cronJob');
 
 // Web Folders — api/modules/sites/web-folders.yaml

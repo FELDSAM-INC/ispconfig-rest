@@ -58,4 +58,16 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Extensions
+    |--------------------------------------------------------------------------
+    |
+    | Directory of installed extensions (spec 058): one subdirectory with an
+    | extension.json each, e.g. extensions/hosting.
+    |
+    */
+
+    'extensions_path' => env('API_EXTENSIONS_PATH', base_path('extensions')),
+
 ];

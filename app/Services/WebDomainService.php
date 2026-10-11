@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Extensions\Hooks;
 use App\Http\Concerns\ResolvesClientOwnership;
 use App\Models\WebDomain;
 use App\Support\IspContext;
@@ -46,6 +47,7 @@ class WebDomainService
         protected IspContext $context,
         protected ClientLimitService $limits,
         protected WebPermissionService $permissions,
+        protected Hooks $hooks,
     ) {}
 
     /**
@@ -57,8 +59,9 @@ class WebDomainService
      *                              "Client" select); resolved to
      *                              its sys_group and authorized
      *                              before the raw insert
+     * @param  array<string, mixed>  $fields  extension fields (spec 058)
      */
-    public function create(array $payload, ?int $clientId = null): WebDomain
+    public function create(array $payload, ?int $clientId = null, array $fields = []): WebDomain
     {
         $domain = new WebDomain;
         $userProvidedAllowOverride = array_key_exists('allow_override', $payload);
@@ -71,7 +74,6 @@ class WebDomainService
         }
 
         $domain->fill($payload);
-        app(WebWafService::class)->refreshIdentity($domain);
         $record = $domain->getAttributes();
 
         $isChildVhost = in_array($record['type'], ['vhostsubdomain', 'vhostalias'], true);
@@ -151,9 +153,7 @@ class WebDomainService
         }
 
         $domain->setRawAttributes($record);
-        $beforePolicy = clone $domain;
-        $phpPolicy = app(ClientWebPhpPolicyService::class);
-        $phpPolicy->apply($domain);
+        $this->hooks->runSaving($domain, $fields, 'create');
         $record = $domain->getAttributes();
         $this->runConfigDependentChecks($record, null);
 
@@ -175,12 +175,8 @@ class WebDomainService
         app(LockedClientGuard::class)->check($domain, true);
 
         $id = (int) DB::table('web_domain')->insertGetId($record, 'domain_id');
-        $ownerClientId = (int) DB::table('sys_group')->where('groupid', $record['sys_groupid'])->value('client_id');
-        $storedPolicy = $phpPolicy->policy($ownerClientId);
-        if ($storedPolicy !== null) {
-            $beforePolicy->setAttribute('domain_id', $id);
-            $phpPolicy->snapshot($beforePolicy, $ownerClientId, $storedPolicy['force_fpm']);
-        }
+        $domain->setAttribute('domain_id', $id);
+        $this->hooks->runSaved($domain, $fields, 'create');
 
         // Derived provisioning fields (legacy onAfterInsert).
         if ($isChildVhost) {
@@ -260,23 +256,20 @@ class WebDomainService
      * onBeforeUpdate. Must run inside a DB transaction.
      *
      * @param  array<string, mixed>  $payload  validated request payload
+     * @param  array<string, mixed>  $fields  extension fields (spec 058)
      */
-    public function update(WebDomain $domain, array $payload): WebDomain
+    public function update(WebDomain $domain, array $payload, array $fields = []): WebDomain
     {
         // Preserved server-side (contract: system_user/system_group are not
         // writable; web_folder cannot be changed after creation — legacy
         // onSubmit restores it from the DB).
         unset($payload['web_folder']);
-        $runtime = $payload['runtime_settings'] ?? null;
-        $phpSettings = $payload['php_settings'] ?? null;
-        unset($payload['runtime_settings'], $payload['php_settings']);
 
         if (isset($payload['stats_password']) && $payload['stats_password'] !== '') {
             $payload['stats_password'] = LegacyCrypt::hash($payload['stats_password']);
         }
 
         $domain->fill($payload);
-        app(WebWafService::class)->refreshIdentity($domain);
         $record = $domain->getAttributes();
 
         // Unique key check when domain/ip changed (contract: 409).
@@ -310,12 +303,12 @@ class WebDomainService
             $domain->setRawAttributes(array_merge($attributes, $forced));
         }
 
-        app(ClientWebPhpPolicyService::class)->apply($domain);
+        // Extensions adjust the final record (spec 058); the checks run again on what they set.
+        $this->hooks->runSaving($domain, $fields, 'update');
         $this->runConfigDependentChecks($domain->getAttributes(), (int) $domain->getKey());
         $domain->setAttribute('server_php_id', $this->resolveServerPhpId($domain->getAttributes()));
-        app(WebRuntimeService::class)->apply($domain, $runtime);
-        app(WebPhpSettingsService::class)->apply($domain, $phpSettings);
         $domain->save();
+        $this->hooks->runSaved($domain, $fields, 'update');
 
         return $domain->refresh();
     }
@@ -338,8 +331,8 @@ class WebDomainService
                 ->where('type', '!=', 'vhost')
                 ->pluck('domain_id');
             foreach ($children as $childId) {
-                app(ClientWebPhpPolicyService::class)->forgetSite((int) $childId);
                 $this->datalog->deleteRecord('web_domain', 'domain_id', $childId);
+                $this->hooks->runDeleted(WebDomain::class, (int) $childId);
             }
 
             foreach (DB::table('ftp_user')->where('parent_domain_id', $id)->pluck('ftp_user_id') as $ftpId) {
@@ -376,8 +369,8 @@ class WebDomainService
             $this->datalog->deleteRecord('web_folder', 'web_folder_id', $folderId);
         }
 
-        app(ClientWebPhpPolicyService::class)->forgetSite($id);
         $domain->delete();
+        $this->hooks->runDeleted(WebDomain::class, $id);
     }
 
     /**

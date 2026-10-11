@@ -3,14 +3,12 @@
 namespace App\Models;
 
 use App\Casts\YesNoBoolean;
+use App\Extensions\Hooks;
 use App\Models\Concerns\HasSitesDisplayFields;
 use App\Services\AliasServicesService;
 use App\Services\SitesConfigService;
-use App\Services\WebLogService;
-use App\Services\WebRuntimeService;
-use App\Services\WebWafService;
-use App\Services\WordPressService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\App;
 
 /**
  * web_domain vhost types — vhost / vhostsubdomain / vhostalias (contract:
@@ -142,12 +140,7 @@ class WebDomain extends BaseModel
      * @var array<int, string>
      */
     protected $appends = [
-        'logs_available',
-        'waf_available',
-        'waf_mode',
-        'wordpress',
         'public_document_root',
-        'runtime_capabilities',
         'id',
         'server_name',
         'web_server_type',
@@ -226,34 +219,18 @@ class WebDomain extends BaseModel
         return Attribute::get(fn () => $this->lookupWebServerType((int) ($this->getAttributes()['server_id'] ?? 0)));
     }
 
+    /**
+     * The directory the website serves: ISPConfig's `web` (or the child website's folder) below the document root;
+     * extensions may refine it (spec 058, e.g. a runtime document-root subdirectory).
+     */
     protected function publicDocumentRoot(): Attribute
     {
-        return Attribute::get(fn () => app(WebRuntimeService::class)->publicRoot($this));
-    }
+        return Attribute::get(function (): ?string {
+            $folder = $this->type === 'vhost' ? 'web' : (string) $this->web_folder;
+            $root = empty($this->document_root) || $folder === '' ? null : rtrim((string) $this->document_root, '/').'/'.$folder;
 
-    protected function wordpress(): Attribute
-    {
-        return Attribute::get(fn () => app(WordPressService::class)->summary($this));
-    }
-
-    protected function wafAvailable(): Attribute
-    {
-        return Attribute::get(fn () => app(WebWafService::class)->available($this));
-    }
-
-    protected function wafMode(): Attribute
-    {
-        return Attribute::get(fn () => app(WebWafService::class)->mode($this));
-    }
-
-    protected function logsAvailable(): Attribute
-    {
-        return Attribute::get(fn () => app(WebLogService::class)->available($this));
-    }
-
-    protected function runtimeCapabilities(): Attribute
-    {
-        return Attribute::get(fn () => app(WebRuntimeService::class)->capabilities($this));
+            return App::make(Hooks::class)->filterAttribute($this, 'public_document_root', $root);
+        });
     }
 
     protected function autoAlias(): Attribute

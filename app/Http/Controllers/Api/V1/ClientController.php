@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Extensions\Hooks;
 use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Models\Client;
 use App\Services\ClientService;
-use App\Services\ClientResourceLimitsService;
-use App\Services\ClientWebPhpPolicyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -28,7 +27,7 @@ class ClientController extends Controller
 {
     use HandlesListQuery;
 
-    public function __construct(protected ClientService $service) {}
+    public function __construct(protected ClientService $service, protected Hooks $hooks) {}
 
     /**
      * GET /clients — filtered, sorted, paginated list.
@@ -57,7 +56,7 @@ class ClientController extends Controller
      */
     public function show(Client $client): JsonResponse
     {
-        return response()->json($this->withPhpPolicy($client));
+        return response()->json($this->withDetail($client));
     }
 
     /**
@@ -66,11 +65,12 @@ class ClientController extends Controller
      */
     public function store(StoreClientRequest $request): JsonResponse
     {
+        [$fields, $payload] = $request->extensionSplit();
         $client = DB::transaction(
-            fn (): Client => $this->service->createClient(new Client, $request->payload())
+            fn (): Client => $this->service->createClient(new Client, $payload, fields: $fields)
         );
 
-        return response()->json($this->withPhpPolicy($client), 201);
+        return response()->json($this->withDetail($client), 201);
     }
 
     /**
@@ -80,19 +80,18 @@ class ClientController extends Controller
      */
     public function update(UpdateClientRequest $request, Client $client): JsonResponse
     {
+        [$fields, $payload] = $request->extensionSplit();
         $client = DB::transaction(
-            fn (): Client => $this->service->updateClient($client, $request->payload())
+            fn (): Client => $this->service->updateClient($client, $payload, $fields)
         );
 
-        return response()->json($this->withPhpPolicy($client));
+        return response()->json($this->withDetail($client));
     }
 
-    private function withPhpPolicy(Client $client): array
+    /** The record with the keys extensions add to client responses (spec 058). */
+    private function withDetail(Client $client): array
     {
-        return $client->toArray() + [
-            'web_php_policy' => app(ClientWebPhpPolicyService::class)->policy((int) $client->getKey()),
-            'web_resource_limits' => app(ClientResourceLimitsService::class)->limits((int) $client->getKey()),
-        ];
+        return $client->toArray() + $this->hooks->detailFor($client);
     }
 
     /**

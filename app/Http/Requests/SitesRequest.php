@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\AcceptsExtensionFields;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -17,6 +18,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 abstract class SitesRequest extends FormRequest
 {
+    use AcceptsExtensionFields;
+
     /**
      * Authentication happens in the api.key middleware; per-record
      * sys_perm_* enforcement is out of scope (admin-scoped API key).
@@ -62,7 +65,7 @@ abstract class SitesRequest extends FormRequest
             $input['domain'] = strtolower($domain);
         }
 
-        foreach ($this->booleanFields() as $flag) {
+        foreach (array_merge($this->booleanFields(), $this->extensionBooleanFields()) as $flag) {
             if ($this->has($flag) && is_string($this->input($flag))) {
                 $value = filter_var($this->input($flag), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
 

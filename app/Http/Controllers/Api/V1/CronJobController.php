@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Extensions\Hooks;
 use App\Http\Concerns\HandlesListQuery;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCronJobRequest;
@@ -9,9 +10,6 @@ use App\Http\Requests\UpdateCronJobRequest;
 use App\Models\CronJob;
 use App\Services\ClientLimitService;
 use App\Services\SitesService;
-use App\Services\WebLogService;
-use App\Services\WordPressCronService;
-use App\Support\CronOutputLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -31,7 +29,7 @@ class CronJobController extends Controller
 {
     use HandlesListQuery;
 
-    public function __construct(protected SitesService $service, protected ClientLimitService $limits) {}
+    public function __construct(protected SitesService $service, protected ClientLimitService $limits, protected Hooks $hooks) {}
 
     /**
      * GET /sites/cron-jobs — `search` matches the command.
@@ -73,23 +71,23 @@ class CronJobController extends Controller
      */
     public function store(StoreCronJobRequest $request): JsonResponse
     {
-        $payload = $request->payload();
-        $outputLog = (bool) ($payload['output_log'] ?? false);
-        unset($payload['output_log']);
+        [$fields, $payload] = $request->extensionSplit();
         $parent = $this->service->parentDomain((int) $payload['parent_domain_id']);
 
         $job = new CronJob($payload);
         $job->forceFill(['type' => $this->service->deriveCronType((string) $payload['command'], $parent)]);
-        $this->outputLog($job, (string) $payload['command'], $outputLog, null, $parent);
         $this->service->deriveServerAndGroup($job, $parent);
         $this->limits->checkCronLimits($job);
+        $this->hooks->runPreflight(CronJob::class, null, $fields, $payload);
 
-        DB::transaction(function () use ($job): void {
+        DB::transaction(function () use ($job, $fields): void {
             $owner = DB::table('sys_group')->where('groupid', $job->sys_groupid)->value('client_id');
             if ($owner) {
                 DB::table('client')->where('client_id', $owner)->lockForUpdate()->first();
             }
+            $this->hooks->runSaving($job, $fields, 'create');
             $job->save();
+            $this->hooks->runSaved($job, $fields, 'create');
         });
 
         return response()->json($job->refresh(), 201);
@@ -101,54 +99,27 @@ class CronJobController extends Controller
      */
     public function update(UpdateCronJobRequest $request, CronJob $cronJob): JsonResponse
     {
-        app(WordPressCronService::class)->guard($cronJob);
-        $current = CronOutputLog::parse((string) $cronJob->getAttributes()['command']);
-        $payload = $request->payload();
-        $outputLog = array_key_exists('output_log', $payload) ? (bool) $payload['output_log'] : $current !== null;
-        unset($payload['output_log']);
-        // The task's own command, without the managed prefix, unless the request replaces it
-        $command = (string) ($payload['command'] ?? $current['command'] ?? $cronJob->getAttributes()['command']);
+        $this->hooks->runGuards($cronJob, 'update');
+        [$fields, $payload] = $request->extensionSplit();
+        // The task's own command (an extension's managed wrapper stays out of it), unless the request replaces it.
+        $command = (string) ($payload['command'] ?? $cronJob->command);
         $cronJob->fill(['command' => $command] + $payload);
 
         $parent = $this->service->parentDomain((int) $cronJob->getAttributes()['parent_domain_id']);
         $cronJob->forceFill([
             'type' => $this->service->deriveCronType($command, $parent),
         ]);
-        $this->outputLog($cronJob, $command, $outputLog, $current['token'] ?? null, $parent);
         $this->service->deriveServerAndGroup($cronJob, $parent);
         $this->limits->checkCronLimits($cronJob);
+        $this->hooks->runPreflight(CronJob::class, $cronJob, $fields, $payload);
 
-        DB::transaction(function () use ($cronJob): void {
+        DB::transaction(function () use ($cronJob, $fields): void {
+            $this->hooks->runSaving($cronJob, $fields, 'update');
             $cronJob->save();
+            $this->hooks->runSaved($cronJob, $fields, 'update');
         });
 
         return response()->json($cronJob->refresh());
-    }
-
-    /**
-     * GET /sites/cron-jobs/{id}/log — the last lines of the task's own output log, read by the web-log worker on the
-     * website's server (`pending` until it answered; the client asks again).
-     */
-    public function log(Request $request, CronJob $cronJob): JsonResponse
-    {
-        $lines = $request->validate(['lines' => ['sometimes', 'integer', 'min:1', 'max:1000']])['lines'] ?? 200;
-
-        return response()->json(app(WebLogService::class)->cron($cronJob, (int) $lines), 200, ['Cache-Control' => 'private, no-store']);
-    }
-
-    /**
-     * Own output log (spec 054): the native command gets the managed prefix and ISPConfig's shared log is turned off,
-     * since it would take the output of the command's last part. URL tasks run through ISPConfig's wget line and keep
-     * its options.
-     */
-    private function outputLog(CronJob $job, string $command, bool $enabled, ?string $token, object $parent): void
-    {
-        if (! $enabled || $job->getAttributes()['type'] === 'url') {
-            $job->forceFill(['command' => $command]);
-
-            return;
-        }
-        $job->forceFill(['command' => CronOutputLog::wrap($command, $token ?? CronOutputLog::token(), $job->getAttributes()['type'], (string) $parent->document_root), 'log' => false]);
     }
 
     /**
@@ -156,7 +127,7 @@ class CronJobController extends Controller
      */
     public function destroy(CronJob $cronJob): Response
     {
-        app(WordPressCronService::class)->guard($cronJob);
+        $this->hooks->runGuards($cronJob, 'delete');
         DB::transaction(function () use ($cronJob): void {
             $cronJob->delete();
         });

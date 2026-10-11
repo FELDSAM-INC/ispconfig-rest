@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Extensions\Hooks;
 use App\Models\ApiKey;
 use App\Models\Client;
 use App\Models\ClientReseller;
@@ -77,6 +78,7 @@ class ClientService
         protected ClientTemplateService $templates,
         protected IspContext $context,
         protected ClientLockService $locks,
+        protected Hooks $hooks,
     ) {}
 
     /**
@@ -85,14 +87,10 @@ class ClientService
      * @param  array<string, mixed>  $payload  validated request payload
      * @param  bool  $asReseller  reseller flavor (reseller_edit.php parity:
      *                            sys_user modules always include 'client')
+     * @param  array<string, mixed>  $fields  extension fields (spec 058)
      */
-    public function createClient(Client $client, array $payload, bool $asReseller = false): Client
+    public function createClient(Client $client, array $payload, bool $asReseller = false, array $fields = []): Client
     {
-        $phpPolicySent = array_key_exists('web_php_policy', $payload);
-        $phpPolicy = $payload['web_php_policy'] ?? null;
-        $limitsSent = array_key_exists('web_resource_limits', $payload);
-        $limits = $payload['web_resource_limits'] ?? null;
-        unset($payload['web_php_policy'], $payload['web_resource_limits']);
         $plainPassword = (string) $payload['password'];
         $payload['password'] = LegacyCrypt::hash($plainPassword);
         unset($plainPassword);
@@ -144,15 +142,13 @@ class ClientService
             $this->addGroupToUser((int) $resellerUser->userid, $groupId);
         }
 
+        // Extension rows of the new client (spec 058), before the templates.
+        $this->hooks->runSaved($client, $fields, 'create');
+
         // Apply master + additional templates (legacy clients_template_plugin
         // runs on every insert; no-op while template_master is 0).
-        $policy = app(ClientWebPhpPolicyService::class);
-        if ($phpPolicySent) {
-            $policy->store($client, $phpPolicy);
-        }
-        $this->storeResourceLimits($clientId, $limitsSent, $limits, $phpPolicySent);
         $this->templates->applyClientTemplates($clientId);
-        $client->refresh()->forceFill($policy->clientAttributes($clientId, []))->save();
+        $this->applyExtensionAttributes($client);
 
         return $client->refresh();
     }
@@ -162,14 +158,10 @@ class ClientService
      * re-parenting side effects (client_edit.php::onAfterUpdate).
      *
      * @param  array<string, mixed>  $payload  validated request payload
+     * @param  array<string, mixed>  $fields  extension fields (spec 058)
      */
-    public function updateClient(Client $client, array $payload): Client
+    public function updateClient(Client $client, array $payload, array $fields = []): Client
     {
-        $phpPolicySent = array_key_exists('web_php_policy', $payload);
-        $phpPolicy = $payload['web_php_policy'] ?? null;
-        $limitsSent = array_key_exists('web_resource_limits', $payload);
-        $limits = $payload['web_resource_limits'] ?? null;
-        unset($payload['web_php_policy'], $payload['web_resource_limits']);
         $old = $client->getRawOriginal();
         $clientId = (int) $client->getKey();
 
@@ -242,34 +234,26 @@ class ClientService
 
         $this->applyLockAndCancel($client, $storedFlags);
 
+        // Extension rows (spec 058), before the templates.
+        $this->hooks->runSaved($client, $fields, 'update');
+
         // Re-apply templates (legacy clients_template_plugin on_after_update;
         // no-op while template_master is 0).
-        $policy = app(ClientWebPhpPolicyService::class);
-        if ($phpPolicySent) {
-            $policy->store($client, $phpPolicy);
-        }
-        $this->storeResourceLimits($clientId, $limitsSent, $limits, $phpPolicySent);
         $this->templates->applyClientTemplates($clientId);
-        $client->refresh()->forceFill($policy->clientAttributes($clientId, []))->save();
-        if ($phpPolicySent) {
-            $policy->syncSites($clientId);
-        }
+        $this->applyExtensionAttributes($client);
 
         return $client->refresh();
     }
 
     /**
-     * Administrator cgroup limits (spec 053), checked against the effective PHP
-     * policy so a pool can always start pm_max_children workers.
+     * Client columns an extension enforces after every write (named filter `client.attributes`, spec 058; e.g. the
+     * PHP modes of a product policy).
      */
-    private function storeResourceLimits(int $clientId, bool $sent, ?array $limits, bool $phpPolicySent): void
+    private function applyExtensionAttributes(Client $client): void
     {
-        $service = app(ClientResourceLimitsService::class);
-        $phpPolicy = app(ClientWebPhpPolicyService::class)->policy($clientId);
-        if ($sent) {
-            $service->store($clientId, $limits, $phpPolicy);
-        } elseif ($phpPolicySent) {
-            $service->assertCompatible($clientId, $phpPolicy);
+        $attributes = $this->hooks->applyFilter('client.attributes', [], (int) $client->getKey());
+        if ($attributes !== []) {
+            $client->refresh()->forceFill($attributes)->save();
         }
     }
 
@@ -377,9 +361,8 @@ class ClientService
         }
 
         // 4. The client row itself (datalog 'd').
-        app(ClientWebPhpPolicyService::class)->forgetClient($clientId);
-        app(ClientResourceLimitsService::class)->forgetClient($clientId);
         $client->delete();
+        $this->hooks->runDeleted(Client::class, $clientId);
     }
 
     /**

@@ -19,3 +19,5 @@ Homestead.yaml
 .DS_Store
 /venv
 /auth.json
+# Installed extensions (spec 058), separate git checkouts
+/extensions/

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Client;
 use App\Rules\InstallationPassword;
 
 /**
@@ -35,5 +36,10 @@ class UpdateClientRequest extends ClientRequest
         $rules['password'] = ['sometimes', 'string', 'max:200', new InstallationPassword];
 
         return $rules;
+    }
+
+    protected function extensionResource(): ?array
+    {
+        return [Client::class, 'update'];
     }
 }

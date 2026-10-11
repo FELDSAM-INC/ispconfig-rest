@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Concerns\ReadsAccountQuery;
 use App\Http\Controllers\Controller;
+use App\Models\CronJob;
 use App\Models\WebDomain;
 use App\Services\WebLogService;
 use Illuminate\Http\JsonResponse;
@@ -20,5 +21,16 @@ final class WebLogController extends Controller
         $result = $logs->read($webDomain, $kind, (int) ($query['lines'] ?? 200), $query['before'] ?? null);
 
         return response()->json($result, $result['state'] === 'pending' ? 202 : 200, ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
+    }
+
+    /**
+     * GET /sites/cron-jobs/{id}/log — the last lines of the task's own output log, read by the web-log worker on the
+     * website's server (`pending` until it answered; the client asks again).
+     */
+    public function cron(Request $request, CronJob $cronJob, WebLogService $logs): JsonResponse
+    {
+        $lines = $request->validate(['lines' => ['sometimes', 'integer', 'min:1', 'max:1000']])['lines'] ?? 200;
+
+        return response()->json($logs->cron($cronJob, (int) $lines), 200, ['Cache-Control' => 'private, no-store']);
     }
 }

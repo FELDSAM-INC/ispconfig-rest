@@ -3,10 +3,10 @@
 namespace App\Models;
 
 use App\Casts\YesNoBoolean;
+use App\Extensions\Hooks;
 use App\Models\Concerns\HasSitesDisplayFields;
-use App\Services\WordPressCronService;
-use App\Support\CronOutputLog;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\App;
 
 /**
  * cron — a scheduled job for a website. Table `cron`, primary key `id`
@@ -71,8 +71,6 @@ class CronJob extends BaseModel
     protected $appends = [
         'server_name',
         'parent_domain',
-        'wordpress',
-        'output_log',
     ];
 
     /**
@@ -89,20 +87,10 @@ class CronJob extends BaseModel
         return Attribute::get(fn () => $this->lookupServerName((int) ($this->getAttributes()['server_id'] ?? 0)));
     }
 
-    /** The task's own command. A managed output-log prefix (CronOutputLog) exists only in the native row. */
+    /** The task's own command; an extension may keep a managed wrapper in the native row only (spec 058). */
     protected function command(): Attribute
     {
-        return Attribute::get(fn ($value) => is_string($value) ? (CronOutputLog::parse($value)['command'] ?? $value) : $value);
-    }
-
-    protected function outputLog(): Attribute
-    {
-        return Attribute::get(fn () => CronOutputLog::parse((string) ($this->getAttributes()['command'] ?? '')) !== null);
-    }
-
-    protected function wordpress(): Attribute
-    {
-        return Attribute::get(fn () => app(WordPressCronService::class)->managed($this));
+        return Attribute::get(fn ($value) => App::make(Hooks::class)->filterAttribute($this, 'command', $value));
     }
 
     protected function parentDomain(): Attribute
