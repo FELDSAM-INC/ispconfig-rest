@@ -10,14 +10,23 @@ readme = "README.md"
 license = "BSD-3-Clause"
 requires-python = ">=3.9"
 dependencies = ["certbot>=2.0", "requests>=2.20"]
+keywords = ["certbot", "letsencrypt", "acme", "dns-01", "ispconfig"]
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Plugins",
+    "Intended Audience :: System Administrators",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
     "Topic :: Internet :: Name Service (DNS)",
     "Topic :: Security :: Cryptography",
+    "Topic :: System :: Systems Administration",
 ]
 
 [project.urls]
 Homepage = "https://github.com/FELDSAM-INC/ispconfig-rest/tree/main/acme-dns"
+Documentation = "https://github.com/FELDSAM-INC/ispconfig-rest/blob/main/acme-dns/README.md"
+Source = "https://github.com/FELDSAM-INC/ispconfig-rest/tree/main/acme-dns/certbot"
+Issues = "https://github.com/FELDSAM-INC/ispconfig-rest/issues"
 
 [project.entry-points."certbot.plugins"]
 dns-ispconfig-rest = "certbot_dns_ispconfig_rest._internal.dns_ispconfig_rest:Authenticator"
