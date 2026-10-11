@@ -1,5 +1,0 @@
-# Primary DNS server: ISPConfig with BIND. The catalog zone for secondaries (dns-catalog server tool) is installed
-# from the panel with the other server tools (ispconfig_rest_dns_catalog).
-- name: ISPConfig
-  ansible.builtin.include_role:
-    name: ispconfig_server

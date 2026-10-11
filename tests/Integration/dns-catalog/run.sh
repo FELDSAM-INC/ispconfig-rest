@@ -5,8 +5,11 @@ repo=$(cd -- "$(dirname -- "$0")/../../.." && pwd)
 here="$repo/tests/Integration/dns-catalog"
 net=ispcp-catalog-net
 cleanup() { docker rm -f ispcp-catalog-primary ispcp-catalog-secondary >/dev/null 2>&1 || true; docker network rm "$net" >/dev/null 2>&1 || true; }
-inventory=$(mktemp) log=$(mktemp)
-trap 'cleanup; rm -f "$inventory" "$log"' EXIT
+inventory=$(mktemp) log=$(mktemp) work=$(mktemp -d)
+trap 'cleanup; rm -rf "$inventory" "$log" "$work"' EXIT
+# The secondary playbook lives in ispconfig-ansible: a local checkout (ANSIBLE_DIR) or a fresh clone.
+ansible_dir=${ANSIBLE_DIR:-$work/ispconfig-ansible}
+[ -n "${ANSIBLE_DIR:-}" ] || git clone -q --depth 1 https://github.com/FELDSAM-INC/ispconfig-ansible "$ansible_dir"
 cleanup
 docker build -q -t ispcp-dns-catalog-test "$here" >/dev/null
 docker build -q -t ispcp-dns-catalog-ansible -f "$here/controller.Dockerfile" "$here" >/dev/null
@@ -30,7 +33,7 @@ all:
           ispcp_manage_service: false
 INV
 for run in first second; do
-    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(command -v docker):/usr/bin/docker:ro" -v "$repo/dns-catalog/ansible:/play:ro" \
+    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(command -v docker):/usr/bin/docker:ro" -v "$ansible_dir/dns-secondary:/play:ro" \
         -v "$inventory:/inventory.yml:ro" -e ANSIBLE_HOST_KEY_CHECKING=False -e ANSIBLE_STDOUT_CALLBACK=default ispcp-dns-catalog-ansible \
         ansible-playbook -i /inventory.yml /play/secondary.yml | tee "$log" | grep -E '^(PLAY RECAP|ispcp-catalog-)' || { cat "$log"; exit 1; }
 done

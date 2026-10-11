@@ -1,9 +1,0 @@
-# The panel: ISPConfig master (interface and master database) and ispconfig-rest. It offers no hosting services
-# unless it is also in another group. The server tools follow in server_tools.yml, once all servers are installed.
-- name: ISPConfig
-  ansible.builtin.include_role:
-    name: ispconfig_server
-
-- name: ispconfig-rest
-  ansible.builtin.include_tasks: rest.yml
-  when: ispconfig_rest_install | bool

@@ -7,12 +7,15 @@ the HTTP API remains under `/api/v1`.
 
 ### Added
 
-- The certbot plugin is on PyPI: `pip install certbot-dns-ispconfig-rest` (1.0.0). A tag
-  `certbot-dns-ispconfig-rest-vX.Y.Z` publishes new versions through PyPI's trusted
-  publishing (`.github/workflows/certbot-plugin.yml`).
+- The certbot plugin is on PyPI: `pip install certbot-dns-ispconfig-rest` (1.0.0).
 
 ### Changed
 
+- The certbot and acme.sh clients moved to [ispconfig-acme-dns](https://github.com/FELDSAM-INC/ispconfig-acme-dns),
+  which publishes the plugin to PyPI; the API keeps the `/dns/acme-challenges` endpoints.
+  The Ansible roles and the BIND secondary playbook of the dns-catalog tool moved to
+  [ispconfig-ansible](https://github.com/FELDSAM-INC/ispconfig-ansible). This repository
+  keeps the API.
 - `PUT /servers/{id}/configs/{section}` changes only the keys it sends. Omitted
   checkbox keys used to be written as `n` (ISPConfig's form behaviour, where an
   unticked box is not submitted), so saving one setting silently switched off every

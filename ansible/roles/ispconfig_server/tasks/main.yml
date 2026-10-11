@@ -1,8 +1,0 @@
-# The shared part of the ISPConfig roles; they include it with tasks_from: install. site.yml runs prepare.yml on all
-# ISPConfig servers first.
-- name: Prepare the server
-  ansible.builtin.include_tasks: prepare.yml
-  when: ispconfig_services is not defined
-
-- name: Install ISPConfig
-  ansible.builtin.include_tasks: install.yml

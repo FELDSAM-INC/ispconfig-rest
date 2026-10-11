@@ -53,26 +53,10 @@ one catalog per server; install the tool on each and let the secondaries consume
 
 ## Set up a secondary with Ansible
 
-`ansible/secondary.yml` configures Debian/Ubuntu secondaries with BIND 9.18+ for the catalogs of all listed ISPConfig
-DNS servers. It reads each server's catalog name and key with `ispconfig-dns-catalog export`, registers the secondaries
-for NOTIFY there, installs BIND, writes the keys (root:bind 0640), the catalog zones and the `catalog-zones` block of
-`named.conf.options`, checks the configuration and reloads BIND. Running it again changes nothing; it also adds new
-primaries or secondaries.
-
-```sh
-cd dns-catalog/ansible
-cp inventory.example.yml inventory.yml     # list the ISPConfig DNS servers and the secondaries
-ansible-playbook -i inventory.yml secondary.yml
-```
-
-The playbook needs root (`become`) on both groups and Ansible 2.15 or newer. Variables:
-
-| Variable | Host group | Default | Meaning |
-| --- | --- | --- | --- |
-| `ispcp_primary_addresses` | primaries | the host's IPv4 address | addresses the secondaries transfer from (IP addresses, not names) |
-| `ispcp_secondary_addresses` | secondaries | the host's IPv4 address | addresses the primaries notify |
-| `ispcp_install_packages` | secondaries | `true` | install `bind9` |
-| `ispcp_manage_service` | secondaries | `true` | enable and start `named` |
+The playbook [`dns-secondary/secondary.yml`](https://github.com/FELDSAM-INC/ispconfig-ansible/tree/main/dns-secondary) in ispconfig-ansible configures
+Debian/Ubuntu secondaries with BIND 9.18+ for the catalogs of all listed ISPConfig DNS servers. It reads each server's
+catalog name and key with `ispconfig-dns-catalog export`, registers the secondaries for NOTIFY there, installs BIND,
+writes the keys and the catalog zones, checks the configuration and reloads BIND. Its guide lists the variables.
 
 ## Set up a secondary by hand
 
@@ -127,7 +111,8 @@ the secondaries first, or they delete every member zone when the catalog disappe
 
 ```sh
 php vendor/bin/phpunit --filter DnsCatalog
-bash tests/Integration/dns-catalog/run.sh   # disposable BIND 9.18 primary + secondary + Ansible controller (Docker)
+bash tests/Integration/dns-catalog/run.sh   # disposable BIND 9.18 primary + secondary + Ansible controller (Docker);
+                                            # clones ispconfig-ansible for the playbook (ANSIBLE_DIR: local checkout)
 ```
 
 The integration check installs the tool on an ISPConfig-like primary, configures a plain secondary with the playbook

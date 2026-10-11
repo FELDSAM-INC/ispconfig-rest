@@ -35,7 +35,7 @@ obtain certificates with DNS challenges for domains whose zones are hosted in IS
   mirrors; `GET /dns/acme-challenges/{id}` refreshes it. `DELETE /dns/acme-challenges/{id}` and
   `DELETE /dns/acme-challenges?name=&value=` remove challenge records (the latter idempotent, `204`). Other records are
   invisible to these endpoints (`404`).
-- Clients in `acme-dns/`: the acme.sh plugin `dns_ispconfig_rest.sh`, the certbot plugin `certbot-dns-ispconfig-rest`
+- Clients in `acme-dns/` (since moved to the repository ispconfig-acme-dns): the acme.sh plugin `dns_ispconfig_rest.sh`, the certbot plugin `certbot-dns-ispconfig-rest`
   (`--authenticator dns-ispconfig-rest`), and `ispconfig-rest-certbot-hook` for any certbot through manual hooks. All
   wait until the record is applied (default up to 300 s), then a short propagation delay for secondaries.
 - Tests: feature tests of the endpoints and key access; plugin tests against a stub API; end to end with Pebble

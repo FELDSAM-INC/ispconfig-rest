@@ -29,6 +29,6 @@ preferably an Ansible playbook. No secondary address is known yet.
 - `secondary add|remove IP` maintains NOTIFY targets: the catalog's `also-notify` and a marked global `also-notify` line
   for member zones (hidden secondaries). An administrator's own global also-notify list is left alone.
 - Installation is validated with `named-checkconf` and rolled back on refusal; a second run keeps key and name.
-- Secondary: Ansible playbook `dns-catalog/ansible/secondary.yml` (export from the primaries, NOTIFY registration,
+- Secondary: Ansible playbook `dns-catalog/ansible/secondary.yml`, since moved to ispconfig-ansible `dns-secondary/` (export from the primaries, NOTIFY registration,
   BIND keys, catalog zones, `catalog-zones` block via blockinfile, check, reload) and a manual BIND configuration.
 - Mirror servers are skipped by server-tools as for every component.

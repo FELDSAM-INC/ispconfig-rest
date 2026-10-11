@@ -23,10 +23,13 @@ Optional components run on the servers that own the data:
 - [File manager worker](file-manager-worker/README.md) for jailed SFTP accounts used by the WHMCS file manager.
 - [WAF installer](waf-server/README.md) for Apache/nginx ModSecurity and OWASP CRS.
 - [PHP-FPM resource limits](php-limits/README.md) for per-account and per-website cgroup limits.
-- [DNS catalog zones](dns-catalog/README.md) so secondaries follow the zones of each ISPConfig DNS server, with an Ansible playbook for the secondaries.
+- [DNS catalog zones](dns-catalog/README.md) so secondaries follow the zones of each ISPConfig DNS server; the secondaries are set up with the playbook in [ispconfig-ansible](https://github.com/FELDSAM-INC/ispconfig-ansible/tree/main/dns-secondary).
 
-[DNS challenges with certbot and acme.sh](acme-dns/README.md): plugins for servers outside ISPConfig that obtain
+[DNS challenges with certbot and acme.sh](https://github.com/FELDSAM-INC/ispconfig-acme-dns): plugins for servers outside ISPConfig that obtain
 Let's Encrypt certificates (also wildcards) for domains whose zones ISPConfig hosts, with keys limited to that.
+
+[ispconfig-ansible](https://github.com/FELDSAM-INC/ispconfig-ansible) installs ISPConfig multiserver setups (panel with this API, web, database and DNS
+servers) with the ISPConfig autoinstaller.
 
 Install or update these from the REST host with
 `sudo ispconfig-rest server-tools install` / `server-tools update`.
@@ -185,8 +188,8 @@ References inside a request body follow the same read scope: for client and rese
 DNS-01 challenges (`/dns/acme-challenges`) and read their change status and its own identity; every other request
 returns `403`. It keeps the bound identity, so with `--client-id` it only uses that client's zones, and `--zone`
 narrows it to the listed zones. Over HTTP: `POST /system/api-keys` with `access: "acme"` and `zones`. Keys report
-`access` (`full` or `acme`) and `zones` in `/system/api-keys` and `/me`. See
-[DNS challenges with certbot and acme.sh](acme-dns/README.md).
+`access` (`full` or `acme`) and `zones` in `/system/api-keys` and `/me`. The certbot and acme.sh clients are in
+[ispconfig-acme-dns](https://github.com/FELDSAM-INC/ispconfig-acme-dns).
 
 ### Managing keys over HTTP
 
