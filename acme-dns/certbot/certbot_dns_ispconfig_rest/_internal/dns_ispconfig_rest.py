@@ -67,7 +67,8 @@ class _IspconfigRestClient:
         self.url = url.rstrip('/')
         self.session = requests.Session()
         self.session.headers.update({'X-API-Key': key, 'Accept': 'application/json'})
-        self.session.verify = ca_bundle if ca_bundle else True
+        # Passed with every request: requests lets REQUESTS_CA_BUNDLE override a session's verify setting.
+        self.verify = ca_bundle if ca_bundle else True
 
     def publish(self, name: str, value: str) -> Dict[str, Any]:
         """Publish the TXT record; the same name and value again returns the existing one."""
@@ -107,7 +108,7 @@ class _IspconfigRestClient:
 
     def _request(self, method: str, path: str, **kwargs: Any) -> requests.Response:
         try:
-            return self.session.request(method, self.url + path, timeout=30, **kwargs)
+            return self.session.request(method, self.url + path, timeout=30, verify=self.verify, **kwargs)
         except requests.RequestException as error:
             raise errors.PluginError(f'Could not reach ispconfig-rest at {self.url}: {error}') from error
 

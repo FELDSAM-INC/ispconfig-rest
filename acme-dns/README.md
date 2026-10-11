@@ -34,7 +34,8 @@ ends the name, so a delegated subzone wins over its parent. The key must be allo
 challenge records count against its DNS record limit while they exist.
 
 The server running certbot or acme.sh must reach ispconfig-rest (default port 8090). Its certificate should be valid.
-The ISPConfig panel's Let's Encrypt certificate is, or point the clients to a CA file.
+The ISPConfig panel's Let's Encrypt certificate is, or point the clients to a CA file. ISPConfig's self-signed fallback
+certificate has no subjectAltName, which the certbot plugin's TLS library refuses, even with that certificate as CA file.
 
 ## 2a. acme.sh
 

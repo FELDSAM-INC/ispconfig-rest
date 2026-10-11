@@ -13,7 +13,7 @@ declare -A ADDRESS=([panel]=10.231.80.10 [web1]=10.231.80.11 [db1]=10.231.80.21 
 LOGS=$(mktemp -d)
 
 cleanup() {
-    for node in "${NODES[@]}"; do docker rm -f "ispcp-ansible-$node" >/dev/null 2>&1 || true; done
+    for node in "${NODES[@]}" pebble acme; do docker rm -f "ispcp-ansible-$node" >/dev/null 2>&1 || true; done
     docker network rm "$NET" >/dev/null 2>&1 || true
 }
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -146,6 +146,56 @@ chown $user: $root/web/db.php"
 connected=$(on web1 curl -fs -H 'Host: php53.ispcp.test' http://127.0.0.1/db.php || true)
 echo "PHP 5.3 website to db1.ispcp.test: $connected"
 [ "$connected" = connected ] || fail "the website cannot reach its database"
+
+echo "== Certificates with DNS challenges through ispconfig-rest: certbot plugin, certbot hook, acme.sh"
+dns_server=$(sql "SELECT server_id FROM server WHERE server_name = 'ns1.ispcp.test'")
+zone=$(sql "SELECT id FROM dns_soa WHERE origin = 'acme.test.'")
+if [ -z "$zone" ]; then
+    zone=$(api -X POST https://127.0.0.1:8090/api/v1/dns/soa -d "{\"server_id\":$dns_server,\"origin\":\"acme.test.\",\"ns\":\"ns1.ispcp.test.\",\"mbox\":\"hostmaster.acme.test.\"}" \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+    api -X POST https://127.0.0.1:8090/api/v1/dns/records -d "{\"zone\":$zone,\"type\":\"NS\",\"name\":\"acme.test.\",\"data\":\"ns1.ispcp.test.\"}" >/dev/null
+fi
+acme_key=$(on panel ispconfig-rest key:create e2e-acme --acme --zone acme.test | grep -oE 'isp_[A-Za-z0-9]+' | head -n 1)
+[ "$(on panel curl -sk -o /dev/null -w '%{http_code}' -H "X-API-Key: $acme_key" https://127.0.0.1:8090/api/v1/dns/soa)" = 403 ] || fail "the ACME key reaches other endpoints"
+docker build -q -t ispcp-acme-client -f tests/Integration/acme-dns/client.Dockerfile tests/Integration/acme-dns >/dev/null
+docker run -d --name ispcp-ansible-pebble --network "$NET" --network-alias pebble -e PEBBLE_VA_NOSLEEP=1 -e PEBBLE_WFE_NONCEREJECT=0 \
+    ghcr.io/letsencrypt/pebble:2.7.0 -config /test/config/pebble-config.json -dnsserver 10.231.80.31:53 >/dev/null
+docker run -d --name ispcp-ansible-acme --network "$NET" -v "$PWD:/repo:ro" -e REQUESTS_CA_BUNDLE=/tmp/pebble.pem ispcp-acme-client sleep infinity >/dev/null
+acme() { docker exec ispcp-ansible-acme "$@"; }
+docker cp ispcp-ansible-pebble:/test/certs/pebble.minica.pem - | docker exec -i ispcp-ansible-acme tar -x -C /tmp
+# Clients verify ispconfig-rest's certificate. ISPConfig's self-signed fallback (no Let's Encrypt in containers) has no
+# subjectAltName, which Python's TLS stack rejects; give the panel one with it, as Let's Encrypt would.
+on panel sh -c 'cd /usr/local/ispconfig/interface/ssl && openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj /CN=panel.ispcp.test \
+    -addext subjectAltName=DNS:panel.ispcp.test -keyout ispserver.key -out ispserver.crt 2>/dev/null && cat ispserver.key ispserver.crt > ispserver.pem \
+    && systemctl reload nginx'
+on panel cat /usr/local/ispconfig/interface/ssl/ispserver.crt | docker exec -i ispcp-ansible-acme sh -c 'cat > /tmp/panel.pem'
+acme sh -c 'mv /tmp/pebble.minica.pem /tmp/pebble.pem && cat /tmp/pebble.pem /tmp/panel.pem > /tmp/both.pem
+    cp -r /repo/acme-dns/certbot /tmp/plugin && pip install --quiet --root-user-action=ignore --disable-pip-version-check --no-deps /tmp/plugin
+    cp /repo/acme-dns/acme.sh/dns_ispconfig_rest.sh /root/.acme.sh/dnsapi/'
+for _ in $(seq 1 30); do acme dig +short @10.231.80.31 acme.test SOA | grep -q . && break; sleep 10; done
+acme dig +short @10.231.80.31 acme.test SOA | grep -q . || fail "ns1 does not serve acme.test"
+rest=https://panel.ispcp.test:8090
+certbot=(certbot certonly -n --agree-tos -m test@acme.test --server https://pebble:14000/dir --config-dir /tmp/le --work-dir /tmp/le-work --logs-dir /tmp/le-logs)
+acme sh -c "umask 077; printf 'dns_ispconfig_rest_url = $rest\ndns_ispconfig_rest_key = $acme_key\ndns_ispconfig_rest_ca_bundle = /tmp/panel.pem\n' > /tmp/ispconfig-rest.ini"
+started=$SECONDS
+acme "${certbot[@]}" --authenticator dns-ispconfig-rest --dns-ispconfig-rest-credentials /tmp/ispconfig-rest.ini \
+    --dns-ispconfig-rest-propagation-seconds 0 --cert-name plugin -d acme.test -d '*.acme.test' >/dev/null 2>&1 \
+    || { acme grep -iE 'error|detail' /tmp/le-logs/letsencrypt.log | tail -n 15; fail "certbot plugin with ISPConfig"; }
+echo "certbot plugin: $(acme openssl x509 -in /tmp/le/live/plugin/cert.pem -noout -ext subjectAltName | tail -n 1 | xargs) in $((SECONDS - started)) s"
+started=$SECONDS
+acme env ISPC_REST_URL=$rest ISPC_REST_KEY="$acme_key" ISPC_REST_CA_BUNDLE=/tmp/panel.pem ISPC_REST_PROPAGATION=0 "${certbot[@]}" --manual \
+    --preferred-challenges dns --manual-auth-hook '/repo/acme-dns/certbot-hook/ispconfig-rest-certbot-hook auth' \
+    --manual-cleanup-hook '/repo/acme-dns/certbot-hook/ispconfig-rest-certbot-hook cleanup' --cert-name hook -d hook.acme.test >/dev/null 2>&1 \
+    || { acme grep -iE 'hook|error|detail' /tmp/le-logs/letsencrypt.log | tail -n 15; fail "certbot hook with ISPConfig"; }
+echo "certbot hook: $(acme openssl x509 -in /tmp/le/live/hook/cert.pem -noout -ext subjectAltName | tail -n 1 | xargs) in $((SECONDS - started)) s"
+started=$SECONDS
+acme env ISPC_REST_URL=$rest ISPC_REST_KEY="$acme_key" /root/.acme.sh/acme.sh --home /root/.acme.sh --issue --dns dns_ispconfig_rest \
+    --dnssleep 1 --server https://pebble:14000/dir --ca-bundle /tmp/both.pem -d sh.acme.test -d '*.sh.acme.test' >"$LOGS/acmesh.log" 2>&1 \
+    || { tail -n 25 "$LOGS/acmesh.log"; fail "acme.sh with ISPConfig"; }
+echo "acme.sh: $(acme openssl x509 -in /root/.acme.sh/sh.acme.test_ecc/sh.acme.test.cer -noout -ext subjectAltName | tail -n 1 | xargs) in $((SECONDS - started)) s"
+left=$(sql "SELECT COUNT(*) FROM dns_rr WHERE zone = $zone AND SUBSTR(name, 1, 15) = '_acme-challenge'")
+[ "$left" = 0 ] || fail "$left challenge records were left in acme.test"
+docker rm -f ispcp-ansible-pebble ispcp-ansible-acme >/dev/null
 
 echo "== Second run changes nothing"
 playbook >"$LOGS/second.log" 2>&1 || { tail -n 60 "$LOGS/second.log"; fail "second run"; }
