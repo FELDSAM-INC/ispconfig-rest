@@ -259,8 +259,14 @@ step "Fetching application code"
 git config --system --get-all safe.directory 2>/dev/null | grep -qxF "$INSTALL_DIR" \
   || git config --system --add safe.directory "$INSTALL_DIR"
 if [ -d "$INSTALL_DIR/.git" ]; then
-  git -C "$INSTALL_DIR" fetch --depth 1 origin "$BRANCH"
-  git -C "$INSTALL_DIR" checkout -f "$BRANCH"; git -C "$INSTALL_DIR" reset --hard "origin/$BRANCH"
+  # A shallow clone knows only its own branch: fetch the selected branch or release tag by its full ref.
+  if git -C "$INSTALL_DIR" ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+    git -C "$INSTALL_DIR" fetch --depth 1 origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+    git -C "$INSTALL_DIR" checkout -f -B "$BRANCH" "origin/$BRANCH"
+  else
+    git -C "$INSTALL_DIR" fetch --depth 1 origin "+refs/tags/$BRANCH:refs/tags/$BRANCH"
+    git -C "$INSTALL_DIR" checkout -f --detach "refs/tags/$BRANCH"
+  fi
 else
   mkdir -p "$(dirname "$INSTALL_DIR")"
   git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
