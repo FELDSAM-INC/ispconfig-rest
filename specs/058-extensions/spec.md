@@ -19,9 +19,10 @@ managed cron tasks; website and client deletes clean extension rows; the WAF ref
 ## Decisions
 
 - An extension is a directory `extensions/<name>/` (git checkout, untracked in core) with `extension.json`: name,
-  version, `requires.ispconfig-rest` (space-separated comparisons, e.g. `>=1.1.0 <1.2.0`), PSR-4 autoload and service
-  providers. Core registers the autoload and the providers at boot; an incompatible or broken extension is skipped and
-  reported (`GET /`, `ispconfig-rest status`), never half loaded.
+  version, `requires.ispconfig-rest` (space-separated comparisons, e.g. `>=1.1.0 <1.2.0`), PSR-4 autoload, service
+  providers and `cli` files. Core registers the autoload and the providers at boot; an incompatible or broken
+  extension is skipped and reported (`extension:list`, `ispconfig-rest status`), never half loaded. The
+  unauthenticated `GET /` does not list extensions.
 - Providers use Laravel's own mechanisms for routes (inside the `api.key`/`change.set` group), migrations (same file
   names, so existing installations do not run them again), config and commands.
 - `App\Extensions\Hooks` offers typed points keyed by model class, not table (`WebChildDomain` shares `web_domain`
@@ -40,6 +41,16 @@ managed cron tasks; website and client deletes clean extension rows; the WAF ref
   module and component files fall back to the extensions' `api/` directories (same relative layout, so `$ref`s keep
   working); `api/patches/<core file>` adds properties to core schemas when served. symfony/yaml becomes a runtime
   dependency.
-- CLI: `ispconfig-rest extension:install NAME [--branch B | --tag T]`, `extension:update`, `extension:list`,
-  `extension:remove`; `update` updates installed extensions; commands core does not know are offered to the
-  extensions (`extensions/*/bin/ispconfig-rest-extension`), so `ispconfig-rest server-tools ...` keeps working.
+- CLI: `ispconfig-rest extension:install NAME [--branch B | --tag T] [--repository URL]` (known names map to
+  their repository: `hosting`), `extension:update [NAME]`, `extension:list`, `extension:remove`; install.conf records
+  `EXTENSIONS` and each extension's repository and ref. `update` updates every extension on its own channel before the
+  migrations. Commands core does not know are offered to the extensions' `bin/ispconfig-rest-extension`
+  (`--handles COMMAND`, `--help`, then the command), so `ispconfig-rest server-tools ...` keeps working. Like the
+  manager itself, an extension's `cli` files run as root only from copies taken from its verified published commit
+  (fetched from the recorded repository and ref, the checkout's revision must be an ancestor); the web-owned
+  checkout is never executed as root. `install.sh --extension NAME[@REF]` installs extensions after the manager and
+  repeats the privileged migration.
+- Compatibility: core 1.1.0 keeps stub `server-tools/manage.py` and `remote.php`, because managers before 1.1.0
+  copy them while updating before they replace themselves.
+- Tests: the core suite sets `API_EXTENSIONS_PATH` to a missing directory, so local checkouts in `extensions/` do not
+  change it; an extension's suite runs inside a core checkout (`extensions/<name>`, core's vendor and test support).

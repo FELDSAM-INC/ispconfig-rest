@@ -1,7 +1,9 @@
 """Exercise the real updater against disposable Git origins, without host changes."""
+import json
 import os
 from pathlib import Path
 import shlex
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -9,6 +11,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 MANAGER = (ROOT / "bin/ispconfig-rest").read_text()
+REAL_PHP = shutil.which("php")
+HOSTING = "https://github.com/FELDSAM-INC/ispconfig-rest-hosting.git"
 
 
 class UpdaterTests(unittest.TestCase):
@@ -43,8 +47,11 @@ class UpdaterTests(unittest.TestCase):
         self.bin.mkdir()
         for name in ("composer", "php"):
             script = self.bin / name
-            script.write_text("#!/bin/sh\nprintf '%s\\n' " + shlex.quote(name) + " >> " + shlex.quote(str(self.calls)) + "\n")
+            # The manager reads verified extension.json files with `php -r`; everything else is recorded only.
+            passthrough = ('[ "$1" = -r ] && exec ' + shlex.quote(REAL_PHP) + ' "$@"\n') if name == "php" and REAL_PHP else ""
+            script.write_text("#!/bin/sh\n" + passthrough + "printf '%s\\n' \"" + name + " $*\" >> " + shlex.quote(str(self.calls)) + "\n")
             script.chmod(0o755)
+        self.cli_lib = self.base / "cli-lib"
         self.env["PATH"] = str(self.bin) + os.pathsep + self.env["PATH"]
 
     def git(self, directory, *args, check=True):
@@ -65,10 +72,11 @@ class UpdaterTests(unittest.TestCase):
         code = MANAGER.split('case "${1:-}" in\n', 1)[0]
         code = code.replace('STATE_FILE="/etc/ispconfig-rest/install.conf"',
                             "STATE_FILE=" + shlex.quote(str(self.state)))
+        code = code.replace('CLI_LIB="/usr/local/lib/ispconfig-rest-cli"', "CLI_LIB=" + shlex.quote(str(self.cli_lib)))
         code += '\nneed_root(){ :; }\nrun_as(){ (cd "$INSTALL_DIR" && "$@"); }\n'
         code += 'sync_timezone(){ :; }\ncmd_schedule_install(){ :; }\nreload_server(){ :; }\n'
         if mock_helpers:
-            code += 'install_server_tools_manager(){ printf "%s\\n" "$RELEASE_REF" >> ' + shlex.quote(str(self.calls)) + '; }\n'
+            code += 'refresh_manager(){ printf "%s\\n" "$RELEASE_REF" >> ' + shlex.quote(str(self.calls)) + '; }\n'
         code += extra + "\n"
         code += command or 'cmd_update "$@"\n'
         script = self.base / "manager.sh"
@@ -220,20 +228,13 @@ class UpdaterTests(unittest.TestCase):
         self.assertIn("--branch NAME | --tag VERSION", result.stdout)
         self.assertFalse(self.calls.exists())
 
-    def test_manager_refresh_uses_verified_sources_and_preserves_new_updater_for_old_release(self):
-        # Map only the hardcoded official HTTPS fetch into the disposable origin;
-        # retain the real ancestry check and read blobs from the real bare clone.
-        stage = self.base / "trusted"
-        installed = self.base / "installed"
-        installed.mkdir()
-        current = installed / "ispconfig-rest"
-        current.write_text("current manager")
-        fake_git = '''git(){
+    FAKE_GIT = '''git(){
   local args=() arg
   for arg in "$@"; do
     case "$arg" in
       protocol.file.allow=never) args+=(protocol.file.allow=always);;
       https://github.com/FELDSAM-INC/ispconfig-rest.git) args+=("$FIXTURE_ORIGIN");;
+      https://github.com/FELDSAM-INC/ispconfig-rest-hosting.git) args+=("$FIXTURE_EXTENSION_ORIGIN");;
       *) args+=("$arg");;
     esac
   done
@@ -244,7 +245,6 @@ install(){
   local args=() arg
   for arg in "$@"; do
     case "$arg" in
-      /usr/local/lib/ispconfig-rest-cli|/usr/local/lib/ispconfig-rest-cli/) args+=("$FIXTURE_INSTALLED/helpers");;
       /usr/local/bin/ispconfig-rest) args+=("$FIXTURE_INSTALLED/ispconfig-rest");;
       *) args+=("$arg");;
     esac
@@ -260,34 +260,131 @@ install(){
   command install "${filtered[@]}"
 }
 '''
+
+    def trusted_fixtures(self):
+        stage = self.base / "trusted"
+        installed = self.base / "installed"
+        installed.mkdir(exist_ok=True)
         self.env.update(FIXTURE_ORIGIN=self.source.as_uri(), FIXTURE_STAGE=str(stage), FIXTURE_INSTALLED=str(installed))
+        return stage, installed
+
+    def test_manager_refresh_uses_verified_sources_and_preserves_new_updater_for_old_release(self):
+        # Map only the hardcoded official HTTPS fetch into the disposable origin;
+        # retain the real ancestry check and read blobs from the real bare clone.
+        stage, installed = self.trusted_fixtures()
+        current = installed / "ispconfig-rest"
+        current.write_text("current manager")
+        self.cli_lib.mkdir()
+        (self.cli_lib / "manage.py").write_text("helper of a manager before 1.1.0")
         for modern in (False, True):
             with self.subTest(modern=modern):
                 (self.source / "bin").mkdir(exist_ok=True)
                 manager = "#!/bin/bash\n" + ("# release-aware-updater-v1: fixture\n" if modern else "# Old manager\n")
                 (self.source / "bin/ispconfig-rest").write_text(manager)
-                (self.source / "server-tools").mkdir(exist_ok=True)
-                for name in ("manage.py", "remote.php"):
-                    (self.source / "server-tools" / name).write_text("verified helper")
                 self.commit("Manager fixture")
                 self.run_manager()
-                result = self.run_manager(command="install_server_tools_manager --refresh-manager", extra=fake_git, mock_helpers=False)
+                result = self.run_manager(command="refresh_manager", extra=self.FAKE_GIT, mock_helpers=False)
                 self.assertEqual(manager if modern else "current manager", current.read_text())
-                self.assertEqual("verified helper", (installed / "helpers/manage.py").read_text())
+                self.assertFalse((self.cli_lib / "manage.py").exists())
                 self.assertFalse(stage.exists())
                 if not modern:
                     self.assertIn("Keeping the current manager", result.stdout)
         # Even if a web-owned checkout is tampered with, its code cannot become
-        # the root-executed manager or helpers without official ref ancestry.
-        (self.checkout / "server-tools/manage.py").write_text("untrusted")
+        # the root-executed manager without official ref ancestry.
+        (self.checkout / "bin/ispconfig-rest").write_text("#!/bin/bash\n# release-aware-updater-v1: untrusted\n")
         self.git(self.checkout, "add", ".")
         self.git(self.checkout, "commit", "-m", "Untrusted local commit")
-        result = self.run_manager(command="install_server_tools_manager --refresh-manager", extra=fake_git,
-                                  mock_helpers=False, check=False)
+        result = self.run_manager(command="refresh_manager", extra=self.FAKE_GIT, mock_helpers=False, check=False)
         self.assertNotEqual(0, result.returncode)
-        self.assertEqual("verified helper", (installed / "helpers/manage.py").read_text())
         self.assertEqual(manager, current.read_text())
 
+    def extension_origin(self):
+        origin = self.base / "hosting"
+        self.git(self.base, "init", "--initial-branch=main", str(origin))
+        (origin / "bin").mkdir()
+        entry = origin / "bin/ispconfig-rest-extension"
+        entry.write_text("#!/bin/sh\n"
+                         "case \"$1\" in --handles) [ \"$2\" = demo:run ]; exit;; --help) echo '  ispconfig-rest demo:run'; exit 0;; esac\n"
+                         "printf '%s|%s|%s\\n' \"$*\" \"$ISPCONFIG_REST_EXTENSION_DIR\" \"$ISPCONFIG_REST_EXTENSION_REF\"\n")
+        entry.chmod(0o755)
+        (origin / "tool.py").write_text("verified tool\n")
+        (origin / "extension.json").write_text(json.dumps({"name": "hosting", "version": "1.0.0",
+                                                           "cli": ["bin/ispconfig-rest-extension", "tool.py"]}))
+        self.git(origin, "add", ".")
+        self.git(origin, "commit", "-m", "Extension release")
+        self.git(origin, "tag", "-a", "v1.0.0", "-m", "Release")
+        self.env["FIXTURE_EXTENSION_ORIGIN"] = origin.as_uri()
+        return origin
+
+    def run_extension(self, *args, check=True):
+        clone = ('run_as(){ (cd "$INSTALL_DIR" && if [ "$1" = git ] && [ "$2" = clone ]; then '
+                 'shift 2; set -- git clone "${@/' + HOSTING.replace("/", "\\/") + '/$FIXTURE_EXTENSION_ORIGIN}"; fi; "$@"); }\n')
+        return self.run_manager(*args, command='case "$1" in extension:*) c="cmd_${1//:/_}"; shift; "${c//-/_}" "$@";; '
+                                '*) dispatch_extension_command "$@";; esac\n', extra=self.FAKE_GIT + clone, check=check)
+
+    @unittest.skipUnless(REAL_PHP, "php is required to read extension.json")
+    def test_extension_install_update_and_verified_command_files(self):
+        self.trusted_fixtures()
+        origin = self.extension_origin()
+        self.run_extension("extension:install", "hosting", "--tag", "v1.0.0")
+        state = self.state.read_text()
+        self.assertIn('EXTENSIONS="hosting"', state)
+        self.assertIn('EXTENSION_HOSTING_REPOSITORY="' + HOSTING + '"', state)
+        self.assertIn('EXTENSION_HOSTING_REF="refs/tags/v1.0.0"', state)
+        self.assertEqual(self.git(origin, "rev-parse", "v1.0.0^{commit}"), self.git(self.checkout / "extensions/hosting", "rev-parse", "HEAD"))
+        self.assertEqual("verified tool\n", (self.cli_lib / "extensions/hosting/tool.py").read_text())
+        calls = self.calls.read_text()
+        self.assertIn("php artisan extension:list hosting", calls)
+        self.assertIn("php artisan migrate --force", calls)
+
+        # Commands this manager does not know run from the verified copy, with the extension's checkout and ref.
+        result = self.run_extension("demo:run", "--flag")
+        self.assertEqual("demo:run --flag|" + str(self.checkout / "extensions/hosting") + "|refs/tags/v1.0.0", result.stdout.strip())
+        self.assertNotEqual(0, self.run_extension("unknown:command", check=False).returncode)
+
+        # A switch to the branch follows new commits; the command files are copied again.
+        (origin / "tool.py").write_text("next tool\n")
+        self.git(origin, "commit", "-am", "Next")
+        self.run_extension("extension:update", "hosting", "--branch", "main")
+        self.assertIn('EXTENSION_HOSTING_REF="refs/heads/main"', self.state.read_text())
+        self.assertEqual("next tool\n", (self.cli_lib / "extensions/hosting/tool.py").read_text())
+
+        # A local commit in the web-owned checkout never becomes root-executed code.
+        (self.checkout / "extensions/hosting/tool.py").write_text("untrusted\n")
+        self.git(self.checkout / "extensions/hosting", "commit", "-am", "Untrusted")
+        result = self.run_manager(command="install_extension_cli hosting", extra=self.FAKE_GIT, check=False)
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual("next tool\n", (self.cli_lib / "extensions/hosting/tool.py").read_text())
+
+        self.run_extension("extension:remove", "hosting")
+        self.assertFalse((self.checkout / "extensions/hosting").exists())
+        self.assertFalse((self.cli_lib / "extensions/hosting").exists())
+        self.assertNotIn("EXTENSION_HOSTING", self.state.read_text())
+
+    @unittest.skipUnless(REAL_PHP, "php is required to read extension.json")
+    def test_extension_rejects_unknown_names_bad_repositories_and_unsafe_command_files(self):
+        self.trusted_fixtures()
+        origin = self.extension_origin()
+        self.assertIn("Unknown extension other", self.run_extension("extension:install", "other", check=False).stderr)
+        self.assertIn("https:// Git URL", self.run_extension("extension:install", "other", "--repository", "file:///tmp/x.git", check=False).stderr)
+        self.assertFalse((self.checkout / "extensions/other").exists())
+        (origin / "extension.json").write_text(json.dumps({"name": "hosting", "cli": ["../outside"]}))
+        self.git(origin, "commit", "-am", "Unsafe")
+        result = self.run_extension("extension:install", "hosting", check=False)
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse((self.cli_lib / "extensions/hosting").exists())
+
+    def test_core_update_also_updates_extensions_on_their_channel(self):
+        if not REAL_PHP:
+            self.skipTest("php is required to read extension.json")
+        self.trusted_fixtures()
+        origin = self.extension_origin()
+        self.run_extension("extension:install", "hosting")
+        (origin / "tool.py").write_text("update tool\n")
+        self.git(origin, "commit", "-am", "Update")
+        self.run_manager(extra=self.FAKE_GIT + 'refresh_manager(){ :; }\n', mock_helpers=False)
+        self.assertEqual(self.git(origin, "rev-parse", "main"), self.git(self.checkout / "extensions/hosting", "rev-parse", "HEAD"))
+        self.assertEqual("update tool\n", (self.cli_lib / "extensions/hosting/tool.py").read_text())
 
 if __name__ == "__main__":
     unittest.main()

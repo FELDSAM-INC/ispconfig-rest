@@ -125,20 +125,9 @@ properties:
     default: false
     description: |
       ISPConfig's own log option: the output of the command's last part is appended to the website's shared
-      private/cron.log and cron_error.log. Turned off while `output_log` is on.
+      private/cron.log and cron_error.log.
     example: false
     x-db-format: "y/n"
-
-  output_log:
-    type: boolean
-    default: false
-    description: |
-      Own output log of this task (spec 054): every run's standard output and errors, with its time and exit status,
-      are appended as the website user to the website's private/.ispcp-cron-<token>.log, readable through
-      `GET /sites/cron-jobs/{id}/log`. The native command then starts with a managed prefix that this API never
-      returns; `command` stays the task's own command. For chrooted tasks a leading document root is removed from the
-      command, as ISPConfig does. Not available for URL tasks, which ignore it.
-    example: true
 
   active:
     type: boolean
@@ -199,13 +188,3 @@ properties:
     readOnly: true
     description: Name of the parent domain
     example: "example.com"
-
-  wordpress:
-    type: [object, 'null']
-    readOnly: true
-    description: Managed WordPress task; change its schedule or stop takeover through the website WordPress jobs endpoint, not ordinary cron update/delete.
-    properties:
-      website_id: {type: integer}
-      installation: {type: string, pattern: '^[a-f0-9]{32}$'}
-      state: {type: string, enum: [disabled, enabling, active, disabling, error]}
-      last_run: {type: [string, 'null'], format: date-time}

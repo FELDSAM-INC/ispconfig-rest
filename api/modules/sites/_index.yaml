@@ -44,13 +44,3 @@ web-folder-users:
 # WebDAV users
 webdav-users:
   $ref: './webdav-users.yaml'
-
-database-operations:
-  $ref: './database-operations.yaml'
-
-web-waf:
-  $ref: './web-waf.yaml'
-
-# WordPress Tools
-wordpress:
-  $ref: './wordpress.yaml'

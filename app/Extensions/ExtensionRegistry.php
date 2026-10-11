@@ -53,7 +53,7 @@ final class ExtensionRegistry
                 $entry['loaded'] = true;
             } catch (Throwable $error) {
                 $entry['error'] = $error->getMessage();
-                error_log('ispconfig-rest: extension '.$name.' not loaded: '.$error->getMessage());
+                $app->make('log')->warning('Extension '.$name.' not loaded: '.$error->getMessage());
             }
 
             $this->extensions[$name] = $entry;

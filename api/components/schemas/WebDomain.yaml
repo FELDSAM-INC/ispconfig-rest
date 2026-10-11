@@ -29,70 +29,13 @@ description: |
 required:
   - domain
 properties:
-  wordpress:
-    type: object
-    readOnly: true
-    properties:
-      available: {type: boolean}
-      count: {type: integer, minimum: 0}
-      installations:
-        type: array
-        description: Cached public identity of detected installations; contains no database credentials, undo data or filesystem settings.
-        items:
-          type: object
-          properties:
-            id: {type: string}
-            path: {type: string}
-            title: {type: string}
-            url: {type: string}
-            admin_url: {type: string}
-            checks:
-              type: object
-              description: |
-                State for list badges: security measures the website's server and worker can apply, counted by their
-                last checked status; the managed wp-cron schedule; the last core file check (null before one).
-              properties:
-                security:
-                  type: object
-                  properties:
-                    ok: {type: integer}
-                    warning: {type: integer}
-                    danger: {type: integer}
-                cron: {type: string, enum: [disabled, enabling, active, disabling, error]}
-                integrity: {type: string, enum: [clean, modified], nullable: true}
-  waf_available: {type: boolean, readOnly: true, description: WAF server tool is installed and reporting a current heartbeat.}
-  waf_mode:
-    type: string
-    enum: ['off', detection, enforcing]
-    nullable: true
-    readOnly: true
-    description: WAF state of the website from its managed configuration; `off` also when it was never configured, null when the managed block was changed outside the API.
   public_document_root:
     type: string
     nullable: true
     readOnly: true
-    description: Serving directory including the managed child subfolder. Does not change the base document_root.
-  runtime_settings:
-    $ref: './WebRuntimeSettings.yaml'
-  php_settings:
-    $ref: './WebPhpSettings.yaml'
-  runtime_capabilities:
-    type: object
-    readOnly: true
-    additionalProperties: false
-    required: [document_root_available, environment_available]
-    description: Availability of runtime controls in list and detail responses; contains no environment values or directives.
-    properties:
-      document_root_available:
-        type: boolean
-        description: A current reader can verify folders on the website's server.
-      environment_available:
-        type: boolean
-        description: Apache, or nginx with the upgraded reader/constants installed.
-  logs_available:
-    type: boolean
-    readOnly: true
-    description: Per-website access/error log previews are available locally or through a current web log worker.
+    description: >-
+      Serving directory: the document root's `web` folder, or the child website's own folder. Extensions may add a
+      subfolder (ispconfig-rest-hosting: the runtime document-root subdirectory). Does not change `document_root`.
   id:
     type: integer
     format: int64

@@ -41,6 +41,7 @@ MIN_PHP="8.3"
 PHP_BIN="${ISPC_REST_PHP:-php}"
 FPM_SOCK="/run/${SERVICE_NAME}.sock"
 RUN_USER="${ISPC_REST_USER:-}"              # defaults to the web-server user
+EXTENSIONS=()                               # --extension NAME[@BRANCH|@vTAG], repeatable (spec 058)
 
 # Runtime DB (default: read from ISPConfig config)
 DB_HOST="" DB_PORT="" DB_NAME="" DB_USER="" DB_PASS="" DB_OVERRIDE=0
@@ -84,6 +85,8 @@ Options (each also settable via an ISPC_REST_* env var):
   --non-interactive        accept defaults, no prompts
   --php PATH               php CLI binary                  (default: php)
   --timezone TZ            API timezone (default: the server's system timezone)
+  --extension NAME[@REF]   also install an extension, e.g. hosting or hosting@v1.0.0
+                           (REF: a branch, or a vX.Y.Z release tag; default main; repeatable)
   -h, --help
 EOF
 }
@@ -136,6 +139,8 @@ while [ $# -gt 0 ]; do
     --non-interactive) NONINTERACTIVE=1; shift;;
     --php) PHP_BIN="$2"; shift 2;;
     --timezone) TIMEZONE="$2"; shift 2;;
+    --extension) [[ "$2" =~ ^[a-z][a-z0-9-]{0,39}(@[A-Za-z0-9][A-Za-z0-9_./-]*)?$ ]] || die "Invalid --extension '$2'."
+                 EXTENSIONS+=("$2"); shift 2;;
     -h|--help) usage; exit 0;;
     *) die "Unknown option: $1 (see --help)";;
   esac
@@ -544,9 +549,30 @@ PHP_BIN="$(command -v "$PHP_BIN")"
 EOF
 chmod 600 "$STATE_DIR/install.conf"
 install -m 0755 "$INSTALL_DIR/bin/ispconfig-rest" "$MANAGER_PATH"
-"$MANAGER_PATH" server-tools:manager-install
 ok "Installed $MANAGER_PATH"
 "$MANAGER_PATH" schedule:install
+
+# ---------------------------------------------------------------------------
+# Extensions: their tables are created with the same privileged login
+# ---------------------------------------------------------------------------
+if [ ${#EXTENSIONS[@]} -gt 0 ]; then
+  step "Installing extensions"
+  for extension in "${EXTENSIONS[@]}"; do
+    name="${extension%%@*}" channel=()
+    if [ "$name" != "$extension" ]; then
+      ref="${extension#*@}"
+      if [[ "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then channel=(--tag "$ref"); else channel=(--branch "$ref"); fi
+    fi
+    "$MANAGER_PATH" extension:install "$name" ${channel[@]+"${channel[@]}"} --skip-migrate
+  done
+  # A cached configuration would ignore the privileged login's environment overrides.
+  run_as "$PHP_BIN" artisan config:clear >/dev/null 2>&1 || true
+  if migrate_privileged; then ok "Extension tables ready"
+  else warn "Privileged migration failed; run 'ispconfig-rest extension:update' once the database login is fixed."; fi
+  run_as "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true
+  run_as "$PHP_BIN" artisan route:cache  >/dev/null 2>&1 || true
+  "$MANAGER_PATH" restart >/dev/null 2>&1 || true
+fi
 
 # ---------------------------------------------------------------------------
 # Optional admin API key

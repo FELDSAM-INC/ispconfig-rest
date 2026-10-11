@@ -15,10 +15,10 @@
 #   ispconfig-rest key:list [--client-id N]     list API keys (never shows secrets)
 #   ispconfig-rest key:revoke ID                  revoke (deactivate) an API key
 #   ispconfig-rest firewall:allow PORT [--proto tcp]  open a port in the ISPConfig firewall
-#   ispconfig-rest server-tools install|update|status [OPTIONS]  workers + WAF on ISPConfig servers
-#   ispconfig-rest server-tools install --help      SSH, server selection and component options
-#   ispconfig-rest php-limits:install|update [OPTIONS]  PHP-FPM cgroup limits (restarts PHP-FPM once)
-#   ispconfig-rest dns-catalog:install|update [OPTIONS] DNS catalog zone for secondaries (DNS servers)
+#   ispconfig-rest extension:install NAME [--branch NAME | --tag VERSION]  add an extension (e.g. hosting)
+#   ispconfig-rest extension:update [NAME] [--branch NAME | --tag VERSION]  update extensions
+#   ispconfig-rest extension:list         installed extensions and whether they are loaded
+#   ispconfig-rest extension:remove NAME  remove an extension (keeps its DB tables)
 #   ispconfig-rest artisan ...            run an artisan command as the run user
 #   ispconfig-rest version                installed version + commit
 #   ispconfig-rest uninstall              remove service + manager (keeps DB data)
@@ -44,45 +44,37 @@ die(){  printf '%s\n' "${C_R}✗${C_RESET} $*" >&2; exit 1; }
 need_root(){ [ "$(id -u)" = "0" ] || die "This command must run as root (use sudo)."; }
 run_as(){ sudo -u "$RUN_USER" env -C "$INSTALL_DIR" "$@"; }
 
-cmd_server_tools() {
-  need_root
-  command -v python3 >/dev/null || die "Install Python 3.8+ on this REST host first."
-  local helper=/usr/local/lib/ispconfig-rest-cli/manage.py
-  # Older manager versions refresh only this script during update. Bootstrap
-  # the new helpers from the same published commit without running API code as root.
-  { [ -f "$helper" ] && [ -f /usr/local/lib/ispconfig-rest-cli/remote.php ]; } || install_server_tools_manager
-  shift
-  ISPCP_TOOLS_INSTALL_DIR="$INSTALL_DIR" ISPCP_TOOLS_RUN_USER="$RUN_USER" ISPCP_TOOLS_PHP="$PHP_BIN" ISPCP_TOOLS_BRANCH="${RELEASE_REF:-${BRANCH:-main}}" \
-    python3 "$helper" "$@"
+CORE_REPOSITORY="https://github.com/FELDSAM-INC/ispconfig-rest.git"
+# Root-owned copies of command-line files, taken from verified published commits only.
+CLI_LIB="/usr/local/lib/ispconfig-rest-cli"
+
+# Fetch REF of REPOSITORY into STAGE/repository and prove that REVISION belongs to it: a public object reachable
+# only through a fork or pull request must not qualify as trusted code.
+verified_fetch() { # STAGE REPOSITORY REF REVISION
+  git init --bare "$1/repository" >/dev/null 2>&1 || return 1
+  git -c core.hooksPath=/dev/null -c protocol.file.allow=never -C "$1/repository" fetch --no-tags "$2" "$3" || return 1
+  git -C "$1/repository" merge-base --is-ancestor "$4" FETCH_HEAD
 }
 
-install_server_tools_manager() {
-  local revision stage refresh_manager="${1:-}"
+# Refresh this manager from the installed release. Never install root-executed code directly from the web-owned
+# checkout: its revision is untrusted input and must belong to the ref selected in root-owned install.conf.
+refresh_manager() {
+  local revision stage
   revision="$(run_as git rev-parse HEAD)"
   [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || die "Cannot determine installed release."
   stage="$(mktemp -d /root/ispconfig-rest-cli.XXXXXXXX)"
   if ! (
     trap 'rm -rf -- "$stage"' EXIT
-    git init --bare "$stage/repository" >/dev/null 2>&1 || exit 1
-    git -c core.hooksPath=/dev/null -c protocol.file.allow=never -C "$stage/repository" fetch --no-tags https://github.com/FELDSAM-INC/ispconfig-rest.git "${RELEASE_REF:-${BRANCH:-main}}" || exit 1
-    # The checkout's revision is untrusted input. It must belong to the ref
-    # selected in root-owned install.conf, not merely an arbitrary public object.
-    git -C "$stage/repository" merge-base --is-ancestor "$revision" FETCH_HEAD || exit 1
-    for file in manage.py remote.php; do
-      git -C "$stage/repository" show "$revision:server-tools/$file" > "$stage/$file" || exit 1
-    done
-    install -d -o root -g root -m 0755 /usr/local/lib/ispconfig-rest-cli || exit 1
-    install -o root -g root -m 0644 "$stage/manage.py" "$stage/remote.php" /usr/local/lib/ispconfig-rest-cli/ || exit 1
-    if [ "$refresh_manager" = --refresh-manager ]; then
-      # Never install root-executed code directly from the web-owned checkout.
-      git -C "$stage/repository" show "$revision:bin/ispconfig-rest" > "$stage/manager" || exit 1
-      if grep -q '^# release-aware-updater-v1:' "$stage/manager"; then
-        install -o root -g root -m 0755 "$stage/manager" /usr/local/bin/ispconfig-rest || exit 1
-      else
-        info "Keeping the current manager: this API release predates branch/tag-aware updates."
-      fi
+    verified_fetch "$stage" "$CORE_REPOSITORY" "${RELEASE_REF:-${BRANCH:-main}}" "$revision" || exit 1
+    git -C "$stage/repository" show "$revision:bin/ispconfig-rest" > "$stage/manager" || exit 1
+    if grep -q '^# release-aware-updater-v1:' "$stage/manager"; then
+      install -o root -g root -m 0755 "$stage/manager" /usr/local/bin/ispconfig-rest || exit 1
+    else
+      info "Keeping the current manager: this API release predates branch/tag-aware updates."
     fi
-  ); then die "Could not install trusted server-tools helpers for $revision."; fi
+  ); then die "Could not refresh the manager from verified sources for $revision."; fi
+  # Server-tools helpers of managers before 1.1.0; they belong to the hosting extension now.
+  rm -f "$CLI_LIB/manage.py" "$CLI_LIB/remote.php" 2>/dev/null || true
 }
 
 # API timezone alignment (spec 017 FR-015): ISPConfig writes traffic dates in
@@ -165,6 +157,9 @@ cmd_status() {
     nginx)  systemctl is-active --quiet nginx && ok "nginx: active (vhost :${PUBLIC_PORT:-?})" || warn "nginx: inactive";;
     *) info "serve mode: ${SERVE_MODE:-none} (unmanaged)";;
   esac
+  if [ -n "${EXTENSIONS:-}" ]; then
+    run_as "$PHP_BIN" artisan extension:list 2>/dev/null || warn "extensions: some are not loaded"
+  fi
   if run_as "$PHP_BIN" -r '
     require "vendor/autoload.php"; $a=require "bootstrap/app.php";
     $a->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
@@ -193,64 +188,250 @@ valid_release_tag() {
   [[ "$1" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] && git check-ref-format "refs/tags/$1" >/dev/null
 }
 
-update_checkout() {
-  local branch="" tag="" selected="" target
+# Switch the checkout in DIR (relative to the installation) to BRANCH or release TAG; with neither, keep its
+# current branch or pinned release. Sets SELECTED_REF (refs/heads/… or refs/tags/…) and SELECTED_NAME.
+checkout_channel() { # DIR BRANCH TAG
+  local dir="$1" branch="$2" tag="$3" target
   local fetch_options=(--atomic)
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      --branch|--tag)
-        [ $# -ge 2 ] && [ -n "$2" ] || die "$1 requires a value."
-        [ -z "$selected" ] || die "Choose either --branch NAME or --tag VERSION."
-        selected="$1"
-        if [ "$1" = --branch ]; then branch="$2"; else tag="$2"; fi
-        shift 2;;
-      *) die "Unknown update option: $1 (try 'ispconfig-rest update --help').";;
-    esac
-  done
-  if [ -z "$selected" ]; then branch="$(run_as git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"; fi
+  if [ -z "$branch$tag" ]; then branch="$(run_as git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"; fi
   [ -z "$branch" ] || valid_update_branch "$branch" || die "Invalid update branch."
   [ -z "$tag" ] || valid_release_tag "$tag" || die "Expected a release tag such as v1.0.1."
-  run_as git diff --quiet && run_as git diff --cached --quiet \
+  run_as git -C "$dir" diff --quiet && run_as git -C "$dir" diff --cached --quiet \
     || die "Tracked files have local changes. Commit or save them before updating."
 
   # Previous updaters repeatedly fetched --depth 1, leaving multiple shallow
   # boundaries between HEAD and origin. Complete history before checking ancestry
   # so a legitimate update is not mistaken for divergent local commits.
-  if [ "$(run_as git rev-parse --is-shallow-repository)" = true ]; then
+  if [ "$(run_as git -C "$dir" rev-parse --is-shallow-repository)" = true ]; then
     fetch_options+=(--unshallow)
   fi
   # Explicit refspecs also work with single-branch shallow installer clones.
   # Do not force-fetch tags: a moved release must fail instead of silently changing.
   if [ -n "$branch" ]; then
     info "Update channel: branch $branch"
-    run_as git fetch "${fetch_options[@]}" origin "+refs/heads/$branch:refs/remotes/origin/$branch" 'refs/tags/*:refs/tags/*'
+    run_as git -C "$dir" fetch "${fetch_options[@]}" origin "+refs/heads/$branch:refs/remotes/origin/$branch" 'refs/tags/*:refs/tags/*'
     target="refs/remotes/origin/$branch"
-    if run_as git show-ref --verify --quiet "refs/heads/$branch"; then
-      run_as git merge-base --is-ancestor "refs/heads/$branch" "$target" \
+    if run_as git -C "$dir" show-ref --verify --quiet "refs/heads/$branch"; then
+      run_as git -C "$dir" merge-base --is-ancestor "refs/heads/$branch" "$target" \
         || die "Branch $branch has diverged from origin. Resolve local commits before updating."
     fi
-    run_as git checkout -B "$branch" "$target"
-    RELEASE_REF="refs/heads/$branch"
-    BRANCH="$branch"
+    run_as git -C "$dir" checkout -B "$branch" "$target"
+    SELECTED_REF="refs/heads/$branch"
+    SELECTED_NAME="$branch"
   else
-    run_as git fetch "${fetch_options[@]}" origin 'refs/tags/*:refs/tags/*'
+    run_as git -C "$dir" fetch "${fetch_options[@]}" origin 'refs/tags/*:refs/tags/*'
     if [ -z "$tag" ]; then
-      tag="$(run_as git describe --tags --exact-match --match 'v[0-9]*' HEAD 2>/dev/null || true)"
+      tag="$(run_as git -C "$dir" describe --tags --exact-match --match 'v[0-9]*' HEAD 2>/dev/null || true)"
       valid_release_tag "$tag" || die "Detached HEAD is not a release tag. Choose 'update --branch main' or 'update --tag VERSION'."
     fi
     target="refs/tags/$tag"
     # The tag must still exist on origin, not only in the local tag cache.
-    run_as git ls-remote --exit-code --refs origin "$target" >/dev/null \
+    run_as git -C "$dir" ls-remote --exit-code --refs origin "$target" >/dev/null \
       || die "Release $tag was not found on origin."
     info "Update channel: release $tag (pinned; use --branch main to follow stable updates)"
-    run_as git checkout --detach "$target"
-    RELEASE_REF="$target"
-    BRANCH="$tag"
+    run_as git -C "$dir" checkout --detach "$target"
+    SELECTED_REF="$target"
+    SELECTED_NAME="$tag"
   fi
+}
+
+# Options --branch NAME | --tag VERSION into CHANNEL_BRANCH / CHANNEL_TAG; other arguments into CHANNEL_REST.
+parse_channel() {
+  CHANNEL_BRANCH="" CHANNEL_TAG="" CHANNEL_REST=()
+  local selected=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --branch|--tag)
+        [ $# -ge 2 ] && [ -n "$2" ] || die "$1 requires a value."
+        [ -z "$selected" ] || die "Choose either --branch NAME or --tag VERSION."
+        selected="$1"
+        if [ "$1" = --branch ]; then CHANNEL_BRANCH="$2"; else CHANNEL_TAG="$2"; fi
+        shift 2;;
+      *) CHANNEL_REST+=("$1"); shift;;
+    esac
+  done
+}
+
+update_checkout() {
+  parse_channel "$@"
+  [ ${#CHANNEL_REST[@]} -eq 0 ] || die "Unknown update option: ${CHANNEL_REST[0]} (try 'ispconfig-rest update --help')."
+  checkout_channel . "$CHANNEL_BRANCH" "$CHANNEL_TAG"
+  RELEASE_REF="$SELECTED_REF"
+  BRANCH="$SELECTED_NAME"
   # Both values are validated refs with no shell/sed metacharacters. Saved state
   # is used for trusted worker provenance; it never overrides the next checkout.
   set_state BRANCH "$BRANCH"
   set_state RELEASE_REF "$RELEASE_REF"
+}
+
+# ---------------------------------------------------------------------------
+# Extensions (spec 058): git checkouts in $INSTALL_DIR/extensions/NAME, owned
+# by the run user like the API itself; install.conf records their repository
+# and ref. Their command-line files run as root only from verified copies.
+# ---------------------------------------------------------------------------
+valid_extension_name() { [[ "$1" =~ ^[a-z][a-z0-9-]{0,39}$ ]]; }
+valid_repository() { [[ "$1" =~ ^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._-]+)+\.git$ ]]; }
+known_repository() {
+  case "$1" in
+    hosting) echo "https://github.com/FELDSAM-INC/ispconfig-rest-hosting.git";;
+    *) return 1;;
+  esac
+}
+extension_var() { printf 'EXTENSION_%s_%s' "$(printf '%s' "$1" | tr 'a-z-' 'A-Z_')" "$2"; }
+extension_get() { local var; var="$(extension_var "$1" "$2")"; printf '%s' "${!var:-}"; }
+extension_installed() { [[ " ${EXTENSIONS:-} " == *" $1 "* ]]; }
+
+# Copy the files an extension lists under "cli" in extension.json, read from its verified published commit.
+install_extension_cli() { # NAME
+  local name="$1" repository ref revision stage
+  repository="$(extension_get "$name" REPOSITORY)"
+  ref="$(extension_get "$name" REF)"
+  revision="$(run_as git -C "extensions/$name" rev-parse HEAD)"
+  [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || die "Cannot determine the installed revision of extension $name."
+  stage="$(mktemp -d /root/ispconfig-rest-cli.XXXXXXXX)"
+  if ! (
+    trap 'rm -rf -- "$stage"' EXIT
+    verified_fetch "$stage" "$repository" "$ref" "$revision" || exit 1
+    git -C "$stage/repository" show "$revision:extension.json" > "$stage/extension.json" || exit 1
+    files="$("$PHP_BIN" -r '$m = json_decode((string) file_get_contents($argv[1]), true);
+      foreach ((array) ($m["cli"] ?? []) as $f) {
+        if (! is_string($f) || ! preg_match("~\A[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*)*\z~", $f) || str_contains($f, "..")) { exit(1); }
+        echo $f, "\n";
+      }' "$stage/extension.json")" || exit 1
+    mkdir -p "$stage/files"
+    for file in $files; do
+      # Reject executable links/submodules; only blobs whose mode is a regular file qualify.
+      mode="$(git -C "$stage/repository" ls-tree "$revision" -- "$file" | cut -d' ' -f1)"
+      case "$mode" in 100644) perm=0644;; 100755) perm=0755;; *) exit 1;; esac
+      mkdir -p "$stage/files/$(dirname "$file")"
+      git -C "$stage/repository" show "$revision:$file" > "$stage/files/$file" || exit 1
+      chmod "$perm" "$stage/files/$file"
+    done
+    install -d -o root -g root -m 0755 "$CLI_LIB" "$CLI_LIB/extensions" || exit 1
+    rm -rf -- "$CLI_LIB/extensions/$name.new"
+    cp -R "$stage/files" "$CLI_LIB/extensions/$name.new" || exit 1
+    chown -R root:root "$CLI_LIB/extensions/$name.new" 2>/dev/null || [ "$(id -u)" != 0 ] || exit 1
+    chmod -R go-w "$CLI_LIB/extensions/$name.new" || exit 1
+    rm -rf -- "$CLI_LIB/extensions/$name"
+    mv "$CLI_LIB/extensions/$name.new" "$CLI_LIB/extensions/$name" || exit 1
+  ); then die "Could not install verified command-line files of extension $name for $revision."; fi
+}
+
+# Run migrations (core and extensions), rebuild the caches and reload the service.
+apply_release() {
+  run_as "$PHP_BIN" artisan migrate --force \
+    || die "Migrations failed. If the runtime database user lacks DDL rights, run 'php artisan migrate --force' in $INSTALL_DIR with a privileged database login, then rerun this command."
+  run_as "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true
+  run_as "$PHP_BIN" artisan route:cache  >/dev/null 2>&1 || true
+}
+
+cmd_extension_install() {
+  need_root
+  local name="${1:-}" repository="" migrate=1 args=()
+  valid_extension_name "$name" || die "Usage: ispconfig-rest extension:install NAME [--branch NAME | --tag VERSION] [--repository URL]"
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --repository) [ $# -ge 2 ] || die "--repository requires a value."; repository="$2"; shift 2;;
+      --skip-migrate) migrate=0; shift;;
+      *) args+=("$1"); shift;;
+    esac
+  done
+  parse_channel ${args[@]+"${args[@]}"}
+  [ ${#CHANNEL_REST[@]} -eq 0 ] || die "Unknown option: ${CHANNEL_REST[0]}"
+  extension_installed "$name" && die "Extension $name is already installed. Use 'ispconfig-rest extension:update $name'."
+  [ -n "$repository" ] || repository="$(known_repository "$name")" || die "Unknown extension $name. Pass its Git repository with --repository https://…/NAME.git"
+  valid_repository "$repository" || die "The repository must be an https:// Git URL ending in .git."
+  [ -n "$CHANNEL_BRANCH$CHANNEL_TAG" ] || CHANNEL_BRANCH=main
+  [ ! -e "$INSTALL_DIR/extensions/$name" ] || die "$INSTALL_DIR/extensions/$name already exists. Move it away first."
+  info "Installing extension $name from $repository"
+  run_as mkdir -p extensions
+  run_as git clone --quiet "$repository" "extensions/$name"
+  checkout_channel "extensions/$name" "$CHANNEL_BRANCH" "$CHANNEL_TAG"
+  if ! run_as "$PHP_BIN" artisan extension:list "$name" >/dev/null 2>&1; then
+    run_as "$PHP_BIN" artisan extension:list "$name" || true
+    run_as rm -rf "extensions/$name"
+    die "Extension $name cannot be loaded by this API release; nothing was installed."
+  fi
+  set_state "$(extension_var "$name" REPOSITORY)" "$repository"
+  set_state "$(extension_var "$name" REF)" "$SELECTED_REF"
+  EXTENSIONS="$(printf '%s %s' "${EXTENSIONS:-}" "$name" | xargs)"
+  set_state EXTENSIONS "$EXTENSIONS"
+  printf -v "$(extension_var "$name" REPOSITORY)" '%s' "$repository"
+  printf -v "$(extension_var "$name" REF)" '%s' "$SELECTED_REF"
+  install_extension_cli "$name"
+  if [ "$migrate" = 1 ]; then apply_release; reload_server; fi
+  ok "Extension $name installed ($SELECTED_NAME)"
+}
+
+# Update NAME (or every installed extension) on its channel or the one selected; no migrations or reload.
+update_extensions() {
+  local names=("$@") name
+  for name in "${names[@]}"; do
+    info "Updating extension $name"
+    checkout_channel "extensions/$name" "$CHANNEL_BRANCH" "$CHANNEL_TAG"
+    set_state "$(extension_var "$name" REF)" "$SELECTED_REF"
+    printf -v "$(extension_var "$name" REF)" '%s' "$SELECTED_REF"
+    install_extension_cli "$name"
+  done
+}
+
+cmd_extension_update() {
+  need_root
+  local names=()
+  parse_channel "$@"
+  for name in ${CHANNEL_REST[@]+"${CHANNEL_REST[@]}"}; do
+    extension_installed "$name" || die "Extension $name is not installed."
+    names+=("$name")
+  done
+  [ ${#names[@]} -gt 0 ] || read -r -a names <<< "${EXTENSIONS:-}"
+  [ ${#names[@]} -gt 0 ] || { info "No extensions installed."; return; }
+  [ ${#names[@]} -eq 1 ] || [ -z "$CHANNEL_BRANCH$CHANNEL_TAG" ] || die "Choose one extension for --branch or --tag."
+  update_extensions "${names[@]}"
+  apply_release
+  reload_server
+  run_as "$PHP_BIN" artisan extension:list || warn "Some extensions are not loaded."
+}
+
+cmd_extension_remove() {
+  need_root
+  local name="${1:-}" kept=() item
+  valid_extension_name "$name" && extension_installed "$name" || die "Usage: ispconfig-rest extension:remove NAME (an installed extension)"
+  run_as rm -rf "extensions/$name"
+  rm -rf -- "${CLI_LIB:?}/extensions/$name"
+  for item in ${EXTENSIONS:-}; do [ "$item" = "$name" ] || kept+=("$item"); done
+  EXTENSIONS="${kept[*]:-}"
+  set_state EXTENSIONS "$EXTENSIONS"
+  sed -i "/^$(extension_var "$name" REPOSITORY)=/d; /^$(extension_var "$name" REF)=/d" "$STATE_FILE"
+  run_as "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true
+  run_as "$PHP_BIN" artisan route:cache  >/dev/null 2>&1 || true
+  reload_server
+  ok "Extension $name removed. Its database tables were kept."
+}
+
+# Commands this manager does not know are offered to the installed extensions' verified entry points.
+dispatch_extension_command() {
+  local name entry
+  for name in ${EXTENSIONS:-}; do
+    entry="$CLI_LIB/extensions/$name/bin/ispconfig-rest-extension"
+    [ -x "$entry" ] || continue
+    if "$entry" --handles "$1"; then
+      need_root
+      ISPCONFIG_REST_INSTALL_DIR="$INSTALL_DIR" ISPCONFIG_REST_RUN_USER="$RUN_USER" ISPCONFIG_REST_PHP="$PHP_BIN" \
+        ISPCONFIG_REST_EXTENSION_DIR="$INSTALL_DIR/extensions/$name" ISPCONFIG_REST_EXTENSION_REF="$(extension_get "$name" REF)" \
+        exec "$entry" "$@"
+    fi
+  done
+  return 1
+}
+
+extension_help() {
+  local name entry
+  for name in ${EXTENSIONS:-}; do
+    entry="$CLI_LIB/extensions/$name/bin/ispconfig-rest-extension"
+    [ -x "$entry" ] && "$entry" --help
+  done
+  return 0
 }
 
 cmd_update() {
@@ -270,11 +451,15 @@ cmd_update() {
 
   local composer="composer"; command -v composer >/dev/null 2>&1 || composer="$PHP_BIN $INSTALL_DIR/composer.phar"
   run_as env COMPOSER_HOME="$INSTALL_DIR/.composer" $composer install --no-dev --optimize-autoloader --no-interaction --no-progress
-  run_as "$PHP_BIN" artisan migrate --force
+  # Extensions keep their own channel (branch or pinned release).
+  local extensions=()
+  read -r -a extensions <<< "${EXTENSIONS:-}"
+  CHANNEL_BRANCH="" CHANNEL_TAG=""
+  [ ${#extensions[@]} -eq 0 ] || update_extensions "${extensions[@]}"
   sync_timezone
-  run_as "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true
-  run_as "$PHP_BIN" artisan route:cache  >/dev/null 2>&1 || true
-  install_server_tools_manager --refresh-manager
+  apply_release
+  refresh_manager
+  [ ${#extensions[@]} -eq 0 ] || run_as "$PHP_BIN" artisan extension:list || warn "Some extensions are not loaded; see above."
 
   cmd_schedule_install
   reload_server
@@ -322,7 +507,7 @@ cmd_uninstall() {
     ok "Removed php-fpm pool"
   fi
   rm -f /usr/local/bin/ispconfig-rest
-  rm -f /usr/local/lib/ispconfig-rest-cli/manage.py /usr/local/lib/ispconfig-rest-cli/remote.php
+  rm -rf -- "${CLI_LIB:?}"
   ok "Removed manager. Left in place: $INSTALL_DIR, $STATE_FILE, and the API-owned"
   ok "DB tables (api_keys, migrations)."
   echo "  To fully remove:  rm -rf $INSTALL_DIR /etc/ispconfig-rest"
@@ -341,18 +526,14 @@ case "${1:-}" in
   key:list)      cmd_key_list "$@";;
   key:revoke)    cmd_key_revoke "$@";;
   firewall:allow) cmd_firewall_allow "$@";;
-  server-tools)  cmd_server_tools "$@";;
-  server-tools:manager-install) need_root; install_server_tools_manager;;
-  workers:install|workers:update|waf:install|waf:update|php-limits:install|php-limits:update|dns-catalog:install|dns-catalog:update)
-    tool_action="${1#*:}"; tool_group="${1%%:*}"; shift
-    case "$tool_group" in
-      waf|php-limits|dns-catalog) tool_components="$tool_group";;
-      *) tool_components=database,web-logs,file-manager;;
-    esac
-    cmd_server_tools server-tools "$tool_action" --components "$tool_components" "$@";;
+  extension:install) shift; cmd_extension_install "$@";;
+  extension:update)  shift; cmd_extension_update "$@";;
+  extension:list)    run_as "$PHP_BIN" artisan extension:list;;
+  extension:remove)  shift; cmd_extension_remove "$@";;
   artisan)       cmd_artisan "$@";;
   uninstall)     cmd_uninstall;;
   ""|help|-h|--help)
-    grep '^#' "$0" | sed -n '3,26p' | sed 's/^# \{0,1\}//';;
-  *) die "Unknown command: $1 (try 'ispconfig-rest help')";;
+    grep '^#' "$0" | sed -n '3,24p' | sed 's/^# \{0,1\}//'
+    extension_help;;
+  *) dispatch_extension_command "$@" || die "Unknown command: $1 (try 'ispconfig-rest help')";;
 esac

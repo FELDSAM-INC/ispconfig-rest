@@ -16,25 +16,31 @@ See the [changelog](CHANGELOG.md) for release notes and upgrade requirements.
 - Composer
 - Network access to an ISPConfig 3.3 MySQL database (`dbispconfig`) — reverse-engineered against 3.3.0p1, validated live against 3.3.1p1
 
-Optional components run on the servers that own the data:
+## Extensions
 
-- [Database worker](worker/README.md) for database import, export and copy.
-- [Web log worker](web-log-worker/README.md) for remote website logs and runtime settings.
-- [File manager worker](file-manager-worker/README.md) for jailed SFTP accounts used by the WHMCS file manager.
-- [WAF installer](waf-server/README.md) for Apache/nginx ModSecurity and OWASP CRS.
-- [PHP-FPM resource limits](php-limits/README.md) for per-account and per-website cgroup limits.
-- [DNS catalog zones](dns-catalog/README.md) so secondaries follow the zones of each ISPConfig DNS server; the secondaries are set up with the playbook in [ispconfig-ansible](https://github.com/FELDSAM-INC/ispconfig-ansible/tree/main/dns-secondary).
+Features beyond ISPConfig's own administration surface ship as extensions (spec 058), installed into
+`extensions/NAME` and loaded when compatible with this release:
 
-[DNS challenges with certbot and acme.sh](https://github.com/FELDSAM-INC/ispconfig-acme-dns): plugins for servers outside ISPConfig that obtain
-Let's Encrypt certificates (also wildcards) for domains whose zones ISPConfig hosts, with keys limited to that.
+- [ispconfig-rest-hosting](https://github.com/FELDSAM-INC/ispconfig-rest-hosting): database import/export/copy,
+  website logs and runtime/PHP settings, scheduled task output logs, file manager and WordPress tools, website WAF,
+  product PHP policies and PHP-FPM limits, DNS catalog zones for secondaries, and the server tools that install
+  their workers on the ISPConfig servers. These were part of this repository up to 1.0.7.
 
-[ispconfig-ansible](https://github.com/FELDSAM-INC/ispconfig-ansible) installs ISPConfig multiserver setups (panel with this API, web, database and DNS
-servers) with the ISPConfig autoinstaller.
+```bash
+sudo ispconfig-rest extension:install hosting [--branch NAME | --tag VERSION]
+```
 
-Install or update these from the REST host with
-`sudo ispconfig-rest server-tools install` / `server-tools update`.
-The [server tools CLI guide](server-tools/README.md) covers automatic ISPConfig
-server discovery, SSH key setup, component selection and the file-manager public key.
+An extension describes itself in `extension.json` (version, supported releases, PSR-4 autoload, service providers,
+command-line files); its providers add routes, migrations and hooks (`App\Extensions\Hooks`) to core resources,
+and its `api/` directory adds paths and fields to the served OpenAPI document.
+
+Related projects:
+
+- [DNS challenges with certbot and acme.sh](https://github.com/FELDSAM-INC/ispconfig-acme-dns): plugins for servers
+  outside ISPConfig that obtain Let's Encrypt certificates (also wildcards) for domains whose zones ISPConfig hosts,
+  with keys limited to that.
+- [ispconfig-ansible](https://github.com/FELDSAM-INC/ispconfig-ansible) installs ISPConfig multiserver setups (panel
+  with this API, web, database and DNS servers) with the ISPConfig autoinstaller, and secondary DNS servers.
 
 ## Install on an ISPConfig server (recommended)
 
@@ -69,6 +75,8 @@ What it does:
   explicitly. `ispconfig-rest update` keeps an automatically chosen timezone in sync (after upgrading
   from a release without it, run `update` twice) and `ispconfig-rest status` shows it.
 - **Registers `ispconfig-rest`** in your PATH and offers to mint an admin key.
+- **Optionally installs extensions** with `--extension hosting` (or `hosting@v1.0.0`), whose tables are
+  created with the same privileged login.
 
 Every prompt has a flag and `ISPC_REST_*` env var for unattended installs — see
 `sudo ./install.sh --help`. Reference templates live in [`deploy/`](deploy/):
@@ -88,8 +96,13 @@ ispconfig-rest key:create "acme" --client-id 42   # mint a client-scoped key
 ispconfig-rest key:list --client-id 42       # list keys (never shows secrets)
 ispconfig-rest key:revoke 17                 # revoke (deactivate) a key
 ispconfig-rest firewall:allow 8090           # open a port in the ISPConfig firewall
+ispconfig-rest extension:install hosting     # add an extension (also: extension:update, extension:list, extension:remove)
 ispconfig-rest restart | logs -f | version | uninstall
 ```
+
+`update` also updates installed extensions, each on its own channel (branch or pinned release). Commands an
+extension adds (for example `server-tools` of the hosting extension) are listed by `ispconfig-rest help`; they
+run as root only from copies of its verified published commit, never from the web-owned checkout.
 
 The updater follows the **actual checkout**: `main` stays on `main`, `develop`
 stays on `develop`, and a detached release tag stays on that exact release.
@@ -106,9 +119,8 @@ Checking out `main` or a tag manually did not change that setting. The behavior
 and options above require the corrected manager from **v1.0.2 or newer**.
 Follow the [1.0.2 upgrade instructions](CHANGELOG.md#upgrade-from-101) to refresh
 the old manager before selecting a branch or release tag.
-It retains its branch/tag handling when an older API release is selected, while
-worker sources still come from the selected API release. Existing release tags
-are not changed or replaced by this fix.
+It retains its branch/tag handling when an older API release is selected.
+Existing release tags are not changed or replaced by this fix.
 
 ## Manual / development installation
 
@@ -253,7 +265,7 @@ cache. This exposes only the login URL, without credentials or other ISPConfig c
 php artisan test
 ```
 
-The suite runs against an in-memory SQLite database with ISPConfig-shaped schemas and asserts, among other things, the exact byte format of every `sys_datalog` payload. CI checks PHP 8.3, 8.4 and 8.5 on `main` pushes and pull requests (`.github/workflows/tests.yml`).
+The suite runs against an in-memory SQLite database with ISPConfig-shaped schemas and asserts, among other things, the exact byte format of every `sys_datalog` payload. CI checks PHP 8.3, 8.4 and 8.5 on `main` pushes and pull requests (`.github/workflows/tests.yml`). The core suite never loads extensions checked out in `extensions/`; each extension runs its own suite inside a core checkout.
 
 ## Known deviations from legacy ISPConfig
 
@@ -336,10 +348,6 @@ For an existing installation updated by an older manager, run `ispconfig-rest sc
 `php artisan aliases:sync-dns` also performs reconciliation manually. API DNS changes propagate within the
 same transaction; changes made directly in ISPConfig are picked up by the next successful scheduled run.
 Failures are reported in the API log and retried on the next run; unchanged zones create no datalog noise.
-
-Website access/error log previews are available at `GET /sites/web-domains/{id}/logs/{access|error}`.
-`logs_available` on each web-domain response controls whether a client panel offers the tool.
-For local reads or multi-server setup see [web log reader installation](web-log-worker/README.md).
 
 ### Combined domain creation
 

@@ -97,6 +97,20 @@ class ExtensionRegistryTest extends TestCase
         $this->assertFalse($hooks->authorizes(WebDomain::class, Request::create('/', 'PUT', ['forbidden' => 1]), 'update'));
     }
 
+    public function test_list_command_reports_and_fails_for_unloaded_extensions(): void
+    {
+        $this->extension('good', ['version' => '1.2.3']);
+        $this->extension('old', ['version' => '0.1.0', 'requires' => ['ispconfig-rest' => '>=9.0.0']]);
+        $registry = new ExtensionRegistry($this->dir, '1.1.0');
+        $registry->boot($this->app);
+        $this->app->instance(ExtensionRegistry::class, $registry);
+
+        $this->artisan('extension:list', ['name' => 'good'])->expectsOutputToContain('1.2.3')->assertSuccessful();
+        $this->artisan('extension:list', ['name' => 'old'])->expectsOutputToContain('Needs ispconfig-rest >=9.0.0')->assertFailed();
+        $this->artisan('extension:list', ['name' => 'missing'])->expectsOutput('Extension missing is not installed.')->assertFailed();
+        $this->artisan('extension:list')->assertFailed();
+    }
+
     /** @param  array<string, mixed>  $manifest */
     private function extension(string $name, array $manifest): void
     {

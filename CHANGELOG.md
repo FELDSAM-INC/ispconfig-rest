@@ -7,9 +7,42 @@ the HTTP API remains under `/api/v1`.
 
 ### Added
 
+- Extensions (spec 058): directories `extensions/NAME` with an `extension.json` (version, supported releases, PSR-4
+  autoload, service providers, command-line files) are loaded at boot when compatible; an incompatible or broken one
+  is skipped and reported by `php artisan extension:list` / `ispconfig-rest extension:list`. Extension providers add
+  routes, migrations and hooks (`App\Extensions\Hooks`: attributes, detail, payload fields, preflight, saving and
+  saved callbacks, guards, deleted callbacks, named filters) to websites, scheduled tasks, databases, database users
+  and clients; their `api/openapi.yaml` and `api/patches/` join the served OpenAPI document.
+- `ispconfig-rest extension:install NAME [--branch NAME | --tag VERSION]`, `extension:update`, `extension:list` and
+  `extension:remove`; `update` also updates installed extensions on their own channel. Commands the manager does not
+  know are offered to the extensions, which run as root only from copies of their verified published commit.
+  `install.sh --extension NAME[@REF]` installs extensions with the API.
 - The certbot plugin is on PyPI: `pip install certbot-dns-ispconfig-rest` (1.0.0).
 
 ### Changed
+
+- **Breaking:** the hosting features moved to the extension
+  [ispconfig-rest-hosting](https://github.com/FELDSAM-INC/ispconfig-rest-hosting): database import/export/copy,
+  website logs and runtime/PHP settings, scheduled task output logs, file manager and WordPress tools, website WAF,
+  product PHP policies and PHP-FPM limits (`/usage/resources`), DNS catalog zones and the server tools
+  (`ispconfig-rest server-tools`, `workers:*`, `waf:*`, `php-limits:*`, `dns-catalog:*`). Without the extension
+  their endpoints return 404 and their fields (`logs_available`, `waf_available`, `waf_mode`, `wordpress`,
+  `runtime_capabilities`, `runtime_settings`, `php_settings` on websites; `operations` on databases; `output_log`
+  and `wordpress` on scheduled tasks; `web_php_policy` and `web_resource_limits` on clients) are absent;
+  `public_document_root` is the document root's `web` folder (or a child website's folder). With the extension
+  installed, the HTTP API is unchanged.
+- `symfony/yaml` is a runtime dependency (the served OpenAPI document with extensions).
+
+### Upgrade notes
+
+1. **Install the hosting extension right after the update** if you use those features (the FeldHost WHMCS module
+   does): `sudo ispconfig-rest update --tag v1.1.0` (or `--branch main`), then
+   `sudo ispconfig-rest extension:install hosting`. Its tables keep their migration names, so nothing is migrated
+   again; between the two commands the hosting endpoints are unavailable.
+2. Managers before 1.1.0 copy compatibility stubs of `server-tools/manage.py` and `remote.php` during this update
+   and then replace themselves. The server-tools commands return with the extension;
+   `sudo ispconfig-rest server-tools update` refreshes the workers from the extension's repository.
+3. Integrations that use only ISPConfig resources need no changes.
 
 - The certbot and acme.sh clients moved to [ispconfig-acme-dns](https://github.com/FELDSAM-INC/ispconfig-acme-dns),
   which publishes the plugin to PyPI; the API keeps the `/dns/acme-challenges` endpoints.
