@@ -106,7 +106,7 @@ A consumer reads a server's full configuration or a single section (mail, web, d
 1. **Given** server 1 with a populated config blob, **When** the consumer calls `GET /servers/1/configs`, **Then** 200 with the parsed configuration.
 2. **Given** a `PUT /servers/1/configs/mail` changing `mailbox_size_limit`, **Then** the whole blob is read, only the `[mail]` section replaced, the blob re-serialized, and a datalog `u` on table `server` (field `config`) is written — mirroring `server_config_edit.php::onUpdateSave`.
 3. **Given** `mailbox_size_limit` nonzero and smaller than `message_size_limit`, **When** PUT to the mail section, **Then** 422 (legacy `onSubmit` check).
-4. **Given** a PUT to any section, **Then** keys absent from the request that legacy treats as checkboxes are written with their unchecked value, and `rspamd_available` is never accepted from the client (preserved from the existing blob, legacy behavior).
+4. **Given** a PUT to any section, **Then** keys absent from the request keep their stored value, checkboxes included (a deliberate deviation from legacy's unchecked-value backfill, see the deviation list; an absent checkbox that is not stored is not written), and `rspamd_available` is never accepted from the client (preserved from the existing blob, legacy behavior).
 
 ---
 

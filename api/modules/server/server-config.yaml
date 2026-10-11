@@ -14,9 +14,10 @@
 #      byte-for-byte,
 #   3. re-serialize with ISPConfig-compatible output and datalog-update the
 #      `server` row's `config` field (action 'u' on table `server`).
-# Within the updated section, omitted text/select keys keep their current
-# value; omitted checkbox keys are written with their unchecked value,
-# mirroring legacy form semantics.
+# Within the updated section only the submitted keys change: omitted keys keep
+# their current value, checkboxes included. Unlike ISPConfig's form, which saves
+# an unticked box as unchecked, an omitted checkbox is not switched off; send 'n'
+# to switch it off (as the system config does, spec 008).
 
 # Main server configuration endpoints
 /servers/{id}/configs:
@@ -97,8 +98,9 @@
     description: >-
       Replaces only the [server] section inside the configuration blob
       (read-merge-write, datalog update on the `server` row's `config`
-      field; all other sections are preserved byte-for-byte). Omitted
-      checkbox keys are written with their unchecked value ('n').
+      field; all other sections are preserved byte-for-byte). Only the
+      submitted keys change: omitted keys, checkboxes included, keep their
+      value; send 'n' to switch a checkbox off.
     operationId: updateServerServerConfig
     parameters:
       - name: id
@@ -268,7 +270,8 @@
       - Switching `content_filter` to rspamd datalog-touches every
         spamfilter_users and spamfilter_wblist row of this server to trigger
         re-sync (legacy onAfterUpdate).
-      - Omitted checkbox keys are written with their unchecked value ('n').
+      - Only the submitted keys change: omitted keys, checkboxes included,
+        keep their value; send 'n' to switch a checkbox off.
     operationId: updateServerMailConfig
     parameters:
       - name: id
@@ -348,8 +351,9 @@
     description: >-
       Replaces only the [web] section inside the configuration blob
       (read-merge-write, datalog update on the `server` row's `config`
-      field; all other sections are preserved byte-for-byte). Omitted
-      checkbox keys are written with their unchecked value ('n').
+      field; all other sections are preserved byte-for-byte). Only the
+      submitted keys change: omitted keys, checkboxes included, keep their
+      value; send 'n' to switch a checkbox off.
     operationId: updateServerWebConfig
     parameters:
       - name: id
@@ -429,8 +433,9 @@
     description: >-
       Replaces only the [dns] section inside the configuration blob
       (read-merge-write, datalog update on the `server` row's `config`
-      field; all other sections are preserved byte-for-byte). Omitted
-      checkbox keys are written with their unchecked value ('n').
+      field; all other sections are preserved byte-for-byte). Only the
+      submitted keys change: omitted keys, checkboxes included, keep their
+      value; send 'n' to switch a checkbox off.
     operationId: updateServerDnsConfig
     parameters:
       - name: id
@@ -590,8 +595,9 @@
     description: >-
       Replaces only the [xmpp] section inside the configuration blob
       (read-merge-write, datalog update on the `server` row's `config`
-      field; all other sections are preserved byte-for-byte). Omitted
-      checkbox keys are written with their unchecked value ('n').
+      field; all other sections are preserved byte-for-byte). Only the
+      submitted keys change: omitted keys, checkboxes included, keep their
+      value; send 'n' to switch a checkbox off.
     operationId: updateServerXmppConfig
     parameters:
       - name: id
@@ -911,8 +917,9 @@
     description: >-
       Replaces only the [rescue] section inside the configuration blob
       (read-merge-write, datalog update on the `server` row's `config`
-      field; all other sections are preserved byte-for-byte). Omitted
-      checkbox keys are written with their unchecked value ('n').
+      field; all other sections are preserved byte-for-byte). Only the
+      submitted keys change: omitted keys, checkboxes included, keep their
+      value; send 'n' to switch a checkbox off.
     operationId: updateServerRescueConfig
     parameters:
       - name: id

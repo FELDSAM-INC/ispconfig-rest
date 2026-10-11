@@ -209,6 +209,33 @@ class ServerConfigApiTest extends TestCase
         $this->assertStringContainsString("xmpp_port_http=15290\n", $after);
     }
 
+    /**
+     * The case reported in PR #2: saving one checkbox of [web] must not switch off the section's other checkboxes;
+     * an explicit 'n' still switches one off.
+     */
+    public function test_put_of_one_checkbox_leaves_the_other_checkboxes_of_the_section(): void
+    {
+        $before = self::fixture();
+
+        $this->putJson('/api/v1/servers/1/configs/web', ['website_symlinks_rel' => 'y'], $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('website_symlinks_rel', 'y')
+            ->assertJsonPath('enable_sni', 'y')
+            ->assertJsonPath('check_apache_config', 'y')
+            ->assertJsonPath('enable_ip_wildcard', 'y');
+        $this->assertSame(
+            str_replace("website_symlinks_rel=n\n", "website_symlinks_rel=y\n", $before),
+            (string) DB::table('server')->where('server_id', 1)->value('config')
+        );
+
+        $this->putJson('/api/v1/servers/1/configs/web', ['enable_sni' => 'n'], $this->authHeaders())->assertOk();
+        $this->getJson('/api/v1/servers/1/configs/web', $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('enable_sni', 'n')
+            ->assertJsonPath('website_symlinks_rel', 'y')
+            ->assertJsonPath('check_apache_config', 'y');
+    }
+
     public function test_put_round_trips_with_get(): void
     {
         $this->putJson('/api/v1/servers/1/configs/getmail', [
