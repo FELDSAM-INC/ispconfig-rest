@@ -17,3 +17,20 @@ properties:
     minimum: 1
     description: Bind the key to this client's control-panel identity; omit for an admin key
     example: 42
+  access:
+    type: string
+    enum: [full, acme]
+    default: full
+    description: |
+      `acme` limits the key to ACME DNS-01 challenges (`/dns/acme-challenges`, `GET /changes/{id}`, `GET /me`), for
+      certbot or acme.sh on other servers (spec 057). It keeps the bound identity: with `client_id` it only uses that
+      client's zones.
+    example: acme
+  zones:
+    type: array
+    maxItems: 100
+    items:
+      type: string
+      maxLength: 253
+    description: Only for `access` `acme`; limits the key to these zones (origins, a final dot is accepted)
+    example: [example.com]

@@ -84,6 +84,10 @@ components:
       $ref: './components/schemas/DnsSoa.yaml'
     DnsSlave:
       $ref: './components/schemas/DnsSlave.yaml'
+    DnsAcmeChallenge:
+      $ref: './components/schemas/DnsAcmeChallenge.yaml'
+    DnsAcmeChallengeCreate:
+      $ref: './components/schemas/DnsAcmeChallengeCreate.yaml'
     DnsTemplate:
       $ref: './components/schemas/DnsTemplate.yaml'
     FtpUser:
@@ -287,6 +291,10 @@ paths:
     $ref: './modules/client/resellers.yaml#/~1resellers~1{id}'
   
   # DNS module paths
+  /dns/acme-challenges:
+    $ref: './modules/dns/acme-challenges.yaml#/~1dns~1acme-challenges'
+  /dns/acme-challenges/{id}:
+    $ref: './modules/dns/acme-challenges.yaml#/~1dns~1acme-challenges~1{id}'
   /dns/records:
     $ref: './modules/dns/records.yaml#/~1dns~1records'
   /dns/records/{id}:

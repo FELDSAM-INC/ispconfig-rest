@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\ApiKey;
+use App\Services\AcmeChallengeService;
 use App\Services\ApiKeyService;
 use Illuminate\Console\Command;
 
@@ -11,7 +12,9 @@ class CreateApiKey extends Command
     protected $signature = 'api:key:create {name : Label identifying the key holder}
                             {--sys-userid=1 : ISPConfig sys_userid the key acts as}
                             {--sys-groupid=1 : ISPConfig sys_groupid the key acts as}
-                            {--client-id= : Bind the key to this client\'s control-panel identity (resolves sys_userid/sys_groupid; mutually exclusive with --sys-userid/--sys-groupid)}';
+                            {--client-id= : Bind the key to this client\'s control-panel identity (resolves sys_userid/sys_groupid; mutually exclusive with --sys-userid/--sys-groupid)}
+                            {--acme : Limit the key to ACME DNS-01 challenges (certbot, acme.sh)}
+                            {--zone=* : With --acme: only these zones (repeatable)}';
 
     protected $description = 'Mint a new API key (the plaintext is shown once and stored hashed)';
 
@@ -39,13 +42,35 @@ class CreateApiKey extends Command
             [$sysUserId, $sysGroupId] = $identity;
         }
 
+        $zones = [];
+        foreach ((array) $this->option('zone') as $zone) {
+            $normalized = AcmeChallengeService::normalizeZone((string) $zone);
+            if ($normalized === null) {
+                $this->error("--zone {$zone} is not a DNS name.");
+
+                return self::FAILURE;
+            }
+            $zones[] = $normalized;
+        }
+
+        if ($zones !== [] && ! $this->option('acme')) {
+            $this->error('--zone requires --acme.');
+
+            return self::FAILURE;
+        }
+
         [$key, $plaintext] = ApiKey::mint(
             $this->argument('name'),
             $sysUserId,
             $sysGroupId,
+            $this->option('acme') ? ApiKey::ACCESS_ACME : ApiKey::ACCESS_FULL,
+            array_values(array_unique($zones)),
         );
 
         $this->info("API key #{$key->id} ({$key->name}) created (sys_userid {$key->sys_userid}, sys_groupid {$key->sys_groupid}).");
+        if ($key->isAcme()) {
+            $this->line('  Limited to ACME DNS challenges'.($key->zoneList() === [] ? '.' : ' in '.implode(', ', $key->zoneList()).'.'));
+        }
         $this->newLine();
         $this->line('  <options=bold>'.$plaintext.'</>');
         $this->newLine();

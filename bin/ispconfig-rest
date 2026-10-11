@@ -11,7 +11,7 @@
 #   ispconfig-rest status                 service state, version, DB connectivity
 #   ispconfig-rest restart|start|stop     control the service
 #   ispconfig-rest logs [-f]              service logs
-#   ispconfig-rest key:create NAME [--client-id N]   mint an API key
+#   ispconfig-rest key:create NAME [--client-id N] [--acme [--zone Z]...]   mint an API key
 #   ispconfig-rest key:list [--client-id N]     list API keys (never shows secrets)
 #   ispconfig-rest key:revoke ID                  revoke (deactivate) an API key
 #   ispconfig-rest firewall:allow PORT [--proto tcp]  open a port in the ISPConfig firewall

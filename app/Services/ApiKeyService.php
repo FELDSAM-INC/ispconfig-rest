@@ -69,11 +69,12 @@ class ApiKeyService
 
     /**
      * Mint a key bound to a client's identity, or to the ISPConfig admin
-     * (1/1) without a client. Returns [model, plaintext].
+     * (1/1) without a client; `acme` access limits it to ACME DNS challenges,
+     * optionally in $zones (spec 057). Returns [model, plaintext].
      *
      * @return array{0: ApiKey, 1: string}
      */
-    public function mint(string $name, ?int $clientId = null): array
+    public function mint(string $name, ?int $clientId = null, string $access = ApiKey::ACCESS_FULL, array $zones = []): array
     {
         [$sysUserId, $sysGroupId] = [1, 1];
 
@@ -87,7 +88,7 @@ class ApiKeyService
             [$sysUserId, $sysGroupId] = $identity;
         }
 
-        return DB::transaction(fn (): array => ApiKey::mint($name, $sysUserId, $sysGroupId));
+        return DB::transaction(fn (): array => ApiKey::mint($name, $sysUserId, $sysGroupId, $access, $zones));
     }
 
     /**
@@ -134,6 +135,8 @@ class ApiKeyService
                 'id' => (int) $key->id,
                 'name' => $key->name,
                 'scope' => $scope,
+                'access' => $key->isAcme() ? ApiKey::ACCESS_ACME : ApiKey::ACCESS_FULL,
+                'zones' => $key->zoneList(),
                 'client_id' => $clientId,
                 'active' => (bool) $key->active,
                 'created_at' => $key->created_at?->toJSON(),
@@ -159,7 +162,7 @@ class ApiKeyService
      * AuthScope resolved by ApiKeyAuth and the request attribute api_key_id.
      * The development key has no row: key_id null, name "development key".
      *
-     * @return array{key_id: int|null, name: string, scope: string, client_id: int|null, sys_userid: int, sys_groupid: int}
+     * @return array{key_id: int|null, name: string, scope: string, client_id: int|null, sys_userid: int, sys_groupid: int, access: string, zones: array<int, string>}
      */
     public function identity(Request $request): array
     {
@@ -179,6 +182,8 @@ class ApiKeyService
             'client_id' => $scope->isAdmin || $scope->clientId < 1 ? null : $scope->clientId,
             'sys_userid' => $scope->sysUserId,
             'sys_groupid' => $scope->sysGroupId,
+            'access' => (string) $request->attributes->get('api_key_access', ApiKey::ACCESS_FULL),
+            'zones' => array_values((array) $request->attributes->get('api_key_zones', [])),
         ];
     }
 

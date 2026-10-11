@@ -11,6 +11,8 @@ required:
   - name
   - scope
   - client_id
+  - access
+  - zones
   - active
   - created_at
   - last_used_at
@@ -43,6 +45,23 @@ properties:
     readOnly: true
     description: Bound ISPConfig client id for client and reseller keys; null for admin and unbound keys
     example: 42
+  access:
+    type: string
+    readOnly: true
+    enum: [full, acme]
+    description: |
+      `full`: the key may use the whole API its scope allows. `acme`: only ACME DNS-01 challenges
+      (`/dns/acme-challenges`), `GET /changes/{id}` and `GET /me` (spec 057).
+    example: full
+    x-db-field: access
+  zones:
+    type: array
+    readOnly: true
+    items:
+      type: string
+    description: Zones an `acme` key is limited to (origins without the final dot); empty for every zone its scope can use
+    example: []
+    x-db-field: zones
   active:
     type: boolean
     description: False when the key is revoked

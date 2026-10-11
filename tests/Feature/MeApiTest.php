@@ -43,6 +43,8 @@ class MeApiTest extends TestCase
                 'client_id' => null,
                 'sys_userid' => 1,
                 'sys_groupid' => 1,
+                'access' => 'full',
+                'zones' => [],
                 'panel_url' => null,
             ]);
     }
@@ -60,6 +62,8 @@ class MeApiTest extends TestCase
                 'client_id' => $clientA['client_id'],
                 'sys_userid' => $clientA['userid'],
                 'sys_groupid' => $clientA['groupid'],
+                'access' => 'full',
+                'zones' => [],
                 'panel_url' => null,
             ]);
     }
@@ -92,6 +96,8 @@ class MeApiTest extends TestCase
                 'client_id' => null,
                 'sys_userid' => 1,
                 'sys_groupid' => 1,
+                'access' => 'full',
+                'zones' => [],
                 'panel_url' => null,
             ]);
     }

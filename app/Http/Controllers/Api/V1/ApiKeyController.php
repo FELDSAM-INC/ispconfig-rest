@@ -80,7 +80,7 @@ class ApiKeyController extends Controller
      */
     public function store(StoreApiKeyRequest $request): JsonResponse
     {
-        [$key, $plaintext] = $this->service->mint((string) $request->input('name'), $request->clientId());
+        [$key, $plaintext] = $this->service->mint((string) $request->input('name'), $request->clientId(), $request->access(), $request->zones());
 
         return response()->json($this->service->present([$key])[0] + ['key' => $plaintext], 201);
     }

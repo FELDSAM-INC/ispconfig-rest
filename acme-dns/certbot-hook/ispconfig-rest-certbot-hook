@@ -1,0 +1,94 @@
+#!/bin/sh
+# DNS-01 challenges for any certbot (snap, distribution package, pip) through ispconfig-rest 1.0.7+, as manual hooks:
+#
+#   certbot certonly --manual --preferred-challenges dns \
+#     --manual-auth-hook 'ispconfig-rest-certbot-hook auth' \
+#     --manual-cleanup-hook 'ispconfig-rest-certbot-hook cleanup' -d example.com -d '*.example.com'
+#
+# Settings come from /etc/letsencrypt/ispconfig-rest.conf (root only, KEY=value lines) or ISPC_REST_CONFIG, and from
+# the environment, which wins:
+#   ISPC_REST_URL          https://panel.example.com:8090
+#   ISPC_REST_KEY          API key, ideally limited to challenges: ispconfig-rest key:create NAME --acme
+#   ISPC_REST_CA_BUNDLE    CA file to trust for ispconfig-rest (optional)
+#   ISPC_REST_TIMEOUT      seconds to wait until ISPConfig has applied the record (default 300)
+#   ISPC_REST_PROPAGATION  seconds to wait after that for secondary DNS servers (default 30)
+# certbot provides CERTBOT_DOMAIN and CERTBOT_VALIDATION. See acme-dns/README.md.
+set -eu
+
+action=${1:-}
+case "$action" in
+auth | cleanup) ;;
+*)
+    echo "Usage: $0 auth|cleanup (as certbot --manual-auth-hook / --manual-cleanup-hook)" >&2
+    exit 2
+    ;;
+esac
+
+config=${ISPC_REST_CONFIG:-/etc/letsencrypt/ispconfig-rest.conf}
+setting() { # NAME -> value from the environment, else from the config file
+    eval "value=\${$1:-}"
+    if [ -z "$value" ] && [ -r "$config" ]; then
+        value=$(sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//p" "$config" | tail -n 1 | sed 's/^["'\'']//; s/["'\'']$//')
+    fi
+    printf '%s' "$value"
+}
+
+url=$(setting ISPC_REST_URL | sed 's#/*$##')
+key=$(setting ISPC_REST_KEY)
+ca=$(setting ISPC_REST_CA_BUNDLE)
+timeout=$(setting ISPC_REST_TIMEOUT)
+propagation=$(setting ISPC_REST_PROPAGATION)
+: "${timeout:=300}" "${propagation:=30}"
+if [ -z "$url" ] || [ -z "$key" ]; then
+    echo "Set ISPC_REST_URL and ISPC_REST_KEY in $config or the environment." >&2
+    exit 1
+fi
+: "${CERTBOT_DOMAIN:?certbot sets CERTBOT_DOMAIN}" "${CERTBOT_VALIDATION:?certbot sets CERTBOT_VALIDATION}"
+name="_acme-challenge.${CERTBOT_DOMAIN#\*.}"
+value=$CERTBOT_VALIDATION
+
+body=$(mktemp)
+trap 'rm -f "$body"' EXIT
+
+request() { # METHOD PATH [JSON] -> HTTP code on stdout, response body in $body
+    method=$1 path=$2 data=${3:-}
+    set --
+    if [ -n "$ca" ]; then set -- --cacert "$ca"; fi
+    if [ -n "$data" ]; then set -- "$@" -H 'Content-Type: application/json' --data "$data"; fi
+    # The key goes to curl on stdin, never on the command line.
+    printf 'header = "X-API-Key: %s"\nheader = "Accept: application/json"\n' "$key" |
+        curl -sS -K - -X "$method" -o "$body" -w '%{http_code}' "$@" "$url$path"
+}
+
+field() { # NAME -> a string or number field of the response
+    sed -n -e "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" \
+        -e "s/.*\"$1\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" "$body" | head -n 1
+}
+
+fail() {
+    echo "ispconfig-rest: $1: $(field detail || true)" >&2
+    exit 1
+}
+
+if [ "$action" = cleanup ]; then
+    code=$(request DELETE "/api/v1/dns/acme-challenges?name=$name&value=$value") || fail "cannot reach $url"
+    [ "$code" = 204 ] || fail "removing $name failed (HTTP $code)"
+    exit 0
+fi
+
+code=$(request POST /api/v1/dns/acme-challenges "{\"name\":\"$name\",\"value\":\"$value\"}") || fail "cannot reach $url"
+[ "$code" = 201 ] || [ "$code" = 200 ] || fail "publishing $name failed (HTTP $code)"
+id=$(field id)
+waited=0
+while :; do
+    case $(field status) in
+    applied) break ;;
+    failed | stalled) fail "ISPConfig did not apply $name (status $(field status))" ;;
+    esac
+    [ "$waited" -lt "$timeout" ] || fail "ISPConfig did not apply $name within $timeout seconds"
+    sleep 5
+    waited=$((waited + 5))
+    code=$(request GET "/api/v1/dns/acme-challenges/$id") || fail "cannot reach $url"
+    [ "$code" = 200 ] || fail "reading the status of $name failed (HTTP $code)"
+done
+sleep "$propagation"

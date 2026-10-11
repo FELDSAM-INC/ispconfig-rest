@@ -25,6 +25,9 @@ Optional components run on the servers that own the data:
 - [PHP-FPM resource limits](php-limits/README.md) for per-account and per-website cgroup limits.
 - [DNS catalog zones](dns-catalog/README.md) so secondaries follow the zones of each ISPConfig DNS server, with an Ansible playbook for the secondaries.
 
+[DNS challenges with certbot and acme.sh](acme-dns/README.md): plugins for servers outside ISPConfig that obtain
+Let's Encrypt certificates (also wildcards) for domains whose zones ISPConfig hosts, with keys limited to that.
+
 Install or update these from the REST host with
 `sudo ispconfig-rest server-tools install` / `server-tools update`.
 The [server tools CLI guide](server-tools/README.md) covers automatic ISPConfig
@@ -175,6 +178,15 @@ Customer keys can choose the spam filter level of their mailboxes and mail domai
 Mailboxes expose `disableimap`, `disablepop3`, `disablesmtp` and `disabledeliver` (switching IMAP off also disables Sieve, switching delivery off also sets the LDA/LMTP flags); customer keys of a locked account cannot switch sending back on. Mailbox passwords on `POST /api/v1/mail/users`, `PUT /api/v1/mail/users/{id}` and `PUT /api/v1/mail/users/{id}/password` must satisfy the installation password policy for every key type (`min_password_length`, default 8, and `min_password_strength` with the ISPConfig strength scale, or ASCII-only mode); refusals use the ISPConfig messages.
 
 References inside a request body follow the same read scope: for client and reseller keys, the mail domain of a mailbox, forward, alias, catch-all or alias domain, an alias's destination mailboxes, the parent website of subdomains, FTP/shell/WebDAV users, cron jobs, protected folders and databases, a database's users, a folder user's folder, a DNS record's zone and an allow/deny list entry's spam filter user must all be visible to the key. A reference the key cannot see is rejected exactly like a nonexistent one (`400`, `404` or `422` as for a missing value).
+
+### Keys limited to ACME challenges
+
+`ispconfig-rest key:create NAME --acme [--zone example.com]... [--client-id N]` creates a key that can only publish
+DNS-01 challenges (`/dns/acme-challenges`) and read their change status and its own identity; every other request
+returns `403`. It keeps the bound identity, so with `--client-id` it only uses that client's zones, and `--zone`
+narrows it to the listed zones. Over HTTP: `POST /system/api-keys` with `access: "acme"` and `zones`. Keys report
+`access` (`full` or `acme`) and `zones` in `/system/api-keys` and `/me`. See
+[DNS challenges with certbot and acme.sh](acme-dns/README.md).
 
 ### Managing keys over HTTP
 

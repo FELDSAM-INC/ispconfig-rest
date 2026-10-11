@@ -19,3 +19,7 @@ templates:
 # DNS zone wizard template list (spec 029)
 zone-templates:
   $ref: './zone-templates.yaml'
+
+# ACME DNS-01 challenges (spec 057)
+acme-challenges:
+  $ref: './acme-challenges.yaml'

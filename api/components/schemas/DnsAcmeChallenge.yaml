@@ -1,0 +1,58 @@
+# ACME DNS-01 challenge record (spec 057): a TXT record `_acme-challenge.<domain>` in an ISPConfig zone (dns_rr),
+# with the processing status of its latest change on the zone's DNS server and mirrors.
+type: object
+x-db-table: dns_rr
+required:
+  - id
+  - zone_id
+  - zone
+  - name
+  - value
+  - ttl
+  - status
+properties:
+  id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Id of the DNS record
+    example: 4711
+    x-db-field: id
+  zone_id:
+    type: integer
+    format: int64
+    readOnly: true
+    description: Id of the zone (dns_soa) the record was placed in
+    example: 12
+    x-db-field: zone
+  zone:
+    type: string
+    readOnly: true
+    description: Origin of the zone, without the final dot
+    example: example.com
+  name:
+    type: string
+    readOnly: true
+    description: Full record name, without the final dot
+    example: _acme-challenge.www.example.com
+  value:
+    type: string
+    readOnly: true
+    description: TXT value (the ACME key authorization digest)
+    example: 9ihDbjYfTExAYeDs4DBUeuTo18KBzwvTEjUnSwd32-c
+    x-db-field: data
+  ttl:
+    type: integer
+    readOnly: true
+    description: Time to live in seconds
+    example: 60
+    x-db-field: ttl
+  status:
+    type: string
+    readOnly: true
+    enum: [pending, applied, failed, stalled]
+    description: |
+      Whether the DNS server has applied the record's latest change (spec 015): `pending` until it has, `applied`
+      when the record is live on the zone's server and its mirrors, `failed` when the server reported an error,
+      `stalled` when no active server will apply it.
+    example: applied

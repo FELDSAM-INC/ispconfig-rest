@@ -33,6 +33,7 @@ class ListApiKeys extends Command
             $key['name'],
             $key['scope'],
             $key['client_id'] ?? '-',
+            $key['access'] === 'acme' ? 'acme'.($key['zones'] === [] ? '' : ': '.implode(', ', $key['zones'])) : 'full',
             $key['active'] ? 'yes' : 'no',
             $key['last_used_at'] ?? 'never',
         ], $service->present($query->get()));
@@ -43,7 +44,7 @@ class ListApiKeys extends Command
             return self::SUCCESS;
         }
 
-        $this->table(['ID', 'Name', 'Scope', 'Client', 'Active', 'Last used'], $rows);
+        $this->table(['ID', 'Name', 'Scope', 'Client', 'Access', 'Active', 'Last used'], $rows);
 
         return self::SUCCESS;
     }

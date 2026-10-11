@@ -1,0 +1,21 @@
+# Request body of POST /dns/acme-challenges (spec 057).
+type: object
+required:
+  - name
+  - value
+properties:
+  name:
+    type: string
+    maxLength: 254
+    pattern: '^_acme-challenge\.'
+    description: |
+      Full record name, starting with `_acme-challenge.` (a final dot is accepted). Use the ASCII (punycode) form of
+      internationalized names.
+    example: _acme-challenge.www.example.com
+  value:
+    type: string
+    minLength: 1
+    maxLength: 255
+    pattern: '^[A-Za-z0-9_-]+$'
+    description: TXT value, the base64url key authorization digest the ACME server expects
+    example: 9ihDbjYfTExAYeDs4DBUeuTo18KBzwvTEjUnSwd32-c

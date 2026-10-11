@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "certbot-dns-ispconfig-rest"
+version = "1.0.0"
+description = "Certbot DNS authenticator for zones hosted in ISPConfig, through ispconfig-rest"
+readme = "README.md"
+license = "BSD-3-Clause"
+requires-python = ">=3.9"
+dependencies = ["certbot>=2.0", "requests>=2.20"]
+classifiers = [
+    "Environment :: Plugins",
+    "Topic :: Internet :: Name Service (DNS)",
+    "Topic :: Security :: Cryptography",
+]
+
+[project.urls]
+Homepage = "https://github.com/FELDSAM-INC/ispconfig-rest/tree/main/acme-dns"
+
+[project.entry-points."certbot.plugins"]
+dns-ispconfig-rest = "certbot_dns_ispconfig_rest._internal.dns_ispconfig_rest:Authenticator"
+
+[tool.setuptools]
+packages = ["certbot_dns_ispconfig_rest", "certbot_dns_ispconfig_rest._internal"]

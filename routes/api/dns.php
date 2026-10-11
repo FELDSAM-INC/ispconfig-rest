@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\DnsAcmeChallengeController;
 use App\Http\Controllers\Api\V1\DnsRecordController;
 use App\Http\Controllers\Api\V1\DnsSlaveController;
 use App\Http\Controllers\Api\V1\DnsSoaController;
@@ -26,6 +27,12 @@ Route::get('dns/soa/{dnsSoa}/dnssec', [DnsSoaController::class, 'dnssec'])->wher
 Route::get('dns/soa/{dnsSoa}', [DnsSoaController::class, 'show'])->whereNumber('dnsSoa');
 Route::put('dns/soa/{dnsSoa}', [DnsSoaController::class, 'update'])->whereNumber('dnsSoa');
 Route::delete('dns/soa/{dnsSoa}', [DnsSoaController::class, 'destroy'])->whereNumber('dnsSoa');
+
+// ACME DNS-01 challenges — api/modules/dns/acme-challenges.yaml (spec 057); the only DNS routes of `acme` keys.
+Route::post('dns/acme-challenges', [DnsAcmeChallengeController::class, 'store']);
+Route::delete('dns/acme-challenges', [DnsAcmeChallengeController::class, 'destroyByValue']);
+Route::get('dns/acme-challenges/{id}', [DnsAcmeChallengeController::class, 'show'])->whereNumber('id');
+Route::delete('dns/acme-challenges/{id}', [DnsAcmeChallengeController::class, 'destroy'])->whereNumber('id');
 
 // DNS Resource Records — api/modules/dns/records.yaml
 Route::get('dns/records', [DnsRecordController::class, 'index']);

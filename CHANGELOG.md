@@ -7,6 +7,19 @@ the HTTP API remains under `/api/v1`.
 
 ### Added
 
+- DNS-01 challenges for certbot and acme.sh (spec 057): `POST /dns/acme-challenges`
+  publishes `_acme-challenge` TXT records in the zone that is authoritative for the name,
+  `GET /dns/acme-challenges/{id}` reports when ISPConfig's DNS server has applied them,
+  and `DELETE` removes them. API keys get `access`: `ispconfig-rest key:create NAME
+  --acme [--zone Z]...` (or `access`/`zones` on `POST /system/api-keys`) creates a key
+  that can only do that. The clients in `acme-dns/` (an acme.sh DNS API plugin, the
+  certbot plugin `certbot-dns-ispconfig-rest` and a hook script for any certbot) wait
+  until the record is live instead of a fixed time. See
+  [DNS challenges with certbot and acme.sh](acme-dns/README.md). The API-owned
+  migration `2026_10_12_000001_add_access_to_api_keys.php` adds `access` and `zones` to
+  `api_keys`: when the runtime account lacks ALTER rights, run it as root as described in
+  the upgrade notes of 1.0.5.
+
 - Ansible roles to install ISPConfig servers (spec 056): `ansible/site.yml` installs the
   panel (ISPConfig master with ispconfig-rest and its server tools), web/FTP/SSH, database
   and primary DNS servers with the ISPConfig autoinstaller, from groups set in the

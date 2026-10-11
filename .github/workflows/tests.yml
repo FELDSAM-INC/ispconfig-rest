@@ -29,6 +29,15 @@ jobs:
           php -l ansible/roles/ispconfig_server/files/autoinstall.php
           cd ansible && ANSIBLE_CONFIG=ansible.cfg ansible-playbook --syntax-check -i hosts.example site.yml
 
+  acme-dns:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the ACME DNS clients
+        run: |
+          sh -n acme-dns/certbot-hook/ispconfig-rest-certbot-hook acme-dns/acme.sh/dns_ispconfig_rest.sh
+          bash tests/Integration/acme-dns/run.sh
+
   phpunit:
     runs-on: ubuntu-latest
     strategy:

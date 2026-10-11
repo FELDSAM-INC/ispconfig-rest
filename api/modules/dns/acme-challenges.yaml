@@ -1,0 +1,142 @@
+# ACME DNS-01 challenge endpoints (spec 057): for certbot, acme.sh and other ACME clients, also with keys whose
+# access is limited to these endpoints (`access: acme`).
+/dns/acme-challenges:
+  post:
+    tags:
+      - DNS ACME Challenges
+    summary: Publish an ACME DNS-01 challenge
+    description: |
+      Creates the TXT record `name` with `value` in the zone that hosts the name: the longest active primary zone the
+      key may use whose origin is a suffix of `name` (or `name` itself, for a delegated challenge zone). Keys with
+      `access: acme` and a zone list only use those zones. The record gets TTL 60 and goes through the normal record
+      path: client resource limits, journal, zone serial. Poll `GET /dns/acme-challenges/{id}` until `status` is
+      `applied`, then let the ACME server validate.
+
+      The same name and value again returns the existing record with `200` and writes nothing. A zone holds at most
+      100 challenge records at a time (`409`); remove finished ones with `DELETE`.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/DnsAcmeChallengeCreate.yaml'
+    responses:
+      '200':
+        description: The record already exists
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/DnsAcmeChallenge.yaml'
+      '201':
+        description: Record created
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/DnsAcmeChallenge.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '409':
+        $ref: '../../components/responses/Conflict.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+  delete:
+    tags:
+      - DNS ACME Challenges
+    summary: Remove ACME DNS-01 challenges by name and value
+    description: |
+      Removes the challenge records `name` with `value` from the zone that hosts the name, for clients that do not
+      keep the record id (acme.sh, certbot hooks). Succeeds with `204` also when no such record exists; `404` when no
+      zone the key may use hosts the name.
+    parameters:
+      - name: name
+        in: query
+        required: true
+        description: Full record name, starting with `_acme-challenge.`
+        schema:
+          type: string
+          maxLength: 254
+      - name: value
+        in: query
+        required: true
+        description: TXT value to remove
+        schema:
+          type: string
+          maxLength: 255
+    responses:
+      '204':
+        description: No such record remains
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '422':
+        $ref: '../../components/responses/UnprocessableEntity.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+
+/dns/acme-challenges/{id}:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      description: Id of the challenge record
+      schema:
+        type: integer
+        format: int64
+  get:
+    tags:
+      - DNS ACME Challenges
+    summary: Get an ACME DNS-01 challenge with its status
+    description: Returns the challenge record and whether its DNS server has applied it. Other records return `404`.
+    responses:
+      '200':
+        description: The challenge record
+        content:
+          application/json:
+            schema:
+              $ref: '../../components/schemas/DnsAcmeChallenge.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'
+  delete:
+    tags:
+      - DNS ACME Challenges
+    summary: Remove an ACME DNS-01 challenge
+    description: Removes the challenge record. Other records return `404`.
+    responses:
+      '204':
+        description: Record removed
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
+      '401':
+        $ref: '../../components/responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../components/responses/Forbidden.yaml'
+      '404':
+        $ref: '../../components/responses/NotFound.yaml'
+      '500':
+        $ref: '../../components/responses/InternalServerError.yaml'

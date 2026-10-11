@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Models\ApiKey;
+use App\Services\AcmeChallengeService;
 use App\Services\ApiKeyService;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 /**
@@ -11,6 +14,8 @@ use Illuminate\Validation\Validator;
  *
  * The secret and the bound identity are never client-supplied: key,
  * key_hash, sys_userid, sys_groupid, id and scope are rejected with 422.
+ * `access` acme limits the key to ACME DNS challenges, `zones` (acme only)
+ * to those zones (spec 057).
  * client_id must resolve to a control-panel identity exactly like
  * api:key:create --client-id (spec 011 FR-019).
  */
@@ -37,6 +42,9 @@ class StoreApiKeyRequest extends FormRequest
         return array_merge([
             'name' => ['required', 'string', 'max:255'],
             'client_id' => ['sometimes', 'integer', 'min:1'],
+            'access' => ['sometimes', 'string', Rule::in([ApiKey::ACCESS_FULL, ApiKey::ACCESS_ACME])],
+            'zones' => ['sometimes', 'array', 'max:100'],
+            'zones.*' => ['string', 'max:254'],
         ], array_fill_keys(self::PROHIBITED, ['prohibited']));
     }
 
@@ -50,6 +58,18 @@ class StoreApiKeyRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                if ($this->has('zones') && ! $validator->errors()->has('zones') && ! $validator->errors()->has('access')) {
+                    if ($this->access() !== ApiKey::ACCESS_ACME && $this->input('zones') !== []) {
+                        $validator->errors()->add('zones', 'Zones only apply to keys with access acme.');
+                    } elseif (is_array($this->input('zones'))) {
+                        foreach ($this->input('zones') as $index => $zone) {
+                            if (! is_string($zone) || AcmeChallengeService::normalizeZone($zone) === null) {
+                                $validator->errors()->add('zones.'.$index, 'Each zone must be a DNS name.');
+                            }
+                        }
+                    }
+                }
+
                 if (! $this->has('client_id') || $validator->errors()->has('client_id')) {
                     return;
                 }
@@ -67,5 +87,22 @@ class StoreApiKeyRequest extends FormRequest
     public function clientId(): ?int
     {
         return $this->has('client_id') ? (int) $this->input('client_id') : null;
+    }
+
+    public function access(): string
+    {
+        return $this->input('access') === ApiKey::ACCESS_ACME ? ApiKey::ACCESS_ACME : ApiKey::ACCESS_FULL;
+    }
+
+    /**
+     * The normalized zone list of an ACME key (duplicates removed).
+     *
+     * @return array<int, string>
+     */
+    public function zones(): array
+    {
+        $zones = is_array($this->input('zones')) ? $this->input('zones') : [];
+
+        return array_values(array_unique(array_filter(array_map(static fn ($zone): ?string => is_string($zone) ? AcmeChallengeService::normalizeZone($zone) : null, $zones))));
     }
 }

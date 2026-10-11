@@ -103,6 +103,10 @@ DnsZoneFromTemplate:
 
 DnsSlave:
   $ref: './DnsSlave.yaml'
+DnsAcmeChallenge:
+  $ref: './DnsAcmeChallenge.yaml'
+DnsAcmeChallengeCreate:
+  $ref: './DnsAcmeChallengeCreate.yaml'
 
 DnsRecord:
   $ref: './DnsRecord.yaml'

@@ -10,6 +10,8 @@ required:
   - client_id
   - sys_userid
   - sys_groupid
+  - access
+  - zones
 properties:
   key_id:
     type: integer
@@ -39,6 +41,17 @@ properties:
     type: integer
     description: ISPConfig group the key acts as
     example: 61
+  access:
+    type: string
+    enum: [full, acme]
+    description: '`acme` when the calling key is limited to ACME DNS-01 challenges (spec 057)'
+    example: full
+  zones:
+    type: array
+    items:
+      type: string
+    description: Zones an `acme` key is limited to; empty for every zone its scope can use
+    example: []
   panel_url:
     type: string
     format: uri

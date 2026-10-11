@@ -67,14 +67,35 @@ class ApiKeyAuth
 
         $apiKey->forceFill(['last_used_at' => now()])->saveQuietly();
 
+        // ACME keys (spec 057) reach only the DNS challenge endpoints, their change status and their identity.
+        if ($apiKey->isAcme() && ! self::acmeAllowed($request)) {
+            return Problem::response(403, 'Forbidden', 'This API key may only manage ACME DNS challenges.');
+        }
+
         $request->attributes->set('sys_userid', $apiKey->sys_userid);
         $request->attributes->set('sys_groupid', $apiKey->sys_groupid);
         $request->attributes->set('api_key_id', $apiKey->id);
+        $request->attributes->set('api_key_access', $apiKey->isAcme() ? ApiKey::ACCESS_ACME : ApiKey::ACCESS_FULL);
+        $request->attributes->set('api_key_zones', $apiKey->zoneList());
         $context = app(IspContext::class);
         $context->actAs((int) $apiKey->sys_userid, (int) $apiKey->sys_groupid);
         $context->actAsScope($scope);
 
         return $next($request);
+    }
+
+    /**
+     * Routes an ACME key may call: the challenge endpoints, `GET /changes/{id}` (polling) and `GET /me`.
+     */
+    public static function acmeAllowed(Request $request): bool
+    {
+        $path = trim($request->path(), '/');
+
+        if ($path === 'api/v1/dns/acme-challenges' || str_starts_with($path, 'api/v1/dns/acme-challenges/')) {
+            return true;
+        }
+
+        return $request->isMethod('GET') && ($path === 'api/v1/me' || preg_match('#\Aapi/v1/changes/[^/]+\z#', $path) === 1);
     }
 
     /**
