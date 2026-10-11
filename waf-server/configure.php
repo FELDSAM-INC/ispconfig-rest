@@ -137,6 +137,13 @@ try {
         $base = preg_replace('/^SecTmpDir\s+.+$/m', 'SecTmpDir /var/lib/ispconfig-rest-waf-tmp', $base);
         $base = preg_replace('/^SecDataDir\s+.+$/m', 'SecDataDir /var/lib/ispconfig-rest-waf-data', $base);
         $base = preg_replace('/^SecUnicodeMapFile\s+.+$/m', 'SecUnicodeMapFile /etc/ispconfig-waf/unicode.mapping 20127', $base);
+        // CRS rules such as 951190 ("Warning.*ingres_") backtrack over the rest of a line, and shop or block themes put
+        // 100+ KB of minified JS/JSON on one line: the reference limit of 100000 is exceeded, the rule skipped, and in
+        // the request phase rule 200005 denies the request. 1000000 covers a whole inspected response (512 KiB).
+        $base = preg_replace('/^SecPcreMatchLimit\s+\d+$/m', 'SecPcreMatchLimit 1000000', $base, -1, $limits);
+        if ($limits === 0) {
+            $base .= "\nSecPcreMatchLimit 1000000\n";
+        }
         // Serial logs are set separately for each vhost. Do not create a shared customer log.
         $base = preg_replace('/^SecAuditLog\s+.+$/m', '', $base);
         $base = preg_replace('/^SecAuditLogParts\s+.+$/m', 'SecAuditLogParts ABFHZ', $base);

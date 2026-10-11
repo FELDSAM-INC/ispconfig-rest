@@ -65,3 +65,15 @@ for profile in wordpress drupal nextcloud dokuwiki cpanel xenforo none; do
     [[ $(curl -s -o /dev/null -w '%{http_code}' -H 'Host: other.test' "http://127.0.0.1:$port/wp-json/wp/v2/posts?$payload") = 403 ]]
     echo "PASS $engine application profile $profile: scoped path/argument, other website protected"
 done
+
+# Response analysis of a page with "warning" before a long minified line (inline JS/JSON of shop themes) must stay
+# within the PCRE match limit: CRS 951190 "Warning.*ingres_" backtracks over the whole line. ModSecurity 2 (Apache)
+# exceeded the reference limit of 100000; libmodsecurity 3 (nginx) stays within it either way.
+php /app/tests/Integration/waf/probe.php enforcing
+if [[ "$engine" = apache ]]; then apache2ctl -t; apache2ctl graceful; errors=/var/log/apache2/error.log; else nginx -t; nginx -s reload; errors=/var/log/nginx/error.log; fi
+sleep .5
+{ printf '<div class="has-warning">'; head -c 300000 /dev/zero | tr '\0' a; printf '</div>\n'; } > /tmp/waf-www/long.html
+[[ $(request /long.html) = 200 ]]
+sleep .2
+if grep -qi 'limits exceeded' "$errors"; then grep -i 'limits exceeded' "$errors" | tail -n 3; echo "$engine PCRE match limit exceeded"; exit 1; fi
+echo "PASS $engine long response lines within the PCRE match limit"
