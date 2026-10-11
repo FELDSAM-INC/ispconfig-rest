@@ -145,7 +145,10 @@ done
 # Detection helpers
 # ---------------------------------------------------------------------------
 detect_web_server() {
-  if command -v apache2ctl >/dev/null 2>&1 || command -v apachectl >/dev/null 2>&1 || [ -d /etc/apache2 ]; then echo apache
+  # The running server first: php-fpm packages create /etc/apache2/conf-available on nginx servers too.
+  if systemctl is-active --quiet apache2 2>/dev/null || systemctl is-active --quiet httpd 2>/dev/null; then echo apache
+  elif systemctl is-active --quiet nginx 2>/dev/null; then echo nginx
+  elif command -v apache2ctl >/dev/null 2>&1 || command -v apachectl >/dev/null 2>&1; then echo apache
   elif command -v nginx >/dev/null 2>&1 || [ -d /etc/nginx ]; then echo nginx
   else echo none; fi
 }
@@ -497,7 +500,8 @@ open_firewall() {
   local out rc
   # Preferred: add the port to ISPConfig's firewall record via datalog, so its
   # firewall plugin (bastille/ufw) reconfigures the running firewall natively.
-  out="$(run_as "$PHP_BIN" artisan firewall:allow "$PUBLIC_PORT" 2>&1)"; rc=$?
+  # Without an ISPConfig firewall record the command fails; set -e must not end the installer here.
+  rc=0; out="$(run_as "$PHP_BIN" artisan firewall:allow "$PUBLIC_PORT" 2>&1)" || rc=$?
   printf '%s\n' "$out" | sed 's/^/  /'
   if [ "$rc" = "0" ]; then ok "Port $PUBLIC_PORT allowed in the ISPConfig firewall"; return; fi
   # Fallback: the OS firewall, only if one is actually active.
