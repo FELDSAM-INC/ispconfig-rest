@@ -5,6 +5,16 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-11
+
+This release makes the repository the ISPConfig REST API alone. The features of the FeldHost hosting deployment —
+database operations, website logs and runtime settings, file manager and WordPress tools, WAF, product PHP policies
+and PHP-FPM limits, DNS catalog zones and the server tools — moved to the extension
+[ispconfig-rest-hosting](https://github.com/FELDSAM-INC/ispconfig-rest-hosting) 1.0.0, which this release can
+install and update; the ACME DNS clients and the Ansible roles moved to their own repositories. With the extension
+installed the HTTP API is unchanged. No migrations. Requires PHP 8.3 or newer and ISPConfig 3.3; the HTTP API
+continues to use `/api/v1`. See the upgrade notes before updating an installation that uses the hosting features.
+
 ### Added
 
 - Extensions (spec 058): directories `extensions/NAME` with an `extension.json` (version, supported releases, PSR-4
