@@ -5,6 +5,12 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Added
+
+- The certbot plugin is on PyPI: `pip install certbot-dns-ispconfig-rest` (1.0.0). A tag
+  `certbot-dns-ispconfig-rest-vX.Y.Z` publishes new versions through PyPI's trusted
+  publishing (`.github/workflows/certbot-plugin.yml`).
+
 ## [1.0.7] - 2026-10-11
 
 This release adds DNS-01 challenges for certbot and acme.sh, so servers outside ISPConfig

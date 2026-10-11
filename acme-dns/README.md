@@ -7,7 +7,7 @@ without a public web server work too. Needs ispconfig-rest 1.0.7 or newer.
 | Client | What to install |
 | --- | --- |
 | acme.sh | [`acme.sh/dns_ispconfig_rest.sh`](acme.sh/dns_ispconfig_rest.sh), one file |
-| certbot installed with pip | the [`certbot-dns-ispconfig-rest`](certbot/) plugin |
+| certbot installed with pip | the plugin [`certbot-dns-ispconfig-rest`](https://pypi.org/project/certbot-dns-ispconfig-rest/) from PyPI ([source](certbot/)) |
 | certbot from snap or the distribution | the hook script [`certbot-hook/ispconfig-rest-certbot-hook`](certbot-hook/ispconfig-rest-certbot-hook) (needs curl) |
 
 All three publish the TXT record `_acme-challenge.<domain>`, wait until ISPConfig's DNS server has applied it, and
@@ -53,10 +53,11 @@ For ispconfig-rest with a private CA, use acme.sh's `--ca-bundle`.
 
 ## 2b. certbot with the plugin
 
-Install the plugin into certbot's Python environment, for example a certbot installed in `/opt/certbot` with pip:
+Install the plugin from PyPI into certbot's Python environment, for example a certbot installed in `/opt/certbot`
+with pip:
 
 ```sh
-/opt/certbot/bin/pip install ./acme-dns/certbot     # from a checkout of ispconfig-rest
+/opt/certbot/bin/pip install certbot-dns-ispconfig-rest
 ```
 
 `/etc/letsencrypt/ispconfig-rest.ini`, mode 600:
