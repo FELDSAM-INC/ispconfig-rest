@@ -5,6 +5,14 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-10-11
+
+This release adds DNS-01 challenges for certbot and acme.sh, so servers outside ISPConfig
+obtain certificates for domains whose zones ISPConfig hosts, with API keys limited to
+that; Ansible roles that install ISPConfig servers; and fixes for the installer and the
+WAF. One migration of an API-owned table (`api_keys`). Requires PHP 8.3 or newer and
+ISPConfig 3.3; the HTTP API continues to use `/api/v1`.
+
 ### Added
 
 - DNS-01 challenges for certbot and acme.sh (spec 057): `POST /dns/acme-challenges`
@@ -26,6 +34,42 @@ the HTTP API remains under `/api/v1`.
   inventory. Servers join the panel unattended. Web servers get PHP 5.6 and 7.0–8.5 from the sury
   repository, and PHP 5.3 built from source (PHP-FPM, with its own OpenSSL 1.0.2).
   See [Install ISPConfig servers with Ansible](ansible/README.md).
+
+### Fixed
+
+- Installer on a new ISPConfig server: without an ISPConfig firewall record,
+  `artisan firewall:allow` failed and `set -e` ended the installer before its summary;
+  the ufw/firewalld fallback now runs. On nginx servers the installer configured an
+  Apache vhost, because php-fpm packages create `/etc/apache2`; it now prefers the
+  running web server. Run again with another `--branch`, it switches an existing shallow
+  checkout to that branch or release tag instead of failing.
+- WAF on Apache (ModSecurity 2): CRS response rules such as 951190, 951220 and 951250
+  logged "PCRE limits exceeded (-47)" and were skipped for pages with the word warning
+  before a long minified line (WooCommerce, block themes). In the request phase the same
+  would let rule 200005 deny the request. The WAF installer sets `SecPcreMatchLimit
+  1000000`, which covers a whole inspected response.
+
+### Upgrade from 1.0.6
+
+1. **Update the API and apply the migration.** `sudo ispconfig-rest update --branch main`
+   (or `--tag v1.0.7`). The migration `2026_10_12_000001_add_access_to_api_keys.php` adds
+   `access` and `zones` to the API-owned `api_keys` table. If the runtime database account
+   lacks ALTER rights the update stops at the migration: run, as root in the installation
+   directory, `php artisan config:clear` and
+   `DB_USERNAME=root DB_PASSWORD='' php artisan migrate --force` (MySQL root over the
+   local socket; use your administrative account otherwise), then repeat
+   `sudo ispconfig-rest update`. Existing keys keep working before the migration;
+   creating keys needs it.
+2. **Apply the WAF fix:** `sudo ispconfig-rest waf:update` writes the new PCRE match limit
+   on the WAF servers and reloads Apache or nginx. Per-website WAF settings are kept.
+3. **Optional: certificates on other servers.** Create a key limited to challenges with
+   `sudo ispconfig-rest key:create NAME --acme [--zone example.com]` and set up acme.sh or
+   certbot as described in [DNS challenges with certbot and acme.sh](acme-dns/README.md).
+   The panel's ispconfig-rest certificate must be valid for its name (ISPConfig's Let's
+   Encrypt certificate is).
+4. **New installations** can use the Ansible roles in `ansible/`
+   ([guide](ansible/README.md)); they install ispconfig-rest 1.0.7 or newer. Existing
+   installations need nothing from them.
 
 ## [1.0.6] - 2026-10-10
 

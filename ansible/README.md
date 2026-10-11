@@ -116,10 +116,9 @@ It becomes the default `php` where the system's PHP is older (Debian 12).
 ## The panel and ispconfig-rest
 
 ispconfig-rest is installed with its own [installer](../README.md#install-on-an-ispconfig-server-recommended) from
-`ispconfig_rest_version` (`main` follows the releases; a tag pins one). Releases up to 1.0.6 have an installer that
-stops on a new panel, because ISPConfig has no firewall record there yet; use 1.0.7 or newer, or `develop` until it is
-released. An installed API is not touched again; update it with `ispconfig-rest update`. API keys are not created;
-mint one with `sudo ispconfig-rest key:create "WHMCS"`.
+`ispconfig_rest_version` (`main` follows the releases; a tag pins one, 1.0.7 or newer: the installer of earlier
+releases stops on a new panel, which has no ISPConfig firewall record yet). An installed API is not touched again;
+update it with `ispconfig-rest update`. API keys are not created; mint one with `sudo ispconfig-rest key:create "WHMCS"`.
 
 The panel's root gets its own SSH key (`/root/.ssh/ispconfig-tools`). Its public key is authorized for root on each
 server, from the panel's address only. The servers' host keys are read through Ansible's connection, so
