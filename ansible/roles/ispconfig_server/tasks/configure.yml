@@ -10,9 +10,15 @@
   when: ispconfig_default_php.stdout is version(ispconfig_tools_php_version, '<')
   changed_when: true
 
-# The autoinstaller lets MariaDB listen on all addresses. Only the panel (master database) and database servers
-# need that; the others keep their ISPConfig database to themselves.
+- name: Read the MariaDB version
+  ansible.builtin.command: mariadbd --version
+  register: ispconfig_mariadb_server
+  changed_when: false
+
+# The autoinstaller lets MariaDB listen on all addresses (see ispconfig_mariadb_bind_address).
 - name: Bind address of MariaDB
+  vars:
+    ispconfig_mariadb_version: "{{ ispconfig_mariadb_server.stdout | regex_search('Ver ([0-9]+\\.[0-9]+)', '\\1') | first }}"
   ansible.builtin.copy:
     dest: /etc/mysql/mariadb.conf.d/90-ispconfig-ansible.cnf
     content: |

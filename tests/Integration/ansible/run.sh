@@ -111,6 +111,42 @@ for version in 5.3 5.6; do
 done
 on web1 sh -c 'ls /etc/php/5.3/fpm/pool.d/ | grep -q "^web[0-9]*\.conf$"' || fail "no ISPConfig pool for PHP 5.3"
 
+echo "== MariaDB listens on the private address only where needed"
+listening() { on "$1" ss -ltnH 'sport = :3306' | awk '{print $4}' | sort | tr '\n' ' '; }
+for node in panel db1 web1 ns1; do echo "$node: $(listening "$node")"; done
+[ "$(listening panel)" = "10.231.80.10:3306 127.0.0.1:3306 " ] || fail "panel MariaDB listens beyond loopback and its private address"
+[[ "$(listening db1)" =~ ^(0\.0\.0\.0|\*):3306\ $ ]] || fail "database server MariaDB does not listen on all addresses"
+for node in web1 ns1; do [ "$(listening "$node")" = "127.0.0.1:3306 " ] || fail "$node MariaDB listens beyond loopback"; done
+
+echo "== Database on the database server, used by the PHP 5.3 website on the web server"
+db_server=$(sql "SELECT server_id FROM server WHERE server_name = 'db1.ispcp.test'")
+site=$(sql "SELECT domain_id FROM web_domain WHERE domain = 'php53.ispcp.test'")
+db_id=$(sql "SELECT database_id FROM web_database WHERE parent_domain_id = $site")
+if [ -z "$db_id" ]; then
+    db_user_id=$(api -X POST https://127.0.0.1:8090/api/v1/sites/database-users -d "{\"database_user\":\"e2e\",\"database_password\":\"Ansible-E2E-db-2026!\",\"client_id\":$client}" \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+    db_id=$(api -X POST https://127.0.0.1:8090/api/v1/sites/databases -d "{\"server_id\":$db_server,\"parent_domain_id\":$site,\"database_name\":\"e2e\",\"database_user_id\":$db_user_id}" \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+fi
+read -r db_name db_user remote_access remote_ips <<<"$(sql "SELECT d.database_name, u.database_user, d.remote_access, d.remote_ips FROM web_database d JOIN web_database_user u ON u.database_user_id = d.database_user_id WHERE d.database_id = $db_id")"
+echo "$db_name ($db_user): remote access $remote_access from $remote_ips"
+[ "$remote_access" = y ] && [[ ",$remote_ips," == *,10.231.80.11,* ]] || fail "the web server is not allowed to the database"
+for _ in $(seq 1 30); do on db1 mysql --defaults-file=/etc/mysql/debian.cnf -N -e "SHOW DATABASES LIKE '$db_name'" | grep -q . && break; sleep 10; done
+grants=$(on db1 mysql --defaults-file=/etc/mysql/debian.cnf -N -e "SELECT Host FROM mysql.user WHERE User = '$db_user' ORDER BY Host" | tr '\n' ' ')
+echo "MariaDB on db1 grants $db_user to: $grants"
+[[ " $grants" == *" 10.231.80.11 "* ]] || fail "db1 has no grant for the web server"
+root=$(sql "SELECT document_root FROM web_domain WHERE domain_id = $site")
+user=$(sql "SELECT system_user FROM web_domain WHERE domain_id = $site")
+on web1 sh -c "cat > $root/web/db.php <<'PHP'
+<?php
+\$link = mysql_connect('db1.ispcp.test', '$db_user', 'Ansible-E2E-db-2026!');
+echo \$link && mysql_select_db('$db_name', \$link) ? 'connected' : 'failed: ' . mysql_error();
+PHP
+chown $user: $root/web/db.php"
+connected=$(on web1 curl -fs -H 'Host: php53.ispcp.test' http://127.0.0.1/db.php || true)
+echo "PHP 5.3 website to db1.ispcp.test: $connected"
+[ "$connected" = connected ] || fail "the website cannot reach its database"
+
 echo "== Second run changes nothing"
 playbook >"$LOGS/second.log" 2>&1 || { tail -n 60 "$LOGS/second.log"; fail "second run"; }
 sed -n '/PLAY RECAP/,$p' "$LOGS/second.log"

@@ -48,6 +48,16 @@
   vars:
     ispconfig_all_servers: "{{ groups['ispconfig_panel'] | default([]) + groups['ispconfig_web'] | default([]) + groups['ispconfig_db'] | default([]) + groups['ispconfig_dns'] | default([]) }}"
 
+# The panel's MariaDB listens on ispconfig_address: on a public address the firewall alone keeps it private.
+- name: Warn when the panel's database would listen on a public address
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: ispconfig_address {{ ispconfig_ip }} is not a private address, and the master database listens on it.
+      Use a private network, or allow TCP 3306 there only from the ISPConfig servers.
+  when:
+    - "'panel' in ispconfig_services and 'db' not in ispconfig_services"
+    - ispconfig_ip is not match('^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|f[cd][0-9a-f]{2}:)', ignorecase=true)
+
 - name: Set the host name
   ansible.builtin.hostname:
     name: "{{ ispconfig_fqdn.split('.')[0] }}"

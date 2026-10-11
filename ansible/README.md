@@ -84,8 +84,7 @@ autoinstaller release has changed it. The values file holds secrets and is delet
 - ISPConfig marks every new server as a database server and the panel as a web server. The role sets the ISPConfig
   services (web and FTP, database, DNS) from the inventory groups, on every run, in the master database and in the
   server's own copy.
-- MariaDB listens on all addresses on the panel and the database servers, and on 127.0.0.1 elsewhere
-  (`ispconfig_mariadb_bind_address`).
+- MariaDB listens only where it has to; see [Private network and databases](#private-network-and-databases).
 - The autoinstaller is not versioned. Set `ispconfig_autoinstaller_sha256` to install only a copy you have reviewed.
 
 ## PHP versions on web servers
@@ -150,6 +149,37 @@ ns2.example.net
 `site.yml` then runs [`dns-catalog/ansible/secondary.yml`](../dns-catalog/ansible/secondary.yml) at the end. Its
 variables are described in the [DNS catalog guide](../dns-catalog/README.md#set-up-a-secondary-with-ansible).
 
+## Private network and databases
+
+Put the servers on a private network if your provider offers one, and set `ispconfig_address` to each server's private
+address. Ansible itself can keep connecting over the public address (`ansible_host`). Traffic between ISPConfig
+servers is unencrypted MariaDB: the servers read the panel's master database every minute, and websites query their
+databases on the database servers.
+
+MariaDB listens where it has to (`ispconfig_mariadb_bind_address`):
+
+| Server | MariaDB listens on |
+| --- | --- |
+| panel | 127.0.0.1 and `ispconfig_address`: the master database is reachable from the private network only (MariaDB before 10.11, i.e. Ubuntu 22.04, takes one address: `ispconfig_address`, local clients use the socket) |
+| database servers | all addresses: the web servers over the private network, customers with remote access from outside |
+| web and DNS servers | 127.0.0.1 |
+
+When the panel's `ispconfig_address` is not a private address, the role warns: the firewall must then keep 3306 to the
+ISPConfig servers.
+
+Databases of websites on another server work without manual steps:
+
+- Every server resolves the others' FQDNs to their `ispconfig_address` (`/etc/hosts`), and ISPConfig records that
+  address as each server's IP address (System > Server Config).
+- When a database is created for a website on another server, in ISPConfig, through ispconfig-rest or from WHMCS,
+  ISPConfig turns on remote access for the web server's address. Changes keep it.
+- Websites connect to the database server by its FQDN, which resolves to its private address on the web servers. The
+  WHMCS client area shows that name as the database host.
+- Customers who want their own remote access add their addresses to the database in WHMCS or ISPConfig; they connect
+  to the database server's public address.
+- Private addresses are not offered to customers: ispconfig-rest leaves them out of the addresses it reports for DNS
+  and connection details. Websites listen on `*` by default; do not assign private addresses to websites or DNS records.
+
 ## Firewall
 
 The autoinstaller installs ufw, and ISPConfig manages it once you add a firewall record for a server
@@ -157,9 +187,9 @@ The autoinstaller installs ufw, and ISPConfig manages it once you add a firewall
 
 | Server | Port | From |
 | --- | --- | --- |
-| panel | 3306/tcp (MariaDB) | all ISPConfig servers |
+| panel | 3306/tcp (MariaDB) | the ISPConfig servers (private network) |
 | panel | 8080/tcp (interface), 8090/tcp (ispconfig-rest) | administrators, WHMCS |
-| database servers | 3306/tcp | web servers |
+| database servers | 3306/tcp | web servers (private network); customers with remote access |
 | all servers | 22/tcp | the panel (server tools), administrators |
 | web servers | 21/tcp and `ispconfig_ftp_passive_ports` | FTP users |
 | DNS servers | 53/tcp+udp | everyone; transfers by TSIG key |

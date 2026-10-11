@@ -34,7 +34,11 @@ public ISPConfig autoinstaller; web servers need an FTP passive port range and P
 - The panel's MariaDB gets a join account (`ispconfig_join`, all privileges with grant option) per server address; it
   stays for ISPConfig updates of those servers. All servers are listed in `/etc/hosts` with the address they use.
 - Service flags (web/FTP, database, DNS) follow the groups on every run, in the master database and the server's copy.
-  MariaDB listens on all addresses only on the panel and database servers.
+  MariaDB (owner, 2026-10-11): the panel listens on loopback and `ispconfig_address` only (the private network;
+  MariaDB 10.11+ takes both, older only the address), database servers on all addresses for customers' remote
+  access, web and DNS servers on loopback; a warning when the panel's address is public. Databases of websites on
+  another server need no manual step: ISPConfig's server IP is `ispconfig_address`, ispconfig-rest adds it to the
+  database's remote access (legacy parity), and the WHMCS module names the database server as the host.
 - PHP: sury versions through the autoinstaller first, later additions installed and registered by the web role (as
   the autoinstaller does: master row, then copied with its ID). PHP 5.3.29 built from pinned sources with a static
   OpenSSL 1.0.2u and libcurl 7.88.1 into `/opt/php-5.3`, Debian-like configuration in `/etc/php/5.3`, `php5.3-fpm`

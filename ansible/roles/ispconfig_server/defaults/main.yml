@@ -48,8 +48,15 @@ ispconfig_interface_port: 8080
 ispconfig_master_db_admin_user: ispconfig_join
 ispconfig_master_db_admin_password: ""
 ispconfig_master_db_port: 3306
-# Bind address of MariaDB: the panel and the database servers serve remote clients, the others only themselves.
-ispconfig_mariadb_bind_address: "{{ '0.0.0.0' if ('panel' in ispconfig_services or 'db' in ispconfig_services) else '127.0.0.1' }}"
+# Where MariaDB listens. Database servers: all addresses, for the web servers and for customers' remote access
+# (ISPConfig grants each database user to its allowed addresses). The panel: loopback and ispconfig_address only, so
+# the master database is reachable from the private network, not from the internet (MariaDB before 10.11 takes one
+# address: ispconfig_address, local clients use the socket). Web and DNS servers: loopback only.
+ispconfig_mariadb_bind_address: >-
+  {{ '0.0.0.0' if 'db' in ispconfig_services
+     else (('127.0.0.1,' ~ ispconfig_ip) if ispconfig_mariadb_version is version('10.11', '>=') else ispconfig_ip)
+       if 'panel' in ispconfig_services
+     else '127.0.0.1' }}
 
 ispconfig_supported_os:
   - Debian 12
