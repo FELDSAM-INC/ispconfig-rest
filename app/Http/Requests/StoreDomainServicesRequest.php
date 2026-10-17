@@ -30,6 +30,8 @@ class StoreDomainServicesRequest extends SitesRequest
             'traffic_quota' => ['sometimes', 'integer'],
             'php' => ['sometimes', 'string'],
             'server_php_id' => ['sometimes', 'integer'],
+            // ISPConfig DNS template of a zone this request creates; without it the zone gets the built-in records
+            'dns_template_id' => ['sometimes', 'nullable', 'integer', Rule::exists('dns_template', 'template_id')->where('visible', 'Y')],
         ];
     }
 }

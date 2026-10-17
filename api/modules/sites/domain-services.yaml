@@ -47,7 +47,8 @@
       Alias mail requires an active primary mail domain and creates native alias routing.
       A 301 alias uses the parent's protocol and preferred domain and the server's engine.
       DNS starts with assigned name servers, website IP addresses when available and
-      an MX for an active mail domain. Existing DNS records are retained.
+      an MX for an active mail domain, or with the records of `dns_template_id`. Existing
+      DNS zones and records are retained.
       Requires the allow_alias_without_dns API migration.
     requestBody:
       required: true
@@ -67,6 +68,14 @@
               traffic_quota: {type: integer, description: Website traffic quota in MiB}
               php: {type: string}
               server_php_id: {type: integer}
+              dns_template_id:
+                type: integer
+                nullable: true
+                description: |
+                  Visible ISPConfig DNS template (see GET /dns/zone-templates) for a zone this
+                  request creates; its placeholders are filled from the account's servers (website
+                  or default web server addresses, the DNS server's name servers, hostmaster@domain).
+                  422 when the template needs a value the account's servers do not provide.
     responses:
       '201':
         description: Registered domain and queued ISPConfig changes
@@ -104,6 +113,14 @@
             properties:
               domain: {type: string, maxLength: 253}
               service: {type: string, enum: [dns, mail]}
+              dns_template_id:
+                type: integer
+                nullable: true
+                description: |
+                  Visible ISPConfig DNS template (see GET /dns/zone-templates) for a zone this
+                  request creates; its placeholders are filled from the account's servers (website
+                  or default web server addresses, the DNS server's name servers, hostmaster@domain).
+                  422 when the template needs a value the account's servers do not provide.
     responses:
       '200':
         description: Service is active or its activation is queued

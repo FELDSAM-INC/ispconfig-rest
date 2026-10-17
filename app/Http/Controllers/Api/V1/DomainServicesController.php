@@ -30,8 +30,9 @@ class DomainServicesController extends Controller
 
     public function activate(Request $request): JsonResponse
     {
-        $fields = $request->validate(['domain' => ['required', 'string', 'max:253'], 'service' => ['required', Rule::in(['dns', 'mail'])]]);
-        $this->service->activate(strtolower($fields['domain']), $fields['service']);
+        $fields = $request->validate(['domain' => ['required', 'string', 'max:253'], 'service' => ['required', Rule::in(['dns', 'mail'])],
+            'dns_template_id' => ['sometimes', 'nullable', 'integer', Rule::exists('dns_template', 'template_id')->where('visible', 'Y')]]);
+        $this->service->activate(strtolower($fields['domain']), $fields['service'], isset($fields['dns_template_id']) ? (int) $fields['dns_template_id'] : null);
 
         return response()->json(['domain' => $fields['domain'], 'service' => $fields['service']]);
     }

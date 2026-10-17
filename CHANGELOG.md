@@ -5,6 +5,13 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Added
+
+- `POST /sites/domain-services` and its activation accept `dns_template_id`: a new zone gets the records of a visible
+  ISPConfig DNS template, its placeholders filled from the account's servers (the website's or the default web
+  server's addresses, the DNS server's name servers, `hostmaster@` the domain). Without it the zone gets the built-in
+  records as before; a template needing a value the servers do not provide is refused with 422.
+
 ## [1.2.1] - 2026-10-17
 
 A fix for multiserver setups. Requires PHP 8.3 or newer and ISPConfig 3.3; works with the hosting extension 1.0.2.

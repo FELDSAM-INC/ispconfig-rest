@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\ProblemAuthorizationException;
+use App\Http\Requests\StoreDnsSoaFromTemplateRequest;
 use App\Http\Requests\StoreDnsSoaRequest;
 use App\Http\Requests\StoreMailDomainRequest;
 use App\Http\Requests\StoreWebChildDomainRequest;
@@ -10,6 +11,7 @@ use App\Http\Requests\StoreWebDomainRequest;
 use App\Models\ClientDomain;
 use App\Models\DnsRecord;
 use App\Models\DnsSoa;
+use App\Models\DnsTemplate;
 use App\Models\MailDomain;
 use App\Models\WebChildDomain;
 use App\Models\WebDomain;
@@ -95,15 +97,15 @@ class DomainServicesService
                     $website->save();
                 }
             }
-            $this->services($name, (bool) $input['dns_service'], (bool) $input['mail_service'], $website);
+            $this->services($name, (bool) $input['dns_service'], (bool) $input['mail_service'], $website, isset($input['dns_template_id']) ? (int) $input['dns_template_id'] : null);
 
             return ['domain' => $name, 'hosting_type' => $input['hosting_type'], 'website_id' => $website?->id];
         });
     }
 
-    public function activate(string $name, string $service): void
+    public function activate(string $name, string $service, ?int $templateId = null): void
     {
-        DB::transaction(function () use ($name, $service) {
+        DB::transaction(function () use ($name, $service, $templateId) {
             $group = $this->group();
             $client = DB::table('client')->where('client_id', $this->context->authScope()->clientId)->lockForUpdate()->first();
             if (($client->locked ?? 'n') === 'y') {
@@ -118,7 +120,7 @@ class DomainServicesService
             abort_unless($known, 404);
             $website = WebDomain::query()->readable()->where('sys_groupid', $group)->where('domain', $name)->first()
                 ?? WebChildDomain::query()->readable()->where('sys_groupid', $group)->where('domain', $name)->first();
-            $this->services($name, $service === 'dns', $service === 'mail', $website);
+            $this->services($name, $service === 'dns', $service === 'mail', $website, $templateId);
         });
     }
 
@@ -131,7 +133,7 @@ class DomainServicesService
         }
     }
 
-    private function services(string $name, bool $dns, bool $mail, $website): void
+    private function services(string $name, bool $dns, bool $mail, $website, ?int $templateId = null): void
     {
         if ($website !== null && in_array($website->type, ['alias', 'vhostalias'], true)) {
             $payload = ['dns_service' => $dns];
@@ -166,11 +168,14 @@ class DomainServicesService
             }
         }
         if ($dns) {
-            $this->dns($name, $website);
+            $this->dns($name, $website, $templateId);
         }
     }
 
-    private function dns(string $name, $website): void
+    /**
+     * @param  int|null  $templateId  ISPConfig DNS template of the new zone; null for the built-in records
+     */
+    private function dns(string $name, $website, ?int $templateId = null): void
     {
         $zone = DnsSoa::query()->readable()->where('origin', $name.'.')->first();
         if ($zone !== null) {
@@ -186,6 +191,23 @@ class DomainServicesService
         if (empty($server['nameservers'])) {
             throw ValidationException::withMessages(['dns_service' => 'No DNS server and name servers are assigned to this account.']);
         }
+        if ($templateId !== null) {
+            $zone = $this->zoneFromTemplate($name, $website, $templateId, $addresses, $server);
+        } else {
+            $zone = $this->zoneWithRecords($name, $website, $addresses, $server);
+        }
+        $mail = MailDomain::query()->readable()->where('domain', $name)->where('active', 'y')->first();
+        if ($mail !== null) {
+            $this->mailRecord($zone, $mail, $addresses);
+            app(MailDomainService::class)->syncDnsAfterInsert($mail);
+        }
+        // A new serial once every record exists, so a secondary that copied the zone while it was being built updates
+        app(DnsSerialService::class)->bumpZoneSerial((int) $zone->getKey());
+    }
+
+    /** The built-in zone: the account's name servers and the website's addresses for the domain and www. */
+    private function zoneWithRecords(string $name, $website, array $addresses, array $server): DnsSoa
+    {
         $zone = new DnsSoa($this->validate(StoreDnsSoaRequest::class, ['origin' => $name.'.', 'ns' => rtrim($server['nameservers'][0]['name'], '.').'.', 'mbox' => 'hostmaster.'.$name.'.', 'active' => true]));
         $zone->serial = app(DnsSerialService::class)->increaseSerial(null);
         $zone->save();
@@ -204,13 +226,53 @@ class DomainServicesService
                 }
             }
         }
-        $mail = MailDomain::query()->readable()->where('domain', $name)->where('active', 'y')->first();
-        if ($mail !== null) {
-            $this->mailRecord($zone, $mail, $addresses);
-            app(MailDomainService::class)->syncDnsAfterInsert($mail);
+
+        return $zone;
+    }
+
+    /**
+     * The zone from an ISPConfig DNS template (the wizard of POST /dns/soa/from-template), its placeholders filled from
+     * the account's servers: the website's (or the default web server's) addresses, the DNS server's name servers and
+     * hostmaster@domain. The signature and DNSSEC are left to the mail domain and the zone settings.
+     */
+    private function zoneFromTemplate(string $name, $website, int $templateId, array $addresses, array $server): DnsSoa
+    {
+        $template = DnsTemplate::query()->where('visible', 'Y')->findOrFail($templateId);
+        $web = $website !== null
+            ? collect($addresses['web'])->firstWhere('server_id', (int) $website->server_id)
+            : collect($addresses['web'])->firstWhere('is_default', true);
+        $address = function (string $field, string $family, int $flag) use ($website, $web): ?string {
+            $own = $website?->$field;
+
+            return filter_var($own, FILTER_VALIDATE_IP, $flag) ? $own : ($web[$family][0] ?? null);
+        };
+        $available = [
+            'ip' => $address('ip_address', 'ipv4', FILTER_FLAG_IPV4),
+            'ipv6' => $address('ipv6_address', 'ipv6', FILTER_FLAG_IPV6),
+            'ns1' => isset($server['nameservers'][0]) ? rtrim($server['nameservers'][0]['name'], '.') : null,
+            'ns2' => isset($server['nameservers'][1]) ? rtrim($server['nameservers'][1]['name'], '.') : null,
+            'email' => 'hostmaster@'.$name,
+            'dkim' => false,
+            'dnssec' => false,
+        ];
+        $fields = ['template_id' => $templateId, 'domain' => $name, 'server_id' => (int) $server['server_id']];
+        foreach (explode(',', (string) $template->fields) as $token) {
+            $field = StoreDnsSoaFromTemplateRequest::PLACEHOLDER_FIELDS[strtoupper(trim($token))] ?? null;
+            if ($field === null || $field === 'domain') {
+                continue;
+            }
+            if ($available[$field] === null) {
+                throw ValidationException::withMessages(['dns_template_id' => 'The DNS zone template needs '.strtoupper(trim($token)).', which the servers of this account do not provide.']);
+            }
+            $fields[$field] = $available[$field];
         }
-        // A new serial once every record exists, so a secondary that copied the zone while it was being built updates
-        app(DnsSerialService::class)->bumpZoneSerial((int) $zone->getKey());
+        try {
+            $request = $this->request(StoreDnsSoaFromTemplateRequest::class, $fields);
+        } catch (ValidationException $e) {
+            throw ValidationException::withMessages(['dns_template_id' => $e->validator->errors()->first()]);
+        }
+
+        return app(DnsZoneWizardService::class)->create($request->template(), $request->placeholderValues(), (int) $request->validated('server_id'));
     }
 
     private function mailRecord(DnsSoa $zone, MailDomain $mail, array $addresses): void
@@ -239,11 +301,22 @@ class DomainServicesService
     /** Reuse the same defaults, permissions and validation as the individual resource endpoints. */
     private function validate(string $class, array $fields): array
     {
+        return $this->request($class, $fields)->validated();
+    }
+
+    /**
+     * @template T of FormRequest
+     *
+     * @param  class-string<T>  $class
+     * @return T the validated request
+     */
+    private function request(string $class, array $fields): FormRequest
+    {
         /** @var FormRequest $request */
         $request = $class::create('/api/v1/sites/domain-services', 'POST', $fields);
         $request->setContainer(app())->setRedirector(app('redirect'));
         $request->validateResolved();
 
-        return $request->validated();
+        return $request;
     }
 }
