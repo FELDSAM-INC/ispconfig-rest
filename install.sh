@@ -163,11 +163,13 @@ detect_web_user() {
   elif id nginx >/dev/null 2>&1; then echo nginx
   else echo www-data; fi
 }
-# Find a php-fpm >= MIN_PHP: sets FPM_POOL_DIR, FPM_SERVICE. Returns 1 if none.
+# Find the php-fpm of the PHP CLI in use (its extensions were checked), else another >= MIN_PHP: sets FPM_POOL_DIR,
+# FPM_SERVICE. Returns 1 if none.
 detect_fpm() {
-  local v
-  for v in 8.5 8.4 8.3; do
+  local v cli="${PHP_VER%.*}"
+  for v in "$cli" 8.5 8.4 8.3; do
     if [ -d "/etc/php/$v/fpm/pool.d" ]; then
+      [ "$v" = "$cli" ] || warn "php$cli-fpm not found; using php$v-fpm, whose extensions were not checked (install php$cli-fpm)."
       FPM_POOL_DIR="/etc/php/$v/fpm/pool.d"
       systemctl list-unit-files "php$v-fpm.service" >/dev/null 2>&1 && FPM_SERVICE="php$v-fpm" || FPM_SERVICE="php-fpm"
       return 0

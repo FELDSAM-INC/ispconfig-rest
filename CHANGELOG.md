@@ -5,6 +5,12 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Fixed
+
+- The installer served the API with the newest PHP-FPM on the server, not the one of the PHP CLI it checked
+  (`--php`). On Ubuntu 26.04, whose default PHP is 8.5, an API installed for PHP 8.3 then ran on PHP-FPM 8.5
+  without its extensions. It now uses the matching PHP-FPM and warns when it has to use another.
+
 ## [1.1.0] - 2026-10-11
 
 This release makes the repository the ISPConfig REST API alone. The features of the FeldHost hosting deployment —
