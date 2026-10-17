@@ -32,6 +32,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('sites/domain-services', [DomainServicesController::class, 'index']);
 Route::post('sites/domain-services', [DomainServicesController::class, 'store']);
 Route::post('sites/domain-services/activate', [DomainServicesController::class, 'activate']);
+Route::delete('sites/domain-services/{domain}', [DomainServicesController::class, 'destroy'])->where('domain', '[A-Za-z0-9.-]{1,253}');
 
 // Website backups — api/modules/sites/web-backups.yaml (feature 018), most specific first.
 // scope.backup (vhost-only 404, limit_backup 403) runs after route-model binding.

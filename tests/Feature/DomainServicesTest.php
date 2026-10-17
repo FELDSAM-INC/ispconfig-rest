@@ -130,6 +130,61 @@ class DomainServicesTest extends SitesApiTestCase
             ->assertJsonValidationErrors('dns_template_id');
     }
 
+    public function test_removing_a_dns_only_domain_deletes_its_zone_records_and_registration(): void
+    {
+        $this->create(['dns_service' => true])->assertCreated();
+        $zone = DB::table('dns_soa')->where('origin', 'new.test.')->value('id');
+        $this->assertGreaterThan(0, DB::table('dns_rr')->where('zone', $zone)->count());
+        $before = (int) DB::table('sys_datalog')->max('datalog_id');
+
+        $this->deleteJson(self::URL.'/new.test', [], $this->tenantHeaders('clientA'))->assertNoContent();
+
+        $this->assertDatabaseMissing('dns_soa', ['origin' => 'new.test.']);
+        $this->assertSame(0, DB::table('dns_rr')->where('zone', $zone)->count());
+        $this->assertDatabaseMissing('domain', ['domain' => 'new.test']);
+        $rows = DB::table('sys_datalog')->where('datalog_id', '>', $before)->orderBy('datalog_id')->get();
+        $this->assertSame(['dns_soa', 'u'], [$rows->first()->dbtable, $rows->first()->action], 'the zone goes inactive first');
+        $this->assertSame(['domain', 'd'], [$rows->last()->dbtable, $rows->last()->action]);
+        $this->assertSame(1, $rows->pluck('session_id')->unique()->count(), 'one change set');
+        $this->getJson(self::URL, $this->tenantHeaders('clientA'))->assertJsonCount(0, 'data');
+    }
+
+    public function test_removing_a_domain_deletes_its_mail_domain_with_mailboxes(): void
+    {
+        $this->create(['dns_service' => true, 'mail_service' => true])->assertCreated();
+        DB::table('mail_user')->insert($this->ownedBy('clientA', ['email' => 'info@new.test', 'server_id' => 1]));
+
+        $this->deleteJson(self::URL.'/new.test', [], $this->tenantHeaders('clientA'))->assertNoContent();
+
+        $this->assertDatabaseMissing('mail_domain', ['domain' => 'new.test']);
+        $this->assertDatabaseMissing('mail_user', ['email' => 'info@new.test']);
+        $this->assertDatabaseMissing('dns_soa', ['origin' => 'new.test.']);
+        $this->assertDatabaseMissing('domain', ['domain' => 'new.test']);
+    }
+
+    public function test_a_domain_with_a_website_or_of_another_account_is_not_removed(): void
+    {
+        $this->create(['hosting_type' => 'webhosting', 'dns_service' => true, 'hd_quota' => 100])->assertCreated();
+
+        $this->deleteJson(self::URL.'/new.test', [], $this->tenantHeaders('clientA'))->assertStatus(409);
+        $this->deleteJson(self::URL.'/new.test', [], $this->tenantHeaders('clientB'))->assertStatus(409);
+        $this->deleteJson(self::URL.'/unknown.test', [], $this->tenantHeaders('clientA'))->assertNotFound();
+
+        $this->assertDatabaseHas('web_domain', ['domain' => 'new.test']);
+        $this->assertDatabaseHas('dns_soa', ['origin' => 'new.test.']);
+        $this->assertDatabaseHas('domain', ['domain' => 'new.test']);
+    }
+
+    public function test_a_locked_account_cannot_remove_a_domain(): void
+    {
+        $this->create(['dns_service' => true])->assertCreated();
+        DB::table('client')->where('client_id', $this->tenant('clientA')['client_id'])->update(['locked' => 'y']);
+
+        $this->deleteJson(self::URL.'/new.test', [], $this->tenantHeaders('clientA'))->assertForbidden();
+
+        $this->assertDatabaseHas('dns_soa', ['origin' => 'new.test.']);
+    }
+
     private function template(string $fields, string $records, string $visible = 'Y'): int
     {
         ServerSchema::create();

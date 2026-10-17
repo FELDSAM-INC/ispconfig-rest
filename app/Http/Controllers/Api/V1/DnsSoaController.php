@@ -160,22 +160,7 @@ class DnsSoaController extends Controller
      */
     public function destroy(DnsSoa $dnsSoa): Response
     {
-        DB::transaction(function () use ($dnsSoa): void {
-            // Legacy dns_soa_del.php:41-51 — the zone is journaled as inactive
-            // first (the DNS server drops the zone file), then every resource
-            // record of the zone is deleted, then the zone row itself
-            // (tform_actions::onDelete). Spec 034: one transaction, one change
-            // set; the per-record serial bump of dns_rr_del.php does not apply
-            // to the cascade.
-            $dnsSoa->active = false;
-            $dnsSoa->save();
-
-            foreach ($dnsSoa->records()->orderBy('id')->get() as $record) {
-                $record->delete();
-            }
-
-            $dnsSoa->delete();
-        });
+        DB::transaction(fn () => $dnsSoa->deleteWithRecords());
 
         return response()->noContent();
     }

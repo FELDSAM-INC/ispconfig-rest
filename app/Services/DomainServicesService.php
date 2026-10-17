@@ -124,6 +124,39 @@ class DomainServicesService
         });
     }
 
+    /**
+     * Removes a domain without hosting from the account: its DNS zone with every record, its mail domain with the
+     * mailboxes and addresses, and its registration. A domain with a website or alias keeps everything (delete the
+     * website first). The registration is removed through the datalog although the account may only read it (legacy
+     * Domains module), as this endpoint registers it on the account's behalf.
+     */
+    public function remove(string $name): void
+    {
+        DB::transaction(function () use ($name) {
+            $group = $this->group();
+            $client = DB::table('client')->where('client_id', $this->context->authScope()->clientId)->lockForUpdate()->first();
+            if (($client->locked ?? 'n') === 'y') {
+                throw new ProblemAuthorizationException(LockedClientGuard::MESSAGE, ProblemType::ACCOUNT_LOCKED);
+            }
+            $this->assertOwnership($name, $group);
+            if (DB::table('web_domain')->where('domain', $name)->exists()) {
+                throw new ConflictHttpException('This domain has a website or alias. Delete the website first.');
+            }
+            $zone = DnsSoa::query()->readable()->where('sys_groupid', $group)->where('origin', $name.'.')->first();
+            $mail = MailDomain::query()->readable()->where('sys_groupid', $group)->where('domain', $name)->first();
+            $registered = ClientDomain::query()->readable()->where('sys_groupid', $group)->where('domain', $name)->first();
+            abort_if($zone === null && $mail === null && $registered === null, 404);
+
+            $zone?->deleteWithRecords();
+            if ($mail !== null) {
+                app(MailDomainService::class)->deleteWithCascade($mail);
+            }
+            if ($registered !== null) {
+                app(DatalogService::class)->deleteRecord('domain', 'domain_id', (int) $registered->getKey());
+            }
+        });
+    }
+
     private function assertOwnership(string $name, int $group): void
     {
         foreach (['domain' => 'domain', 'web_domain' => 'domain', 'mail_domain' => 'domain', 'dns_soa' => 'origin'] as $table => $field) {

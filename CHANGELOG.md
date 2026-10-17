@@ -5,6 +5,12 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Added
+
+- `DELETE /sites/domain-services/{domain}` removes a domain without hosting from the account in one change set: its
+  DNS zone with every record, its mail domain with all mailboxes and addresses, and its registration. A domain with a
+  website or alias is refused (409).
+
 ## [1.3.0] - 2026-10-17
 
 Zones of new domains from ISPConfig DNS templates. No migrations. Requires PHP 8.3 or newer and ISPConfig 3.3; works

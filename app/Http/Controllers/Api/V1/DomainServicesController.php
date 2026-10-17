@@ -7,6 +7,7 @@ use App\Http\Requests\StoreDomainServicesRequest;
 use App\Services\DomainServicesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
 
 class DomainServicesController extends Controller
@@ -26,6 +27,13 @@ class DomainServicesController extends Controller
     public function store(StoreDomainServicesRequest $request): JsonResponse
     {
         return response()->json($this->service->create($request->validated()), 201);
+    }
+
+    public function destroy(string $domain): Response
+    {
+        $this->service->remove(strtolower($domain));
+
+        return response()->noContent();
     }
 
     public function activate(Request $request): JsonResponse

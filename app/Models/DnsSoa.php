@@ -105,6 +105,23 @@ class DnsSoa extends BaseModel
     ];
 
     /**
+     * Legacy dns_soa_del.php:41-51: the zone is journaled as inactive first (the DNS server drops the zone file), then
+     * every resource record of the zone is deleted, then the zone row itself. Call inside a transaction (spec 034: one
+     * change set; the per-record serial bump of dns_rr_del.php does not apply to the cascade).
+     */
+    public function deleteWithRecords(): void
+    {
+        $this->active = false;
+        $this->save();
+
+        foreach ($this->records()->orderBy('id')->get() as $record) {
+            $record->delete();
+        }
+
+        $this->delete();
+    }
+
+    /**
      * The zone's resource records (dns_rr.zone).
      */
     public function records(): HasMany

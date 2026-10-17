@@ -131,3 +131,24 @@
       '404': {description: Domain not owned by the account}
       '409': {description: Conflicting ownership or alias routing}
       '422': {description: Invalid service or missing configuration}
+/sites/domain-services/{domain}:
+  delete:
+    tags: [Web Domains]
+    summary: Remove a domain without hosting from this account
+    description: |
+      Uses a client account key. Deletes, in one transaction, the account's DNS zone of the
+      domain with every record, its mail domain with all mailboxes, addresses and their mail,
+      and its registration in ISPConfig's domain table. A domain with a website or alias is
+      refused; delete the website first. ISPConfig applies the removal asynchronously, as for
+      other datalog writes.
+    parameters:
+      - {name: domain, in: path, required: true, schema: {type: string, maxLength: 253}, description: Domain name (ASCII)}
+    responses:
+      '204':
+        description: The domain and its services are being removed
+        headers:
+          X-Change-Set-Id:
+            $ref: '../../components/headers/ChangeSetId.yaml'
+      '403': {description: Locked account}
+      '404': {description: Domain not known to the account}
+      '409': {description: 'The domain has a website or alias, or belongs to another account'}
