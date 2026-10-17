@@ -5,6 +5,19 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-17
+
+A fix for multiserver setups. Requires PHP 8.3 or newer and ISPConfig 3.3; works with the hosting extension 1.0.2.
+
+### Fixed
+
+- The DNS records of a zone created with a domain (`POST /sites/domain-services` and its activation) were saved for
+  server 1 instead of the zone's name server. ISPConfig hands a server only the changes of its own server ID, so on a
+  setup with a separate DNS server the name server got the zone without any records (single-server installations were
+  not affected). The records now carry the zone's server and owner, and the zone gets a new serial once they exist.
+  `ispconfig-rest update` repairs existing records: a migration moves them to their zone's server through the
+  datalog, so the name server receives them, and gives each such zone a new serial.
+
 ## [1.2.0] - 2026-10-17
 
 `GET /me` now tells a panel which services the account has a server for. No migrations. The hosting extension needs
