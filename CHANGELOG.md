@@ -5,6 +5,12 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Added
+
+- `GET /me` reports `services`: whether the account has a server for web, mail, databases and DNS (the lists of
+  `GET /me/servers` are not empty; for admin keys, whether the installation has such a server). A panel can leave out
+  mail, for example, on an installation or a plan without a mail server, without another request.
+
 ## [1.1.1] - 2026-10-17
 
 A fix for the installer on servers with several PHP versions, such as Ubuntu 26.04 (default PHP 8.5). No migrations;

@@ -58,3 +58,15 @@ properties:
     nullable: true
     description: Public ISPConfig interface URL, discovered from the master's panel vhost; null when unavailable. Contains no credentials.
     example: https://panel.example.com:8080/
+  services:
+    type: object
+    description: >-
+      Whether the account has a server for each service: the lists of `GET /me/servers` are not empty (admin keys:
+      the installation has an eligible server). A panel can leave out mail, for example, when it is `false`.
+    required: [web, mail, db, dns]
+    properties:
+      web: {type: boolean}
+      mail: {type: boolean}
+      db: {type: boolean}
+      dns: {type: boolean}
+    example: {web: true, mail: false, db: true, dns: true}

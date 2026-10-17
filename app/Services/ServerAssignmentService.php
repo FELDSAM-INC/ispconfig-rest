@@ -120,6 +120,24 @@ class ServerAssignmentService
     }
 
     /**
+     * Whether the scope has a server for each service (GET /me): non-admin, a valid assigned server; admin, an eligible
+     * (non-mirror) server in the installation.
+     *
+     * @return array{web: bool, mail: bool, db: bool, dns: bool}
+     */
+    public function availableServices(AuthScope $scope): array
+    {
+        $available = [];
+        foreach (self::SERVICES as $service => $definition) {
+            $available[$service] = $scope->isAdmin
+                ? DB::table('server')->where($definition['flag'], 1)->where('mirror_server_id', 0)->exists()
+                : $this->assignedServerIds($scope, $service) !== [];
+        }
+
+        return $available;
+    }
+
+    /**
      * Human label of a service key for validation messages.
      */
     public function serviceLabel(string $service): string

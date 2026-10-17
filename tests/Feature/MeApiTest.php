@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ApiKey;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\TenantFixtures;
 use Tests\Support\TenantSchema;
 use Tests\TestCase;
@@ -46,6 +47,7 @@ class MeApiTest extends TestCase
                 'access' => 'full',
                 'zones' => [],
                 'panel_url' => null,
+                'services' => ['web' => false, 'mail' => false, 'db' => false, 'dns' => false],
             ]);
     }
 
@@ -65,6 +67,7 @@ class MeApiTest extends TestCase
                 'access' => 'full',
                 'zones' => [],
                 'panel_url' => null,
+                'services' => ['web' => false, 'mail' => false, 'db' => false, 'dns' => false],
             ]);
     }
 
@@ -99,6 +102,7 @@ class MeApiTest extends TestCase
                 'access' => 'full',
                 'zones' => [],
                 'panel_url' => null,
+                'services' => ['web' => false, 'mail' => false, 'db' => false, 'dns' => false],
             ]);
     }
 
@@ -108,6 +112,23 @@ class MeApiTest extends TestCase
 
         $this->getJson('/api/v1/me', $this->tenantHeaders('clientA'))->assertStatus(401);
         $this->getJson('/api/v1/me')->assertStatus(401);
+    }
+
+    public function test_services_follow_the_assigned_servers_of_the_account(): void
+    {
+        DB::table('server')->insert([
+            ['server_id' => 11, 'server_name' => 'web1', 'web_server' => 1, 'mail_server' => 0, 'dns_server' => 0, 'mirror_server_id' => 0],
+            ['server_id' => 12, 'server_name' => 'mail1', 'web_server' => 0, 'mail_server' => 1, 'dns_server' => 0, 'mirror_server_id' => 0],
+            ['server_id' => 13, 'server_name' => 'ns1-mirror', 'web_server' => 0, 'mail_server' => 0, 'dns_server' => 1, 'mirror_server_id' => 14],
+        ]);
+        // No mail server for the account; its DNS server is a mirror, which is not usable on its own.
+        DB::table('client')->where('client_id', $this->tenant('clientA')['client_id'])
+            ->update(['web_servers' => '11', 'mail_servers' => '', 'dns_servers' => '13']);
+
+        $this->getJson('/api/v1/me', $this->tenantHeaders('clientA'))->assertOk()
+            ->assertJsonPath('services', ['web' => true, 'mail' => false, 'db' => false, 'dns' => false]);
+        $this->getJson('/api/v1/me', $this->tenantHeaders('admin'))->assertOk()
+            ->assertJsonPath('services', ['web' => true, 'mail' => true, 'db' => false, 'dns' => false]);
     }
 
     public function test_public_panel_url_is_visible_to_scoped_keys_without_credentials(): void
