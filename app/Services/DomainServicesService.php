@@ -209,6 +209,8 @@ class DomainServicesService
             $this->mailRecord($zone, $mail, $addresses);
             app(MailDomainService::class)->syncDnsAfterInsert($mail);
         }
+        // A new serial once every record exists, so a secondary that copied the zone while it was being built updates
+        app(DnsSerialService::class)->bumpZoneSerial((int) $zone->getKey());
     }
 
     private function mailRecord(DnsSoa $zone, MailDomain $mail, array $addresses): void
@@ -225,7 +227,12 @@ class DomainServicesService
 
     private function record(DnsSoa $zone, string $name, string $type, string $data, int $priority = 0): void
     {
-        $record = new DnsRecord(['zone' => $zone->id, 'server_id' => $zone->server_id, 'name' => $name, 'type' => $type, 'data' => $data, 'aux' => $priority, 'ttl' => $zone->ttl, 'active' => true]);
+        $record = new DnsRecord(['zone' => $zone->id, 'name' => $name, 'type' => $type, 'data' => $data, 'aux' => $priority, 'ttl' => $zone->ttl, 'active' => true]);
+        // As DnsRecordController::store: server and owner come from the zone. server_id is not fillable, and a record
+        // left on the column default (server 1) is never replicated to the zone's name server in a multiserver setup.
+        $serial = app(DnsSerialService::class);
+        $record->forceFill(['server_id' => (int) $zone->server_id, 'sys_groupid' => (int) $zone->sys_groupid,
+            'stamp' => $serial->timestamp(), 'serial' => $serial->increaseSerial(null)]);
         $record->save();
     }
 

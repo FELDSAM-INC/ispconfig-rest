@@ -53,6 +53,32 @@ class DomainServicesTest extends SitesApiTestCase
         $this->assertSame(1, DB::table('sys_datalog')->distinct()->count('session_id'));
     }
 
+    /**
+     * Multiserver: a server only receives datalog rows of its own server_id, so the records of a new zone must carry
+     * the zone's name server, not the column default (server 1).
+     */
+    public function test_records_of_a_new_zone_go_to_its_name_server(): void
+    {
+        DB::table('server')->insert(['server_id' => 4, 'server_name' => 'ns.host.test', 'dns_server' => 1, 'mirror_server_id' => 0, 'active' => 1]);
+        $this->assignServers('clientA', ['web' => [1], 'dns' => [4], 'mail' => [1]]);
+
+        $this->create(['dns_service' => true, 'mail_service' => true])->assertCreated();
+
+        $zone = DB::table('dns_soa')->where('origin', 'new.test.')->first();
+        $this->assertSame(4, (int) $zone->server_id);
+        $records = DB::table('dns_rr')->where('zone', $zone->id)->get();
+        $this->assertNotEmpty($records);
+        foreach ($records as $record) {
+            $this->assertSame(4, (int) $record->server_id, $record->type.' '.$record->name);
+            $this->assertSame((int) $zone->sys_groupid, (int) $record->sys_groupid);
+            $this->assertNotEmpty($record->serial);
+        }
+        $this->assertSame([4], DB::table('sys_datalog')->whereIn('dbtable', ['dns_soa', 'dns_rr'])->distinct()->pluck('server_id')->map(fn ($id) => (int) $id)->all());
+        $last = DB::table('sys_datalog')->where('dbtable', 'dns_soa')->orderByDesc('datalog_id')->first();
+        $this->assertSame('u', $last->action, 'the zone gets a new serial once its records exist');
+        $this->assertGreaterThan(DB::table('sys_datalog')->where('dbtable', 'dns_rr')->max('datalog_id'), $last->datalog_id);
+    }
+
     public function test_website_with_both_services(): void
     {
         $this->create(['hosting_type' => 'webhosting', 'dns_service' => true, 'mail_service' => true, 'hd_quota' => 100])->assertCreated();

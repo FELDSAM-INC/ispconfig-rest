@@ -23,6 +23,26 @@ class AliasServicesService
 
     private ?array $links = null;
 
+    /**
+     * Runs writes that change only ISPConfig bookkeeping, not DNS content (a repair of record servers): no alias guard
+     * and no synchronization of alias zones.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $writes
+     * @return T
+     */
+    public function withoutSynchronization(callable $writes): mixed
+    {
+        $internal = $this->internal;
+        $this->internal = true;
+        try {
+            return $writes();
+        } finally {
+            $this->internal = $internal;
+        }
+    }
+
     public function available(): bool
     {
         return $this->available ??= Schema::hasTable('api_alias_services');
