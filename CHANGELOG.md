@@ -5,6 +5,11 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-17
+
+Domains without hosting can be removed with their services. No migrations. Requires PHP 8.3 or newer and ISPConfig
+3.3; works with the hosting extension 1.0.2.
+
 ### Added
 
 - `DELETE /sites/domain-services/{domain}` removes a domain without hosting from the account in one change set: its
