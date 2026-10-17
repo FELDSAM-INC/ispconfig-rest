@@ -5,6 +5,11 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-17
+
+Zones of new domains from ISPConfig DNS templates. No migrations. Requires PHP 8.3 or newer and ISPConfig 3.3; works
+with the hosting extension 1.0.2.
+
 ### Added
 
 - `POST /sites/domain-services` and its activation accept `dns_template_id`: a new zone gets the records of a visible
