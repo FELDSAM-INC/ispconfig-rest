@@ -5,6 +5,12 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-17
+
+A fix for the installer on servers with several PHP versions, such as Ubuntu 26.04 (default PHP 8.5). No migrations;
+the hosting extension 1.0.0 works with it. Requires PHP 8.3 or newer and ISPConfig 3.3; the HTTP API continues to use
+`/api/v1`.
+
 ### Fixed
 
 - The installer served the API with the newest PHP-FPM on the server, not the one of the PHP CLI it checked
