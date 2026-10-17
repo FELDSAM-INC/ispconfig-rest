@@ -5,6 +5,12 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-17
+
+`GET /me` now tells a panel which services the account has a server for. No migrations. The hosting extension needs
+1.0.2 or newer (`ispconfig-rest update` updates it on its channel). Requires PHP 8.3 or newer and ISPConfig 3.3; the
+HTTP API continues to use `/api/v1`.
+
 ### Added
 
 - `GET /me` reports `services`: whether the account has a server for web, mail, databases and DNS (the lists of
