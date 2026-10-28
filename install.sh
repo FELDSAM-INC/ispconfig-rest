@@ -511,6 +511,24 @@ ok "Configuration cached"
 SERVE_BACKEND=""   # fpm — recorded for the manager
 WEB_SERVICE="${SERVICE_NAME}-web"
 WEB_STATE="/var/lib/${WEB_SERVICE}"
+
+# FPM inherits listening descriptors during a reload. Changing listen.owner,
+# listen.group or listen.mode in the pool does not update that existing inode.
+# This fixed /run path is created by the root FPM master, outside the API checkout.
+secure_fpm_socket() {
+  local attempt
+  for attempt in {1..100}; do
+    [ ! -L "$FPM_SOCK" ] || die "Refusing a symlink at the API FPM socket."
+    if [ -S "$FPM_SOCK" ]; then
+      chown --no-dereference "$RUN_USER:$RUN_USER" "$FPM_SOCK"
+      chmod 0600 "$FPM_SOCK"
+      return
+    fi
+    sleep 0.05
+  done
+  die "API FPM socket did not become ready: $FPM_SOCK"
+}
+
 write_fpm_pool() {
   local pool="$FPM_POOL_DIR/${SERVICE_NAME}.conf"
   cat > "$pool" <<EOF
@@ -533,6 +551,7 @@ php_admin_value[post_max_size] = 16M
 php_admin_flag[display_errors] = off
 EOF
   systemctl reload "$FPM_SERVICE" 2>/dev/null || systemctl restart "$FPM_SERVICE"
+  secure_fpm_socket
   SERVE_BACKEND="fpm"
   ok "php-fpm pool '${SERVICE_NAME}' → ${FPM_SOCK}"
 }

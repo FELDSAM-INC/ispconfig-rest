@@ -59,7 +59,7 @@ class IsolatedWebTests(unittest.TestCase):
                                WEB_STATE=str(cls.state), INSTALL_DIR=str(cls.root / 'app'),
                                ISPCONFIG_SSL_DIR=str(cls.root), FPM_SOCK=str(cls.sock),
                                FPM_POOL_DIR=str(cls.root), FPM_SERVICE='php8.3-fpm', HOSTNAME_FQDN='localhost')
-        subprocess.run(['bash', '-euc', 'systemctl(){ :; }; ok(){ :; };\n' +
+        subprocess.run(['bash', '-euc', 'systemctl(){ :; }; secure_fpm_socket(){ :; }; ok(){ :; };\n' +
                         installer_function('write_fpm_pool') + '\nwrite_fpm_pool'],
                        env=cls.environment, check=True)
         config = cls.root / 'fpm.conf'
@@ -99,11 +99,11 @@ class IsolatedWebTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('PermissionError', result.stderr)
 
-    def exercise_server(self, kind):
+    def exercise_server(self, kind, environment=None):
         with socket.socket() as port:
             port.bind(('127.0.0.1', 0))
             number = port.getsockname()[1]
-        env = dict(self.environment, PUBLIC_PORT=str(number))
+        env = dict(environment or self.environment, PUBLIC_PORT=str(number))
         # This optional bundle helper is a one-line function in the installer.
         generator = 'ssl_bundle_line_apache(){ :; };\n' + installer_function(kind + '_config')
         generated = subprocess.run(['bash', '-euc', generator + '\n' + kind + '_config'],
@@ -143,3 +143,45 @@ class IsolatedWebTests(unittest.TestCase):
 
     def test_apache_serves_only_the_api_entry_point(self):
         self.exercise_server('apache')
+
+    def test_existing_fpm_socket_changes_owner_on_reload(self):
+        directory = self.root / 'migration'
+        directory.mkdir()
+        sock = self.root / 'migration.sock'
+        pool = directory / (self.name + '.conf')
+        original = (self.root / (self.name + '.conf')).read_text()
+        pool.write_text(original.replace(self.user, 'www-data').replace(str(self.sock), str(sock))
+                        .replace('listen.mode = 0600', 'listen.mode = 0660'))
+        config = directory / 'fpm.conf'
+        log = directory / 'fpm.log'
+        config.write_text('[global]\nerror_log=' + str(log) + '\ninclude=' + str(pool) + '\n')
+        with (directory / 'output.log').open('w') as output:
+            process = subprocess.Popen(['php-fpm8.3', '-F', '-y', str(config)],
+                                       stdout=output, stderr=subprocess.STDOUT)
+            try:
+                for _ in range(100):
+                    if sock.exists(): break
+                    time.sleep(0.05)
+                self.assertTrue(sock.exists())
+                before = sock.stat()
+                self.assertEqual(before.st_uid, pwd.getpwnam('www-data').pw_uid)
+                env = dict(self.environment, FPM_SOCK=str(sock), FPM_POOL_DIR=str(directory),
+                           FPM_TEST_PID=str(process.pid))
+                # A real SIGUSR2 reload inherits the old listening descriptor. A fresh-start-only
+                # fixture cannot catch its stale owner/mode after moving away from www-data.
+                script = ('systemctl(){ [ "$1" = reload ]; kill -USR2 "$FPM_TEST_PID"; };\n'
+                          'ok(){ :; }; die(){ echo "$*" >&2; exit 1; };\n' +
+                          installer_function('secure_fpm_socket') + '\n' +
+                          installer_function('write_fpm_pool') + '\nwrite_fpm_pool')
+                subprocess.run(['bash', '-euc', script], env=env, check=True)
+                for _ in range(100):
+                    if log.read_text().count('ready to handle connections') >= 2: break
+                    time.sleep(0.05)
+                self.assertEqual(sock.stat().st_ino, before.st_ino, 'Must not restart shared FPM pools')
+                self.assertEqual(sock.stat().st_uid, self.identity.pw_uid)
+                self.assertEqual(sock.stat().st_gid, self.identity.pw_gid)
+                self.assertEqual(sock.stat().st_mode & 0o777, 0o600)
+                self.exercise_server('apache', env)
+                self.exercise_server('nginx', env)
+            finally:
+                self.stop_process(process)

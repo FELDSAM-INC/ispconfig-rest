@@ -5,6 +5,25 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-10-28
+
+### Fixed
+
+- Apply the dedicated API account and mode 0600 to the existing PHP-FPM socket after reloading its pool.
+  PHP-FPM inherits this socket on reload and leaves its previous ownership unchanged. Migrating from a
+  shared web-server account could therefore leave the API returning 502/503 despite an active web service.
+  The installer now repairs the socket without restarting other PHP-FPM pools.
+- Add a live migration regression test using an existing socket, a real FPM reload and HTTPS requests
+  through both Apache and nginx.
+
+### Upgrade notes
+
+- Use the 1.4.2 installer when migrating an existing deployment to the dedicated API identity. Hosting
+  1.1.4 remains current; no database migrations or WHMCS module changes are needed.
+- If a 1.4.1 migration left the API unavailable, restart its configured PHP-FPM service, or set the owner
+  of `/run/ispconfig-rest.sock` to the configured dedicated API account and its mode to `0600`. A deployment
+  already recovered this way needs no further service restart.
+
 ## [1.4.1] - 2026-10-28
 
 Security fixes and dependency updates. No migrations. Requires PHP 8.3 or newer and ISPConfig 3.3; works with the
