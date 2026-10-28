@@ -5,7 +5,7 @@
 # Installed to /usr/local/bin/ispconfig-rest by install.sh. Reads
 # /etc/ispconfig-rest/install.conf to locate the deployment.
 #
-#   ispconfig-rest update                 update current branch; keep release tags pinned
+#   ispconfig-rest update                 update the root-registered branch or release
 #   ispconfig-rest update --branch main   switch to the stable branch and update
 #   ispconfig-rest update --tag v1.0.1    install a specific release (detached HEAD)
 #   ispconfig-rest status                 service state, version, DB connectivity
@@ -48,12 +48,12 @@ CORE_REPOSITORY="https://github.com/FELDSAM-INC/ispconfig-rest.git"
 # Root-owned copies of command-line files, taken from verified published commits only.
 CLI_LIB="/usr/local/lib/ispconfig-rest-cli"
 
-# Fetch REF of REPOSITORY into STAGE/repository and prove that REVISION belongs to it: a public object reachable
-# only through a fork or pull request must not qualify as trusted code.
+# Fetch REF into private storage and require its exact commit. An ancestor is
+# insufficient: a service-owned checkout must not roll privileged code back.
 verified_fetch() { # STAGE REPOSITORY REF REVISION
   git init --bare "$1/repository" >/dev/null 2>&1 || return 1
   git -c core.hooksPath=/dev/null -c protocol.file.allow=never -C "$1/repository" fetch --no-tags "$2" "$3" || return 1
-  git -C "$1/repository" merge-base --is-ancestor "$4" FETCH_HEAD
+  [ "$4" = "$(git -C "$1/repository" rev-parse 'FETCH_HEAD^{commit}')" ]
 }
 
 # Refresh this manager from the installed release. Never install root-executed code directly from the web-owned
@@ -132,6 +132,11 @@ sync_timezone(){
 reload_server(){
   [ -n "${FPM_SERVICE:-}" ] && [ "${SERVE_BACKEND:-}" = "fpm" ] && \
     { systemctl reload "$FPM_SERVICE" 2>/dev/null || systemctl restart "$FPM_SERVICE"; ok "php-fpm ($FPM_SERVICE) reloaded"; }
+  if [ -n "${WEB_SERVICE:-}" ] && [ "${SERVE_MODE:-none}" != none ]; then
+    systemctl reload "$WEB_SERVICE" 2>/dev/null || systemctl restart "$WEB_SERVICE"
+    ok "API web service $WEB_SERVICE reloaded"
+    return
+  fi
   case "${SERVE_MODE:-}" in
     apache) apache2ctl configtest 2>/dev/null && { systemctl reload apache2 2>/dev/null || systemctl restart apache2; ok "apache reloaded"; } || warn "apache configtest failed";;
     nginx)  nginx -t 2>/dev/null && { systemctl reload nginx; ok "nginx reloaded"; } || warn "nginx configtest failed";;
@@ -165,11 +170,15 @@ cmd_status() {
   if [ "${SERVE_BACKEND:-}" = "fpm" ] && [ -n "${FPM_SERVICE:-}" ]; then
     systemctl is-active --quiet "$FPM_SERVICE" && ok "php-fpm: active ($FPM_SERVICE, pool $SERVICE_NAME)" || warn "php-fpm: inactive"
   fi
-  case "${SERVE_MODE:-}" in
-    apache) systemctl is-active --quiet apache2 && ok "apache: active (vhost :${PUBLIC_PORT:-?}, ${SERVE_BACKEND:-?})" || warn "apache: inactive";;
-    nginx)  systemctl is-active --quiet nginx && ok "nginx: active (vhost :${PUBLIC_PORT:-?})" || warn "nginx: inactive";;
-    *) info "serve mode: ${SERVE_MODE:-none} (unmanaged)";;
-  esac
+  if [ -n "${WEB_SERVICE:-}" ] && [ "${SERVE_MODE:-none}" != none ]; then
+    systemctl is-active --quiet "$WEB_SERVICE" && ok "API web service: active ($WEB_SERVICE)" || warn "API web service: inactive"
+  else
+    case "${SERVE_MODE:-}" in
+      apache) systemctl is-active --quiet apache2 && ok "apache: active (vhost :${PUBLIC_PORT:-?}, ${SERVE_BACKEND:-?})" || warn "apache: inactive";;
+      nginx)  systemctl is-active --quiet nginx && ok "nginx: active (vhost :${PUBLIC_PORT:-?})" || warn "nginx: inactive";;
+      *) info "serve mode: ${SERVE_MODE:-none} (unmanaged)";;
+    esac
+  fi
   if [ -n "${EXTENSIONS:-}" ]; then
     run_as "$PHP_BIN" artisan extension:list 2>/dev/null || warn "extensions: some are not loaded"
   fi
@@ -201,12 +210,11 @@ valid_release_tag() {
   [[ "$1" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] && git check-ref-format "refs/tags/$1" >/dev/null
 }
 
-# Switch the checkout in DIR (relative to the installation) to BRANCH or release TAG; with neither, keep its
-# current branch or pinned release. Sets SELECTED_REF (refs/heads/… or refs/tags/…) and SELECTED_NAME.
+# Switch the checkout to the explicitly selected trusted branch or release tag.
 checkout_channel() { # DIR BRANCH TAG
   local dir="$1" branch="$2" tag="$3" target
   local fetch_options=(--atomic)
-  if [ -z "$branch$tag" ]; then branch="$(run_as git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"; fi
+  [ -n "$branch$tag" ] || die "No trusted update channel selected."
   [ -z "$branch" ] || valid_update_branch "$branch" || die "Invalid update branch."
   [ -z "$tag" ] || valid_release_tag "$tag" || die "Expected a release tag such as v1.0.1."
   run_as git -C "$dir" diff --quiet && run_as git -C "$dir" diff --cached --quiet \
@@ -233,10 +241,6 @@ checkout_channel() { # DIR BRANCH TAG
     SELECTED_NAME="$branch"
   else
     run_as git -C "$dir" fetch "${fetch_options[@]}" origin 'refs/tags/*:refs/tags/*'
-    if [ -z "$tag" ]; then
-      tag="$(run_as git -C "$dir" describe --tags --exact-match --match 'v[0-9]*' HEAD 2>/dev/null || true)"
-      valid_release_tag "$tag" || die "Detached HEAD is not a release tag. Choose 'update --branch main' or 'update --tag VERSION'."
-    fi
     target="refs/tags/$tag"
     # The tag must still exist on origin, not only in the local tag cache.
     run_as git -C "$dir" ls-remote --exit-code --refs origin "$target" >/dev/null \
@@ -268,13 +272,25 @@ parse_channel() {
 update_checkout() {
   parse_channel "$@"
   [ ${#CHANNEL_REST[@]} -eq 0 ] || die "Unknown update option: ${CHANNEL_REST[0]} (try 'ispconfig-rest update --help')."
+  if [ -z "$CHANNEL_BRANCH$CHANNEL_TAG" ]; then
+    channel_from_ref "${RELEASE_REF:-refs/heads/${BRANCH:-main}}"
+  fi
   checkout_channel . "$CHANNEL_BRANCH" "$CHANNEL_TAG"
   RELEASE_REF="$SELECTED_REF"
   BRANCH="$SELECTED_NAME"
   # Both values are validated refs with no shell/sed metacharacters. Saved state
-  # is used for trusted worker provenance; it never overrides the next checkout.
+  # controls subsequent updates and trusted worker provenance.
   set_state BRANCH "$BRANCH"
   set_state RELEASE_REF "$RELEASE_REF"
+}
+
+# Only root-owned state or explicit operator flags select the privileged channel.
+channel_from_ref() {
+  case "$1" in
+    refs/heads/*) CHANNEL_BRANCH="${1#refs/heads/}"; CHANNEL_TAG="";;
+    refs/tags/*) CHANNEL_TAG="${1#refs/tags/}"; CHANNEL_BRANCH="";;
+    *) die "Invalid registered release channel. Select --branch or --tag explicitly.";;
+  esac
 }
 
 # ---------------------------------------------------------------------------
@@ -379,9 +395,11 @@ cmd_extension_install() {
 
 # Update NAME (or every installed extension) on its channel or the one selected; no migrations or reload.
 update_extensions() {
-  local names=("$@") name
+  local names=("$@") name selected_branch="$CHANNEL_BRANCH" selected_tag="$CHANNEL_TAG"
   for name in "${names[@]}"; do
     info "Updating extension $name"
+    CHANNEL_BRANCH="$selected_branch" CHANNEL_TAG="$selected_tag"
+    [ -n "$CHANNEL_BRANCH$CHANNEL_TAG" ] || channel_from_ref "$(extension_get "$name" REF)"
     checkout_channel "extensions/$name" "$CHANNEL_BRANCH" "$CHANNEL_TAG"
     set_state "$(extension_var "$name" REF)" "$SELECTED_REF"
     printf -v "$(extension_var "$name" REF)" '%s' "$SELECTED_REF"
@@ -450,7 +468,7 @@ extension_help() {
 cmd_update() {
   if [ "${1:-}" = --help ] || [ "${1:-}" = -h ]; then
     echo "Usage: ispconfig-rest update [--branch NAME | --tag VERSION]"
-    echo "Without options: update the current branch, or keep a detached release tag pinned."
+    echo "Without options: use the branch or release registered in root-owned install.conf."
     return
   fi
   need_root
@@ -489,6 +507,7 @@ cmd_logs() {
   # Prefer the app's own Laravel log; fall back to the Apache vhost error log.
   local applog="$INSTALL_DIR/storage/logs/laravel.log"
   local weblog="/var/log/apache2/${SERVICE_NAME}-error.log"
+  [ -z "${WEB_SERVICE:-}" ] || weblog="/var/log/${SERVICE_NAME}/web-error.log"
   if run_as test -f storage/logs/laravel.log; then
     if [ "${1:-}" = "-f" ]; then run_as tail -f storage/logs/laravel.log
     else run_as tail -n "${1:-50}" storage/logs/laravel.log; fi
@@ -506,6 +525,11 @@ cmd_artisan()       { need_root; shift || true; run_as "$PHP_BIN" artisan "$@"; 
 
 cmd_uninstall() {
   need_root
+  if [ -n "${WEB_SERVICE:-}" ]; then
+    systemctl disable --now "$WEB_SERVICE" 2>/dev/null || true
+    rm -f "/etc/systemd/system/${WEB_SERVICE}.service"
+    systemctl daemon-reload
+  fi
   # Web vhost
   case "${SERVE_MODE:-}" in
     apache) a2dissite "$SERVICE_NAME" >/dev/null 2>&1 || true

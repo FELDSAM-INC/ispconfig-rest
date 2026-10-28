@@ -44,7 +44,7 @@ RUN_USER="${ISPC_REST_USER:-ispconfig-rest}" # dedicated API identity
 EXTENSIONS=()                               # --extension NAME[@BRANCH|@vTAG], repeatable (spec 058)
 
 # Runtime DB (default: read from ISPConfig config)
-DB_HOST="" DB_PORT="" DB_NAME="" DB_USER="" DB_PASS="" DB_OVERRIDE=0
+DB_HOST="" DB_PORT="" DB_NAME="" DB_USER="" DB_PASS=""
 DB_PASS_FILE="" DB_ADMIN_PASS_FILE=""
 # Privileged DB login used ONLY to create api_keys (default: root via socket)
 DB_ADMIN_USER="${ISPC_REST_DB_ADMIN_USER:-root}"
@@ -129,11 +129,11 @@ while [ $# -gt 0 ]; do
     --url) APP_URL="$2"; shift 2;;
     --ispconfig-config) ISPCONFIG_CONFIG="$2"; shift 2;;
     --ssl-dir) ISPCONFIG_SSL_DIR="$2"; shift 2;;
-    --db-host) DB_HOST="$2"; DB_OVERRIDE=1; shift 2;;
-    --db-port) DB_PORT="$2"; DB_OVERRIDE=1; shift 2;;
-    --db-name) DB_NAME="$2"; DB_OVERRIDE=1; shift 2;;
-    --db-user) DB_USER="$2"; DB_OVERRIDE=1; shift 2;;
-    --db-pass-file) DB_PASS_FILE="$2"; DB_OVERRIDE=1; shift 2;;
+    --db-host) DB_HOST="$2"; shift 2;;
+    --db-port) DB_PORT="$2"; shift 2;;
+    --db-name) DB_NAME="$2"; shift 2;;
+    --db-user) DB_USER="$2"; shift 2;;
+    --db-pass-file) DB_PASS_FILE="$2"; shift 2;;
     --db-admin-user) DB_ADMIN_USER="$2"; shift 2;;
     --db-admin-pass-file) DB_ADMIN_PASS_FILE="$2"; shift 2;;
     --db-pass|--db-admin-pass) die "Password-valued arguments are not supported. Use $1-file with a private password file.";;
@@ -279,7 +279,7 @@ prepare_privileged_extensions() (
     stage="$(mktemp -d "$PRIVILEGED_STAGE/extension.XXXXXXXX")"
     git init --bare "$stage/repository" >/dev/null
     git -c core.hooksPath=/dev/null -c protocol.file.allow=never -C "$stage/repository" fetch --no-tags "$repository" "$ref"
-    git -C "$stage/repository" merge-base --is-ancestor "$revision" FETCH_HEAD || exit 1
+    [ "$revision" = "$(git -C "$stage/repository" rev-parse 'FETCH_HEAD^{commit}')" ] || exit 1
     mkdir -p "$PRIVILEGED_STAGE/app/extensions/$name"
     git -C "$stage/repository" archive "$revision" | tar -x -C "$PRIVILEGED_STAGE/app/extensions/$name"
   done
@@ -338,16 +338,23 @@ validate_runtime_identity
 # ---------------------------------------------------------------------------
 step "Runtime database credentials"
 read_conf() { "$PHP_BIN" -r '$c=$argv[1]; if(!is_file($c)){exit(1);} $conf=[]; include $c; echo $conf["db_'"$1"'"] ?? "";' "$ISPCONFIG_CONFIG" 2>/dev/null || true; }
-if [ "$DB_OVERRIDE" = "0" ] && [ -f "$ISPCONFIG_CONFIG" ]; then
-  DB_HOST="$(read_conf host)"; DB_PORT="$(read_conf port)"; DB_NAME="$(read_conf database)"
-  DB_USER="$(read_conf user)"; DB_PASS="$(read_conf password)"
-  [ -n "$DB_NAME" ] && ok "Read from ISPConfig: $DB_USER@$DB_HOST/$DB_NAME" || warn "Could not parse $ISPCONFIG_CONFIG"
-fi
-ask        DB_HOST "Database host" "${DB_HOST:-localhost}"
-ask        DB_PORT "Database port" "${DB_PORT:-3306}"
-ask        DB_NAME "Database name" "${DB_NAME:-dbispconfig}"
-ask        DB_USER "Runtime database user (CRUD)" "${DB_USER:-root}"
-ask_secret DB_PASS "Runtime database password" "$DB_PASS"
+load_runtime_database() {
+  if [ -f "$ISPCONFIG_CONFIG" ]; then
+    [ -n "$DB_HOST" ] || DB_HOST="$(read_conf host)"
+    [ -n "$DB_PORT" ] || DB_PORT="$(read_conf port)"
+    [ -n "$DB_NAME" ] || DB_NAME="$(read_conf database)"
+    [ -n "$DB_USER" ] || DB_USER="$(read_conf user)"
+    [ -n "$DB_PASS_FILE" ] || DB_PASS="$(read_conf password)"
+    [ -n "$DB_NAME" ] && ok "Read from ISPConfig: $DB_USER@$DB_HOST/$DB_NAME" || warn "Could not parse $ISPCONFIG_CONFIG"
+  fi
+  ask        DB_HOST "Database host" "${DB_HOST:-localhost}"
+  ask        DB_PORT "Database port" "${DB_PORT:-3306}"
+  ask        DB_NAME "Database name" "${DB_NAME:-dbispconfig}"
+  ask        DB_USER "Dedicated runtime database user (CRUD)" "$DB_USER"
+  [ -n "$DB_USER" ] && [ "${DB_USER,,}" != root ] || die "Configure a dedicated runtime database user; root is reserved for privileged migrations."
+  ask_secret DB_PASS "Runtime database password" "$DB_PASS"
+}
+load_runtime_database
 
 # ---------------------------------------------------------------------------
 # Deployment options
@@ -501,7 +508,9 @@ ok "Configuration cached"
 # ---------------------------------------------------------------------------
 # php-fpm pool (dedicated to this app)
 # ---------------------------------------------------------------------------
-SERVE_BACKEND=""   # fpm | modphp — recorded for the manager
+SERVE_BACKEND=""   # fpm — recorded for the manager
+WEB_SERVICE="${SERVICE_NAME}-web"
+WEB_STATE="/var/lib/${WEB_SERVICE}"
 write_fpm_pool() {
   local pool="$FPM_POOL_DIR/${SERVICE_NAME}.conf"
   cat > "$pool" <<EOF
@@ -510,9 +519,11 @@ write_fpm_pool() {
 user = ${RUN_USER}
 group = ${RUN_USER}
 listen = ${FPM_SOCK}
-listen.owner = ${WEB_USER}
-listen.group = ${WEB_USER}
-listen.mode = 0660
+listen.owner = ${RUN_USER}
+listen.group = ${RUN_USER}
+listen.mode = 0600
+security.limit_extensions = .php
+php_admin_value[cgi.fix_pathinfo] = 0
 pm = ondemand
 pm.max_children = 10
 pm.process_idle_timeout = 10s
@@ -529,87 +540,157 @@ EOF
 ssl_ok() { [ -f "$ISPCONFIG_SSL_DIR/ispserver.crt" ] && [ -f "$ISPCONFIG_SSL_DIR/ispserver.key" ]; }
 ssl_bundle_line_apache() { [ -f "$ISPCONFIG_SSL_DIR/ispserver.bundle" ] && printf '    SSLCACertificateFile %s/ispserver.bundle\n' "$ISPCONFIG_SSL_DIR"; }
 
-setup_apache() {
-  step "Configuring Apache vhost (reusing ISPConfig SSL)"
-  ssl_ok || die "ISPConfig SSL cert not found in $ISPCONFIG_SSL_DIR"
-  local avail="/etc/apache2/sites-available/${SERVICE_NAME}.conf" php_handler
-  [ "$FPM_AVAILABLE" = 1 ] || die "Apache mode requires php-fpm with a dedicated API pool."
-  write_fpm_pool
-  a2enmod ssl rewrite headers proxy proxy_fcgi setenvif >/dev/null 2>&1 || true
-  php_handler="    <FilesMatch \\.php\$>
-        SetHandler \"proxy:unix:${FPM_SOCK}|fcgi://localhost\"
-    </FilesMatch>"
-  cat > "$avail" <<EOF
-# ISPConfig REST API — dedicated vhost (NOT managed by ISPConfig).
+# Separate web-server instance: shared hosting workers cannot connect to the
+# API's private FastCGI socket or select scripts under the API identity.
+apache_config() {
+  cat <<EOF
+ServerRoot /etc/apache2
+DefaultRuntimeDir /run/${WEB_SERVICE}
+PidFile /run/${WEB_SERVICE}/server.pid
+Include /etc/apache2/mods-enabled/mpm_*.load
+EOF
+  local module
+  for module in authz_core authz_host dir mime ssl socache_shmcb proxy proxy_fcgi rewrite; do
+    printf 'Include /etc/apache2/mods-available/%s.load\n' "$module"
+  done
+  cat <<EOF
+User ${RUN_USER}
+Group ${RUN_USER}
+ServerName ${HOSTNAME_FQDN}
 Listen ${PUBLIC_PORT}
+TypesConfig /etc/mime.types
+ErrorLog /var/log/${SERVICE_NAME}/web-error.log
+LogFormat "%h %l %u %t \"%r\" %>s %b" api
+CustomLog /var/log/${SERVICE_NAME}/web-access.log api
+<Directory />
+    AllowOverride None
+    Require all denied
+</Directory>
 <VirtualHost _default_:${PUBLIC_PORT}>
-    ServerName ${HOSTNAME_FQDN}
-    DocumentRoot ${INSTALL_DIR}/public
+    DocumentRoot "${INSTALL_DIR}/public"
     LimitRequestBody 16777216
-
     SSLEngine On
     SSLProtocol All -SSLv3 -TLSv1 -TLSv1.1
-    SSLHonorCipherOrder On
-    SSLCertificateFile ${ISPCONFIG_SSL_DIR}/ispserver.crt
-    SSLCertificateKeyFile ${ISPCONFIG_SSL_DIR}/ispserver.key
+    SSLCertificateFile "${ISPCONFIG_SSL_DIR}/ispserver.crt"
+    SSLCertificateKeyFile "${ISPCONFIG_SSL_DIR}/ispserver.key"
 $(ssl_bundle_line_apache)
-
-${php_handler}
-
-    <Directory ${INSTALL_DIR}/public>
+    <Directory "${INSTALL_DIR}/public">
         Options FollowSymLinks
-        AllowOverride All
+        AllowOverride None
         Require all granted
+        DirectoryIndex index.php
+        RewriteEngine On
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteRule ^ index.php [END]
+        <FilesMatch "(?i)\\.php$">
+            Require all denied
+        </FilesMatch>
+        <FilesMatch "^\\.">
+            Require all denied
+        </FilesMatch>
     </Directory>
-
-    ErrorLog  \${APACHE_LOG_DIR}/${SERVICE_NAME}-error.log
-    CustomLog \${APACHE_LOG_DIR}/${SERVICE_NAME}-access.log combined
+    <LocationMatch "^/index\\.php$">
+        Require all granted
+        SetHandler "proxy:unix:${FPM_SOCK}|fcgi://localhost"
+    </LocationMatch>
 </VirtualHost>
 EOF
-  a2ensite "$SERVICE_NAME" >/dev/null 2>&1 || true
-  if apache2ctl configtest 2>/dev/null; then
-    systemctl reload apache2 2>/dev/null || systemctl restart apache2
-    ok "Apache vhost on :$PUBLIC_PORT ($SERVE_BACKEND)"
-  else warn "apache2ctl configtest failed — review $avail and reload Apache."; fi
+}
+
+nginx_config() {
+  local certfile="$ISPCONFIG_SSL_DIR/ispserver.crt"
+  [ ! -f "$ISPCONFIG_SSL_DIR/ispserver.pem" ] || certfile="$ISPCONFIG_SSL_DIR/ispserver.pem"
+  cat <<EOF
+user ${RUN_USER};
+pid /run/${WEB_SERVICE}/server.pid;
+error_log /var/log/${SERVICE_NAME}/web-error.log;
+events { worker_connections 1024; }
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    access_log /var/log/${SERVICE_NAME}/web-access.log;
+    client_body_temp_path ${WEB_STATE}/body;
+    fastcgi_temp_path ${WEB_STATE}/fastcgi;
+    server {
+        listen ${PUBLIC_PORT} ssl;
+        server_name ${HOSTNAME_FQDN};
+        root "${INSTALL_DIR}/public";
+        index index.php;
+        client_max_body_size 16m;
+        ssl_certificate "${certfile}";
+        ssl_certificate_key "${ISPCONFIG_SSL_DIR}/ispserver.key";
+        ssl_protocols TLSv1.2 TLSv1.3;
+        location / { try_files \$uri \$uri/ /index.php?\$query_string; }
+        location = /index.php {
+            include /etc/nginx/fastcgi_params;
+            fastcgi_pass unix:${FPM_SOCK};
+            fastcgi_param SCRIPT_FILENAME "${INSTALL_DIR}/public/index.php";
+            fastcgi_param HTTPS on;
+        }
+        location ~* \\.php(?:/|$) { return 404; }
+        location ~ /\\. { deny all; }
+    }
+}
+EOF
+}
+
+start_private_web() { # executable and fixed config arguments (root-owned)
+  local command="$1"
+  cat > "/etc/systemd/system/${WEB_SERVICE}.service" <<EOF
+[Unit]
+Description=ISPConfig REST isolated web server
+After=network.target ${FPM_SERVICE}.service
+Requires=${FPM_SERVICE}.service
+
+[Service]
+Type=simple
+RuntimeDirectory=${WEB_SERVICE}
+RuntimeDirectoryMode=0755
+ExecStart=${command}
+ExecReload=/bin/kill -HUP \$MAINPID
+Restart=on-failure
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
+  systemctl enable "$WEB_SERVICE"
+  systemctl restart "$WEB_SERVICE"
+  ok "Isolated API web service $WEB_SERVICE on :$PUBLIC_PORT"
+}
+
+prepare_private_web() {
+  ssl_ok || die "ISPConfig SSL cert not found in $ISPCONFIG_SSL_DIR"
+  write_fpm_pool
+  install -d -o root -g root -m 0755 "$STATE_DIR" "$WEB_STATE" "/run/$WEB_SERVICE" "/var/log/$SERVICE_NAME"
+  install -d -o "$RUN_USER" -g "$RUN_USER" -m 0700 "$WEB_STATE/body" "$WEB_STATE/fastcgi"
+}
+
+setup_apache() {
+  step "Configuring isolated Apache instance (reusing ISPConfig SSL)"
+  prepare_private_web
+  apache_config > "$STATE_DIR/apache.conf"
+  apache2 -t -f "$STATE_DIR/apache.conf" || die "API Apache configuration is invalid."
+  # Remove only the API's old shared vhost when migrating an existing install.
+  if [ -e "/etc/apache2/sites-enabled/${SERVICE_NAME}.conf" ]; then
+    a2dissite "$SERVICE_NAME" >/dev/null
+    systemctl reload apache2
+  fi
+  start_private_web "$(command -v apache2) -f $STATE_DIR/apache.conf -DFOREGROUND"
 }
 
 setup_nginx() {
-  step "Configuring nginx vhost (php-fpm, reusing ISPConfig SSL)"
-  ssl_ok || die "ISPConfig SSL cert not found in $ISPCONFIG_SSL_DIR"
-  write_fpm_pool
-  local avail="/etc/nginx/sites-available/${SERVICE_NAME}.conf" bundle=""
-  # nginx wants the full chain in one file; use bundle if present, else the cert.
-  local certfile="$ISPCONFIG_SSL_DIR/ispserver.crt"
-  [ -f "$ISPCONFIG_SSL_DIR/ispserver.pem" ] && certfile="$ISPCONFIG_SSL_DIR/ispserver.pem"
-  cat > "$avail" <<EOF
-# ISPConfig REST API — dedicated vhost (NOT managed by ISPConfig).
-server {
-    listen ${PUBLIC_PORT} ssl;
-    server_name ${HOSTNAME_FQDN};
-    root ${INSTALL_DIR}/public;
-    index index.php;
-    client_max_body_size 16m;
-
-    ssl_certificate     ${certfile};
-    ssl_certificate_key ${ISPCONFIG_SSL_DIR}/ispserver.key;
-    ssl_protocols TLSv1.2 TLSv1.3;
-
-    location / { try_files \$uri \$uri/ /index.php?\$query_string; }
-
-    location ~ \\.php\$ {
-        include fastcgi_params;
-        fastcgi_pass unix:${FPM_SOCK};
-        fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
-        fastcgi_param HTTPS on;
-    }
-
-    location ~ /\\.(?!well-known).* { deny all; }
-}
-EOF
-  mkdir -p /etc/nginx/sites-enabled
-  ln -sf "$avail" "/etc/nginx/sites-enabled/${SERVICE_NAME}.conf"
-  if nginx -t 2>/dev/null; then systemctl reload nginx; ok "nginx vhost on :$PUBLIC_PORT (fpm)"
-  else warn "nginx -t failed — review $avail and reload nginx."; fi
+  step "Configuring isolated nginx instance (reusing ISPConfig SSL)"
+  prepare_private_web
+  nginx_config > "$STATE_DIR/nginx.conf"
+  nginx -t -c "$STATE_DIR/nginx.conf" || die "API nginx configuration is invalid."
+  if [ -e "/etc/nginx/sites-enabled/${SERVICE_NAME}.conf" ]; then
+    rm -f "/etc/nginx/sites-enabled/${SERVICE_NAME}.conf"
+    systemctl reload nginx
+  fi
+  start_private_web "$(command -v nginx) -c $STATE_DIR/nginx.conf -g \"daemon off;\""
 }
 
 case "$SERVE_MODE" in
@@ -662,6 +743,7 @@ SERVE_BACKEND="$SERVE_BACKEND"
 SERVICE_NAME="$SERVICE_NAME"
 PUBLIC_PORT="$PUBLIC_PORT"
 WEB_SERVER="$DETECTED_WS"
+WEB_SERVICE="$WEB_SERVICE"
 FPM_SERVICE="$FPM_SERVICE"
 BRANCH="$BRANCH"
 TIMEZONE="$TIMEZONE"

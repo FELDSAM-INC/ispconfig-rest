@@ -94,6 +94,8 @@ os.execv(os.environ['REAL_PHP'], [os.environ['REAL_PHP'], *args])
 def installer_function(name, subshell=False):
     opening, closing = ('(', ')') if subshell else ('{', '}')
     start = name + '() ' + opening
+    if name in ['apache_config', 'nginx_config', 'start_private_web']:
+        return start + INSTALLER.split(start, 1)[1].split('\nEOF\n}\n', 1)[0] + '\nEOF\n}\n'
     return start + INSTALLER.split(start, 1)[1].split('\n' + closing + '\n', 1)[0] + '\n' + closing + '\n'
 
 
@@ -234,6 +236,28 @@ id(){
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn('Password-valued arguments are not supported', result.stderr)
                 self.assertNotIn('fixture-secret', result.stdout + result.stderr)
+
+    def test_runtime_password_override_preserves_other_ispconfig_credentials(self):
+        config = self.root / 'ispconfig.php'
+        config.write_text('fixture')
+        script = r'''die(){ echo "$*" >&2; exit 1; }
+ok(){ :; }
+warn(){ :; }
+ask(){ printf -v "$1" '%s' "$3"; }
+ask_secret(){ printf -v "$1" '%s' "$3"; }
+read_conf(){ case "$1" in host) echo db-host;; port) echo 3307;; database) echo panel;; user) echo limited-panel;; password) echo configured-password;; esac; }
+''' + installer_function('load_runtime_database') + '\nload_runtime_database\nprintf "%s|%s|%s|%s|%s" "$DB_HOST" "$DB_PORT" "$DB_NAME" "$DB_USER" "$DB_PASS"'
+        self.environment.update(ISPCONFIG_CONFIG=str(config), DB_HOST='', DB_PORT='', DB_NAME='', DB_USER='',
+                                DB_PASS='file-password', DB_PASS_FILE='private-file')
+        result = self.run_script(script)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, 'db-host|3307|panel|limited-panel|file-password')
+        self.environment.update(ISPCONFIG_CONFIG=str(self.root / 'missing'), DB_USER='')
+        self.assertNotEqual(self.run_script(script).returncode, 0)
+        self.environment['DB_USER'] = 'root'
+        self.assertNotEqual(self.run_script(script).returncode, 0)
+        self.environment['DB_USER'] = 'explicit-limited'
+        self.assertEqual(self.run_script(script).returncode, 0)
 
     def test_privileged_migration_executes_only_private_source_for_both_db_auth_modes(self):
         (self.runtime / 'artisan').write_text('<?php file_put_contents(getenv("MARKER"), "unsafe");')

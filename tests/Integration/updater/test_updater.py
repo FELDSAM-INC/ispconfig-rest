@@ -96,9 +96,11 @@ class UpdaterTests(unittest.TestCase):
         self.git(self.checkout, "fetch", "origin", "refs/heads/main:refs/remotes/origin/main")
         self.git(self.checkout, "switch", "-c", "main", "refs/remotes/origin/main")
 
-    def test_current_main_wins_over_saved_develop_and_updates_again(self):
+    def test_registered_channel_wins_until_root_explicitly_selects_main(self):
         self.switch_main_manually()
         self.run_manager()
+        self.assert_branch("develop")
+        self.run_manager("--branch", "main")
         self.assert_branch("main")
         self.git(self.source, "switch", "main")
         (self.source / "fix.txt").write_text("Next stable fix\n")
@@ -106,20 +108,22 @@ class UpdaterTests(unittest.TestCase):
         self.run_manager()
         self.assert_branch("main")
 
-    def test_current_develop_updates_and_fetches_release_tags(self):
+    def test_explicit_develop_updates_and_fetches_release_tags(self):
         self.write_state("main")
         (self.checkout / ".env").write_text("runtime settings\n")
         (self.checkout / ".composer").mkdir()
         (self.checkout / ".composer/config.json").write_text("{}\n")
-        self.run_manager()
+        self.run_manager("--branch", "develop")
         self.assert_branch("develop")
         self.assertEqual(["v1.0.0", "v1.0.1"], self.git(self.checkout, "tag", "--list").splitlines())
         self.assertEqual("runtime settings\n", (self.checkout / ".env").read_text())
         self.assertEqual("{}\n", (self.checkout / ".composer/config.json").read_text())
 
-    def test_detached_annotated_tag_stays_pinned_despite_saved_develop(self):
+    def test_registered_annotated_tag_stays_pinned(self):
         self.git(self.checkout, "fetch", "origin", "tag", "v1.0.1")
         self.git(self.checkout, "checkout", "--detach", "v1.0.1")
+        with self.state.open("a") as stream:
+            stream.write('RELEASE_REF="refs/tags/v1.0.1"\n')
         for _ in range(2):
             self.run_manager()
             self.assertEqual("HEAD", self.git(self.checkout, "rev-parse", "--abbrev-ref", "HEAD"))
@@ -152,18 +156,17 @@ class UpdaterTests(unittest.TestCase):
         self.git(self.checkout, "fetch", "--no-tags", "origin", "refs/heads/main")
         self.git(self.checkout, "checkout", "--detach", "FETCH_HEAD")
         self.assertNotIn("v1.0.1", self.git(self.checkout, "tag", "--list"))
+        with self.state.open("a") as stream:
+            stream.write('RELEASE_REF="refs/tags/v1.0.1"\n')
         self.run_manager()
         self.assertEqual("v1.0.1", self.git(self.checkout, "describe", "--tags", "--exact-match"))
         self.assertEqual("HEAD", self.git(self.checkout, "rev-parse", "--abbrev-ref", "HEAD"))
 
-    def test_detached_nonrelease_commit_requires_explicit_selection(self):
+    def test_runtime_detachment_does_not_change_registered_channel(self):
         self.run_manager()
         self.git(self.checkout, "checkout", "--detach")
-        before = self.git(self.checkout, "rev-parse", "HEAD")
-        result = self.run_manager(check=False)
-        self.assertNotEqual(0, result.returncode)
-        self.assertIn("Detached HEAD is not a release tag", result.stderr)
-        self.assertEqual(before, self.git(self.checkout, "rev-parse", "HEAD"))
+        self.run_manager()
+        self.assert_branch("develop")
 
     def test_modified_and_staged_files_are_preserved(self):
         for staged in (False, True):
@@ -297,6 +300,27 @@ install(){
         result = self.run_manager(command="refresh_manager", extra=self.FAKE_GIT, mock_helpers=False, check=False)
         self.assertNotEqual(0, result.returncode)
         self.assertEqual(manager, current.read_text())
+
+    def test_runtime_origin_cannot_roll_back_the_privileged_manager(self):
+        stage, installed = self.trusted_fixtures()
+        (self.source / "bin").mkdir()
+        manager = self.source / "bin/ispconfig-rest"
+        manager.write_text("#!/bin/bash\n# release-aware-updater-v1: old\n")
+        self.commit("Older published manager")
+        old = self.git(self.source, "rev-parse", "HEAD")
+        self.run_manager()
+        manager.write_text("#!/bin/bash\n# release-aware-updater-v1: new\n")
+        self.commit("Current published manager")
+        current = installed / "ispconfig-rest"
+        current.write_text(manager.read_text())
+        stale = self.base / "stale-origin"
+        self.git(self.base, "clone", self.source.as_uri(), str(stale))
+        self.git(stale, "reset", "--hard", old)
+        self.git(self.checkout, "remote", "set-url", "origin", stale.as_uri())
+        result = self.run_manager(extra=self.FAKE_GIT, mock_helpers=False, check=False)
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual(manager.read_text(), current.read_text())
+        self.assertFalse(stage.exists())
 
     def extension_origin(self):
         origin = self.base / "hosting"

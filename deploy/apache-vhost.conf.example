@@ -1,34 +1,56 @@
-# ISPConfig REST API — dedicated Apache vhost (what the installer generates on
-# an Apache host with php-fpm). Talks to a dedicated php-fpm pool over a socket
-# and reuses the ISPConfig panel SSL certificate. Standalone — it does NOT touch
-# ISPConfig's own interface (8080) / apps (8081) vhosts.
-#
-# Needs: a2enmod ssl rewrite headers proxy proxy_fcgi setenvif
-# Pair with the php-fpm pool in deploy/php-fpm-pool.conf.example.
-
+# Complete configuration for the isolated ispconfig-rest-web service.
+# Run its workers as the dedicated API account; pair with the private FPM pool.
+ServerRoot /etc/apache2
+DefaultRuntimeDir /run/ispconfig-rest-web
+PidFile /run/ispconfig-rest-web/server.pid
+Include /etc/apache2/mods-enabled/mpm_*.load
+Include /etc/apache2/mods-available/authz_core.load
+Include /etc/apache2/mods-available/authz_host.load
+Include /etc/apache2/mods-available/dir.load
+Include /etc/apache2/mods-available/mime.load
+Include /etc/apache2/mods-available/ssl.load
+Include /etc/apache2/mods-available/socache_shmcb.load
+Include /etc/apache2/mods-available/proxy.load
+Include /etc/apache2/mods-available/proxy_fcgi.load
+Include /etc/apache2/mods-available/rewrite.load
+User ispconfig-rest
+Group ispconfig-rest
+ServerName server.example.com
 Listen 8090
+TypesConfig /etc/mime.types
+ErrorLog /var/log/ispconfig-rest/web-error.log
+LogFormat "%h %l %u %t \"%r\" %>s %b" api
+CustomLog /var/log/ispconfig-rest/web-access.log api
+<Directory />
+    AllowOverride None
+    Require all denied
+</Directory>
 <VirtualHost _default_:8090>
-    ServerName server.example.com
-    DocumentRoot /opt/ispconfig-rest/public
-
+    DocumentRoot "/opt/ispconfig-rest/public"
+    LimitRequestBody 16777216
     SSLEngine On
     SSLProtocol All -SSLv3 -TLSv1 -TLSv1.1
-    SSLHonorCipherOrder On
-    SSLCertificateFile /usr/local/ispconfig/interface/ssl/ispserver.crt
-    SSLCertificateKeyFile /usr/local/ispconfig/interface/ssl/ispserver.key
-    # Include only if the bundle exists:
-    SSLCACertificateFile /usr/local/ispconfig/interface/ssl/ispserver.bundle
+    SSLCertificateFile "/usr/local/ispconfig/interface/ssl/ispserver.crt"
+    SSLCertificateKeyFile "/usr/local/ispconfig/interface/ssl/ispserver.key"
 
-    <FilesMatch \.php$>
-        SetHandler "proxy:unix:/run/ispconfig-rest.sock|fcgi://localhost"
-    </FilesMatch>
-
-    <Directory /opt/ispconfig-rest/public>
+    <Directory "/opt/ispconfig-rest/public">
         Options FollowSymLinks
-        AllowOverride All
+        AllowOverride None
         Require all granted
+        DirectoryIndex index.php
+        RewriteEngine On
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteRule ^ index.php [END]
+        <FilesMatch "(?i)\.php$">
+            Require all denied
+        </FilesMatch>
+        <FilesMatch "^\.">
+            Require all denied
+        </FilesMatch>
     </Directory>
-
-    ErrorLog  ${APACHE_LOG_DIR}/ispconfig-rest-error.log
-    CustomLog ${APACHE_LOG_DIR}/ispconfig-rest-access.log combined
+    <LocationMatch "^/index\.php$">
+        Require all granted
+        SetHandler "proxy:unix:/run/ispconfig-rest.sock|fcgi://localhost"
+    </LocationMatch>
 </VirtualHost>

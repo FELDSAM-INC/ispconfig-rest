@@ -60,13 +60,17 @@ What it does:
   ISPConfig is modified. If root needs a password, use `--db-admin-pass-file`
   with a root-owned mode-0600 file containing one password line. Runtime overrides
   can use `--db-pass-file`; interactive runtime passwords use a hidden prompt.
-  Password contents must not be passed as command-line arguments.
+  Password contents must not be passed as command-line arguments. Runtime overrides preserve
+  unspecified ISPConfig connection fields. A dedicated runtime DB user is required; `root`
+  is accepted only for privileged migrations, never as the runtime account.
 - **Detects your web server** (Apache or nginx) and creates a **dedicated
-  php-fpm pool plus a dedicated vhost** on its own HTTPS port (default 8090) that
+  php-fpm pool plus an isolated web-server instance** on its own HTTPS port (default 8090) that
   **reuses the ISPConfig panel SSL certificate** (`ispserver.crt`/`.key`/`.bundle`) —
   the same php-fpm serving model ISPConfig uses for its own sites. The vhost is
-  standalone — it never edits ISPConfig's own interface (8080) or apps (8081)
-  vhosts, which ISPConfig regenerates on update. Both web-server modes require
+  standalone under `ispconfig-rest-web.service`, with its own configuration, PID and logs.
+  Its workers use the API account and connect to a mode-0600 FPM socket. Only `public/index.php`
+  is exposed as a PHP entry point. Existing API vhosts are disabled when rerunning the installer;
+  ISPConfig's interface (8080), apps (8081) and tenant vhosts keep their own services. Both web-server modes require
   php-fpm and use the dedicated `ispconfig-rest` account by default. Never share
   the API account with other sites or tenant code; it can read the API's database credentials.
 - **Opens the port in ISPConfig's own firewall** — it adds the port to the
@@ -84,15 +88,15 @@ What it does:
 
 Every prompt has a flag and `ISPC_REST_*` env var for unattended installs — see
 `sudo ./install.sh --help`. Reference templates live in [`deploy/`](deploy/):
-[Apache vhost](deploy/apache-vhost.conf.example),
-[nginx vhost](deploy/nginx-vhost.conf.example),
+[Isolated Apache configuration](deploy/apache-vhost.conf.example),
+[Isolated nginx configuration](deploy/nginx-vhost.conf.example),
 [php-fpm pool](deploy/php-fpm-pool.conf.example).
 
 ### Managing the installation
 
 ```bash
 ispconfig-rest status                        # service state, version, DB connectivity
-ispconfig-rest update                        # update current branch; keep a release tag pinned
+ispconfig-rest update                        # update the registered branch or release
 ispconfig-rest update --branch main          # select stable updates
 ispconfig-rest update --tag v1.4.1            # select a specific release
 ispconfig-rest key:create "my integration"   # mint an admin key
@@ -108,23 +112,19 @@ ispconfig-rest restart | logs -f | version | uninstall
 extension adds (for example `server-tools` of the hosting extension) are listed by `ispconfig-rest help`; they
 run as root only from copies of its verified published commit, never from the web-owned checkout.
 
-The updater follows the **actual checkout**: `main` stays on `main`, `develop`
-stays on `develop`, and a detached release tag stays on that exact release.
-Use `--branch main` to leave a pinned release and follow stable updates, or
-`--tag VERSION` to select another release. A detached commit without a release
-tag requires an explicit selection. `version` and `status` report the actual
-branch or pinned tag. Updates fetch release tags, including on shallow installs,
-and stop if tracked files have local edits or the branch has diverged from origin.
+The updater follows the branch or tag recorded in root-owned
+`/etc/ispconfig-rest/install.conf`. Use `--branch main` to follow stable updates,
+or `--tag VERSION` to select a pinned release. Manual changes to the runtime
+checkout cannot change this registered channel. `version` and `status` still
+report the actual checkout. Root-executed manager and extension files must match
+the exact commit fetched from the registered trusted ref; an older ancestor is
+rejected. Updates preserve local edits and reject divergent local commits.
 Untracked runtime files such as `.env` and `.composer/` are preserved.
 
-**Updaters shipped through v1.0.1:** these used `BRANCH` from the root-owned
-`/etc/ispconfig-rest/install.conf` and forcibly checked it out on every update.
-Checking out `main` or a tag manually did not change that setting. The behavior
-and options above require the corrected manager from **v1.0.2 or newer**.
-Follow the [1.0.2 upgrade instructions](CHANGELOG.md#upgrade-from-101) to refresh
-the old manager before selecting a branch or release tag.
-It retains its branch/tag handling when an older API release is selected.
-Existing release tags are not changed or replaced by this fix.
+**Updating an older manager:** install the verified v1.4.1 manager before using these
+security checks. Versions v1.0.2–v1.4.0 inferred channels from the writable checkout;
+v1.4.1 uses root-owned channel state and explicit flags. See the [release upgrade
+notes](CHANGELOG.md) for migrating existing web services and runtime identities.
 
 ## Manual / development installation
 

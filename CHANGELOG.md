@@ -26,7 +26,12 @@ hosting extension 1.0.2. The HTTP API remains under `/api/v1`.
   revisions against their registered repositories, replace the runtime environment file atomically, and verify
   the Composer bootstrap before execution.
 - Synchronize `.env` timezones as the runtime user without following links as root. Use an isolated runtime
-  account and require PHP-FPM for managed Apache/nginx installations.
+  account and require PHP-FPM for managed Apache/nginx installations. Run the API web server as an isolated
+  service under that account, with a private FPM socket and a single allowed PHP entry point.
+- Require an exact trusted-ref match before replacing privileged command files. Default updates use the
+  root-owned registered channel, so runtime Git metadata cannot silently select older privileged code.
+- Preserve unspecified ISPConfig database fields when overriding credentials and reject root as a runtime
+  database user; privileged migration credentials remain separate.
 - Read installer database passwords from private files or the existing hidden prompt/environment rather
   than exposing password-valued command-line arguments to local process observers.
 - Update locked dependencies to resolve published advisories, including Symfony Mime CVE-2026-45070.
@@ -43,9 +48,12 @@ hosting extension 1.0.2. The HTTP API remains under `/api/v1`.
   line. Socket authentication and the existing hidden prompt/admin-password environment variable remain available.
 - Existing installations using mod_php or a shared web-server account need a dedicated PHP-FPM pool and
   API account. The code updater does not change service identities: migrate ownership of the application
-  checkout, update `RUN_USER` in root-owned `/etc/ispconfig-rest/install.conf`, and configure the FPM pool
-  before serving the API. The API account must not execute tenant code; grant only the filesystem access
+  checkout and rerun the verified installer with that dedicated account to create `ispconfig-rest-web.service`
+  and its private PHP-FPM pool before serving the API. The API account must not execute tenant code; grant only the filesystem access
   needed for enabled backup features. Fresh installs default to `ispconfig-rest`.
+- Select update channels with `ispconfig-rest update --branch NAME` or `--tag VERSION`; changing the
+  runtime checkout manually no longer changes the registered channel. Configure a limited runtime DB user
+  before rerunning the installer if an existing deployment uses root.
 - The updater installs the corrected manager after its current invocation. On installations with untrusted
   runtime code, refresh `/usr/local/bin/ispconfig-rest` from a verified 1.4.1 release before running an update.
 - If the hosting extension's database worker is installed, update hosting to 1.1.4 and run

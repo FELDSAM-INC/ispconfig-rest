@@ -1,28 +1,32 @@
-# ISPConfig REST API — dedicated nginx vhost (what the installer generates on an
-# nginx host). Serves the app via a dedicated php-fpm pool over a socket and
-# reuses the ISPConfig panel SSL certificate. Standalone — it does NOT touch
-# ISPConfig's own vhosts.
-#
-# Pair with the php-fpm pool in deploy/php-fpm-pool.conf.example.
-
-server {
-    listen 8090 ssl;
-    server_name server.example.com;
-    root /opt/ispconfig-rest/public;
-    index index.php;
-
-    ssl_certificate     /usr/local/ispconfig/interface/ssl/ispserver.crt;   # or ispserver.pem (full chain)
-    ssl_certificate_key /usr/local/ispconfig/interface/ssl/ispserver.key;
-    ssl_protocols TLSv1.2 TLSv1.3;
-
-    location / { try_files $uri $uri/ /index.php?$query_string; }
-
-    location ~ \.php$ {
-        include fastcgi_params;
-        fastcgi_pass unix:/run/ispconfig-rest.sock;
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
-        fastcgi_param HTTPS on;
+# Complete configuration for the isolated ispconfig-rest-web service.
+# Run its workers as the dedicated API account; pair with the private FPM pool.
+user ispconfig-rest;
+pid /run/ispconfig-rest-web/server.pid;
+error_log /var/log/ispconfig-rest/web-error.log;
+events { worker_connections 1024; }
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    access_log /var/log/ispconfig-rest/web-access.log;
+    client_body_temp_path /var/lib/ispconfig-rest-web/body;
+    fastcgi_temp_path /var/lib/ispconfig-rest-web/fastcgi;
+    server {
+        listen 8090 ssl;
+        server_name server.example.com;
+        root "/opt/ispconfig-rest/public";
+        index index.php;
+        client_max_body_size 16m;
+        ssl_certificate "/usr/local/ispconfig/interface/ssl/ispserver.crt";
+        ssl_certificate_key "/usr/local/ispconfig/interface/ssl/ispserver.key";
+        ssl_protocols TLSv1.2 TLSv1.3;
+        location / { try_files $uri $uri/ /index.php?$query_string; }
+        location = /index.php {
+            include /etc/nginx/fastcgi_params;
+            fastcgi_pass unix:/run/ispconfig-rest.sock;
+            fastcgi_param SCRIPT_FILENAME "/opt/ispconfig-rest/public/index.php";
+            fastcgi_param HTTPS on;
+        }
+        location ~* \.php(?:/|$) { return 404; }
+        location ~ /\. { deny all; }
     }
-
-    location ~ /\.(?!well-known).* { deny all; }
 }

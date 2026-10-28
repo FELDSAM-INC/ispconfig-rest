@@ -189,7 +189,7 @@ source-confirmed issues were fixed, including a shared model-level group ownersh
 private outside the repository.
 
 Current local validation on PHP 8.4 passed 1,459 core tests (11,491 assertions), 241 hosting tests (1,768
-assertions), 33 installer/updater tests, both PHPStan gates, HTTP checks, Semgrep, Gitleaks and their negative
+assertions), 38 installer/updater and real web-stack tests, both PHPStan gates, HTTP checks, Semgrep, Gitleaks and their negative
 controls, 15 subscription-runner tests, 3 scanner-runner tests, and workflow syntax validation. Hosting's
 server-tools and WordPress suites passed 54 tests. A fresh Composer audit found no advisories after updating
 Symfony Mime to 7.4.22 for CVE-2026-45070. The subsequent full Codex scan on frozen commit `a7a4d0e` completed successfully and reported one medium
@@ -199,3 +199,11 @@ flags have since been replaced by private password files; regression tests rejec
 multiple lines and the old password-valued flags. Final validation reviews the complete installer/manager
 paths against that completed full-scan baseline, alongside GitHub Actions gates. No production installation
 was run.
+
+The installer/manager follow-up also identified rollback through writable Git metadata, shared FastCGI
+access and an implicit privileged runtime DB default. The fixes require exact trusted revisions and root-owned
+channel selection, preserve runtime DB fields independently, and serve the API through an isolated Apache/nginx
+instance with a mode-0600 FPM socket. Tests run both real web servers and PHP-FPM in disposable Ubuntu,
+verify HTTPS application responses, reject alternate PHP paths/dotfiles and refuse socket access by the shared
+web identity. This web-stack job is a required release gate. Existing installations require the deployment
+migration described in the release notes; no production services were changed during local verification.
