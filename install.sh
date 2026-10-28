@@ -45,6 +45,7 @@ EXTENSIONS=()                               # --extension NAME[@BRANCH|@vTAG], r
 
 # Runtime DB (default: read from ISPConfig config)
 DB_HOST="" DB_PORT="" DB_NAME="" DB_USER="" DB_PASS="" DB_OVERRIDE=0
+DB_PASS_FILE="" DB_ADMIN_PASS_FILE=""
 # Privileged DB login used ONLY to create api_keys (default: root via socket)
 DB_ADMIN_USER="${ISPC_REST_DB_ADMIN_USER:-root}"
 DB_ADMIN_PASS="${ISPC_REST_DB_ADMIN_PASS:-}"
@@ -77,9 +78,10 @@ Options (each also settable via an ISPC_REST_* env var):
   --url URL                public APP_URL (default: https://<host>:PORT)
   --ispconfig-config PATH  ISPConfig config to read the runtime DB from
   --ssl-dir PATH           ISPConfig SSL dir (ispserver.crt/key/bundle)
-  --db-host/-port/-name/-user/-pass   override the runtime DB credentials
+  --db-host/-port/-name/-user        override the runtime DB connection
+  --db-pass-file FILE      private file containing the runtime DB password
   --db-admin-user NAME     privileged DB user for CREATE  (default: root)
-  --db-admin-pass PASS     its password (default: empty -> unix-socket auth)
+  --db-admin-pass-file FILE  private file containing its password (default: socket auth)
   --run-user NAME          dedicated php-fpm pool / owner user (default: ispconfig-rest)
   --create-key yes|no      mint an admin API key          (default: ask)
   --non-interactive        accept defaults, no prompts
@@ -131,9 +133,10 @@ while [ $# -gt 0 ]; do
     --db-port) DB_PORT="$2"; DB_OVERRIDE=1; shift 2;;
     --db-name) DB_NAME="$2"; DB_OVERRIDE=1; shift 2;;
     --db-user) DB_USER="$2"; DB_OVERRIDE=1; shift 2;;
-    --db-pass) DB_PASS="$2"; DB_OVERRIDE=1; shift 2;;
+    --db-pass-file) DB_PASS_FILE="$2"; DB_OVERRIDE=1; shift 2;;
     --db-admin-user) DB_ADMIN_USER="$2"; shift 2;;
-    --db-admin-pass) DB_ADMIN_PASS="$2"; shift 2;;
+    --db-admin-pass-file) DB_ADMIN_PASS_FILE="$2"; shift 2;;
+    --db-pass|--db-admin-pass) die "Password-valued arguments are not supported. Use $1-file with a private password file.";;
     --run-user) RUN_USER="$2"; shift 2;;
     --create-key) CREATE_ADMIN_KEY="$2"; shift 2;;
     --non-interactive) NONINTERACTIVE=1; shift;;
@@ -238,6 +241,24 @@ validate_runtime_identity() {
   fi
 }
 
+# Password contents never appear in process arguments. Inspect the opened
+# descriptor so replacement of the pathname cannot bypass ownership/mode checks.
+read_password_file() {
+  local variable="$1" path="$2" password
+  password="$("$PHP_BIN" -r '
+    $fp = @fopen($argv[1], "rneb");
+    if ($fp === false) { exit(1); }
+    $stat = fstat($fp);
+    if ($stat === false || ($stat["mode"] & 0170000) !== 0100000
+        || $stat["uid"] !== (int) $argv[2] || ($stat["mode"] & 0077) !== 0) { exit(1); }
+    $line = fgets($fp);
+    if (($line === false && !feof($fp)) || stream_get_contents($fp) !== "") { exit(1); }
+    fclose($fp);
+    echo rtrim((string) $line, "\r\n");
+  ' -- "$path" "$(id -u)")" || die "Password file must be a readable, private regular file owned by the installing user, containing one line."
+  printf -v "$variable" '%s' "$password"
+}
+
 # Read only the root-owned manager registry; resolve each installed revision
 # as the runtime user, then prove its provenance in a separate fresh repository.
 prepare_privileged_extensions() (
@@ -289,6 +310,9 @@ for ext in pdo_mysql mbstring openssl tokenizer xml ctype json bcmath fileinfo; 
 done
 [ -z "$MISSING_EXT" ] || die "Missing PHP extensions:$MISSING_EXT"
 ok "Required PHP extensions present"
+
+[ -z "$DB_PASS_FILE" ] || read_password_file DB_PASS "$DB_PASS_FILE"
+[ -z "$DB_ADMIN_PASS_FILE" ] || read_password_file DB_ADMIN_PASS "$DB_ADMIN_PASS_FILE"
 
 if command -v composer >/dev/null 2>&1; then COMPOSER="composer"
 else
@@ -467,7 +491,7 @@ write_runtime_env < "$PRIVILEGED_STAGE/app/.env"
 step "Creating API-owned tables (privileged login)"
 if migrate_privileged; then MIGRATE_OK=1; else MIGRATE_OK=0; fi
 if [ "$MIGRATE_OK" = "1" ]; then ok "API-owned tables ready"
-else warn "Privileged migration failed. Provide --db-admin-pass (if MySQL root needs a password) or create the table manually, then run 'ispconfig-rest update'."; fi
+else warn "Privileged migration failed. Provide --db-admin-pass-file (if MySQL root needs a password) or create the table manually, then run 'ispconfig-rest update'."; fi
 
 step "Optimizing"
 run_as "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true

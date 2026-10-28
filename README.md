@@ -57,7 +57,10 @@ What it does:
 - **Creates the API-owned `api_keys` table using a privileged (root) DB login** —
   by default MySQL root over the local unix socket, exactly as ISPConfig's own
   installer does — so the runtime user needs no `CREATE` right and nothing about
-  ISPConfig is modified. (Pass `--db-admin-pass` if root needs a password.)
+  ISPConfig is modified. If root needs a password, use `--db-admin-pass-file`
+  with a root-owned mode-0600 file containing one password line. Runtime overrides
+  can use `--db-pass-file`; interactive runtime passwords use a hidden prompt.
+  Password contents must not be passed as command-line arguments.
 - **Detects your web server** (Apache or nginx) and creates a **dedicated
   php-fpm pool plus a dedicated vhost** on its own HTTPS port (default 8090) that
   **reuses the ISPConfig panel SSL certificate** (`ispserver.crt`/`.key`/`.bundle`) —

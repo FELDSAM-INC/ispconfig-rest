@@ -192,6 +192,49 @@ id(){
                 result = self.run_script(script)
                 self.assertEqual(result.returncode == 0, expected, result.stderr)
 
+    def test_password_file_reads_one_private_line_without_shell_interpretation(self):
+        secret = self.root / 'database-password'
+        script = 'die(){ echo "$*" >&2; exit 1; }\n' + installer_function('read_password_file')
+        script += '\nread_password_file DB_PASS "$PASSWORD_FILE"\nprintf "%s" "$DB_PASS"'
+        self.environment['PASSWORD_FILE'] = str(secret)
+        for content in ["fixture-'$`\\ password", 'fixture-password\n', 'fixture-password\r\n', '']:
+            with self.subTest(content=content):
+                secret.write_bytes(content.encode())
+                secret.chmod(0o600)
+                result = self.run_script(script)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, content.rstrip('\r\n'))
+                if content:
+                    self.assertNotIn(content.strip(), result.stderr)
+
+    def test_password_files_reject_public_permissions_nonfiles_and_multiple_lines(self):
+        secret = self.root / 'database-password'
+        fifo = self.root / 'password-pipe'
+        os.mkfifo(fifo, 0o600)
+        script = 'die(){ echo "$*" >&2; exit 1; }\n' + installer_function('read_password_file')
+        script += '\nread_password_file DB_PASS "$PASSWORD_FILE"'
+        secret.write_text('fixture-secret')
+        secret.chmod(0o644)
+        for path in [secret, self.root, fifo, self.root / 'missing']:
+            with self.subTest(path=path):
+                self.environment['PASSWORD_FILE'] = str(path)
+                result = self.run_script(script)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn('fixture-secret', result.stdout + result.stderr)
+        secret.write_text('first\nsecond\n')
+        secret.chmod(0o600)
+        self.environment['PASSWORD_FILE'] = str(secret)
+        self.assertNotEqual(self.run_script(script).returncode, 0)
+
+    def test_password_valued_flags_fail_before_installation_without_echoing_secrets(self):
+        for flag in ['--db-pass', '--db-admin-pass']:
+            with self.subTest(flag=flag):
+                result = subprocess.run(['bash', str(ROOT / 'install.sh'), flag, 'fixture-secret'],
+                                        capture_output=True, text=True, timeout=5)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Password-valued arguments are not supported', result.stderr)
+                self.assertNotIn('fixture-secret', result.stdout + result.stderr)
+
     def test_privileged_migration_executes_only_private_source_for_both_db_auth_modes(self):
         (self.runtime / 'artisan').write_text('<?php file_put_contents(getenv("MARKER"), "unsafe");')
         (self.stage / 'app' / 'artisan').write_text(

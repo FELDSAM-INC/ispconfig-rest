@@ -189,8 +189,13 @@ source-confirmed issues were fixed, including a shared model-level group ownersh
 private outside the repository.
 
 Current local validation on PHP 8.4 passed 1,459 core tests (11,491 assertions), 241 hosting tests (1,768
-assertions), 30 installer/updater tests, both PHPStan gates, HTTP checks, Semgrep, Gitleaks and their negative
+assertions), 33 installer/updater tests, both PHPStan gates, HTTP checks, Semgrep, Gitleaks and their negative
 controls, 15 subscription-runner tests, 3 scanner-runner tests, and workflow syntax validation. Hosting's
 server-tools and WordPress suites passed 54 tests. A fresh Composer audit found no advisories after updating
-Symfony Mime to 7.4.22 for CVE-2026-45070. The final release remains conditional on a completed Codex review
-of the frozen release candidate and the GitHub Actions gates. No production installation was run.
+Symfony Mime to 7.4.22 for CVE-2026-45070. The subsequent full Codex scan on frozen commit `a7a4d0e` completed successfully and reported one medium
+finding: installer passwords passed in process arguments. Its canonical report records 128 deduplicated
+reviewed paths from the 1,204-file inventory, with no other reportable issue in that pass. Password-valued
+flags have since been replaced by private password files; regression tests reject public files, nonfiles,
+multiple lines and the old password-valued flags. Final validation reviews the complete installer/manager
+paths against that completed full-scan baseline, alongside GitHub Actions gates. No production installation
+was run.

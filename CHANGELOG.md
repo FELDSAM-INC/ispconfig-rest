@@ -27,6 +27,8 @@ hosting extension 1.0.2. The HTTP API remains under `/api/v1`.
   the Composer bootstrap before execution.
 - Synchronize `.env` timezones as the runtime user without following links as root. Use an isolated runtime
   account and require PHP-FPM for managed Apache/nginx installations.
+- Read installer database passwords from private files or the existing hidden prompt/environment rather
+  than exposing password-valued command-line arguments to local process observers.
 - Update locked dependencies to resolve published advisories, including Symfony Mime CVE-2026-45070.
 
 ### Maintenance
@@ -36,6 +38,9 @@ hosting extension 1.0.2. The HTTP API remains under `/api/v1`.
 
 ### Upgrade notes
 
+- Replace installer `--db-pass` / `--db-admin-pass` arguments with `--db-pass-file` /
+  `--db-admin-pass-file`. Files must be owned by root, inaccessible to group/others, and contain one password
+  line. Socket authentication and the existing hidden prompt/admin-password environment variable remain available.
 - Existing installations using mod_php or a shared web-server account need a dedicated PHP-FPM pool and
   API account. The code updater does not change service identities: migrate ownership of the application
   checkout, update `RUN_USER` in root-owned `/etc/ispconfig-rest/install.conf`, and configure the FPM pool
