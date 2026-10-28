@@ -52,7 +52,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: shivammathur/setup-php@fcafdd6392932010c2bd5094439b8e33be2a8a09
+      - uses: shivammathur/setup-php@accd6127cb78bee3e8082180cb391013d204ef9f
         with:
           php-version: ${{ matrix.php }}
           extensions: mbstring, pdo_sqlite, openssl, tokenizer, xml, ctype, bcmath, fileinfo
