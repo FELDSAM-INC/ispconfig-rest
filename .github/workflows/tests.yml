@@ -13,7 +13,7 @@ jobs:
   cli:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check the manager and installer
         run: |
           python3 -m unittest discover -s tests/Integration/updater -p 'test_*.py'
@@ -28,7 +28,7 @@ jobs:
       matrix:
         php: ['8.3', '8.4', '8.5']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -54,7 +54,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Validate release metadata and prepare notes
         env:
