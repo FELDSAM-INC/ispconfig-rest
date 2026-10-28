@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
  * mail_domain — an email domain with DKIM signing and outbound-relay
  * configuration (contract: api/components/schemas/MailDomain.yaml; legacy:
  * source_code/interface/web/mail/form/mail_domain.tform.php).
+ *
+ * @property string $domain
  */
 class MailDomain extends BaseModel
 {

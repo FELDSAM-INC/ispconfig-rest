@@ -2,12 +2,12 @@
 ; Place in the fpm pool dir: Debian /etc/php/<ver>/fpm/pool.d/, RHEL /etc/php-fpm.d/
 ; then reload the fpm service (e.g. systemctl reload php8.3-fpm).
 ;
-; user/group  = who the app runs as (the web-server user by default).
+; user/group = a dedicated API account, never shared with tenant workloads.
 ; listen.owner/group = the web-server user, so Apache/nginx can reach the socket.
 
 [ispconfig-rest]
-user = www-data
-group = www-data
+user = ispconfig-rest
+group = ispconfig-rest
 listen = /run/ispconfig-rest.sock
 listen.owner = www-data
 listen.group = www-data

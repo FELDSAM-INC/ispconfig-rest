@@ -26,6 +26,42 @@ class ScopedReferenceSitesTest extends TestCase
 
     protected const MISSING = 999999;
 
+    public function test_website_creation_cannot_assign_a_foreign_group(): void
+    {
+        $before = DB::table('sys_datalog')->count();
+        $this->postJson('/api/v1/sites/web-domains', [
+            'domain' => 'foreign-owner.test', 'server_id' => 1,
+            'sys_groupid' => $this->tenant('clientB')['groupid'],
+        ], $this->tenantHeaders('clientA'))->assertForbidden();
+
+        $this->assertDatabaseMissing('web_domain', ['domain' => 'foreign-owner.test']);
+        $this->assertSame($before, DB::table('sys_datalog')->count());
+    }
+
+    public function test_website_update_cannot_transfer_ownership_outside_scope(): void
+    {
+        $before = DB::table('sys_datalog')->count();
+        $this->putJson('/api/v1/sites/web-domains/'.$this->vhost['clientA'], [
+            'sys_groupid' => $this->tenant('clientB')['groupid'],
+        ], $this->tenantHeaders('clientA'))->assertForbidden();
+
+        $this->assertDatabaseHas('web_domain', [
+            'domain_id' => $this->vhost['clientA'], 'sys_groupid' => $this->tenant('clientA')['groupid'],
+        ]);
+        $this->assertSame($before, DB::table('sys_datalog')->count());
+    }
+
+    public function test_website_creation_allows_own_and_managed_client_groups(): void
+    {
+        foreach (['clientA', 'reseller'] as $actor) {
+            $this->postJson('/api/v1/sites/web-domains', [
+                'domain' => strtolower($actor).'-authorized.test', 'server_id' => 1,
+                'sys_groupid' => $this->tenant('clientA')['groupid'],
+            ], $this->tenantHeaders($actor))->assertCreated()
+                ->assertJsonPath('sys_groupid', $this->tenant('clientA')['groupid']);
+        }
+    }
+
     /** @var array<string, int> */
     protected array $vhost = [];
 

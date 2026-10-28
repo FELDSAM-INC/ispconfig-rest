@@ -43,7 +43,9 @@ properties:
 
   template:
     readOnly: true
-    description: The assigned client template
+    type: object
+    nullable: true
+    description: The assigned client template, or null if missing or unreadable by the caller
     allOf:
       - $ref: './ClientTemplate.yaml'
 

@@ -87,6 +87,7 @@ class ClientTemplateAssignmentController extends Controller
     public function store(StoreClientTemplateAssignmentRequest $request, Client $client): JsonResponse
     {
         $template = ClientTemplate::query()
+            ->readable()
             ->findOrFail((int) $request->validated()['client_template_id']);
 
         $assignment = DB::transaction(

@@ -59,7 +59,9 @@ properties:
     type: integer
     format: int32
     minimum: 1
-    description: System group ID that owns this record (defaults to the parent zone's group when omitted)
+    description: >-
+      System group ID that owns this record (defaults to the parent zone's group when omitted).
+      Non-admin ownership changes must stay within the acting key's managed groups (otherwise 403).
     example: 10
 
   sys_perm_user:

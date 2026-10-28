@@ -346,7 +346,8 @@
     description: |
       Returns the SSL certificate material stored on the web domain
       (`ssl_cert`, `ssl_key`, `ssl_bundle` columns). Responds 204 when no
-      certificate is configured.
+      certificate is configured. Requires update permission on the website because the response includes
+      its private key. Read-only callers can use the SSL status endpoint without retrieving key material.
     parameters:
       - name: id
         in: path

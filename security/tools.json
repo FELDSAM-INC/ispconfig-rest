@@ -1,0 +1,33 @@
+{
+  "gitleaks": {
+    "version": "8.30.1",
+    "url": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz",
+    "sha256": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  },
+  "semgrep": {
+    "image": "semgrep/semgrep:1.182.0@sha256:4a34048c04fef049f71665047f074cffb00cc3d89482f965a5cd151d589237af",
+    "revision": "16b9e6d45f10649f6a531ec4838ed9924372c3bc",
+    "rules": {
+      "php/lang/security/tainted-exec.yaml": "3a908167a9f1ff41f09bcc67c4fbf4b6f6a55aafa5f04faf390dd3e54cb210b6",
+      "php/lang/security/eval-use.yaml": "cd7bfa0e6c39db14f0a6ef86a74a7eb56bc14fd5216716e9ca204546c2e14d37",
+      "php/lang/security/php-ssrf.yaml": "2f0ac8be319d87e3faab92d18e465607bde5f226d07c9d7552a5a62a88d991c6",
+      "php/lang/security/curl-ssl-verifypeer-off.yaml": "20ceda53231cfda6e160fb12f2d861bda3d2e86665cd3a3b3bc891966e32eb7b",
+      "php/laravel/security/laravel-sql-injection.yaml": "dfd4f35911a23e912b470de40175b99671957b70eb7db15c222f925cc0354cae",
+      "php/laravel/security/laravel-unsafe-validator.yaml": "f80bd84746637366f7198a2f08c572b444daa2a5904af6c9ff23e18d0f350bf1",
+      "php/laravel/security/laravel-dangerous-model-construction.yaml": "9dd5ef24bec1679b26be667d57ab2539e609df12b130ffa3d7a50f85940a4f47",
+      "python/lang/security/audit/subprocess-shell-true.yaml": "753ba9d29d592b3d7f5086e671e424ee05138acbf75a39b663d92aa3275f5380",
+      "python/lang/security/unverified-ssl-context.yaml": "ff0e5b9f6cd95f5247a9242d16a398162b18945f4cda11587ed965e3c663abfe",
+      "python/lang/security/deserialization/pickle.yaml": "ef221e31f87f24b5889c08e22e80ae176e0209c4099e822120904ed99d61a7e7",
+      "python/lang/security/audit/eval-detected.yaml": "4a7d2769392c93fecb74a76b313b36b499c0ca22b42966d48f174761d85a5eec"
+    }
+  },
+  "source_paths": [
+    "app",
+    "routes",
+    "config",
+    "bootstrap",
+    "database",
+    "server-tools",
+    "scripts"
+  ]
+}

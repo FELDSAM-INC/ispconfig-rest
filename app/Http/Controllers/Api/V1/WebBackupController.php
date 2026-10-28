@@ -233,7 +233,9 @@ class WebBackupController extends Controller
             ]);
         }
 
-        if (! $copy['readable']) {
+        $opened = $copy['readable'] ? $this->backups->openPreparedCopy($webDomain, $copy) : null;
+
+        if ($opened === null) {
             return Problem::response(409, 'Conflict', "This installation delivers backup copies to the website's backup folder; fetch it with the website's FTP or SSH access.", [
                 'type' => ProblemType::uri(ProblemType::DOWNLOAD_NOT_READABLE),
             ]);
@@ -241,11 +243,24 @@ class WebBackupController extends Controller
 
         $filename = str_replace(['"', "\r", "\n"], '', (string) $representation['filename']);
 
-        $response = response()->file($copy['path'], [
+        $headers = [
             'Content-Type' => 'application/octet-stream',
-            'Content-Length' => (string) $copy['size'],
+            'Content-Length' => (string) $opened['size'],
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-        ]);
+        ];
+        $stream = $opened['stream'];
+        if (request()->isMethod('HEAD')) {
+            fclose($stream);
+            $response = response('', 200, $headers);
+        } else {
+            $response = response()->stream(static function () use ($stream): void {
+                try {
+                    fpassthru($stream);
+                } finally {
+                    fclose($stream);
+                }
+            }, 200, $headers);
+        }
 
         // A customer's archive must never be cached by a shared cache. Set the
         // directives on the response rather than as a raw header: Symfony

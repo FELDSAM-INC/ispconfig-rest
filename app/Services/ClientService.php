@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\ClientReseller;
 use App\Support\IspContext;
 use App\Support\LegacyCrypt;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -91,6 +92,10 @@ class ClientService
      */
     public function createClient(Client $client, array $payload, bool $asReseller = false, array $fields = []): Client
     {
+        if (! $this->context->authScope()->isAdmin && ($asReseller || (int) ($payload['limit_client'] ?? 0) !== 0)) {
+            throw new AuthorizationException('Only administrators may grant reseller capacity.');
+        }
+
         $plainPassword = (string) $payload['password'];
         $payload['password'] = LegacyCrypt::hash($plainPassword);
         unset($plainPassword);
@@ -164,6 +169,14 @@ class ClientService
     {
         $old = $client->getRawOriginal();
         $clientId = (int) $client->getKey();
+
+        if (! $this->context->authScope()->isAdmin) {
+            foreach (['parent_client_id', 'limit_client'] as $field) {
+                if (array_key_exists($field, $payload) && (int) $payload[$field] !== (int) ($old[$field] ?? 0)) {
+                    throw new AuthorizationException('Only administrators may change client ownership or reseller capacity.');
+                }
+            }
+        }
 
         // Spec 019: the stored lock/cancel flags, read under a row lock inside
         // the caller's transaction, so concurrent requests cannot both see the

@@ -57,6 +57,8 @@
       in the client_template_assigned pivot table. Assigning a template that is
       already assigned is rejected with 409. After every assignment change the
       client's effective limits are recomputed from master + additional templates.
+      Requires update permission on the client and read permission on the template. An unreadable
+      template is rejected like a nonexistent one (422).
     parameters:
       - name: client_id
         in: path

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\WebBackup;
+use App\Models\WebDomain;
 use App\Services\WebBackupService;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\WebBackupApiTestCase;
@@ -20,6 +22,79 @@ class WebBackupDownloadApiTest extends WebBackupApiTestCase
 {
     /** @var array<int, string> */
     private array $tempRoots = [];
+
+    public function test_symlink_swap_between_path_check_and_open_is_rejected(): void
+    {
+        foreach (['file', 'directory'] as $swap) {
+            [$website, $root] = $this->websiteWithRoot('clientA');
+            $backup = $this->backup($website);
+            $name = 'web_2025-09-14_00-00.tar.gz';
+            $path = $this->prepareCopy($root, $name, 'allowed archive');
+            $service = app(WebBackupService::class);
+            $web = WebDomain::withoutGlobalScopes()->findOrFail($website);
+            $model = WebBackup::withoutGlobalScopes()->findOrFail($backup);
+            $copy = $service->preparedCopy($model, $web, $name);
+            $this->assertNotNull($copy);
+            mkdir($root.'/private');
+            file_put_contents($root.'/private/'.$name, 'private');
+            if ($swap === 'file') {
+                unlink($path);
+                symlink($root.'/private/'.$name, $path);
+            } else {
+                rename($root.'/backup', $root.'/old-backup');
+                symlink($root.'/private', $root.'/backup');
+            }
+            clearstatcache(true);
+
+            $this->assertNull($service->openPreparedCopy($web, $copy));
+        }
+    }
+
+    public function test_replacing_archive_with_a_symlink_after_headers_cannot_change_the_stream(): void
+    {
+        [$website, $root] = $this->websiteWithRoot('clientA');
+        $backup = $this->backup($website);
+        $bytes = 'allowed archive';
+        $path = $this->prepareCopy($root, 'web_2025-09-14_00-00.tar.gz', $bytes);
+        $secret = $root.'/private-file';
+        file_put_contents($secret, str_repeat('S', strlen($bytes)));
+
+        $response = $this->get($this->downloadUrl($website, $backup), $this->tenantHeaders('clientA'))->assertOk();
+        unlink($path);
+        symlink($secret, $path);
+        clearstatcache(true);
+
+        $this->assertSame($bytes, $response->streamedContent());
+    }
+
+    public function test_replacing_the_backup_directory_cannot_change_the_stream(): void
+    {
+        [$website, $root] = $this->websiteWithRoot('clientA');
+        $backup = $this->backup($website);
+        $bytes = 'allowed archive';
+        $this->prepareCopy($root, 'web_2025-09-14_00-00.tar.gz', $bytes);
+        mkdir($root.'/private');
+        file_put_contents($root.'/private/web_2025-09-14_00-00.tar.gz', str_repeat('S', strlen($bytes)));
+
+        $response = $this->get($this->downloadUrl($website, $backup), $this->tenantHeaders('clientA'))->assertOk();
+        rename($root.'/backup', $root.'/old-backup');
+        symlink($root.'/private', $root.'/backup');
+        clearstatcache(true);
+
+        $this->assertSame($bytes, $response->streamedContent());
+    }
+
+    public function test_backup_directory_symlink_is_not_a_download_root(): void
+    {
+        [$website, $root] = $this->websiteWithRoot('clientA');
+        $backup = $this->backup($website);
+        mkdir($root.'/private');
+        file_put_contents($root.'/private/web_2025-09-14_00-00.tar.gz', 'private');
+        rmdir($root.'/backup');
+        symlink($root.'/private', $root.'/backup');
+
+        $this->get($this->downloadUrl($website, $backup), $this->tenantHeaders('clientA'))->assertStatus(409);
+    }
 
     protected function tearDown(): void
     {

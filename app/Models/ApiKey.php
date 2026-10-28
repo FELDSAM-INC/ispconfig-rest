@@ -10,6 +10,8 @@ use Illuminate\Support\Str;
  * API-owned credential table (NOT an ISPConfig table — it is exempt from the
  * BaseModel/datalog rule per the constitution's Code Boundaries: API-owned
  * tables are clearly separate and managed by our own migrations).
+ *
+ * @property array<int, string>|null $zones
  */
 class ApiKey extends Model
 {

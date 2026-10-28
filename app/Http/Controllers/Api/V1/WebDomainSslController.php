@@ -8,6 +8,7 @@ use App\Services\LetsEncryptStatusService;
 use App\Services\WebDomainService;
 use App\Services\WebPermissionService;
 use App\Support\IspContext;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -46,6 +47,9 @@ class WebDomainSslController extends Controller
     public function show(WebDomain $webDomain): JsonResponse|Response
     {
         $attributes = $webDomain->getAttributes();
+        if (! app(IspContext::class)->authScope()->allows($attributes, 'u')) {
+            throw new AuthorizationException('Update permission is required to retrieve certificate key material.');
+        }
 
         if (($attributes['ssl_cert'] ?? '') === '' || $attributes['ssl_cert'] === null) {
             return response()->noContent();

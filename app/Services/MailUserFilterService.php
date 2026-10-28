@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\MailUser;
 use App\Models\MailUserFilter;
+use Illuminate\Validation\ValidationException;
 
 /**
  * custom_mailfilter regeneration for mail user filter rules — a faithful
@@ -113,6 +114,14 @@ class MailUserFilterService
         $record = $filter->getAttributes();
         $filterId = (int) $filter->getKey();
 
+        // Also check stored values when a partial update regenerates a rule.
+        // Inactive rules bypass rendering, preserving the recovery path.
+        foreach (['source', 'searchterm', 'target'] as $field) {
+            if (preg_match('/[\x00\r\n]/', (string) ($record[$field] ?? ''))) {
+                throw ValidationException::withMessages([$field => 'Filter script values must not contain NUL or line breaks.']);
+            }
+        }
+
         if (($config['mail_filter_syntax'] ?? '') === 'sieve') {
             return $this->renderSieve($filterId, $record);
         }
@@ -121,8 +130,7 @@ class MailUserFilterService
     }
 
     /**
-     * Sieve branch, ported verbatim (incl. the special-char double-backslash
-     * escaping and the Header-source searchterm split).
+     * Construct logical patterns first, then encode every Sieve quoted string.
      *
      * @param  array<string, mixed>  $record
      */
@@ -143,42 +151,26 @@ class MailUserFilterService
         }
 
         if ($op === 'domain') {
-            $content .= 'if address :domain :is "'.strtolower($source).'" "'.$searchterm.'" {'."\n";
+            $content .= 'if address :domain :is '.$this->sieveString(strtolower($source)).' '.$this->sieveString($searchterm).' {'."\n";
         } elseif ($op === 'localpart') {
-            $content .= 'if address :localpart :is "'.strtolower($source).'" "'.$searchterm.'" {'."\n";
+            $content .= 'if address :localpart :is '.$this->sieveString(strtolower($source)).' '.$this->sieveString($searchterm).' {'."\n";
         } elseif ($source === 'Size') {
             $unit = in_array(substr(trim($searchterm), -1), ['k', 'K'], true) ? 'k' : 'm';
             $content .= 'if size :over '.intval($searchterm).$unit.' {'."\n";
         } else {
-            $content .= 'if header :regex    "'.strtolower($source).'" ["';
+            $content .= 'if header :regex    '.$this->sieveString(strtolower($source)).' [';
 
             if ($op === 'regex') {
-                // A provided regex must already be quoted as intended; only
-                // an obviously unquoted double-quote is handled.
-                $patterns = ['/([^\\\\]{2})"/', '/([^\\\\])\\\\"/'];
-                $replace = ['${1}\\\\\\\\"', '${1}\\\\\\\\"'];
-                $escaped = preg_replace($patterns, $replace, $searchterm);
+                $escaped = $searchterm;
             } else {
-                $sieveRegexEscape = [
-                    '\\' => '\\\\\\',
-                    '+' => '\\\\+',
-                    '*' => '\\\\*',
-                    '?' => '\\\\?',
-                    '[' => '\\\\[',
-                    '^' => '\\\\^',
-                    ']' => '\\\\]',
-                    '$' => '\\\\$',
-                    '(' => '\\\\(',
-                    ')' => '\\\\)',
-                    '{' => '\\\\{',
-                    '}' => '\\\\}',
-                    '|' => '\\\\|',
-                    '.' => '\\\\.',
-                ];
-                $escaped = strtr($searchterm, $sieveRegexEscape);
+                // Escape POSIX ERE metacharacters, independently of Sieve quoting.
+                $escaped = strtr($searchterm, array_combine(
+                    str_split('\\.+*?[^]$(){}|'),
+                    array_map(fn (string $char): string => '\\'.$char, str_split('\\.+*?[^]$(){}|'))
+                ));
             }
 
-            $content .= match ($op) {
+            $pattern = match ($op) {
                 'contains' => '.*'.$escaped,
                 'is' => '^'.$escaped.'$',
                 'regex' => $escaped,
@@ -187,17 +179,17 @@ class MailUserFilterService
                 default => $escaped,
             };
 
-            $content .= '"] {'."\n";
+            $content .= $this->sieveString($pattern).'] {'."\n";
         }
 
         if ($action === 'move') {
-            $content .= '    fileinto "'.$target.'";'."\n    stop;\n";
+            $content .= '    fileinto '.$this->sieveString($target).';'."\n    stop;\n";
         } elseif ($action === 'keep') {
             $content .= "    keep;\n";
         } elseif ($action === 'stop') {
             $content .= "    stop;\n";
         } elseif ($action === 'reject') {
-            $content .= '    reject "'.$target.'";'."\n    stop;\n";
+            $content .= '    reject '.$this->sieveString($target).';'."\n    stop;\n";
         } else {
             $content .= "    discard;\n    stop;\n";
         }
@@ -208,6 +200,12 @@ class MailUserFilterService
         return $content;
     }
 
+    /** Encode an RFC 5228 quoted-string without changing its logical value. */
+    protected function sieveString(string $value): string
+    {
+        return '"'.strtr($value, ['\\' => '\\\\', '"' => '\\"']).'"';
+    }
+
     /**
      * Maildrop branch, ported verbatim.
      *
@@ -216,7 +214,7 @@ class MailUserFilterService
     protected function renderMaildrop(int $filterId, array $record): string
     {
         $source = (string) $record['source'];
-        $searchterm = preg_quote((string) $record['searchterm']);
+        $searchterm = preg_quote((string) $record['searchterm'], '/');
         $op = (string) $record['op'];
         $action = (string) $record['action'];
         $target = (string) ($record['target'] ?? '');

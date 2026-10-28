@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Support\IspContext;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 
 /**
  * Shared behavior for domain-module writes (contract:
@@ -47,6 +50,19 @@ abstract class ClientDomainRequest extends FormRequest
     public function payload(): array
     {
         return $this->validated();
+    }
+
+    protected function owningClientRule(): Exists
+    {
+        $rule = Rule::exists('client', 'client_id');
+        $scope = app(IspContext::class)->authScope();
+
+        if (! $scope->isAdmin) {
+            $rule->where(fn ($query) => $query->whereIn('client_id', fn ($groups) => $groups
+                ->select('client_id')->from('sys_group')->whereIn('groupid', $scope->groupIds)));
+        }
+
+        return $rule;
     }
 
     /**

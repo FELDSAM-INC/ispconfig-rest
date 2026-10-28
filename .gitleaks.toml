@@ -1,0 +1,85 @@
+[extend]
+useDefault = true
+
+# Exact reviewed synthetic fixture/documentation matches, restricted to paths AND rules.
+# targetRules is required: global path exceptions skip whole files before matching content.
+
+[[allowlists]]
+description = "Reviewed synthetic fixture or truncated PEM example"
+targetRules = ["ispconfig-api-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['''(^|/)specs/014-api-key-management/contracts/schemas\.yaml$''']
+regexes = ['''\Aisp_0123456789abcdefghijABCDEFGHIJ0123456789\z''']
+
+[[allowlists]]
+description = "Reviewed synthetic fixture or truncated PEM example"
+targetRules = ["ispconfig-api-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['''(^|/)api/components/schemas/ApiKeyCreated\.yaml$''']
+regexes = ['''\Aisp_0123456789abcdefghijABCDEFGHIJ0123456789\z''']
+
+[[allowlists]]
+description = "Reviewed synthetic fixture or truncated PEM example"
+targetRules = ["private-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['''(^|/)api/components/schemas/MailDomain\.yaml$''']
+regexes = ['''\A-----BEGIN PRIVATE KEY-----
+      MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQ\.\.\.
+      -----END PRIVATE KEY-----\z''']
+
+[[allowlists]]
+description = "Reviewed synthetic fixture or truncated PEM example"
+targetRules = ["private-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['''(^|/)specs/027-dkim-generation/research\.md$''']
+regexes = ['''\A-----BEGIN PRIVATE KEY-----`\),
+`test\.cz` key 1732 bytes\.
+
+A selector rotation branch \(`substr\(\$old_selector,0,53\)\.time\(\)` when the hosted zone already has the selector\) is dead:
+`\$old_selector` is undefined and `\$selector = \$dkim_selector` overwrites the result in both branches\.
+
+\*\*Decision\*\*: `MailDomainDkimService::generate\(\)` with `openssl_pkey_new\(\['private_key_bits' => \$bits,
+'private_key_type' => OPENSSL_KEYTYPE_RSA\]\)`, `openssl_pkey_export\(\)` \(PKCS#8\) and `openssl_pkey_get_details\(\)\['key'\]`
+\(`-----BEGIN PUBLIC KEY-----\z''']
+
+[[allowlists]]
+description = "Reviewed synthetic fixture or truncated PEM example"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['''(^|/)tests/Feature/DnsRecordHardeningTest\.php$''']
+regexes = ['''\Akey = 'mdsswUyr3DPW132mOi8V9xESWE8jTo0dxCjjnopKl\+GqJxpVXckHAeF\+KkxLbxILfDLUT0rAK9iUzy1L53eKGQ=='\z''']
+
+[[allowlists]]
+description = "Reviewed synthetic fixture or truncated PEM example"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['''(^|/)tests/Feature/DnsAcmeChallengeApiTest\.php$''']
+regexes = ['''\ATOKEN = '9ihDbjYfTExAYeDs4DBUeuTo18KBzwvTEjUnSwd32-c'\z''']
+
+[[allowlists]]
+description = "Reviewed synthetic fixture or truncated PEM example"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['''(^|/)tests/Feature/DnsAcmeChallengeApiTest\.php$''']
+regexes = ['''\AOTHER_TOKEN = 'LoqXcYV8q5ONbJQxbmR7SCTNo3tiAXDfowyjxAjEuX0'\z''']
+
+[[allowlists]]
+description = "Reviewed synthetic fixture or truncated PEM example"
+targetRules = ["ispconfig-api-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['''(^|/)README\.md$''']
+regexes = ['''\Aisp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\z''']
+
+[[rules]]
+id = "ispconfig-api-key"
+description = "ISPConfig REST API credential"
+regex = '''\bisp_[A-Za-z0-9]{40}\b'''
+keywords = ["isp_"]

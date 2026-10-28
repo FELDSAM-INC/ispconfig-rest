@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Support\IspContext;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 
@@ -69,10 +71,16 @@ class DnsSerialService
      */
     public function bumpZoneSerial(int $zoneId): void
     {
-        $zone = DB::table('dns_soa')->where('id', $zoneId)->first(['id', 'serial']);
+        $zone = DB::table('dns_soa')->where('id', $zoneId)->lockForUpdate()->first();
 
         if ($zone === null) {
             return;
+        }
+
+        // All record mutations and their serial bump share a transaction.
+        // A readable record never grants write access to its parent zone.
+        if (! app(IspContext::class)->authScope()->allows((array) $zone, 'u')) {
+            throw new AuthorizationException('You do not have permission to update this DNS zone.');
         }
 
         $this->datalog->updateRecord('dns_soa', 'id', $zone->id, [

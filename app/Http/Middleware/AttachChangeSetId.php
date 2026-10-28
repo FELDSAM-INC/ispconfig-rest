@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\ApiKey;
 use App\Support\IspContext;
 use Closure;
 use Illuminate\Http\Request;
@@ -21,7 +22,11 @@ class AttachChangeSetId
     public function handle(Request $request, Closure $next): Response
     {
         $context = app(IspContext::class);
-        $context->beginChangeSet();
+        $context->beginChangeSet(
+            $request->attributes->get('api_key_access') === ApiKey::ACCESS_ACME
+                ? (int) $request->attributes->get('api_key_id')
+                : null
+        );
 
         $response = $next($request);
 

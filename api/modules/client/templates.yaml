@@ -115,7 +115,10 @@
     tags:
       - Client Templates
     summary: Update client template
-    description: Updates an existing client template configuration
+    description: >-
+      Updates an existing client template configuration and reapplies it to assigned clients.
+      Requires update permission on every affected client, including legacy assignment conversion;
+      otherwise the entire update returns 403 without changes.
     parameters:
       - name: template_id
         in: path

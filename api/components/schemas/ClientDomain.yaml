@@ -36,6 +36,8 @@ properties:
       ID of the client that owns the domain. Not stored as a column:
       the API resolves it to the client's sys_group and stores the
       resulting sys_groupid with sys_perm_group 'ru'.
+      Non-admin keys can select only a client whose group is in their managed scope;
+      a foreign or missing client ID returns 422.
     example: 42
 
   # System Permissions (server-managed)

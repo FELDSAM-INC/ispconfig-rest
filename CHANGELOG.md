@@ -5,6 +5,53 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-28
+
+Security fixes and dependency updates. No migrations. Requires PHP 8.3 or newer and ISPConfig 3.3; works with the
+hosting extension 1.0.2. The HTTP API remains under `/api/v1`.
+
+### Security
+
+- Enforce client ownership when assigning websites and write permissions on DNS zones, including DNS changes
+  made by mail-domain DKIM operations. Mail-domain cleanup respects permissions on related records.
+- Restrict customer reparenting and reseller-capacity changes to administrators. Scope client-template references
+  to readable templates and require update permission before changing assignments.
+- Require update permission to retrieve TLS private keys and before generating DKIM keys.
+- Reject ownership transfers outside the acting key's managed groups, including domain registrations and
+  DNS records. Hide private template details in assignment responses and authorize legacy template conversion.
+- Quote generated Sieve literals and reject line breaks in structured mail-filter fields.
+- Restrict ACME keys to the change status of requests made with that exact key.
+- Verify the opened backup archive before streaming and keep the same file handle throughout the response.
+- Run privileged installer migrations and install the manager from fresh private sources. Verify extension
+  revisions against their registered repositories, replace the runtime environment file atomically, and verify
+  the Composer bootstrap before execution.
+- Synchronize `.env` timezones as the runtime user without following links as root. Use an isolated runtime
+  account and require PHP-FPM for managed Apache/nginx installations.
+- Update locked dependencies to resolve published advisories, including Symfony Mime CVE-2026-45070.
+
+### Maintenance
+
+- Add dependency, source, secret, static-analysis and HTTP security checks to the release gates, plus CodeQL
+  and an optional Codex Security workflow. Document local subscription scans and private security reporting.
+
+### Upgrade notes
+
+- Existing installations using mod_php or a shared web-server account need a dedicated PHP-FPM pool and
+  API account. The code updater does not change service identities: migrate ownership of the application
+  checkout, update `RUN_USER` in root-owned `/etc/ispconfig-rest/install.conf`, and configure the FPM pool
+  before serving the API. The API account must not execute tenant code; grant only the filesystem access
+  needed for enabled backup features. Fresh installs default to `ispconfig-rest`.
+- The updater installs the corrected manager after its current invocation. On installations with untrusted
+  runtime code, refresh `/usr/local/bin/ispconfig-rest` from a verified 1.4.1 release before running an update.
+- If the hosting extension's database worker is installed, update hosting to 1.1.4 and run
+  `sudo ispconfig-rest server-tools update --components database` to install its SQL-output fix.
+- ACME change IDs created before this release cannot be queried with restricted ACME keys. Full keys retain
+  their existing access. Treat returned change IDs as opaque strings.
+- HTTP backup downloads require a canonical document root and access to Linux `/proc/self/fd` for descriptor
+  verification. Use FTP/SSH when HTTP download is unavailable.
+- A fresh install directory needs an existing root-owned parent that other users cannot write. Privileged
+  installer migrations include only extensions recorded in the root-owned manager registry.
+
 ## [1.4.0] - 2026-10-17
 
 Domains without hosting can be removed with their services. No migrations. Requires PHP 8.3 or newer and ISPConfig

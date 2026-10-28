@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
  * Same table as WebDomain; the global scope keeps the resources disjoint.
  * The contract exposes only a small projection of the web_domain columns,
  * so this model whitelists them via $visible.
+ *
+ * @property string $type
  */
 class WebChildDomain extends BaseModel
 {

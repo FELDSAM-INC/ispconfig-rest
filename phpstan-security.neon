@@ -1,0 +1,16 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 5
+    # ISPConfig records come from an external schema; keep defensive runtime checks.
+    treatPhpDocTypesAsCertain: false
+    paths:
+        - app/Http/Middleware
+        - app/Models/ApiKey.php
+        - app/Models/BaseModel.php
+        - app/Support/AuthScope.php
+        - app/Support/IspContext.php
+        - app/Support/Problem.php
+        - app/Support/ProblemType.php
+    tmpDir: storage/framework/cache/phpstan-security

@@ -304,7 +304,7 @@ class WebBackupService
 
         $folder = @realpath(rtrim($root, '/').'/backup');
 
-        if ($folder === false || ! @is_dir($folder)) {
+        if ($folder === false || $folder !== rtrim($root, '/').'/backup' || ! @is_dir($folder)) {
             return null;
         }
 
@@ -327,6 +327,46 @@ class WebBackupService
             'modified' => (int) $modified,
             'readable' => @is_readable($path),
         ];
+    }
+
+    /**
+     * Open once and validate the actual Linux descriptor before reading.
+     * Path checks alone cannot protect customer-writable directory entries.
+     * If procfs is unavailable, HTTP download fails closed; FTP/SSH remains
+     * available. The nonblocking flag avoids waiting on a substituted FIFO.
+     *
+     * @param  array{path: string, size: int, modified: int, readable: bool}  $copy
+     * @return array{stream: resource, size: int}|null
+     */
+    public function openPreparedCopy(WebDomain $website, array $copy): ?array
+    {
+        $folder = rtrim((string) $website->getAttribute('document_root'), '/').'/backup/';
+        $stream = @fopen($copy['path'], 'rneb');
+        if ($stream === false) {
+            return null;
+        }
+
+        $stat = fstat($stream);
+        if ($stat !== false && ($stat['mode'] & 0170000) === 0100000) {
+            foreach (glob('/proc/self/fd/[0-9]*') ?: [] as $descriptor) {
+                clearstatcache(true, $descriptor);
+                $opened = @stat($descriptor);
+                if ($opened === false || $opened['dev'] !== $stat['dev'] || $opened['ino'] !== $stat['ino']) {
+                    continue;
+                }
+
+                // readlink on procfs names the opened inode, independent of
+                // later path/symlink swaps. Do not resolve the pathname again.
+                $target = @readlink($descriptor);
+                if ($target !== false && str_starts_with($target, $folder)) {
+                    return ['stream' => $stream, 'size' => (int) $stat['size']];
+                }
+            }
+        }
+
+        fclose($stream);
+
+        return null;
     }
 
     /**

@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Validation\Rule;
-
 /**
  * PUT /clients/domains/{id} (api/modules/client/domains.yaml).
  *
@@ -21,7 +19,7 @@ class UpdateClientDomainRequest extends ClientDomainRequest
     {
         return [
             'domain' => ['sometimes', ...$this->domainRules()],
-            'client_id' => ['sometimes', 'integer', Rule::exists('client', 'client_id')],
+            'client_id' => ['sometimes', 'integer', $this->owningClientRule()],
         ];
     }
 }

@@ -191,6 +191,14 @@ abstract class BaseModel extends Model
                 throw new AuthorizationException('You do not have permission to update this resource.');
             }
 
+            // Original-row permission does not authorize assigning a new owner.
+            // Use the same group boundary as inserts, but reject invalid moves.
+            $scope = $this->authScope();
+            if (! $scope->isAdmin && $this->isDirty('sys_groupid')
+                && ! in_array((int) $this->getAttribute('sys_groupid'), $scope->groupIds, true)) {
+                throw new AuthorizationException('You cannot assign this resource to a group outside your scope.');
+            }
+
             // Locked-client guard (spec 019 FR-013): non-admin scopes cannot
             // re-enable lock-managed columns of a locked client's records.
             App::make(LockedClientGuard::class)->check($this, false, $oldRecord);

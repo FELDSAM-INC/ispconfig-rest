@@ -21,3 +21,7 @@ Homestead.yaml
 /auth.json
 # Installed extensions (spec 058), separate git checkouts
 /extensions/
+
+# Security scanner output can contain vulnerability details.
+/security-reports/
+/.codex-security/

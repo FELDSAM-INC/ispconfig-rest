@@ -19,6 +19,9 @@ use Illuminate\Support\Facades\App;
  * subdomain/alias and are served by the WebChildDomain model — the global
  * scope here keeps the two resources disjoint (a child domain id 404s on
  * the web-domains endpoints and vice versa).
+ *
+ * @property string $type
+ * @property string $web_folder
  */
 class WebDomain extends BaseModel
 {

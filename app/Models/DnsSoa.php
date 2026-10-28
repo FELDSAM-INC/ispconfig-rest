@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * DnsSerialService. DNSSEC state fields (dnssec_initialized,
  * dnssec_last_signed, dnssec_info) and rendered_zone are readOnly per the
  * contract and only ever written by ISPConfig's server daemons.
+ *
+ * @property bool $active
  */
 class DnsSoa extends BaseModel
 {

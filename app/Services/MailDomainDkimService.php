@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\MailDomain;
+use App\Support\IspContext;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -66,6 +68,9 @@ class MailDomainDkimService
     public function generate(MailDomain $domain, ?string $selector): void
     {
         $raw = $domain->getAttributes();
+        if (! app(IspContext::class)->authScope()->allows($raw, 'u')) {
+            throw new AuthorizationException('You do not have permission to update this resource.');
+        }
         $serverId = (int) $raw['server_id'];
 
         if (! $this->mail->dkimPathUsable($serverId)) {

@@ -169,6 +169,10 @@ class ChangeController extends Controller
     {
         $context = app(IspContext::class);
 
+        if ($context->changeSetPrefix() !== '') {
+            $query->where('session_id', 'like', $context->changeSetPrefix().'%');
+        }
+
         if (! $context->authScope()->isAdmin) {
             $query->where('user', $context->username());
         }

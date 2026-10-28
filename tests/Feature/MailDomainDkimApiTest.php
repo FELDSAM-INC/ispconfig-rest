@@ -3,6 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\MailDomain;
+use App\Services\AccountMailService;
+use App\Services\MailDomainDkimService;
+use App\Services\MailDomainService;
+use App\Services\ServerIniConfigService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\DnsSchema;
@@ -29,6 +33,39 @@ class MailDomainDkimApiTest extends TestCase
     private int $domainA;
 
     private int $domainB;
+
+    public function test_generating_dkim_leaves_a_foreign_dns_zone_unchanged(): void
+    {
+        $zone = $this->seedZone('clientB', 'a-dom.test.');
+        $this->postJson($this->url($this->domainA), [], $this->tenantHeaders('clientA'))
+            ->assertOk()->assertJsonPath('dns_managed', false);
+
+        $this->assertDatabaseHas('dns_soa', ['id' => $zone, 'serial' => 2024010101]);
+        $this->assertSame(0, DB::table('dns_rr')->count());
+        $this->assertSame(0, DB::table('sys_datalog')->whereIn('dbtable', ['dns_soa', 'dns_rr'])->count());
+    }
+
+    public function test_disabling_dkim_leaves_a_foreign_dmarc_record_unchanged(): void
+    {
+        $zone = $this->seedZone('clientB', 'a-dom.test.');
+        $record = DB::table('dns_rr')->insertGetId($this->ownedBy('clientB', [
+            'zone' => $zone, 'server_id' => 1, 'name' => '_dmarc.a-dom.test.',
+            'type' => 'TXT', 'data' => 'v=DMARC1; p=reject', 'active' => 'Y',
+        ]));
+        $this->putJson('/api/v1/mail/domains/'.$this->domainA, ['dkim' => false], $this->tenantHeaders('clientA'))->assertOk();
+        $this->assertDatabaseHas('dns_rr', ['id' => $record, 'data' => 'v=DMARC1; p=reject']);
+        $this->assertSame(0, DB::table('sys_datalog')->whereIn('dbtable', ['dns_soa', 'dns_rr'])->count());
+    }
+
+    public function test_read_only_domain_is_rejected_before_generating_a_key(): void
+    {
+        $domain = $this->seedDomain('clientB', 'read-only.test', ['sys_perm_other' => 'r']);
+        $service = \Mockery::mock(MailDomainDkimService::class, [app(MailDomainService::class), app(AccountMailService::class), app(ServerIniConfigService::class)])
+            ->makePartial()->shouldAllowMockingProtectedMethods();
+        $service->shouldNotReceive('keyPair');
+        $this->app->instance(MailDomainDkimService::class, $service);
+        $this->postJson('/api/v1/mail/domains/'.$domain.'/dkim', [], $this->tenantHeaders('clientA'))->assertForbidden();
+    }
 
     protected function setUp(): void
     {

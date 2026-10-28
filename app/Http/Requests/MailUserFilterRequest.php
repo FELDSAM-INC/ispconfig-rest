@@ -59,7 +59,7 @@ abstract class MailUserFilterRequest extends FormRequest
             'rulename' => [$presence, 'string', 'max:64'],
             'source' => [$presence, 'string', Rule::in(['Subject', 'From', 'To', 'List-Id', 'Header', 'Size'])],
             'op' => [$presence, 'string', Rule::in(['contains', 'is', 'begins', 'ends', 'regex', 'localpart', 'domain']), $this->regexOpCompileRule()],
-            'searchterm' => [$presence, 'string', 'max:255', $this->regexOpCompileRule()],
+            'searchterm' => [$presence, 'string', 'max:255', 'not_regex:/[\x00\r\n]/', $this->regexOpCompileRule()],
             'action' => [$presence, 'string', Rule::in(['move', 'delete', 'keep', 'reject'])],
             'target' => ['sometimes', 'nullable', 'string', 'max:100', "regex:/^[\\p{Latin}0-9\\.\\'\\-\\_\\ \\&\\/]{0,100}$/u"],
             'active' => ['sometimes', 'boolean'],

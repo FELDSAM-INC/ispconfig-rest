@@ -26,6 +26,8 @@ class IspContext
 
     protected ?string $sessionId = null;
 
+    protected ?int $acmeKeyId = null;
+
     protected ?AuthScope $authScope = null;
 
     protected int $journalEntries = 0;
@@ -101,7 +103,7 @@ class IspContext
     public function sessionId(): string
     {
         if ($this->sessionId === null) {
-            $this->sessionId = bin2hex(random_bytes(16));
+            $this->sessionId = $this->changeSetPrefix().bin2hex(random_bytes(16));
         }
 
         return $this->sessionId;
@@ -114,10 +116,22 @@ class IspContext
      * application instance that serves several requests (tests, long-running
      * workers) never shares one change set across requests.
      */
-    public function beginChangeSet(): void
+    public function beginChangeSet(?int $acmeKeyId = null): void
     {
         $this->sessionId = null;
+        $this->acmeKeyId = $acmeKeyId;
         $this->journalEntries = 0;
+    }
+
+    /**
+     * Bind restricted-key journal IDs to their server-authenticated origin.
+     * The prefix plus 128 random bits fits ISPConfig's 64-character column.
+     * Full keys retain their existing visibility; legacy unbound IDs are
+     * deliberately inaccessible to ACME keys.
+     */
+    public function changeSetPrefix(): string
+    {
+        return $this->acmeKeyId === null ? '' : 'acme-'.$this->acmeKeyId.'-';
     }
 
     /**

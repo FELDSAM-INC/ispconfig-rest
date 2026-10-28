@@ -25,6 +25,26 @@ class DnsAcmeChallengeApiTest extends TestCase
 
     private const OTHER_TOKEN = 'LoqXcYV8q5ONbJQxbmR7SCTNo3tiAXDfowyjxAjEuX0';
 
+    public function test_acme_change_status_is_bound_to_the_exact_originating_key(): void
+    {
+        foreach (['admin', 'clientA'] as $actor) {
+            $first = $this->acmeKey($actor);
+            $second = $this->acmeKey($actor);
+            $own = $this->publish($first, '_acme-challenge.first-'.$actor.'.example.com')->assertCreated();
+            $other = $this->publish($second, '_acme-challenge.second-'.$actor.'.example.com')->assertCreated();
+            $full = $this->publish($this->tenantHeaders($actor), '_acme-challenge.full-'.$actor.'.example.com')->assertCreated();
+
+            $ownId = $own->headers->get('X-Change-Set-Id');
+            $this->getJson('/api/v1/changes/'.$ownId, $first)->assertOk();
+            foreach ([$other, $full] as $unrelated) {
+                $id = $unrelated->headers->get('X-Change-Set-Id');
+                $this->getJson('/api/v1/changes/'.$id, $first)->assertNotFound();
+            }
+            $this->getJson('/api/v1/changes/'.$ownId, $second)->assertNotFound();
+            $this->getJson('/api/v1/changes/'.$ownId, $this->tenantHeaders($actor))->assertOk();
+        }
+    }
+
     /** @var array<string, int> zone ids by origin */
     private array $zones = [];
 

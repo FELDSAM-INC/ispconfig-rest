@@ -91,7 +91,25 @@ valid_timezone(){
   [ -n "$1" ] && ISPC_REST_TZ="$1" "$PHP_BIN" -r 'exit(in_array(getenv("ISPC_REST_TZ"), timezone_identifiers_list(), true) ? 0 : 1);'
 }
 env_timezone(){
-  { sed -n 's/^APP_TIMEZONE=//p' "$INSTALL_DIR/.env" 2>/dev/null || true; } | tail -n 1 | tr -d "\"'"
+  { run_as sed -n 's/^APP_TIMEZONE=//p' .env 2>/dev/null || true; } | tail -n 1 | tr -d "\"'"
+}
+write_timezone(){
+  # The runtime checkout is untrusted: read and replace .env only as its
+  # unprivileged owner. Root never follows, chmods or chowns this path.
+  run_as "$PHP_BIN" -r '
+    $content = file_get_contents(".env");
+    if ($content === false) { exit(1); }
+    $line = "APP_TIMEZONE=".$argv[1];
+    $content = preg_match("/^APP_TIMEZONE=/m", $content)
+        ? preg_replace("/^APP_TIMEZONE=[^\r\n]*/m", $line, $content)
+        : rtrim($content, "\r\n")."\n".$line."\n";
+    $tmp = tempnam(getcwd(), ".env-timezone-");
+    if ($tmp === false || dirname($tmp) !== getcwd()) { exit(1); }
+    try {
+      if (!chmod($tmp, 0600) || file_put_contents($tmp, $content) === false
+          || !rename($tmp, ".env")) { exit(1); }
+    } finally { if (file_exists($tmp)) { unlink($tmp); } }
+  ' "$1"
 }
 set_state(){
   if grep -q "^$1=" "$STATE_FILE"; then sed -i "s|^$1=.*|$1=\"$2\"|" "$STATE_FILE"; else printf '%s="%s"\n' "$1" "$2" >> "$STATE_FILE"; fi
@@ -103,12 +121,7 @@ sync_timezone(){
   current="$(env_timezone)"
   if ! valid_timezone "$detected"; then warn "Could not detect a valid system timezone — APP_TIMEZONE left as ${current:-unset}."; return 0; fi
   if [ "$detected" != "$current" ]; then
-    if grep -q '^APP_TIMEZONE=' "$INSTALL_DIR/.env"; then
-      sed -i "s|^APP_TIMEZONE=.*|APP_TIMEZONE=$detected|" "$INSTALL_DIR/.env"
-    else
-      printf 'APP_TIMEZONE=%s\n' "$detected" >> "$INSTALL_DIR/.env"
-    fi
-    chown "$RUN_USER":"$RUN_USER" "$INSTALL_DIR/.env"; chmod 600 "$INSTALL_DIR/.env"
+    write_timezone "$detected"
     ok "Timezone set to $detected"
   fi
   set_state TIMEZONE "$detected"
@@ -128,7 +141,7 @@ reload_server(){
 
 cmd_version() {
   local ver commit branch tag location
-  ver="$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || echo '?')"
+  ver="$(run_as cat VERSION 2>/dev/null || echo '?')"
   commit="$(run_as git rev-parse --short HEAD 2>/dev/null || echo '?')"
   branch="$(run_as git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
   tag="$(run_as git describe --tags --exact-match --match 'v[0-9]*' HEAD 2>/dev/null || true)"
@@ -463,7 +476,7 @@ cmd_update() {
 
   cmd_schedule_install
   reload_server
-  ok "Update complete ($(cat "$INSTALL_DIR/VERSION" 2>/dev/null))"
+  ok "Update complete ($(run_as cat VERSION 2>/dev/null))"
 }
 
 cmd_service() { # restart (start/stop don't apply — the web server + fpm are shared)
@@ -476,9 +489,13 @@ cmd_logs() {
   # Prefer the app's own Laravel log; fall back to the Apache vhost error log.
   local applog="$INSTALL_DIR/storage/logs/laravel.log"
   local weblog="/var/log/apache2/${SERVICE_NAME}-error.log"
-  local log="$applog"; [ -f "$applog" ] || log="$weblog"
-  [ -f "$log" ] || die "No log file found ($applog or $weblog)."
-  if [ "${1:-}" = "-f" ]; then tail -f "$log"; else tail -n "${1:-50}" "$log"; fi
+  if run_as test -f storage/logs/laravel.log; then
+    if [ "${1:-}" = "-f" ]; then run_as tail -f storage/logs/laravel.log
+    else run_as tail -n "${1:-50}" storage/logs/laravel.log; fi
+  else
+    [ -f "$weblog" ] || die "No log file found ($applog or $weblog)."
+    if [ "${1:-}" = "-f" ]; then tail -f "$weblog"; else tail -n "${1:-50}" "$weblog"; fi
+  fi
 }
 
 cmd_key_create()    { need_root; shift || true; run_as "$PHP_BIN" artisan api:key:create "$@"; }

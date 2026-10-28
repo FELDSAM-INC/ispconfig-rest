@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ScopesReferences;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,6 +14,8 @@ use Illuminate\Validation\Rule;
  */
 class StoreClientTemplateAssignmentRequest extends FormRequest
 {
+    use ScopesReferences;
+
     public function authorize(): bool
     {
         return true;
@@ -27,7 +30,7 @@ class StoreClientTemplateAssignmentRequest extends FormRequest
             'client_template_id' => [
                 'required',
                 'integer',
-                Rule::exists('client_template', 'template_id'),
+                $this->readable(Rule::exists('client_template', 'template_id')),
             ],
         ];
     }

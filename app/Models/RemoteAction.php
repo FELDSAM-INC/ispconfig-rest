@@ -35,7 +35,14 @@ class RemoteAction extends Model
     /**
      * @var array<int, string>
      */
-    protected $guarded = [];
+    protected $fillable = [
+        'server_id',
+        'tstamp',
+        'action_type',
+        'action_param',
+        'action_state',
+        'response',
+    ];
 
     /**
      * @var array<string, string>

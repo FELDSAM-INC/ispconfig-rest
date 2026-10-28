@@ -7,6 +7,7 @@ use App\Http\Concerns\ResolvesClientOwnership;
 use App\Models\WebDomain;
 use App\Support\IspContext;
 use App\Support\LegacyCrypt;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -156,6 +157,7 @@ class WebDomainService
         $this->hooks->runSaving($domain, $fields, 'create');
         $record = $domain->getAttributes();
         $this->runConfigDependentChecks($record, null);
+        $this->assertOwningGroup((int) $record['sys_groupid']);
 
         // Client resource-limit enforcement (spec 012). WebDomainService
         // inserts web_domain via a raw query rather than BaseModel::save(), so
@@ -305,12 +307,23 @@ class WebDomainService
 
         // Extensions adjust the final record (spec 058); the checks run again on what they set.
         $this->hooks->runSaving($domain, $fields, 'update');
+        if ($domain->isDirty('sys_groupid')) {
+            $this->assertOwningGroup((int) $domain->getAttribute('sys_groupid'));
+        }
         $this->runConfigDependentChecks($domain->getAttributes(), (int) $domain->getKey());
         $domain->setAttribute('server_php_id', $this->resolveServerPhpId($domain->getAttributes()));
         $domain->save();
         $this->hooks->runSaved($domain, $fields, 'update');
 
         return $domain->refresh();
+    }
+
+    private function assertOwningGroup(int $groupId): void
+    {
+        $scope = $this->context->authScope();
+        if (! $scope->isAdmin && ! in_array($groupId, $scope->groupIds, true)) {
+            throw new AuthorizationException('You may not assign this resource to that client.');
+        }
     }
 
     /**

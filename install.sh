@@ -40,7 +40,7 @@ MANAGER_PATH="/usr/local/bin/ispconfig-rest"
 MIN_PHP="8.3"
 PHP_BIN="${ISPC_REST_PHP:-php}"
 FPM_SOCK="/run/${SERVICE_NAME}.sock"
-RUN_USER="${ISPC_REST_USER:-}"              # defaults to the web-server user
+RUN_USER="${ISPC_REST_USER:-ispconfig-rest}" # dedicated API identity
 EXTENSIONS=()                               # --extension NAME[@BRANCH|@vTAG], repeatable (spec 058)
 
 # Runtime DB (default: read from ISPConfig config)
@@ -80,7 +80,7 @@ Options (each also settable via an ISPC_REST_* env var):
   --db-host/-port/-name/-user/-pass   override the runtime DB credentials
   --db-admin-user NAME     privileged DB user for CREATE  (default: root)
   --db-admin-pass PASS     its password (default: empty -> unix-socket auth)
-  --run-user NAME          php-fpm pool / owner user (default: web-server user)
+  --run-user NAME          dedicated php-fpm pool / owner user (default: ispconfig-rest)
   --create-key yes|no      mint an admin API key          (default: ask)
   --non-interactive        accept defaults, no prompts
   --php PATH               php CLI binary                  (default: php)
@@ -179,6 +179,97 @@ detect_fpm() {
   return 1
 }
 
+# Fetch and verify Composer only inside a private directory; never execute a
+# pre-existing file from a shared temporary path. Subshell cleanup covers errors.
+install_composer() (
+  set -euo pipefail
+  local destination="$1" stage
+  umask 077
+  stage="$(mktemp -d "${TMPDIR:-/tmp}/ispconfig-composer.XXXXXXXX")"
+  trap 'rm -rf -- "$stage"' EXIT
+  "$PHP_BIN" -r 'if (!copy($argv[1], $argv[2])) { exit(1); }' \
+    https://composer.github.io/installer.sig "$stage/installer.sig"
+  "$PHP_BIN" -r 'if (!copy($argv[1], $argv[2])) { exit(1); }' \
+    https://getcomposer.org/installer "$stage/composer-setup.php"
+  "$PHP_BIN" -r '
+    $expected = trim((string) file_get_contents($argv[1]));
+    $actual = hash_file("sha384", $argv[2]);
+    if (!preg_match("/\\A[0-9a-f]{96}\\z/", $expected) || !is_string($actual) || !hash_equals($expected, $actual)) {
+      fwrite(STDERR, "Composer installer checksum verification failed.\n");
+      exit(1);
+    }' "$stage/installer.sig" "$stage/composer-setup.php"
+  "$PHP_BIN" "$stage/composer-setup.php" --quiet --install-dir="$stage" --filename=composer.phar
+  install -m 0755 "$stage/composer.phar" "$destination"
+)
+
+# Root must never load Git configuration, PHP or executables from the runtime
+# user's checkout. All privileged code comes from this fresh private checkout.
+prepare_privileged_source() {
+  PRIVILEGED_STAGE="$(mktemp -d /root/ispconfig-rest-install.XXXXXXXX)"
+  trap 'rm -rf -- "$PRIVILEGED_STAGE"' EXIT
+  git -c core.hooksPath=/dev/null -c protocol.file.allow=never clone --depth 1 \
+    --branch "$BRANCH" -- "$REPO_URL" "$PRIVILEGED_STAGE/app"
+  ( cd "$PRIVILEGED_STAGE/app" && COMPOSER_HOME="$PRIVILEGED_STAGE/composer" \
+    "$COMPOSER" install --no-dev --no-plugins --no-scripts --optimize-autoloader --no-interaction --no-progress )
+}
+
+# Write as the runtime user, to a new inode, then rename over the directory
+# entry. Neither a pre-existing .env symlink nor a concurrent swap is followed.
+write_runtime_env() {
+  run_as "$PHP_BIN" -r '
+    $tmp = tempnam(getcwd(), ".env-install-");
+    if ($tmp === false || dirname($tmp) !== getcwd()) { exit(1); }
+    try {
+      if (!chmod($tmp, 0600) || file_put_contents($tmp, stream_get_contents(STDIN)) === false
+          || !rename($tmp, ".env")) { exit(1); }
+    } finally { if (file_exists($tmp)) { unlink($tmp); } }
+  '
+}
+
+validate_runtime_identity() {
+  local runtime_uid web_uid
+  runtime_uid="$(id -u "$RUN_USER" 2>/dev/null || true)"
+  web_uid="$(id -u "$WEB_USER" 2>/dev/null || true)"
+  [ "$RUN_USER" != "$WEB_USER" ] && [ "$RUN_USER" != root ] \
+    && [ "$runtime_uid" != 0 ] && { [ -z "$runtime_uid" ] || [ "$runtime_uid" != "$web_uid" ]; } \
+    || die "Use a dedicated non-root API user, not the shared web-server user (--run-user)."
+  if [ "$SERVE_MODE" != none ] && [ "$FPM_AVAILABLE" != 1 ]; then
+    die "Apache and nginx modes require php-fpm with a dedicated API pool. Install php-fpm and re-run."
+  fi
+}
+
+# Read only the root-owned manager registry; resolve each installed revision
+# as the runtime user, then prove its provenance in a separate fresh repository.
+prepare_privileged_extensions() (
+  local name repository ref revision variable stage
+  local selected_dir="$INSTALL_DIR" selected_user="$RUN_USER" selected_php="$PHP_BIN"
+  [ -f "$STATE_DIR/install.conf" ] || exit 0
+  EXTENSIONS=""
+  . "$STATE_DIR/install.conf"
+  INSTALL_DIR="$selected_dir" RUN_USER="$selected_user" PHP_BIN="$selected_php"
+  for name in ${EXTENSIONS:-}; do
+    [[ "$name" =~ ^[a-z][a-z0-9-]{0,39}$ ]] || exit 1
+    variable="EXTENSION_$(printf '%s' "$name" | tr 'a-z-' 'A-Z_')"
+    ref="${variable}_REF"; ref="${!ref}"
+    repository="${variable}_REPOSITORY"; repository="${!repository}"
+    [[ "$repository" =~ ^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._-]+)+\.git$ ]] || exit 1
+    revision="$(run_as git -C "extensions/$name" rev-parse HEAD)"
+    [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || exit 1
+    stage="$(mktemp -d "$PRIVILEGED_STAGE/extension.XXXXXXXX")"
+    git init --bare "$stage/repository" >/dev/null
+    git -c core.hooksPath=/dev/null -c protocol.file.allow=never -C "$stage/repository" fetch --no-tags "$repository" "$ref"
+    git -C "$stage/repository" merge-base --is-ancestor "$revision" FETCH_HEAD || exit 1
+    mkdir -p "$PRIVILEGED_STAGE/app/extensions/$name"
+    git -C "$stage/repository" archive "$revision" | tar -x -C "$PRIVILEGED_STAGE/app/extensions/$name"
+  done
+)
+
+migrate_privileged() (
+  cd "$PRIVILEGED_STAGE/app"
+  DB_USERNAME="$DB_ADMIN_USER" DB_PASSWORD="$DB_ADMIN_PASS" \
+    API_EXTENSIONS_PATH="$PRIVILEGED_STAGE/app/extensions" "$PHP_BIN" artisan migrate --force
+)
+
 # ---------------------------------------------------------------------------
 # Preflight
 # ---------------------------------------------------------------------------
@@ -201,24 +292,22 @@ ok "Required PHP extensions present"
 
 if command -v composer >/dev/null 2>&1; then COMPOSER="composer"
 else
-  info "Composer not found — fetching a local copy"
-  ( cd /tmp && "$PHP_BIN" -r "copy('https://getcomposer.org/installer','composer-setup.php');" \
-    && "$PHP_BIN" composer-setup.php --quiet && rm -f composer-setup.php )
-  install -m 0755 /tmp/composer.phar /usr/local/bin/composer; COMPOSER="composer"
+  info "Composer not found — fetching and verifying a local copy"
+  install_composer /usr/local/bin/composer
+  COMPOSER="composer"
 fi
 ok "Composer available"
 
 DETECTED_WS="$(detect_web_server)"
 [ "$SERVE_MODE" = "auto" ] && { case "$DETECTED_WS" in apache|nginx) SERVE_MODE="$DETECTED_WS";; *) SERVE_MODE="none";; esac; }
 WEB_USER="$(detect_web_user)"
-[ -z "$RUN_USER" ] && RUN_USER="$WEB_USER"
 
 FPM_AVAILABLE=0
 if detect_fpm; then FPM_AVAILABLE=1; ok "php-fpm: $FPM_SERVICE (pools in $FPM_POOL_DIR)"
-else warn "php-fpm not detected — Apache will fall back to mod_php; nginx requires php-fpm."; fi
+else warn "php-fpm not detected."; fi
 ok "Web server: $DETECTED_WS (user $WEB_USER)  →  serve mode: $SERVE_MODE"
 
-[ "$SERVE_MODE" = "nginx" ] && [ "$FPM_AVAILABLE" = "0" ] && die "nginx mode needs php-fpm — install php${PHP_VER%.*}-fpm and re-run."
+validate_runtime_identity
 
 # ---------------------------------------------------------------------------
 # Runtime DB credentials (from ISPConfig)
@@ -260,28 +349,39 @@ else ok "Using existing user $RUN_USER"; fi
 # Fetch code + dependencies
 # ---------------------------------------------------------------------------
 step "Fetching application code"
-# Trust the tree system-wide: it is owned by $RUN_USER, but root (installer,
-# `ispconfig-rest status`) also runs git against it. Without this, git aborts
-# with "detected dubious ownership".
-git config --system --get-all safe.directory 2>/dev/null | grep -qxF "$INSTALL_DIR" \
-  || git config --system --add safe.directory "$INSTALL_DIR"
-if [ -d "$INSTALL_DIR/.git" ]; then
-  # A shallow clone knows only its own branch: fetch the selected branch or release tag by its full ref.
-  if git -C "$INSTALL_DIR" ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-    git -C "$INSTALL_DIR" fetch --depth 1 origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
-    git -C "$INSTALL_DIR" checkout -f -B "$BRANCH" "origin/$BRANCH"
-  else
-    git -C "$INSTALL_DIR" fetch --depth 1 origin "+refs/tags/$BRANCH:refs/tags/$BRANCH"
-    git -C "$INSTALL_DIR" checkout -f --detach "refs/tags/$BRANCH"
-  fi
-else
-  mkdir -p "$(dirname "$INSTALL_DIR")"
-  git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
+[[ "$INSTALL_DIR" = /* && "$INSTALL_DIR" != / && "$INSTALL_DIR" != */../* && "$INSTALL_DIR" != */.. ]] \
+  || die "Install directory must be an absolute path without '..'."
+prepare_privileged_source
+# Existing code and Git hooks may be controlled by the web user. Every
+# operation on that checkout therefore runs with that user's permissions.
+[ ! -L "$INSTALL_DIR" ] || die "Install directory must not be a symlink."
+if [ ! -d "$INSTALL_DIR" ]; then
+  parent="$(dirname "$INSTALL_DIR")"
+  [ -d "$parent" ] || die "Create the installation parent directory as root first: $parent"
+  while [ "$parent" != / ]; do
+    [ ! -L "$parent" ] && [ "$(stat -c %u "$parent")" = 0 ] \
+      && [ "$(( 8#$(stat -c %a "$parent") & 022 ))" = 0 ] \
+      || die "Installation parent must be root-owned and not writable by other users: $parent"
+    parent="$(dirname "$parent")"
+  done
+  install -d -o "$RUN_USER" -g "$RUN_USER" -m 0755 "$INSTALL_DIR"
 fi
-chown -R "$RUN_USER":"$RUN_USER" "$INSTALL_DIR"
-ok "Code at $INSTALL_DIR ($(git -C "$INSTALL_DIR" rev-parse --short HEAD))"
-
 run_as() { sudo -u "$RUN_USER" env -C "$INSTALL_DIR" "$@"; }
+if ! run_as test -d .git; then
+  run_as git clone --no-checkout --depth 1 --branch "$BRANCH" -- "$REPO_URL" .
+fi
+# Use the same published commit for runtime code and privileged migrations,
+# even if the selected branch moves between the two fetches.
+CORE_REVISION="$(git -C "$PRIVILEGED_STAGE/app" rev-parse HEAD)"
+run_as git fetch --depth 1 "$REPO_URL" "$CORE_REVISION"
+if git -C "$PRIVILEGED_STAGE/app" symbolic-ref -q HEAD >/dev/null; then
+  run_as git checkout -f -B "$BRANCH" "$CORE_REVISION"
+else
+  run_as git checkout -f --detach "$CORE_REVISION"
+fi
+ok "Code at $INSTALL_DIR ($(run_as git rev-parse --short HEAD))"
+prepare_privileged_extensions
+
 step "Installing dependencies"
 run_as env COMPOSER_HOME="$INSTALL_DIR/.composer" $COMPOSER install --no-dev --optimize-autoloader --no-interaction --no-progress
 ok "Dependencies installed"
@@ -319,13 +419,18 @@ info "API timezone: $TIMEZONE ($TIMEZONE_MODE)"
 
 step "Configuring environment"
 ENV_FILE="$INSTALL_DIR/.env"
-APP_KEY_LINE="APP_KEY="
-if [ -f "$ENV_FILE" ] && grep -q '^APP_KEY=base64:' "$ENV_FILE"; then
-  APP_KEY_LINE="$(grep '^APP_KEY=' "$ENV_FILE")"; info "Preserving existing APP_KEY"
-fi
+APP_KEY_LINE="$(run_as "$PHP_BIN" -r '
+  $env = @file_get_contents(".env");
+  if (is_string($env) && preg_match("/^APP_KEY=(base64:[A-Za-z0-9+\/=]{44})$/m", $env, $match)
+      && strlen((string) base64_decode(substr($match[1], 7), true)) === 32) {
+    echo "APP_KEY=".$match[1];
+  }
+')"
+if [ -n "$APP_KEY_LINE" ]; then info "Preserving existing APP_KEY"
+else APP_KEY_LINE="APP_KEY=base64:$("$PHP_BIN" -r 'echo base64_encode(random_bytes(32));')"; fi
 env_escape() { ISPC_REST_VAL="$1" "$PHP_BIN" -r '$v=(string)getenv("ISPC_REST_VAL"); $v=str_replace(["\\","\"","\$"],["\\\\","\\\"","\\\$"],$v); echo "\"".$v."\"";'; }
 umask 077
-cat > "$ENV_FILE" <<EOF
+cat > "$PRIVILEGED_STAGE/app/.env" <<EOF
 APP_NAME="ISPConfig REST API"
 APP_ENV=production
 $APP_KEY_LINE
@@ -354,23 +459,13 @@ API_VERSION=1.0
 # No dev key in production — mint keys with: ispconfig-rest key:create
 API_DEV_KEY=
 EOF
-chown "$RUN_USER":"$RUN_USER" "$ENV_FILE"; chmod 600 "$ENV_FILE"
-grep -q '^APP_KEY=base64:' "$ENV_FILE" || { run_as "$PHP_BIN" artisan key:generate --force; ok "Application key generated"; }
+write_runtime_env < "$PRIVILEGED_STAGE/app/.env"
 
 # ---------------------------------------------------------------------------
-# Create the API-owned tables with a privileged DB login (root)
+# Create API-owned tables from root-controlled code and configuration only.
 # ---------------------------------------------------------------------------
 step "Creating API-owned tables (privileged login)"
-migrate_privileged() {
-  if [ -n "$DB_ADMIN_PASS" ] || [ "$DB_ADMIN_USER" != "root" ]; then
-    run_as env DB_USERNAME="$DB_ADMIN_USER" DB_PASSWORD="$DB_ADMIN_PASS" "$PHP_BIN" artisan migrate --force
-  else
-    # unix-socket auth as MySQL root — requires the root OS user
-    ( cd "$INSTALL_DIR" && DB_USERNAME=root DB_PASSWORD="" "$PHP_BIN" artisan migrate --force )
-  fi
-}
 if migrate_privileged; then MIGRATE_OK=1; else MIGRATE_OK=0; fi
-chown -R "$RUN_USER":"$RUN_USER" "$INSTALL_DIR/storage" "$INSTALL_DIR/bootstrap/cache" 2>/dev/null || true
 if [ "$MIGRATE_OK" = "1" ]; then ok "API-owned tables ready"
 else warn "Privileged migration failed. Provide --db-admin-pass (if MySQL root needs a password) or create the table manually, then run 'ispconfig-rest update'."; fi
 
@@ -414,17 +509,12 @@ setup_apache() {
   step "Configuring Apache vhost (reusing ISPConfig SSL)"
   ssl_ok || die "ISPConfig SSL cert not found in $ISPCONFIG_SSL_DIR"
   local avail="/etc/apache2/sites-available/${SERVICE_NAME}.conf" php_handler
-  if [ "$FPM_AVAILABLE" = "1" ]; then
-    write_fpm_pool
-    a2enmod ssl rewrite headers proxy proxy_fcgi setenvif >/dev/null 2>&1 || true
-    php_handler="    <FilesMatch \\.php\$>
+  [ "$FPM_AVAILABLE" = 1 ] || die "Apache mode requires php-fpm with a dedicated API pool."
+  write_fpm_pool
+  a2enmod ssl rewrite headers proxy proxy_fcgi setenvif >/dev/null 2>&1 || true
+  php_handler="    <FilesMatch \\.php\$>
         SetHandler \"proxy:unix:${FPM_SOCK}|fcgi://localhost\"
     </FilesMatch>"
-  else
-    a2enmod ssl rewrite headers >/dev/null 2>&1 || true
-    php_handler="    # served by the Apache mod_php (php-fpm not installed)"
-    SERVE_BACKEND="modphp"
-  fi
   cat > "$avail" <<EOF
 # ISPConfig REST API — dedicated vhost (NOT managed by ISPConfig).
 Listen ${PUBLIC_PORT}
@@ -534,6 +624,11 @@ open_firewall() {
 # ---------------------------------------------------------------------------
 step "Registering the ispconfig-rest manager"
 mkdir -p "$STATE_DIR"
+# Preserve the root-owned extension registry when rerunning the installer.
+if [ -f "$STATE_DIR/install.conf" ]; then
+  grep -E '^(EXTENSIONS|EXTENSION_[A-Z0-9_]+_(REPOSITORY|REF))=' "$STATE_DIR/install.conf" \
+    > "$PRIVILEGED_STAGE/extensions.conf" || true
+fi
 cat > "$STATE_DIR/install.conf" <<EOF
 # ISPConfig REST API — install state (managed by install.sh / ispconfig-rest)
 INSTALL_DIR="$INSTALL_DIR"
@@ -549,8 +644,9 @@ TIMEZONE="$TIMEZONE"
 TIMEZONE_MODE="$TIMEZONE_MODE"
 PHP_BIN="$(command -v "$PHP_BIN")"
 EOF
+[ ! -f "$PRIVILEGED_STAGE/extensions.conf" ] || cat "$PRIVILEGED_STAGE/extensions.conf" >> "$STATE_DIR/install.conf"
 chmod 600 "$STATE_DIR/install.conf"
-install -m 0755 "$INSTALL_DIR/bin/ispconfig-rest" "$MANAGER_PATH"
+install -o root -g root -m 0755 "$PRIVILEGED_STAGE/app/bin/ispconfig-rest" "$MANAGER_PATH"
 ok "Installed $MANAGER_PATH"
 "$MANAGER_PATH" schedule:install
 
@@ -569,6 +665,7 @@ if [ ${#EXTENSIONS[@]} -gt 0 ]; then
   done
   # A cached configuration would ignore the privileged login's environment overrides.
   run_as "$PHP_BIN" artisan config:clear >/dev/null 2>&1 || true
+  prepare_privileged_extensions
   if migrate_privileged; then ok "Extension tables ready"
   else warn "Privileged migration failed; run 'ispconfig-rest extension:update' once the database login is fixed."; fi
   run_as "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true
@@ -590,7 +687,7 @@ esac
 # Summary
 # ---------------------------------------------------------------------------
 step "Done"
-ok "ISPConfig REST API $(cat "$INSTALL_DIR/VERSION" 2>/dev/null) installed."
+ok "ISPConfig REST API $(run_as cat VERSION 2>/dev/null) installed."
 echo
 echo "  Install dir : $INSTALL_DIR   (runs as $RUN_USER)"
 echo "  Serve mode  : $SERVE_MODE${SERVE_BACKEND:+ / $SERVE_BACKEND}"

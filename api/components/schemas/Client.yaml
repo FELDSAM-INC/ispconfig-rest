@@ -22,7 +22,9 @@ properties:
   parent_client_id:
     type: integer
     format: int64
-    description: ID of the parent client (reseller); 0 when the client belongs to the admin
+    description: >-
+      ID of the parent client (reseller); 0 when the client belongs to the admin.
+      Only administrators can change it. Reseller-created clients always belong to that reseller.
     default: 0
     example: 2
 
@@ -293,7 +295,7 @@ properties:
   template_master:
     type: integer
     format: int64
-    description: ID of the master client template applied to this client (0 = none)
+    description: ID of a readable master client template applied to this client (0 = none)
     default: 0
     example: 1
 
@@ -309,7 +311,9 @@ properties:
   # Limits
   limit_client:
     type: integer
-    description: Maximum number of clients this client can create (-1 for unlimited, 0 for none; > 0 or -1 makes the client a reseller)
+    description: >-
+      Maximum number of clients this client can create (-1 for unlimited, 0 for none; > 0 or -1 makes
+      the client a reseller). Only administrators can grant or change reseller capacity.
     default: 0
     example: 0
 

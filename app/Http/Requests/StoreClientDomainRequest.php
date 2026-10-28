@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Validation\Rule;
-
 /**
  * POST /clients/domains (api/modules/client/domains.yaml).
  * client_id is a write-only request field resolved to the client's
@@ -19,7 +17,7 @@ class StoreClientDomainRequest extends ClientDomainRequest
     {
         return [
             'domain' => ['required', ...$this->domainRules()],
-            'client_id' => ['required', 'integer', Rule::exists('client', 'client_id')],
+            'client_id' => ['required', 'integer', $this->owningClientRule()],
         ];
     }
 }

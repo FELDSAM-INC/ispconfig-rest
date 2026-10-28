@@ -10,10 +10,15 @@ permissions:
   contents: read
 
 jobs:
+  security:
+    uses: ./.github/workflows/security.yml
+
   cli:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - name: Check the manager and installer
         run: |
           python3 -m unittest discover -s tests/Integration/updater -p 'test_*.py'
@@ -28,9 +33,11 @@ jobs:
       matrix:
         php: ['8.3', '8.4', '8.5']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
 
-      - uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@fcafdd6392932010c2bd5094439b8e33be2a8a09
         with:
           php-version: ${{ matrix.php }}
           extensions: mbstring, pdo_sqlite, openssl, tokenizer, xml, ctype, bcmath, fileinfo
@@ -49,12 +56,14 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [cli, phpunit]
+    needs: [cli, phpunit, security]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
 
       - name: Validate release metadata and prepare notes
         env:

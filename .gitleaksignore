@@ -1,0 +1,16 @@
+# Reviewed synthetic tokens, malformed DNSKEY test data, and truncated PEM documentation.
+# Historical fingerprints only; new secrets in the same files remain detectable.
+c1a07d81fdf59cda6fc7005d575a62f5b6428353:acme-dns/certbot/certbot_dns_ispconfig_rest/__init__.py:generic-api-key:17
+68e9eee14d55c0dae42e53ae19f2e74ca919d390:tests/Unit/CronOutputLogTest.php:generic-api-key:11
+c1a07d81fdf59cda6fc7005d575a62f5b6428353:tests/Feature/DnsAcmeChallengeApiTest.php:generic-api-key:24
+c1a07d81fdf59cda6fc7005d575a62f5b6428353:tests/Feature/DnsAcmeChallengeApiTest.php:generic-api-key:26
+2673243fca3b9fd529a9b6400fb096c85de0ada7:specs/027-dkim-generation/research.md:private-key:11
+d5f550dc29343bd78e1b687429ccdba43d7f04a5:tests/Feature/DnsRecordHardeningTest.php:generic-api-key:287
+17934e9414152de0de93bde2076300778d43ae57:api/components/schemas/MailDomain.yaml:private-key:54
+
+# Additional ISPConfig-format examples: repeated x/stub and sequential example characters.
+c1a07d81fdf59cda6fc7005d575a62f5b6428353:tests/Integration/acme-dns/run.sh:ispconfig-api-key:9
+c1a07d81fdf59cda6fc7005d575a62f5b6428353:acme-dns/certbot/certbot_dns_ispconfig_rest/__init__.py:ispconfig-api-key:17
+a8c19f3fc3660cdf9633a2ef659a12514bfdf461:api/components/schemas/ApiKeyCreated.yaml:ispconfig-api-key:15
+3888c3a936a9b05cb407b8ccd37de8168f173b2b:specs/014-api-key-management/contracts/schemas.yaml:ispconfig-api-key:99
+625df0ff1bb04a44ff85fb49a497e29382c7c7c7:README.md:ispconfig-api-key:40

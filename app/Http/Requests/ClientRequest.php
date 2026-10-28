@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\AcceptsExtensionFields;
+use App\Http\Requests\Concerns\ScopesReferences;
 use App\Models\Client;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
@@ -25,6 +26,7 @@ use Illuminate\Validation\Rule;
 abstract class ClientRequest extends FormRequest
 {
     use AcceptsExtensionFields;
+    use ScopesReferences;
 
     /**
      * The client's boolean (ENUM y/n) columns.
@@ -307,7 +309,7 @@ abstract class ClientRequest extends FormRequest
                 return;
             }
 
-            $exists = DB::table('client_template')
+            $exists = $this->readableQuery('client_template')
                 ->where('template_id', (int) $value)
                 ->where('template_type', 'm')
                 ->exists();

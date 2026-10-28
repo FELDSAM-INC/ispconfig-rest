@@ -6,6 +6,8 @@ use App\Extensions\Hooks;
 use App\Models\Client;
 use App\Models\ClientTemplate;
 use App\Models\ClientTemplateAssigned;
+use App\Support\IspContext;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -126,12 +128,12 @@ class ClientTemplateService
                 'client_id' => (int) $client->getKey(),
                 'client_template_id' => $masterId,
                 'is_master' => true,
-                'template' => ClientTemplate::find($masterId),
+                'template' => ClientTemplate::query()->readable()->find($masterId),
             ]);
         }
 
         $pivots = ClientTemplateAssigned::query()
-            ->with('template')
+            ->with(['template' => fn ($query) => $query->readable()])
             ->where('client_id', $client->getKey())
             ->orderBy('assigned_template_id')
             ->get();
@@ -179,6 +181,11 @@ class ClientTemplateService
      */
     public function assignTemplate(Client $client, ClientTemplate $template): array
     {
+        $this->requireClientUpdate($client);
+        if (! app(IspContext::class)->authScope()->allows($template->getAttributes(), 'r')) {
+            throw new NotFoundHttpException('The template does not exist.');
+        }
+
         $templateId = (int) $template->getKey();
 
         if ($template->getAttributes()['template_type'] === 'm') {
@@ -226,6 +233,13 @@ class ClientTemplateService
         ];
     }
 
+    private function requireClientUpdate(Client $client): void
+    {
+        if (! app(IspContext::class)->authScope()->allows($client->getRawOriginal(), 'u')) {
+            throw new AuthorizationException('You do not have permission to update this client.');
+        }
+    }
+
     /**
      * Unassign a template from a client (contract: DELETE
      * /clients/{client_id}/templates/{template_id}); 404 when the template
@@ -233,6 +247,7 @@ class ClientTemplateService
      */
     public function unassignTemplate(Client $client, int $templateId): void
     {
+        $this->requireClientUpdate($client);
         if ((int) ($client->getAttributes()['template_master'] ?? 0) === $templateId) {
             $client->setAttribute('template_master', 0);
             $client->save();
@@ -305,6 +320,10 @@ class ClientTemplateService
         if ($client === null) {
             return;
         }
+
+        // Legacy conversion writes directly through the datalog service, so
+        // authorize before any pivot or client mutation, including no-master cases.
+        $this->requireClientUpdate($client);
 
         $record = $client->getRawOriginal();
         $masterTemplateId = (int) ($record['template_master'] ?? 0);

@@ -63,8 +63,9 @@ What it does:
   **reuses the ISPConfig panel SSL certificate** (`ispserver.crt`/`.key`/`.bundle`) —
   the same php-fpm serving model ISPConfig uses for its own sites. The vhost is
   standalone — it never edits ISPConfig's own interface (8080) or apps (8081)
-  vhosts, which ISPConfig regenerates on update. (If php-fpm isn't installed,
-  Apache falls back to mod_php.)
+  vhosts, which ISPConfig regenerates on update. Both web-server modes require
+  php-fpm and use the dedicated `ispconfig-rest` account by default. Never share
+  the API account with other sites or tenant code; it can read the API's database credentials.
 - **Opens the port in ISPConfig's own firewall** — it adds the port to the
   server's `firewall` record through the datalog, so ISPConfig's firewall plugin
   (bastille/ufw) reconfigures natively. It never creates a firewall record where
@@ -90,7 +91,7 @@ Every prompt has a flag and `ISPC_REST_*` env var for unattended installs — se
 ispconfig-rest status                        # service state, version, DB connectivity
 ispconfig-rest update                        # update current branch; keep a release tag pinned
 ispconfig-rest update --branch main          # select stable updates
-ispconfig-rest update --tag v1.4.0            # select a specific release
+ispconfig-rest update --tag v1.4.1            # select a specific release
 ispconfig-rest key:create "my integration"   # mint an admin key
 ispconfig-rest key:create "acme" --client-id 42   # mint a client-scoped key
 ispconfig-rest key:list --client-id 42       # list keys (never shows secrets)
@@ -194,6 +195,10 @@ Mailboxes expose `disableimap`, `disablepop3`, `disablesmtp` and `disabledeliver
 
 References inside a request body follow the same read scope: for client and reseller keys, the mail domain of a mailbox, forward, alias, catch-all or alias domain, an alias's destination mailboxes, the parent website of subdomains, FTP/shell/WebDAV users, cron jobs, protected folders and databases, a database's users, a folder user's folder, a DNS record's zone and an allow/deny list entry's spam filter user must all be visible to the key. A reference the key cannot see is rejected exactly like a nonexistent one (`400`, `404` or `422` as for a missing value).
 
+Only administrators may change a customer's parent reseller or grant/change reseller capacity. Resellers may
+assign templates they can read to clients they can update. Retrieving a website's TLS private key through `/ssl`
+requires update permission; the SSL status endpoint remains available with read permission.
+
 ### Keys limited to ACME challenges
 
 `ispconfig-rest key:create NAME --acme [--zone example.com]... [--client-id N]` creates a key that can only publish
@@ -202,6 +207,10 @@ returns `403`. It keeps the bound identity, so with `--client-id` it only uses t
 narrows it to the listed zones. Over HTTP: `POST /system/api-keys` with `access: "acme"` and `zones`. Keys report
 `access` (`full` or `acme`) and `zones` in `/system/api-keys` and `/me`. The certbot and acme.sh clients are in
 [ispconfig-acme-dns](https://github.com/FELDSAM-INC/ispconfig-acme-dns).
+
+Change status is limited to changes created by that exact ACME key. Treat the returned change ID as opaque;
+IDs created before key binding was introduced are unavailable to ACME keys after upgrading. A full key with
+the appropriate identity can still read those older changes.
 
 ### Managing keys over HTTP
 
@@ -280,7 +289,7 @@ Deliberate and documented in code where they occur:
 - **Client cancel applies on create**: `canceled: true` creates the control-panel login inactive; legacy ignores both flags on insert.
 - **Client lock and cancel run only when the flag changes** (legacy panel behavior); the legacy remote API re-runs them on every update.
 - **Locked clients' services cannot be re-enabled or extended by client and reseller keys** (`403`); legacy allows both.
-- **Backups can be downloaded over HTTP** — an addition, not a parity gap: ISPConfig has no HTTP download at all, it only copies an archive into the website's `backup` folder for FTP/SSH. `GET`/`HEAD /sites/web-domains/{id}/backups/{backup_id}/download` streams that copy. It works because ISPConfig adds the web server user to every client group (how Apache serves the 0750 client directories), so the copy is readable by the API; the archives under the server's `backup_dir` stay root-only and are never touched. Where that does not hold — hardened permissions, a different runtime user, or a backup stored on another server — the endpoint answers `409 download-not-readable` and the backup reports `download.http: false`. The API never changes permissions to make itself able to read, and it refuses any path that leaves the website's backup folder.
+- **Backups can be downloaded over HTTP** — an addition, not a parity gap: ISPConfig has no HTTP download at all, it only copies an archive into the website's `backup` folder for FTP/SSH. `GET`/`HEAD /sites/web-domains/{id}/backups/{backup_id}/download` streams that copy. It works because ISPConfig adds the web server user to every client group (how Apache serves the 0750 client directories), so the copy is readable by the API; the archives under the server's `backup_dir` stay root-only and are never touched. Where that does not hold — hardened permissions, a different runtime user, or a backup stored on another server — the endpoint answers `409 download-not-readable` and the backup reports `download.http: false`. HTTP streaming also requires a canonical document root and Linux `/proc/self/fd` access to verify the opened archive; if descriptor verification is unavailable, use FTP/SSH. The API never changes permissions to make itself able to read, and it refuses any path that leaves the website's backup folder.
 - **Website plan options are refused explicitly**: client and reseller keys get `422` for options outside their plan and for administrator-only settings, which the interface only hides or silently resets; PHP mode and version lists, read-only domain fields and the SSL tab are enforced server-side (legacy enforces them in the form only).
 
 ## Upgrade notes
@@ -318,6 +327,9 @@ immediately, so rolling this out is the operator's decision. Audit the generator
 ## Project governance
 
 Engineering rules live in [`.specify/memory/constitution.md`](.specify/memory/constitution.md); per-module specifications in [`specs/`](specs/). The legacy ISPConfig source used as the parity reference is expected (untracked) at `source_code/`.
+
+Security checks, local Codex subscription scans, CI release gates and coverage limits are documented in
+[Security checks](docs/security-checks.md). Report vulnerabilities using [the security policy](SECURITY.md).
 
 Web-domain responses include read-only `auto_alias`: the alternate hostname resolved from the hosting server's Website auto alias template, or null when unset/non-linkable. It supports the same four placeholders as ISPConfig's Apache/nginx plugins and each vhost's own ID and domain. The field is available with ordinary website read access; no server configuration is exposed. It does not imply DNS readiness or certificate coverage. See [spec 046](specs/046-website-autoalias/spec.md).
 

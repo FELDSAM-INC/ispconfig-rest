@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\MailDomain;
+use App\Support\IspContext;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -98,7 +100,13 @@ class MailDomainService
         }
 
         // DKIM disabled: downgrade an existing DMARC record to p=none.
+        if ($soa === null) {
+            return;
+        }
+
         $dmarc = DB::table('dns_rr')
+            ->where('zone', $soa['zone'])
+            ->where('type', 'TXT')
             ->where('name', '_dmarc.'.$record['domain'].'.')
             ->where('data', 'like', 'v=DMARC1%')
             ->first();
@@ -140,11 +148,13 @@ class MailDomainService
         $domainName = $domain->getAttributes()['domain'];
         $like = '%@'.$domainName; // legacy uses the raw LIKE pattern, unescaped
 
-        $forwardings = DB::table('mail_forwarding')
-            ->where('source', 'like', $like)
-            ->orWhere(function ($query) use ($like) {
-                $query->where('destination', 'like', $like)
-                    ->where('type', '!=', 'forward');
+        $forwardings = $this->deletableRows('mail_forwarding')
+            ->where(function ($query) use ($like) {
+                $query->where('source', 'like', $like)
+                    ->orWhere(function ($destination) use ($like) {
+                        $destination->where('destination', 'like', $like)
+                            ->where('type', '!=', 'forward');
+                    });
             })
             ->pluck('forwarding_id');
 
@@ -152,22 +162,22 @@ class MailDomainService
             $this->datalog->deleteRecord('mail_forwarding', 'forwarding_id', $id);
         }
 
-        $fetchers = DB::table('mail_get')->where('destination', 'like', $like)->pluck('mailget_id');
+        $fetchers = $this->deletableRows('mail_get')->where('destination', 'like', $like)->pluck('mailget_id');
 
         foreach ($fetchers as $id) {
             $this->datalog->deleteRecord('mail_get', 'mailget_id', $id);
         }
 
-        $mailboxes = DB::table('mail_user')->where('email', 'like', $like)->pluck('mailuser_id');
+        $mailboxes = $this->deletableRows('mail_user')->where('email', 'like', $like)->pluck('mailuser_id');
 
         foreach ($mailboxes as $id) {
             $this->datalog->deleteRecord('mail_user', 'mailuser_id', $id);
         }
 
-        $spamfilterUsers = DB::table('spamfilter_users')->where('email', 'like', $like)->pluck('id');
+        $spamfilterUsers = $this->deletableRows('spamfilter_users')->where('email', 'like', $like)->pluck('id');
 
         foreach ($spamfilterUsers as $id) {
-            $wblists = DB::table('spamfilter_wblist')->where('rid', $id)->pluck('wblist_id');
+            $wblists = $this->deletableRows('spamfilter_wblist')->where('rid', $id)->pluck('wblist_id');
 
             foreach ($wblists as $wblistId) {
                 $this->datalog->deleteRecord('spamfilter_wblist', 'wblist_id', $wblistId);
@@ -177,6 +187,11 @@ class MailDomainService
         }
 
         $domain->delete();
+    }
+
+    private function deletableRows(string $table): Builder
+    {
+        return app(IspContext::class)->authScope()->applyReadPredicate(DB::table($table), 'd');
     }
 
     /**
@@ -198,7 +213,9 @@ class MailDomainService
                 ->first();
 
             if ($soa !== null) {
-                return (array) $soa;
+                // The nearest hosted zone is authoritative. An inaccessible
+                // child zone must not fall through to a writable parent.
+                return app(IspContext::class)->authScope()->allows((array) $soa, 'u') ? (array) $soa : null;
             }
 
             $soaDomain = preg_replace('/^[^\.]+\./', '', $soaDomain);
@@ -221,7 +238,8 @@ class MailDomainService
     {
         if ($oldRecord !== null) {
             $staleIds = DB::table('dns_rr')
-                ->where('name', 'like', $oldRecord['dkim_selector'].'._domainkey.'.$oldRecord['domain'].'.')
+                ->where('zone', $soa['zone'])
+                ->where('name', $oldRecord['dkim_selector'].'._domainkey.'.$oldRecord['domain'].'.')
                 ->where('data', 'like', 'v=DKIM1%')
                 ->orderByDesc('serial')
                 ->pluck('id');

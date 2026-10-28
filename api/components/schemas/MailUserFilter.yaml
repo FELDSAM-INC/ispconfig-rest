@@ -52,7 +52,10 @@ properties:
 
   searchterm:
     type: string
-    description: Text or pattern to search for
+    description: |
+      Text or POSIX ERE pattern to search for. Supply the logical value without
+      Sieve string escaping; the API quotes generated script literals.
+      NUL, CR and LF are rejected (422), including when reactivating a stored rule.
     example: "newsletter"
     maxLength: 255
     x-db-field: searchterm

@@ -22,6 +22,19 @@ class ScopedReferenceMailTest extends TestCase
     use RefreshDatabase;
     use TenantFixtures;
 
+    public function test_deleting_a_domain_preserves_foreign_catchalls_pointing_to_it(): void
+    {
+        $foreign = $this->seedForward('clientB', 'catchall', '@b-dom.test', 'box@a-dom.test');
+        $own = $this->seedForward('clientA', 'catchall', '@a-dom.test', 'box@a-dom.test');
+        $domain = DB::table('mail_domain')->where('domain', 'a-dom.test')->value('domain_id');
+
+        $this->deleteJson('/api/v1/mail/domains/'.$domain, [], $this->tenantHeaders('clientA'))->assertNoContent();
+
+        $this->assertDatabaseHas('mail_forwarding', ['forwarding_id' => $foreign]);
+        $this->assertDatabaseMissing('mail_forwarding', ['forwarding_id' => $own]);
+        $this->assertSame(0, DB::table('sys_datalog')->where('dbtable', 'mail_forwarding')->where('dbidx', 'forwarding_id:'.$foreign)->count());
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

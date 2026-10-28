@@ -1,0 +1,18 @@
+rules:
+  - id: php-object-deserialization
+    languages: [php]
+    severity: ERROR
+    message: Disable object instantiation with a literal allowed_classes => false when reading ISPConfig serialized data.
+    metadata:
+      category: security
+      cwe: 'CWE-502: Deserialization of Untrusted Data'
+    patterns:
+      - pattern-either:
+          - pattern: unserialize(...)
+          - pattern: \unserialize(...)
+      - pattern-not: "unserialize($DATA, ['allowed_classes' => false])"
+      - pattern-not: "unserialize($DATA, ['allowed_classes' => false, 'max_depth' => $DEPTH])"
+      - pattern-not: "unserialize($DATA, ['max_depth' => $DEPTH, 'allowed_classes' => false])"
+      - pattern-not: "\\unserialize($DATA, ['allowed_classes' => false])"
+      - pattern-not: "\\unserialize($DATA, ['allowed_classes' => false, 'max_depth' => $DEPTH])"
+      - pattern-not: "\\unserialize($DATA, ['max_depth' => $DEPTH, 'allowed_classes' => false])"
