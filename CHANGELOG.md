@@ -17,6 +17,12 @@ the HTTP API remains under `/api/v1`.
 - Add a test that replays the journal like an ISPConfig DNS server and checks that alias zones, built-in zones and
   zones from DNS templates are never written without a name server record.
 
+### Security
+
+- Update Symfony HttpFoundation, HttpKernel, Routing and Yaml to 7.4.23 for the Symfony advisories
+  published on 2026-11-04 (CVE-2026-118514, CVE-2026-118516 and related fixes for trusted proxies, generated URLs,
+  inline fragments and YAML parse times), with their dependencies.
+
 ### Upgrade notes
 
 - No database migrations, hosting extension or WHMCS module changes; hosting 1.2.6 remains current.
