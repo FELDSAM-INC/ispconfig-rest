@@ -769,6 +769,10 @@ TIMEZONE="$TIMEZONE"
 TIMEZONE_MODE="$TIMEZONE_MODE"
 PHP_BIN="$(command -v "$PHP_BIN")"
 EOF
+# The API database for the manager's privileged migrations; only plain values are recorded in the sourced state.
+if [[ "$DB_HOST" =~ ^[A-Za-z0-9.:_-]{1,255}$ && "$DB_PORT" =~ ^[0-9]{1,5}$ && "$DB_NAME" =~ ^[A-Za-z0-9_-]{1,64}$ ]]; then
+  printf 'DB_HOST="%s"\nDB_PORT="%s"\nDB_NAME="%s"\n' "$DB_HOST" "$DB_PORT" "$DB_NAME" >> "$STATE_DIR/install.conf"
+fi
 [ ! -f "$PRIVILEGED_STAGE/extensions.conf" ] || cat "$PRIVILEGED_STAGE/extensions.conf" >> "$STATE_DIR/install.conf"
 chmod 600 "$STATE_DIR/install.conf"
 install -o root -g root -m 0755 "$PRIVILEGED_STAGE/app/bin/ispconfig-rest" "$MANAGER_PATH"

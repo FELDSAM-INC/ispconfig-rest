@@ -112,6 +112,15 @@ ispconfig-rest restart | logs -f | version | uninstall
 extension adds (for example `server-tools` of the hosting extension) are listed by `ispconfig-rest help`; they
 run as root only from copies of its verified published commit, never from the web-owned checkout.
 
+Pending migrations of the API and its extensions (`update`, `extension:install`, `extension:update`) run with a
+privileged database login, because the runtime user has no `CREATE` right: as root, from a fresh copy of the
+verified published commits with their own dependencies, never from the web-owned checkout or its `.env`. The login
+is the MariaDB maintenance login of `/etc/mysql/debian.cnf` (the ISPConfig autoinstaller keeps root's password
+there), otherwise MySQL root over the local socket; give another with `--db-admin-user NAME` and
+`--db-admin-pass-file FILE` (a root-owned mode-0600 file with one line). The database comes from
+`/etc/ispconfig-rest/install.conf` (`DB_HOST`, `DB_PORT`, `DB_NAME`, recorded by the installer since 1.4.4) or
+ISPConfig's interface configuration. A root-owned `composer` in `PATH` is required for this step.
+
 The updater follows the branch or tag recorded in root-owned
 `/etc/ispconfig-rest/install.conf`. Use `--branch main` to follow stable updates,
 or `--tag VERSION` to select a pinned release. Manual changes to the runtime

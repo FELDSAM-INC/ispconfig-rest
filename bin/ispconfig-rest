@@ -8,6 +8,7 @@
 #   ispconfig-rest update                 update the root-registered branch or release
 #   ispconfig-rest update --branch main   switch to the stable branch and update
 #   ispconfig-rest update --tag v1.0.1    install a specific release (detached HEAD)
+#   ispconfig-rest update --db-admin-pass-file FILE   privileged login for pending migrations (also extension:*)
 #   ispconfig-rest status                 service state, version, DB connectivity
 #   ispconfig-rest restart|start|stop     control the service
 #   ispconfig-rest logs [-f]              service logs
@@ -54,6 +55,135 @@ verified_fetch() { # STAGE REPOSITORY REF REVISION
   git init --bare "$1/repository" >/dev/null 2>&1 || return 1
   git -c core.hooksPath=/dev/null -c protocol.file.allow=never -C "$1/repository" fetch --no-tags "$2" "$3" || return 1
   [ "$4" = "$(git -C "$1/repository" rev-parse 'FETCH_HEAD^{commit}')" ]
+}
+
+# ---------------------------------------------------------------------------
+# Privileged migrations. The runtime database user has no DDL rights (1.4.0+), so pending migrations of core and
+# extensions run as root from a fresh copy of their verified published commits, with a privileged database login,
+# as install.sh does: never from the runtime checkout, its vendor directory or its .env.
+# ---------------------------------------------------------------------------
+ISPCONFIG_CONFIG="/usr/local/ispconfig/interface/lib/config.inc.php"
+MYSQL_MAINTENANCE="/etc/mysql/debian.cnf"
+DB_ADMIN_USER="" DB_ADMIN_PASS_FILE="" ADMIN_REST=()
+
+# Options --db-admin-user NAME and --db-admin-pass-file FILE out of the arguments; the others into ADMIN_REST.
+parse_admin() {
+  ADMIN_REST=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --db-admin-user|--db-admin-pass-file)
+        [ $# -ge 2 ] && [ -n "$2" ] || die "$1 requires a value."
+        if [ "$1" = --db-admin-user ]; then
+          [[ "$2" =~ ^[A-Za-z0-9_.-]{1,80}$ ]] || die "Invalid --db-admin-user."
+          DB_ADMIN_USER="$2"
+        else
+          DB_ADMIN_PASS_FILE="$2"
+        fi
+        shift 2;;
+      --db-admin-pass) die "Password-valued arguments are not supported. Use --db-admin-pass-file with a private password file.";;
+      *) ADMIN_REST+=("$1"); shift;;
+    esac
+  done
+}
+
+# A private regular file of the user running this manager (root), read without the shell: one line, or KEY of SECTION.
+private_value() { # FILE [SECTION KEY]
+  "$PHP_BIN" -r '
+    $fp = @fopen($argv[1], "rneb");
+    if ($fp === false) { exit(1); }
+    $stat = fstat($fp);
+    if ($stat === false || ($stat["mode"] & 0170000) !== 0100000 || $stat["uid"] !== (int) $argv[2] || ($stat["mode"] & 0077) !== 0) { exit(1); }
+    $text = (string) stream_get_contents($fp, 65536);
+    if (($argv[3] ?? "") === "") {
+      $lines = explode("\n", rtrim($text, "\r\n"));
+      if (count($lines) !== 1) { exit(1); }
+      echo rtrim($lines[0], "\r");
+      exit(0);
+    }
+    $section = "";
+    foreach (preg_split("/\r?\n/", $text) as $line) {
+      if (preg_match("/^\s*\[([^\]]+)\]\s*$/", $line, $m)) { $section = $m[1]; continue; }
+      if ($section === $argv[3] && preg_match("/^\s*" . preg_quote($argv[4], "/") . "\s*=\s*(.*?)\s*$/", $line, $m)) {
+        $value = $m[1];
+        if (strlen($value) > 1 && ($value[0] === "\"" || $value[0] === "\x27") && substr($value, -1) === $value[0]) { $value = substr($value, 1, -1); }
+        echo $value;
+        exit(0);
+      }
+    }
+    exit(2);
+  ' -- "$1" "$(id -u)" "${2:-}" "${3:-}"
+}
+
+# The privileged login: the options, else the MariaDB maintenance login of /etc/mysql/debian.cnf (the ISPConfig
+# autoinstaller keeps root's password there), else root over the local socket.
+admin_login() {
+  ADMIN_USER="${DB_ADMIN_USER:-root}" ADMIN_PASS=""
+  if [ -n "$DB_ADMIN_PASS_FILE" ]; then
+    ADMIN_PASS="$(private_value "$DB_ADMIN_PASS_FILE")" \
+      || die "The --db-admin-pass-file must be a private regular file owned by root, containing one line."
+    return 0
+  fi
+  [ -z "$DB_ADMIN_USER" ] && [ -e "$MYSQL_MAINTENANCE" ] || return 0
+  local user
+  user="$(private_value "$MYSQL_MAINTENANCE" client user 2>/dev/null)" || return 0
+  [ -n "$user" ] || return 0
+  ADMIN_USER="$user"
+  ADMIN_PASS="$(private_value "$MYSQL_MAINTENANCE" client password 2>/dev/null || true)"
+}
+
+# The API's database: install.conf (install.sh 1.4.4+) or ISPConfig's interface configuration, read without running it.
+db_target() {
+  TARGET_HOST="${DB_HOST:-}" TARGET_PORT="${DB_PORT:-3306}" TARGET_NAME="${DB_NAME:-}"
+  if [ -z "$TARGET_NAME" ]; then
+    local target
+    target="$("$PHP_BIN" -r '
+      $stat = @lstat($argv[1]);
+      if (!$stat || ($stat["mode"] & 0170000) !== 0100000 || ($stat["mode"] & 0022) !== 0) { exit(1); }
+      $text = (string) file_get_contents($argv[1]);
+      $value = [];
+      foreach (["host", "port", "database"] as $key) {
+        $value[$key] = preg_match("/^\s*\\\$conf\[\x27db_" . $key . "\x27\]\s*=\s*\x27([^\x27]*)\x27\s*;/m", $text, $m) ? $m[1] : "";
+      }
+      echo ($value["host"] !== "" ? $value["host"] : "localhost"), " ", ($value["port"] !== "" ? $value["port"] : "3306"), " ", $value["database"];
+    ' -- "$ISPCONFIG_CONFIG" 2>/dev/null)" || die "Cannot read the API database from $ISPCONFIG_CONFIG."
+    read -r TARGET_HOST TARGET_PORT TARGET_NAME <<< "$target"
+  fi
+  [[ "$TARGET_HOST" =~ ^[A-Za-z0-9.:_-]{1,255}$ && "$TARGET_PORT" =~ ^[0-9]{1,5}$ && "$TARGET_NAME" =~ ^[A-Za-z0-9_-]{1,64}$ ]] \
+    || die "Unexpected API database settings; set DB_HOST, DB_PORT and DB_NAME in $STATE_FILE."
+}
+
+# Pending migrations of core and extensions, as root from verified published commits only.
+migrate_privileged() {
+  local composer stage
+  admin_login
+  db_target
+  composer="$(command -v composer || true)"
+  [ -n "$composer" ] && [ "$(stat -Lc %u "$composer")" = "$(id -u)" ] && [ $(( 8#$(stat -Lc %a "$composer") & 8#022 )) = 0 ] \
+    || die "Privileged migrations need composer owned by root and not writable by others in PATH (install.sh installs /usr/local/bin/composer)."
+  stage="$(mktemp -d /root/ispconfig-rest-migrate.XXXXXXXX)"
+  (
+    trap 'rm -rf -- "$stage"' EXIT
+    umask 077
+    revision="$(run_as git rev-parse HEAD)"
+    [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || exit 1
+    mkdir "$stage/core" "$stage/app" || exit 1
+    verified_fetch "$stage/core" "$CORE_REPOSITORY" "${RELEASE_REF:-${BRANCH:-main}}" "$revision" || exit 1
+    git -C "$stage/core/repository" archive "$revision" | tar -x -C "$stage/app" || exit 1
+    for name in ${EXTENSIONS:-}; do
+      valid_extension_name "$name" || exit 1
+      revision="$(run_as git -C "extensions/$name" rev-parse HEAD)"
+      [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || exit 1
+      mkdir "$stage/extension-$name" && mkdir -p "$stage/app/extensions/$name" || exit 1
+      verified_fetch "$stage/extension-$name" "$(extension_get "$name" REPOSITORY)" "$(extension_get "$name" REF)" "$revision" || exit 1
+      git -C "$stage/extension-$name/repository" archive "$revision" | tar -x -C "$stage/app/extensions/$name" || exit 1
+    done
+    cd "$stage/app" || exit 1
+    COMPOSER_HOME="$stage/composer" "$composer" install --no-dev --no-plugins --no-scripts --optimize-autoloader --no-interaction --no-progress --quiet || exit 1
+    printf '%s\n' 'APP_ENV=production' "APP_KEY=base64:$("$PHP_BIN" -r 'echo base64_encode(random_bytes(32));')" 'APP_DEBUG=false' \
+      'LOG_CHANNEL=stderr' 'CACHE_STORE=array' 'SESSION_DRIVER=array' 'QUEUE_CONNECTION=sync' 'DB_CONNECTION=mysql' \
+      "DB_HOST=$TARGET_HOST" "DB_PORT=$TARGET_PORT" "DB_DATABASE=$TARGET_NAME" > .env || exit 1
+    DB_USERNAME="$ADMIN_USER" DB_PASSWORD="$ADMIN_PASS" API_EXTENSIONS_PATH="$stage/app/extensions" "$PHP_BIN" artisan migrate --force
+  )
 }
 
 # Refresh this manager from the installed release. Never install root-executed code directly from the web-owned
@@ -348,14 +478,20 @@ install_extension_cli() { # NAME
 
 # Run migrations (core and extensions), rebuild the caches and reload the service.
 apply_release() {
-  run_as "$PHP_BIN" artisan migrate --force \
-    || die "Migrations failed. If the runtime database user lacks DDL rights, run 'php artisan migrate --force' in $INSTALL_DIR with a privileged database login, then rerun this command."
+  # `migrate:status --pending=1` fails while migrations are pending (or the table is missing): only then migrate.
+  if ! run_as "$PHP_BIN" artisan migrate:status --pending=1 >/dev/null 2>&1; then
+    info "Running pending database migrations with a privileged login"
+    migrate_privileged || die "Migrations failed. If the default login (the user and password of $MYSQL_MAINTENANCE, else root over the local socket) cannot create tables, pass --db-admin-user NAME and --db-admin-pass-file FILE (a private root-owned file with the password) and rerun this command."
+    ok "Database migrations applied"
+  fi
   run_as "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true
   run_as "$PHP_BIN" artisan route:cache  >/dev/null 2>&1 || true
 }
 
 cmd_extension_install() {
   need_root
+  parse_admin "$@"
+  set -- ${ADMIN_REST[@]+"${ADMIN_REST[@]}"}
   local name="${1:-}" repository="" migrate=1 args=()
   valid_extension_name "$name" || die "Usage: ispconfig-rest extension:install NAME [--branch NAME | --tag VERSION] [--repository URL]"
   shift
@@ -410,7 +546,8 @@ update_extensions() {
 cmd_extension_update() {
   need_root
   local names=()
-  parse_channel "$@"
+  parse_admin "$@"
+  parse_channel ${ADMIN_REST[@]+"${ADMIN_REST[@]}"}
   for name in ${CHANNEL_REST[@]+"${CHANNEL_REST[@]}"}; do
     extension_installed "$name" || die "Extension $name is not installed."
     names+=("$name")
@@ -467,11 +604,14 @@ extension_help() {
 
 cmd_update() {
   if [ "${1:-}" = --help ] || [ "${1:-}" = -h ]; then
-    echo "Usage: ispconfig-rest update [--branch NAME | --tag VERSION]"
+    echo "Usage: ispconfig-rest update [--branch NAME | --tag VERSION] [--db-admin-user NAME] [--db-admin-pass-file FILE]"
     echo "Without options: use the branch or release registered in root-owned install.conf."
+    echo "Pending migrations use the login of /etc/mysql/debian.cnf, else MySQL root over the local socket, unless given."
     return
   fi
   need_root
+  parse_admin "$@"
+  set -- ${ADMIN_REST[@]+"${ADMIN_REST[@]}"}
   info "Updating ISPConfig REST API in $INSTALL_DIR"
   local before after
   before="$(run_as git rev-parse --short HEAD 2>/dev/null || echo '?')"

@@ -5,6 +5,34 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.4.4] - 2026-11-07
+
+### Fixed
+
+- `update`, `extension:install` and `extension:update` run pending migrations with a privileged database login,
+  as the installer does. Since 1.4.0 the runtime database user has no `CREATE` right, so the first extension update
+  with a migration (hosting 1.3.0) failed with `CREATE command denied to user 'ispconfig'@'localhost'`. The manager
+  now migrates only when migrations are pending, as root from a fresh copy of the verified published commits of the
+  API and its extensions, with their own dependencies; never from the web-owned checkout, its vendor directory or
+  its `.env`. The login is the maintenance login of `/etc/mysql/debian.cnf`, otherwise MySQL root over the local
+  socket, or `--db-admin-user`/`--db-admin-pass-file`. The database comes from `install.conf` (now recorded by the
+  installer) or ISPConfig's interface configuration, read without executing it.
+- Add an end-to-end test of these migrations with MariaDB, composer, artisan and Git, run in CI.
+
+### Upgrade notes
+
+- The manager installed by 1.4.3 or older still migrates as the runtime user and stops on hosting 1.3.0's
+  migration before it can replace itself. Install the 1.4.4 manager first, then update:
+
+  ```sh
+  curl -fsSL https://raw.githubusercontent.com/FELDSAM-INC/ispconfig-rest/v1.4.4/bin/ispconfig-rest -o /root/ispconfig-rest.new
+  echo '7bb682738e51a82ad8eed6a40987f950fb57caa482bba54ded6b538513a7afde  /root/ispconfig-rest.new' | sha256sum -c -
+  install -o root -g root -m 0755 /root/ispconfig-rest.new /usr/local/bin/ispconfig-rest && rm /root/ispconfig-rest.new
+  ispconfig-rest update --tag v1.4.4
+  ```
+
+- No migrations of the API itself; hosting 1.3.0 is current.
+
 ## [1.4.3] - 2026-11-06
 
 ### Fixed

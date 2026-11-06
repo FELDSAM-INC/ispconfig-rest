@@ -49,7 +49,19 @@ class UpdaterTests(unittest.TestCase):
             script = self.bin / name
             # The manager reads verified extension.json files with `php -r`; everything else is recorded only.
             passthrough = ('[ "$1" = -r ] && exec ' + shlex.quote(REAL_PHP) + ' "$@"\n') if name == "php" and REAL_PHP else ""
-            script.write_text("#!/bin/sh\n" + passthrough + "printf '%s\\n' \"" + name + " $*\" >> " + shlex.quote(str(self.calls)) + "\n")
+            record = "printf '%s\\n' \"" + name + " $*\" >> " + shlex.quote(str(self.calls)) + "\n"
+            if name == "php":
+                # FIXTURE_PENDING: `migrate:status --pending=1` reports pending migrations. A migration records where
+                # it ran, with which login, and the private .env and extension files it saw.
+                record += ('case "$*" in\n'
+                           '  *"artisan migrate:status"*) [ -z "${FIXTURE_PENDING:-}" ] || exit 1;;\n'
+                           '  *"artisan migrate --force"*) printf "migrate-env %s|%s|%s|%s|%s\\n" "$PWD" "${DB_USERNAME:-}" "${DB_PASSWORD:-}" '
+                           '"${API_EXTENSIONS_PATH:-}" "$(cat extensions/hosting/tool.py 2>/dev/null)" >> ' + shlex.quote(str(self.calls)) + '\n'
+                           '    [ ! -f .env ] || cp .env ' + shlex.quote(str(self.base / "migrate.env")) + ';;\n'
+                           'esac\n')
+            else:
+                record += "printf 'composer-cwd %s\\n' \"$PWD\" >> " + shlex.quote(str(self.calls)) + "\n"
+            script.write_text("#!/bin/sh\n" + passthrough + record)
             script.chmod(0o755)
         self.cli_lib = self.base / "cli-lib"
         self.env["PATH"] = str(self.bin) + os.pathsep + self.env["PATH"]
@@ -359,7 +371,9 @@ install(){
         self.assertEqual("verified tool\n", (self.cli_lib / "extensions/hosting/tool.py").read_text())
         calls = self.calls.read_text()
         self.assertIn("php artisan extension:list hosting", calls)
-        self.assertIn("php artisan migrate --force", calls)
+        # Nothing pending: no migration at all, and never as the runtime user.
+        self.assertIn("php artisan migrate:status --pending=1", calls)
+        self.assertNotIn("php artisan migrate --force", calls)
 
         # Commands this manager does not know run from the verified copy, with the extension's checkout and ref.
         result = self.run_extension("demo:run", "--flag")
@@ -409,6 +423,105 @@ install(){
         self.run_manager(extra=self.FAKE_GIT + 'refresh_manager(){ :; }\n', mock_helpers=False)
         self.assertEqual(self.git(origin, "rev-parse", "main"), self.git(self.checkout / "extensions/hosting", "rev-parse", "HEAD"))
         self.assertEqual("update tool\n", (self.cli_lib / "extensions/hosting/tool.py").read_text())
+
+    def privileged_fixtures(self):
+        """A trusted core and hosting install, ISPConfig's configuration and the MariaDB maintenance login."""
+        stage, _ = self.trusted_fixtures()
+        origin = self.extension_origin()
+        self.run_manager()
+        self.run_extension("extension:install", "hosting", "--tag", "v1.0.0")
+        config = self.base / "config.inc.php"
+        config.write_text("<?php\n$conf['db_host'] = 'db.example.test';\n$conf['db_port'] = '3307';\n$conf['db_database'] = 'dbispconfig';\n"
+                          "$conf['db_password'] = 'runtime-secret';\n")
+        config.chmod(0o640)
+        maintenance = self.base / "debian.cnf"
+        maintenance.write_text("[client]\nhost     = localhost\nuser     = maint-admin\npassword = \"p@ss word;#1\"\nsocket   = /run/mysqld/mysqld.sock\n"
+                               "[mysql_upgrade]\nuser = other\n")
+        maintenance.chmod(0o600)
+        self.env["FIXTURE_PENDING"] = "1"
+        self.calls.unlink()
+        paths = 'ISPCONFIG_CONFIG=' + shlex.quote(str(config)) + '\nMYSQL_MAINTENANCE=' + shlex.quote(str(maintenance)) + '\n'
+        return stage, origin, paths
+
+    def privileged(self, command, paths, check=True):
+        return self.run_manager(command=command, extra=self.FAKE_GIT + paths, check=check)
+
+    @unittest.skipUnless(REAL_PHP, "php is required for the private login and database readers")
+    def test_pending_migrations_run_privileged_from_verified_sources_only(self):
+        stage, origin, paths = self.privileged_fixtures()
+        self.privileged("apply_release", paths)
+        calls = self.calls.read_text()
+        app = str(stage / "app")
+        # Verified core and extension sources, private dependencies, the maintenance login and ISPConfig's database.
+        self.assertIn("migrate-env " + app + "|maint-admin|p@ss word;#1|" + app + "/extensions|verified tool\n", calls)
+        self.assertIn("composer install --no-dev --no-plugins --no-scripts --optimize-autoloader --no-interaction --no-progress --quiet", calls)
+        self.assertIn("composer-cwd " + app, calls)
+        environment = (self.base / "migrate.env").read_text()
+        for line in ("DB_HOST=db.example.test", "DB_PORT=3307", "DB_DATABASE=dbispconfig", "DB_CONNECTION=mysql"):
+            self.assertIn(line + "\n", environment)
+        self.assertNotIn("runtime-secret", environment)
+        self.assertNotIn("DB_PASSWORD", environment, "the privileged password never lands in a file")
+        self.assertFalse(stage.exists(), "the private stage is removed")
+        self.assertEqual(1, calls.count("migrate-env "), "no second migration as the runtime user")
+
+        # Options win over the maintenance login; registered database settings over ISPConfig's file.
+        secret = self.base / "admin-password"
+        secret.write_text("from-file\n")
+        secret.chmod(0o600)
+        self.state.write_text(self.state.read_text() + 'DB_HOST="10.0.0.5"\nDB_PORT="3306"\nDB_NAME="registered"\n')
+        self.calls.unlink()
+        self.privileged('parse_admin --db-admin-user ops --db-admin-pass-file ' + shlex.quote(str(secret)) + '\napply_release', paths)
+        self.assertIn("|ops|from-file|", self.calls.read_text())
+        self.assertIn("DB_HOST=10.0.0.5\n", (self.base / "migrate.env").read_text())
+        self.assertIn("DB_DATABASE=registered\n", (self.base / "migrate.env").read_text())
+
+        # Nothing pending: no privileged step.
+        del self.env["FIXTURE_PENDING"]
+        self.calls.unlink()
+        self.privileged("apply_release", paths)
+        self.assertNotIn("migrate-env", self.calls.read_text())
+
+    @unittest.skipUnless(REAL_PHP, "php is required for the private login and database readers")
+    def test_privileged_migrations_refuse_unverified_code_and_unsafe_logins(self):
+        stage, origin, paths = self.privileged_fixtures()
+        # A local commit in the web-owned extension checkout is never migrated as root.
+        (self.checkout / "extensions/hosting/tool.py").write_text("untrusted\n")
+        self.git(self.checkout / "extensions/hosting", "commit", "-am", "Untrusted")
+        result = self.privileged("apply_release", paths, check=False)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("Migrations failed", result.stderr)
+        self.assertNotIn("migrate-env", self.calls.read_text())
+        self.assertFalse(stage.exists())
+        self.git(self.checkout / "extensions/hosting", "reset", "--hard", "HEAD~1")
+
+        # A readable password file, a password argument and a composer others may change are refused.
+        public = self.base / "public-password"
+        public.write_text("secret\n")
+        public.chmod(0o644)
+        result = self.privileged("parse_admin --db-admin-pass-file " + shlex.quote(str(public)) + "\napply_release", paths, check=False)
+        self.assertIn("private regular file", result.stderr)
+        result = self.privileged("parse_admin --db-admin-pass secret", paths, check=False)
+        self.assertIn("Password-valued arguments are not supported", result.stderr)
+        self.assertNotIn("secret", result.stdout + result.stderr.replace("--db-admin-pass-file", ""))
+        (self.bin / "composer").chmod(0o777)
+        result = self.privileged("apply_release", paths, check=False)
+        self.assertIn("composer owned by root", result.stderr)
+        self.assertNotIn("migrate-env", self.calls.read_text())
+
+    @unittest.skipUnless(REAL_PHP, "php is required for the private login and database readers")
+    def test_update_and_extension_update_accept_the_privileged_login_options(self):
+        stage, origin, paths = self.privileged_fixtures()
+        secret = self.base / "admin-password"
+        secret.write_text("from-file\n")
+        secret.chmod(0o600)
+        self.run_manager("--db-admin-pass-file", str(secret), "--tag", "v1.0.1", extra=self.FAKE_GIT + paths + 'refresh_manager(){ :; }\n', mock_helpers=False)
+        self.assertIn("|root|from-file|", self.calls.read_text())
+        self.assertIn('RELEASE_REF="refs/tags/v1.0.1"', self.state.read_text())
+        self.calls.unlink()
+        self.run_manager(command='cmd_extension_update hosting --db-admin-user ops --db-admin-pass-file ' + shlex.quote(str(secret)),
+                         extra=self.FAKE_GIT + paths)
+        self.assertIn("|ops|from-file|", self.calls.read_text())
+
 
 if __name__ == "__main__":
     unittest.main()
