@@ -23,6 +23,12 @@ the HTTP API remains under `/api/v1`.
   published on 2026-11-04 (CVE-2026-118514, CVE-2026-118516 and related fixes for trusted proxies, generated URLs,
   inline fragments and YAML parse times), with their dependencies.
 
+### Dependencies
+
+- Update Laravel to 12.71.0 and Tinker to 3.0.2, with their dependencies, and the development tools Sail 1.69.0,
+  Pint 1.32.1, Collision 8.9.5 and Mockery 1.6.15 (Dependabot pull requests #5–#9).
+- Pin `shivammathur/setup-php` in CI to the commit of its 2.37.0 tag instead of the tag object (#10).
+
 ### Upgrade notes
 
 - No database migrations, hosting extension or WHMCS module changes; hosting 1.2.6 remains current.
