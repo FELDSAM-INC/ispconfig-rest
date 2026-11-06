@@ -5,6 +5,24 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-11-06
+
+### Fixed
+
+- Build a new alias DNS zone copied from its primary zone inactive and activate it once every record exists,
+  as the ISPConfig zone wizard does. ISPConfig DNS servers replay the journal one entry at a time and check an
+  active zone after each record, so they rejected the copy ("has no NS records") at every record copied before
+  the primary's NS records. The zone still loaded afterwards, but the panel reported a failed change for a day.
+- Journal a live alias zone inactive while turning synchronization on replaces its records, for the same reason.
+- Add a test that replays the journal like an ISPConfig DNS server and checks that alias zones, built-in zones and
+  zones from DNS templates are never written without a name server record.
+
+### Upgrade notes
+
+- No database migrations, hosting extension or WHMCS module changes; hosting 1.2.6 remains current.
+- Failed changes already reported for alias zones are only history: those zones loaded once their NS records
+  arrived. The panel stops showing them 24 hours after the change.
+
 ## [1.4.2] - 2026-10-28
 
 ### Fixed

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
 use Tests\Support\ClientSchema;
+use Tests\Support\DnsJournalReplay;
 use Tests\Support\DnsSchema;
 use Tests\Support\MailCompletionSchema;
 use Tests\Support\ServerSchema;
@@ -13,6 +14,7 @@ use Tests\Support\TenantSchema;
 
 class DomainServicesTest extends SitesApiTestCase
 {
+    use DnsJournalReplay;
     use TenantFixtures;
 
     private const URL = '/api/v1/sites/domain-services';
@@ -78,6 +80,7 @@ class DomainServicesTest extends SitesApiTestCase
         $last = DB::table('sys_datalog')->where('dbtable', 'dns_soa')->orderByDesc('datalog_id')->first();
         $this->assertSame('u', $last->action, 'the zone gets a new serial once its records exist');
         $this->assertGreaterThan(DB::table('sys_datalog')->where('dbtable', 'dns_rr')->max('datalog_id'), $last->datalog_id);
+        $this->assertSame([], $this->rejectedZoneWrites('new.test.'));
     }
 
     public function test_new_zone_from_a_dns_template_with_values_of_the_account_servers(): void
@@ -95,6 +98,7 @@ class DomainServicesTest extends SitesApiTestCase
         $this->assertSame([['new.test.', 'A', '192.0.2.10'], ['www', 'A', '192.0.2.10'], ['new.test.', 'NS', 'server.host.test.'], ['new.test.', 'TXT', 'v=spf1 -all']],
             $records->map(fn ($row) => [$row->name, $row->type, $row->data])->all());
         $this->assertSame([1], $records->pluck('server_id')->map(fn ($id) => (int) $id)->unique()->values()->all());
+        $this->assertSame([], $this->rejectedZoneWrites('new.test.'));
     }
 
     public function test_activating_dns_uses_the_template_too(): void
@@ -106,6 +110,7 @@ class DomainServicesTest extends SitesApiTestCase
 
         $zone = DB::table('dns_soa')->where('origin', 'new.test.')->first();
         $this->assertSame(['A', 'NS'], DB::table('dns_rr')->where('zone', $zone->id)->orderBy('id')->pluck('type')->all());
+        $this->assertSame([], $this->rejectedZoneWrites('new.test.'));
     }
 
     public function test_a_template_needing_a_value_the_servers_lack_creates_nothing(): void

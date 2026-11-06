@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\ClientSchema;
+use Tests\Support\DnsJournalReplay;
 use Tests\Support\DnsSchema;
 use Tests\Support\MailCompletionSchema;
 use Tests\Support\SitesApiTestCase;
@@ -13,6 +14,7 @@ use Tests\Support\TenantSchema;
 
 class AliasServicesTest extends SitesApiTestCase
 {
+    use DnsJournalReplay;
     use TenantFixtures;
 
     private int $parent;
@@ -260,5 +262,33 @@ class AliasServicesTest extends SitesApiTestCase
         DB::table('dns_rr')->where('zone', $this->zone)->delete();
         $this->artisan('aliases:sync-dns')->assertSuccessful();
         $this->assertSame(0, DB::table('dns_rr')->where('zone', $zone)->count());
+    }
+
+    public function test_copied_zone_is_never_published_before_its_name_servers(): void
+    {
+        // Production: the primary's NS rows came after four other records, and the alias zone was journaled active,
+        // so the DNS server rejected the zone at each of those four records ("has no NS records").
+        $this->record('primary.test.', 'NS', 'ns1.host.test.');
+        $zone = $this->create()->assertCreated()->json('alias_services.dns_zone_id');
+
+        $this->assertSame([], $this->rejectedZoneWrites('alias.test.'));
+        $this->assertDatabaseHas('dns_soa', ['id' => $zone, 'active' => 'Y']);
+        $this->assertSame(5, DB::table('dns_rr')->where('zone', $zone)->where('active', 'Y')->count());
+    }
+
+    public function test_sync_reenable_rebuilds_a_live_zone_without_publishing_it_half_built(): void
+    {
+        $this->record('primary.test.', 'NS', 'ns1.host.test.');
+        $alias = $this->create(extra: ['dns_sync' => false])->assertCreated()->json();
+        $zone = $alias['alias_services']['dns_zone_id'];
+        $this->postJson('/api/v1/dns/records', ['zone' => $zone, 'name' => 'independent', 'type' => 'TXT', 'data' => 'own value'],
+            $this->tenantHeaders('clientA'))->assertCreated();
+
+        $this->putJson($this->endpoint().'/'.$alias['id'], ['dns_sync' => true], $this->tenantHeaders('clientA'))->assertOk();
+
+        $this->assertSame([], $this->rejectedZoneWrites('alias.test.'));
+        $this->assertDatabaseHas('dns_soa', ['id' => $zone, 'active' => 'Y']);
+        $this->assertDatabaseMissing('dns_rr', ['zone' => $zone, 'name' => 'independent']);
+        $this->assertDatabaseHas('dns_rr', ['zone' => $zone, 'type' => 'NS', 'name' => 'alias.test.']);
     }
 }

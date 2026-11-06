@@ -195,7 +195,10 @@ class AliasServicesService
     {
         $serial = app(DnsSerialService::class);
         if ($primary !== null) {
-            $zone = new DnsSoa($this->zoneFields($primary, $alias->domain.'.'));
+            // Journaled inactive like the legacy wizard: the DNS server replays the journal one entry at a time and
+            // checks an active zone after every record, so it would reject the copy until the primary's NS records
+            // arrive. copyZone() activates it with the primary's settings once every record exists.
+            $zone = new DnsSoa(['active' => false] + $this->zoneFields($primary, $alias->domain.'.'));
         } else {
             $client = (int) DB::table('sys_group')->where('groupid', $alias->sys_groupid)->value('client_id');
             $addresses = app(HostingAddressService::class)->addresses($client);
@@ -286,6 +289,12 @@ class AliasServicesService
         $map = $reset ? [] : (json_decode($link->record_map ?? '{}', true) ?: []);
         $existing = $zone->records()->orderBy('id')->get()->keyBy('id');
         $changed = $reset && $existing->isNotEmpty();
+        if ($changed && $zone->active) {
+            // Replacing a live zone's records: journal it inactive first (as dns_soa_del.php does) so the DNS server
+            // does not check it after every deleted and copied record; the fill below restores the primary's state.
+            $zone->active = false;
+            $zone->save();
+        }
         if ($reset) {
             foreach ($existing as $record) {
                 $record->delete();
