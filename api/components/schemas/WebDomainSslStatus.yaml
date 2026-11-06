@@ -98,8 +98,9 @@ properties:
     type: object
     nullable: true
     description: |
-      Validity of the issued certificate; present only when `state` is `issued` and the certificate file is readable
-      by the API (single-server installations or a shared web root), otherwise null.
+      Validity of the issued certificate; present only when `state` is `issued`. Read from the public certificate file
+      when the API can read it, otherwise from the certificate the website's web server presents for the domain (TLS
+      with SNI on the website's IP address or its server name, cached for an hour). Null when neither covers the domain.
     additionalProperties: false
     required:
       - valid_from

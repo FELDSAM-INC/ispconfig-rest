@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Services\TlsCertificateProbe;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -40,9 +41,45 @@ class WebDomainSslStatusApiTest extends TestCase
         $this->seedTenants();
 
         DB::table('server')->insert([
-            'server_id' => 1, 'server_name' => 'web1', 'web_server' => 1, 'mirror_server_id' => 0,
+            'server_id' => 1, 'server_name' => 'web1.example.net', 'web_server' => 1, 'mirror_server_id' => 0,
             'active' => 1, 'updated' => 0, 'config' => "[web]\nserver_type=apache\n",
         ]);
+        // No network in tests: the web server presents what $this->served holds per host.
+        $this->served = [];
+        $this->probed = [];
+        $test = $this;
+        $this->app->instance(TlsCertificateProbe::class, new class($test) extends TlsCertificateProbe
+        {
+            public function __construct(private object $test) {}
+
+            public function fetch(string $host, string $serverName, int $port = 443, float $timeout = 3.0): ?string
+            {
+                $this->test->probed[] = $host.'|'.$serverName.'|'.$port;
+
+                return $this->test->served[$host] ?? null;
+            }
+        });
+    }
+
+    /** @var array<string, string> PEM the fake web server presents, by host */
+    public array $served = [];
+
+    /** @var array<int, string> host|server name|port of each probe */
+    public array $probed = [];
+
+    /** A self-signed certificate for $names, valid from $from to $to. */
+    protected function certificatePem(array $names, int $from, int $to): string
+    {
+        $config = tempnam(sys_get_temp_dir(), 'cert');
+        file_put_contents($config, "[req]\ndistinguished_name=dn\n[dn]\n[ext]\nsubjectAltName=".implode(',', array_map(fn ($n) => 'DNS:'.$n, $names))."\n");
+        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+        $csr = openssl_csr_new(['commonName' => $names[0], 'organizationName' => "Let's Encrypt"], $key, ['config' => $config, 'digest_alg' => 'sha256']);
+        $days = max(1, (int) ceil(($to - time()) / 86400));
+        $cert = openssl_csr_sign($csr, null, $key, $days, ['config' => $config, 'x509_extensions' => 'ext', 'digest_alg' => 'sha256']);
+        unlink($config);
+        openssl_x509_export($cert, $pem);
+
+        return $pem;
     }
 
     /**
@@ -227,6 +264,38 @@ class WebDomainSslStatusApiTest extends TestCase
             'change_set_id' => null,
             'change_status' => null,
         ]);
+    }
+
+    public function test_issued_certificate_is_read_from_the_web_server_when_its_file_is_on_another_server(): void
+    {
+        $site = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'y', 'ip_address' => '*']);
+        $domain = (string) DB::table('web_domain')->where('domain_id', $site)->value('domain');
+        $this->served['web1.example.net'] = $this->certificatePem([$domain, 'www.'.$domain], time() - 86400, time() + 60 * 86400);
+
+        $certificate = $this->sslStatus($site)->assertOk()->assertJsonPath('state', 'issued')->json('certificate');
+        $this->assertSame([$domain, 'www.'.$domain], $certificate['domains']);
+        $this->assertSame("Let's Encrypt", $certificate['issuer']);
+        $this->assertGreaterThan(time() + 59 * 86400, strtotime($certificate['expires_at']));
+        $this->assertSame(['web1.example.net|'.$domain.'|443'], $this->probed, 'the server name, with the domain as SNI');
+
+        $this->sslStatus($site)->assertOk()->assertJsonPath('certificate.domains', [$domain, 'www.'.$domain]);
+        $this->assertCount(1, $this->probed, 'the served certificate is cached');
+    }
+
+    public function test_a_served_certificate_for_another_domain_or_no_answer_is_not_reported(): void
+    {
+        $site = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'y', 'ip_address' => '192.0.2.10']);
+        $domain = (string) DB::table('web_domain')->where('domain_id', $site)->value('domain');
+        $this->served['192.0.2.10'] = $this->certificatePem(['default.example.net'], time() - 86400, time() + 86400);
+
+        $this->sslStatus($site)->assertOk()->assertJsonPath('state', 'issued')->assertJsonPath('certificate', null);
+        $this->assertSame(['192.0.2.10|'.$domain.'|443', 'web1.example.net|'.$domain.'|443'], $this->probed, 'the website IP first, then the server name');
+
+        $wildcard = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'y', 'domain' => 'shop.wild.example.com']);
+        $this->served['web1.example.net'] = $this->certificatePem(['*.wild.example.com'], time() - 86400, time() + 86400);
+        $this->sslStatus($wildcard)->assertOk()->assertJsonPath('certificate.domains', ['*.wild.example.com']);
+        $deeper = $this->site(['ssl' => 'y', 'ssl_letsencrypt' => 'y', 'domain' => 'a.shop.wild.example.com']);
+        $this->sslStatus($deeper)->assertOk()->assertJsonPath('certificate', null);
     }
 
     public function test_uploaded_certificate_reports_none_with_https_enabled(): void

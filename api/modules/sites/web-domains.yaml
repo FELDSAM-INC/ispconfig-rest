@@ -312,7 +312,8 @@
       before) back off without a journal entry. The outcome is derived from the newest change that requested or
       switched off Let's Encrypt, its processing status (see `/changes`) and the current flags. Failure reasons come
       from the server's processing log and are available only when the server log level is Warning or Debug
-      (`unknown` otherwise). Certificate validity is returned only when the API can read the public certificate file.
+      (`unknown` otherwise). Certificate validity comes from the public certificate file or, on multiserver setups, from the
+      certificate the web server presents for the domain.
 
       Readable by every key that can read the website (no plan gate). Read-only: no `X-Change-Set-Id` header.
     parameters:

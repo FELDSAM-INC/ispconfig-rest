@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\WebDomain;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -247,10 +248,17 @@ class LetsEncryptStatusService
     /** Largest certificate file read (bytes). */
     public const CERTIFICATE_MAX_BYTES = 65536;
 
+    /** How long a certificate read from the web server is reused, and how long a failed read. */
+    public const SERVED_TTL = 3600;
+
+    public const UNREADABLE_TTL = 300;
+
     /**
-     * Validity of the issued certificate from ISPConfig's public certificate
-     * file <document_root>/ssl/<domain>-le.crt (letsencrypt.inc.php 294-340,
-     * research R4) when the API can read it; the private key is never opened.
+     * Validity of the issued certificate: ISPConfig's public certificate file <document_root>/ssl/<domain>-le.crt
+     * (letsencrypt.inc.php 294-340, research R4) when the API can read it, otherwise the certificate the website's
+     * web server presents for the domain. ISPConfig clears ssl_cert for Let's Encrypt, so on a multiserver setup
+     * (and with the API's own account since 1.4) the web server is the only source. A certificate that does not
+     * cover the domain is not reported; the private key is never opened.
      *
      * @param  array<string, mixed>  $raw
      * @return array{valid_from: string, expires_at: string, issuer: string, domains: array<int, string>}|null
@@ -260,18 +268,81 @@ class LetsEncryptStatusService
         $root = (string) ($raw['document_root'] ?? '');
         $domain = $this->hostname((string) ($raw['domain'] ?? ''));
 
-        if ($domain === null || ! str_starts_with($root, '/') || preg_match('#(^|/)\.\.(/|$)#', $root) === 1) {
+        if ($domain === null) {
             return null;
         }
 
-        $path = rtrim($root, '/').'/ssl/'.(str_starts_with($domain, '*.') ? substr($domain, 2) : $domain).'-le.crt';
+        $name = str_starts_with($domain, '*.') ? substr($domain, 2) : $domain;
+        $path = rtrim($root, '/').'/ssl/'.$name.'-le.crt';
 
-        if (! @is_file($path) || ! @is_readable($path)) {
-            return null;
+        if (str_starts_with($root, '/') && preg_match('#(^|/)\.\.(/|$)#', $root) !== 1 && @is_file($path) && @is_readable($path)) {
+            $pem = @file_get_contents($path, false, null, 0, self::CERTIFICATE_MAX_BYTES);
+            $described = is_string($pem) ? $this->describe($pem, $name) : null;
+
+            if ($described !== null) {
+                return $described;
+            }
         }
 
-        $pem = @file_get_contents($path, false, null, 0, self::CERTIFICATE_MAX_BYTES);
-        $info = is_string($pem) ? @openssl_x509_parse($pem) : false;
+        $pem = $this->servedCertificate($raw, $name);
+
+        return $pem !== null ? $this->describe($pem, $name) : null;
+    }
+
+    /**
+     * The certificate the website's web server presents for $name: on the website's own IP address when it has one,
+     * then on its server's name (which the ISPConfig servers resolve to each other). Cached per server and domain.
+     *
+     * @param  array<string, mixed>  $raw
+     */
+    protected function servedCertificate(array $raw, string $name): ?string
+    {
+        $serverId = (int) ($raw['server_id'] ?? 0);
+        $key = 'letsencrypt-served-certificate:'.sha1($serverId.'|'.$name);
+        $cached = Cache::get($key);
+
+        if (is_string($cached)) {
+            return $cached !== '' ? $cached : null;
+        }
+
+        $hosts = [];
+        $ip = (string) ($raw['ip_address'] ?? '');
+
+        if (filter_var($ip, FILTER_VALIDATE_IP)) {
+            $hosts[] = $ip;
+        }
+
+        $server = $this->hostname((string) DB::table('server')->where('server_id', $serverId)->value('server_name'));
+
+        if ($server !== null && ! str_starts_with($server, '*.')) {
+            $hosts[] = $server;
+        }
+
+        $probe = app(TlsCertificateProbe::class);
+
+        foreach (array_unique($hosts) as $host) {
+            $pem = $probe->fetch($host, $name);
+
+            if ($pem !== null && $this->describe($pem, $name) !== null) {
+                Cache::put($key, $pem, self::SERVED_TTL);
+
+                return $pem;
+            }
+        }
+
+        Cache::put($key, '', self::UNREADABLE_TTL);
+
+        return null;
+    }
+
+    /**
+     * Validity, issuer and names of a PEM certificate that covers $name (exactly or by a one-label wildcard).
+     *
+     * @return array{valid_from: string, expires_at: string, issuer: string, domains: array<int, string>}|null
+     */
+    protected function describe(string $pem, string $name): ?array
+    {
+        $info = @openssl_x509_parse($pem);
 
         if (! is_array($info) || ! isset($info['validFrom_time_t'], $info['validTo_time_t'])) {
             return null;
@@ -280,10 +351,10 @@ class LetsEncryptStatusService
         $issuer = $info['issuer']['O'] ?? $info['issuer']['CN'] ?? '';
         $domains = [];
 
-        foreach (explode(',', (string) ($info['extensions']['subjectAltName'] ?? '')) as $name) {
-            $name = trim($name);
+        foreach (explode(',', (string) ($info['extensions']['subjectAltName'] ?? '')) as $entry) {
+            $entry = trim($entry);
 
-            if (str_starts_with($name, 'DNS:') && ($host = $this->hostname(substr($name, 4))) !== null) {
+            if (str_starts_with($entry, 'DNS:') && ($host = $this->hostname(substr($entry, 4))) !== null) {
                 $domains[] = $host;
             }
         }
@@ -292,11 +363,23 @@ class LetsEncryptStatusService
             $domains[] = $host;
         }
 
+        $domains = array_values(array_unique($domains));
+        $covered = false;
+
+        foreach ($domains as $domain) {
+            $covered = $covered || $domain === $name
+                || (str_starts_with($domain, '*.') && substr_count($name, '.') === substr_count($domain, '.') && str_ends_with($name, substr($domain, 1)));
+        }
+
+        if (! $covered) {
+            return null;
+        }
+
         return [
             'valid_from' => $this->timestamp((int) $info['validFrom_time_t']),
             'expires_at' => $this->timestamp((int) $info['validTo_time_t']),
             'issuer' => (string) (is_array($issuer) ? reset($issuer) : $issuer),
-            'domains' => array_values(array_unique($domains)),
+            'domains' => $domains,
         ];
     }
 

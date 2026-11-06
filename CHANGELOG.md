@@ -5,6 +5,23 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.4.5] - 2026-11-07
+
+### Fixed
+
+- `GET /sites/web-domains/{id}/ssl/status` reports the validity of Let's Encrypt certificates on multiserver setups
+  (WHMCS showed "Certificate validity is not available"). ISPConfig keeps these certificates only on the web
+  server (`/var/www/clients/client{id}/web{id}/ssl/{domain}-le.crt`; it clears `ssl_cert` in the database), and since
+  1.4 the API's own account cannot read web roots. When the file is not readable, the API reads the certificate the
+  web server presents for the domain over TLS with SNI (the website's IP address, then its server name; 3-second
+  timeout, cached for an hour, five minutes after a failure). A certificate that does not cover the domain is not
+  reported.
+
+### Upgrade notes
+
+- The panel must reach port 443 of its web servers (the ISPConfig servers already resolve each other's names).
+  No migrations.
+
 ## [1.4.4] - 2026-11-07
 
 ### Fixed
