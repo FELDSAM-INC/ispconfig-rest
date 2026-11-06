@@ -112,7 +112,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          release_flags=(--verify-tag --title "ISPConfig REST API $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md")
+          release_flags=(--verify-tag --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md")
           if [[ "$RELEASE_TAG" == *-* ]]; then
             release_flags+=(--prerelease)
           else
