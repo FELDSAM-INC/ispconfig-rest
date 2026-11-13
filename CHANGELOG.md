@@ -5,6 +5,13 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Fixed
+
+- DNS records: an A, AAAA, ALIAS or DNAME record is refused at a name that has a CNAME however the name is written
+  (`www`, `www.example.com.`). ISPConfig matched only the exact spelling, so `www` was accepted next to a CNAME stored
+  as `www.example.com.` (as a site migration writes it), and the DNS server then refused every change of the zone
+  until the record was removed. This deviates from ISPConfig's forms, which have the same gap.
+
 ## [1.4.5] - 2026-11-07
 
 ### Fixed

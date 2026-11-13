@@ -544,10 +544,10 @@ abstract class DnsRecordRequest extends FormRequest
             // dns_a_edit.php:48-53 / dns_aaaa_edit.php:48 override the base
             // check: identical record (name+data) or CNAME/ALIAS at the
             // exact name.
-            'A', 'AAAA' => $this->checkAddressDuplicate($validator, $type, $zoneId, $name, $excludeId),
+            'A', 'AAAA' => $this->checkAddressDuplicate($validator, $type, $zoneId, $origin, $name, $excludeId),
             // dns_alias_edit.php:47 / dns_dname_edit.php:48 overrides.
-            'ALIAS' => $this->checkNameDuplicate($validator, ['A', 'AAAA', 'CNAME', 'DNAME', 'ALIAS'], $zoneId, $name, $excludeId),
-            'DNAME' => $this->checkNameDuplicate($validator, ['CNAME', 'DNAME', 'ALIAS'], $zoneId, $name, $excludeId),
+            'ALIAS' => $this->checkNameDuplicate($validator, ['A', 'AAAA', 'CNAME', 'DNAME', 'ALIAS'], $zoneId, $origin, $name, $excludeId),
+            'DNAME' => $this->checkNameDuplicate($validator, ['CNAME', 'DNAME', 'ALIAS'], $zoneId, $origin, $name, $excludeId),
             'CAA' => $this->checkCaa($validator, $zoneId, $origin, $name, $excludeId),
             // Spec 033: the legacy forms refuse an identical record of these
             // types for every user type (dns_mx_edit.php:50-66,
@@ -596,16 +596,22 @@ abstract class DnsRecordRequest extends FormRequest
      */
     protected function recordsAtName(int $zoneId, string $origin, string $name, int $excludeId): Builder
     {
-        $spellings = array_unique([
+        return DB::table('dns_rr')
+            ->where('zone', $zoneId)
+            ->whereIn('name', $this->nameSpellings($origin, $name))
+            ->where('id', '!=', $excludeId);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function nameSpellings(string $origin, string $name): array
+    {
+        return array_values(array_unique([
             $name,
             str_replace('.'.$origin, '', $name),
             $name.'.'.$origin,
-        ]);
-
-        return DB::table('dns_rr')
-            ->where('zone', $zoneId)
-            ->whereIn('name', $spellings)
-            ->where('id', '!=', $excludeId);
+        ]));
     }
 
     /**
@@ -659,19 +665,23 @@ abstract class DnsRecordRequest extends FormRequest
 
     /**
      * FR-017 (dns_a_edit.php:48-53 / dns_aaaa_edit.php:48): an identical
-     * record (same zone+name+data) or a CNAME/ALIAS at the exact name.
+     * record (same zone+name+data) or a CNAME/ALIAS at the node. Deviation:
+     * legacy matches the CNAME/ALIAS only by the exact name, so `www` was
+     * accepted next to a CNAME stored as `www.<origin>` (e.g. by a site
+     * migration) and the DNS server then refused the whole zone; they are
+     * matched by the three spellings, like the CNAME conflict check.
      */
-    protected function checkAddressDuplicate(Validator $validator, string $type, int $zoneId, string $name, int $excludeId): void
+    protected function checkAddressDuplicate(Validator $validator, string $type, int $zoneId, string $origin, string $name, int $excludeId): void
     {
         $data = $this->effectiveData();
+        $spellings = $this->nameSpellings($origin, $name);
 
         $duplicate = DB::table('dns_rr')
             ->where('zone', $zoneId)
             ->where('id', '!=', $excludeId)
-            ->where(function ($query) use ($type, $name, $data): void {
+            ->where(function ($query) use ($type, $name, $data, $spellings): void {
                 $query->where(fn ($q) => $q->where('type', $type)->where('name', $name)->where('data', $data))
-                    ->orWhere(fn ($q) => $q->where('type', 'CNAME')->where('name', $name))
-                    ->orWhere(fn ($q) => $q->where('type', 'ALIAS')->where('name', $name));
+                    ->orWhere(fn ($q) => $q->whereIn('type', ['CNAME', 'ALIAS'])->whereIn('name', $spellings));
             })
             ->exists();
 
@@ -682,17 +692,18 @@ abstract class DnsRecordRequest extends FormRequest
 
     /**
      * FR-017 (dns_alias_edit.php:47 / dns_dname_edit.php:48): any record of
-     * the conflicting types at the exact name.
+     * the conflicting types at the node, by the three spellings (deviation
+     * from legacy's exact name, as for A/AAAA).
      *
      * @param  array<int, string>  $types
      */
-    protected function checkNameDuplicate(Validator $validator, array $types, int $zoneId, string $name, int $excludeId): void
+    protected function checkNameDuplicate(Validator $validator, array $types, int $zoneId, string $origin, string $name, int $excludeId): void
     {
         $duplicate = DB::table('dns_rr')
             ->where('zone', $zoneId)
             ->where('id', '!=', $excludeId)
             ->whereIn('type', $types)
-            ->where('name', $name)
+            ->whereIn('name', $this->nameSpellings($origin, $name))
             ->exists();
 
         if ($duplicate) {

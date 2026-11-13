@@ -505,17 +505,24 @@ class DnsRecordHardeningTest extends TestCase
             $this->assertRejected(['name' => $name, 'type' => 'TXT', 'data' => 'hello'], 'name', "TXT at CNAME node ({$name})");
         }
 
-        // A records use the legacy override (dns_a_edit.php:48-53): the
-        // CNAME leg matches the exact name only — verbatim parity.
-        $this->assertRejected(['name' => 'www', 'type' => 'A', 'data' => '192.0.2.10'], 'name', 'A at CNAME node (exact name)');
+        // A records use the legacy override (dns_a_edit.php:48-53), but the
+        // CNAME leg matches every spelling (deviation: an A next to a CNAME
+        // makes the DNS server refuse the whole zone).
+        foreach (['www', 'www.example.com.'] as $name) {
+            $this->assertRejected(['name' => $name, 'type' => 'A', 'data' => '192.0.2.10'], 'name', "A at CNAME node ({$name})");
+            $this->assertRejected(['name' => $name, 'type' => 'AAAA', 'data' => '2001:db8::10'], 'name', "AAAA at CNAME node ({$name})");
+            $this->assertRejected(['name' => $name, 'type' => 'ALIAS', 'data' => 'web.example.com.'], 'name', "ALIAS at CNAME node ({$name})");
+        }
 
         // The conflict ignores `active` (an inactive CNAME still blocks).
         $this->seedRecord(['name' => 'old', 'type' => 'CNAME', 'data' => 'web.example.com.', 'active' => 'N']);
         $this->assertRejected(['name' => 'old', 'type' => 'MX', 'priority' => 10, 'hostname' => 'mail.example.com'], 'name', 'inactive CNAME still blocks');
 
-        // FQDN-stored CNAME caught via the stripped spelling.
+        // FQDN-stored CNAME (a site migration writes absolute names) caught via the stripped spelling.
         $this->seedRecord(['name' => 'app.example.com.', 'type' => 'CNAME', 'data' => 'web.example.com.']);
         $this->assertRejected(['name' => 'app', 'type' => 'TXT', 'data' => 'hello'], 'name', 'stripped spelling');
+        $this->assertRejected(['name' => 'app', 'type' => 'A', 'data' => '192.0.2.10'], 'name', 'A by the stripped spelling');
+        $this->assertRejected(['name' => 'app', 'type' => 'AAAA', 'data' => '2001:db8::10'], 'name', 'AAAA by the stripped spelling');
 
         // A different name is fine.
         $this->postRecord(['name' => 'other', 'type' => 'A', 'data' => '192.0.2.10'])->assertStatus(201);
