@@ -5,6 +5,8 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-14
+
 ### Added
 
 - DNS zones: `PUT /dns/soa/{id}` with `client_id` moves a zone with all its records to another client, like the
@@ -12,6 +14,11 @@ the HTTP API remains under `/api/v1`.
   clients, client keys only themselves (otherwise 403). The zone and every record take the client's system group (and
   its login where the owner is not the administrator); an owner change alone does not bump the serial. The WHMCS
   module uses it to hand a domain's zone over to the customer's hosting.
+
+### Upgrade notes
+
+- `ispconfig-rest update --tag v1.5.0`. No migrations. Installer and manager are unchanged from 1.4.6. The WHMCS
+  module's zone handover (DNS of domains, spec 015 there) needs this release.
 
 ## [1.4.6] - 2026-11-13
 
