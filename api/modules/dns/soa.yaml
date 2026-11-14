@@ -184,6 +184,19 @@
         `The server cannot be changed after creation.`
       - Admin keys may change `server_id` to another DNS server
 
+      ### Owning client (spec 060)
+      - `client_id` moves the zone with all its records to another client,
+        like the "Client" select of the ISPConfig zone form: the zone and every
+        record take the client's sys_group, and records not owned by the
+        administrator its login. Admin keys may choose any client, reseller
+        keys only a client of their own (otherwise 403), client keys only their
+        own client. An unknown client is 422, a client without a system group
+        422. The current client again changes nothing.
+      - A change of the owner alone does not bump the serial (legacy parity:
+        ownership is not part of the zone file). The zone's datalog entry
+        carries the new owner; the records' owner is written directly, as
+        ISPConfig does.
+
       ### Administrator-only fields
       - `update_acl` (dynamic update ACL) can only be set with an administrator
         key; client and reseller keys that change it get 422 with

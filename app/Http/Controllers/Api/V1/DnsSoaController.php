@@ -133,6 +133,7 @@ class DnsSoaController extends Controller
     public function update(UpdateDnsSoaRequest $request, DnsSoa $dnsSoa): JsonResponse
     {
         $payload = $request->payload();
+        unset($payload['client_id']);
 
         if (isset($payload['origin'])
             && DnsSoa::query()->where('origin', $payload['origin'])->whereKeyNot($dnsSoa->getKey())->exists()) {
@@ -140,16 +141,67 @@ class DnsSoaController extends Controller
         }
 
         $dnsSoa->fill($payload);
+        // The zone's own settings changed: a new serial (legacy bumps it on a real diff only)
+        $settingsChanged = $dnsSoa->isDirty();
+
+        // Spec 060: a new owning client takes the zone with its records (legacy dns_dns_soa_plugin, the
+        // "Client" select of the admin and reseller zone form); the same client again changes nothing
+        $owner = $request->filled('client_id') ? $this->newOwner($dnsSoa, $request->integer('client_id')) : null;
+        if ($owner !== null) {
+            $dnsSoa->setAttribute('sys_groupid', $owner['group']);
+            if ($owner['user'] !== null && (int) $dnsSoa->getRawOriginal('sys_userid') !== 1) {
+                $dnsSoa->setAttribute('sys_userid', $owner['user']);
+            }
+        }
 
         if ($dnsSoa->isDirty()) {
-            $dnsSoa->serial = $this->serial->increaseSerial($dnsSoa->getRawOriginal('serial'));
+            if ($settingsChanged) {
+                $dnsSoa->serial = $this->serial->increaseSerial($dnsSoa->getRawOriginal('serial'));
+            }
 
-            DB::transaction(function () use ($dnsSoa): void {
+            DB::transaction(function () use ($dnsSoa, $owner): void {
                 $dnsSoa->save();
+                if ($owner !== null) {
+                    $this->moveRecords((int) $dnsSoa->getKey(), $owner);
+                }
             });
         }
 
         return response()->json($dnsSoa->refresh());
+    }
+
+    /**
+     * The owner a zone moves to: the client's sys_group (same authorization as on create: admin any client, a
+     * reseller only its own clients, otherwise 403) and that group's login; null when the zone already is the
+     * client's.
+     *
+     * @return array{group: int, user: int|null}|null
+     */
+    protected function newOwner(DnsSoa $zone, int $clientId): ?array
+    {
+        $group = $this->resolveOwningClientGroup($clientId);
+        if ($group === (int) $zone->getRawOriginal('sys_groupid')) {
+            return null;
+        }
+        $user = DB::table('sys_user')->where('default_group', $group)->value('userid');
+
+        return ['group' => $group, 'user' => $user === null ? null : (int) $user];
+    }
+
+    /**
+     * The zone's records follow its owner, as the legacy dns_dns_soa_plugin moves them: sys_groupid of every record
+     * and sys_userid of the records not owned by the administrator, written directly. Documented datalog exception
+     * (spec 060 plan): ownership is not part of the DNS server's configuration, and the legacy panel writes it the
+     * same way, so the DNS server rewrites nothing.
+     *
+     * @param  array{group: int, user: int|null}  $owner
+     */
+    protected function moveRecords(int $zoneId, array $owner): void
+    {
+        DB::table('dns_rr')->where('zone', $zoneId)->update(['sys_groupid' => $owner['group']]);
+        if ($owner['user'] !== null) {
+            DB::table('dns_rr')->where('zone', $zoneId)->where('sys_userid', '!=', 1)->update(['sys_userid' => $owner['user']]);
+        }
     }
 
     /**

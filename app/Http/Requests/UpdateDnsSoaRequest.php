@@ -44,6 +44,9 @@ class UpdateDnsSoaRequest extends DnsSoaRequest
             ]
         );
 
+        // Spec 060: a new owning client moves the zone with its records (legacy dns_dns_soa_plugin)
+        $rules['client_id'] = ['sometimes', 'integer', Rule::exists('client', 'client_id')];
+
         return $rules;
     }
 }

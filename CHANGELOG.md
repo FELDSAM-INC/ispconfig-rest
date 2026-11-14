@@ -5,6 +5,14 @@ the HTTP API remains under `/api/v1`.
 
 ## [Unreleased]
 
+### Added
+
+- DNS zones: `PUT /dns/soa/{id}` with `client_id` moves a zone with all its records to another client, like the
+  "Client" select of ISPConfig's zone form (spec 060). Admin keys may choose any client, reseller keys only their own
+  clients, client keys only themselves (otherwise 403). The zone and every record take the client's system group (and
+  its login where the owner is not the administrator); an owner change alone does not bump the serial. The WHMCS
+  module uses it to hand a domain's zone over to the customer's hosting.
+
 ## [1.4.6] - 2026-11-13
 
 ### Fixed
